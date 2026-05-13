@@ -393,3 +393,61 @@ same architecture's per-phase R² at scale. After that, multi-head extensions
 **Next:** Commit model-side v0. Decide whether to scale up MAGEMin to full
 corpus next session, or first add the comp / gsys / class heads on the smoke
 H5 to validate multi-task plumbing.
+
+---
+
+## 2026-05-12 — Optuna HPO is on the deferred list; upstream code exists
+
+**Q:** Where does Optuna hyperparameter optimization fit in the v1 roadmap?
+
+**Context:** v0 training used hand-picked hyperparameters (d_model=256, N=2,
+heads=8, lr=3e-4 — defaults inherited from upstream BaseCrabNet). These were
+fine for architecture validation but almost certainly not optimal for the
+Position C training corpus we're producing. Per-phase R² values in the v0
+run vary widely (olivine 0.99 vs amphibole 0.18), and some of that spread
+likely reflects hyperparameter mismatch rather than fundamental task
+difficulty.
+
+**Decision:** Optuna integration is a deferred v0.5 / v1 task — **NOT v0**.
+v0 ships with hand-picked hyperparameters and characterizes ModeHead
+behavior at scale. Optuna comes after we've:
+1. Trained at full MAGEMin scale (~440k points) with v0 hyperparameters
+2. Decided whether the next bottleneck is hyperparameters, data quality, or
+   architecture
+3. Optionally added multi-task heads (which add their own hyperparameters)
+
+**Upstream code to port from:** The CrabNet-Mineral repo
+(`~/git_clones/CrabNet_PyPi/CrabNet-Mineral/`, branch `structure-edm`) has
+working Optuna integration we should adapt rather than rewrite:
+- `alignn/src/objective.py` — Optuna objective functions for BaseCrabNet
+  and StructureCrabNet, including k-fold CV inside the objective
+- `alignn/scripts/run_scaling.py` — multi-scale Optuna study orchestration
+  (runs HPO at each data scale separately, since optimal hyperparams
+  shift with data volume)
+- Storage: they use Optuna's `JournalStorage` (filesystem-based) rather
+  than SQLite — important on parallel filesystems (HPC Lustre/GPFS) where
+  SQLite breaks. We should follow the same convention.
+- Their pattern: separate Optuna study DB per (model, scale) combination,
+  with `tag-prefix` arg controlling naming. Worth mirroring once we have
+  multiple model variants (base / multi-task / Dirichlet output / ensemble).
+
+**Scope for porting (when we get to it):**
+- `src/cnmineral/models/objective.py` — Optuna objective for `BaseModel`,
+  later for the multi-head variant. Reuse k-fold CV pattern from upstream
+  but adapt to our stratified-by-qap_name split.
+- `scripts/04_hpo.py` — thin wrapper invoking the objective with a
+  configurable n_trials and study storage path
+- `configs/hpo_base.yaml` — search-space specification (d_model in
+  {128, 256, 512}, N in {1, 2, 3}, heads in {4, 8}, lr log-uniform in
+  [1e-4, 1e-2], dropout in [0.0, 0.3], lambda_sum in [0.001, 0.1])
+- JournalStorage path: `data/optuna/<study_name>.journal`. Gitignore the
+  `data/optuna/` directory.
+
+**Why not earlier:** Optuna at v0 would have meant tuning hyperparameters
+on the smoke H5 (2,545 points) and likely getting different optima than
+at full scale (440k). Their `run_scaling.py` showed this directly —
+optimal `d_model` shifts as data scale changes. Better to characterize
+the architecture's behavior at v1 scale first, then tune.
+
+**Next:** No action this session. Note left so future sessions know HPO
+is a planned step and where to find the reference code.
