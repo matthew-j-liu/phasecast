@@ -2,6 +2,7 @@
 data/min_df_v1.csv
 data/complete.csv
 data/magemin_cache/
+data/magemin_*.csv
 data/pools/
 data/tuples/
 
@@ -14,6 +15,9 @@ checkpoints/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
 
 # OS
 .DS_Store
