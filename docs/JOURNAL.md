@@ -247,3 +247,67 @@ Re-run smoke to verify amp/bi presence rises to a learnable level (target
 ~15-30% of arc/dacite/granite samples). Then proceed to model side.
 
 ADR for the binding parts of this decision: `docs/decisions/003_h2o_strategy.md`.
+
+---
+
+## 2026-05-12 — H2O strategy implementation results
+
+**Q:** Did the tiered H2O strategy actually move amp/bi presence into a
+learnable range, and what side effects did it produce?
+
+**Context:** Implemented `src/cnmineral/data/h2o.py` (ClassRangeH2OStrategy with
+Wallace 2005 + Plank 2013 + Burnham 1979 per-class ranges) and threaded it
+through `schema.py` + `02_filter_complete.py` + `parse_magemin.py`. Re-ran the
+smoke pipeline end-to-end (522 bulks × 5 (T, P) = 2,610 attempts; ~41 s wall).
+
+**Result — hydrous-phase presence:**
+
+| Phase | Dry baseline | With H2O strategy | Change |
+|---|---|---|---|
+| amphibole (amp) | 0.3% | 11.2% | ~37× |
+| biotite (bi)    | 0.2% | 11.7% | ~58× |
+| muscovite (mu)  | absent | 0.8% | new |
+| epidote (ep)    | absent | 0.1% | new |
+| cordierite (cd) | absent | 11.0% | new |
+
+Decision validated: amp and bi each in >10% of training labels — comfortably
+learnable. Within-class targeting also looks right (mu in felsic only, ep at
+specific T-P windows).
+
+**Side effects on the equilibrium assemblages (all petrologically expected):**
+- `liq` rose from 45% to 98% (H2O lowers the solidus; most sampled T conditions
+  now above the wet solidus)
+- `q` (quartz) dropped from 44% to 5% (SiO2 dissolves preferentially into
+  hydrous melt)
+- `ru` (rutile) dropped from 20% to 0.5% (rutile destabilizes with H2O)
+- `fsp` dropped from 77% to 55% (hydrous phases compete for K, Na, Al)
+- `spl`, `opx`, `cpx`, `ilm` all reduced (smaller fractions of solid phases
+  because more mass is in the melt)
+
+Mass balance still exactly 1.0 on every row.
+
+**Open issue noted but deferred:** With 98% of training rocks having `liq` in
+the assemblage, the trained model will learn to predict melt presence for
+typical bulk inputs. Real users querying with fully-crystallized rocks (which
+is what ICP/XRF analyses are) would get a non-zero `liq` prediction — physically
+the rock is at room temperature with zero melt. This is a Position-B-shaped
+artifact: we're predicting *equilibrium-at-sampled-T,P*, not
+*final-crystallized assemblage*. Two possible v1.5 responses:
+- (a) At evaluation time, marginalize the `liq` channel out of the prediction
+  (report only solid phase fractions, renormalized)
+- (b) Constrain T sampling per class to favor subsolidus conditions (lower
+  end of each Putirka range), shrinking the liq-dominated fraction of training
+  data
+- (c) Reframe the model's claim: "predict the assemblage that *would form*
+  during crystallization," with melt presence as a separate output
+Not addressing now — flag for after v0 architecture validation. Pure model-
+output post-processing (option a) is essentially free if it turns out to
+matter.
+
+**Decision confirmed:** H2O fix is right and ready. Conclude data-side
+prerequisites for v1; next session begins model implementation
+(`src/cnmineral/models/`).
+
+**Next:** Commit H2O changes. Begin model side: encoder wrapper around
+kingcrab.py, ModeHead with sigmoid-gate sparsity, training loop on smoke H5
+to validate architecture end-to-end.

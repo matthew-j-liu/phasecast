@@ -29,6 +29,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from cnmineral.data.fe_redox import ClassRatioStrategy, ConstantRatioStrategy
+from cnmineral.data.h2o import ClassRangeH2OStrategy, ConstantH2OStrategy
 from cnmineral.data.schema import (
     MAGEMIN_OXIDES_LOWER,
     loi_normalize,
@@ -156,23 +157,46 @@ def stratified_sample(
     return pd.concat(parts, ignore_index=True) if parts else df.iloc[:0].copy()
 
 
+def _make_fe_strategy(spec: str):
+    if spec == "middlemost":
+        return ClassRatioStrategy()
+    if spec.startswith("const:"):
+        return ConstantRatioStrategy(float(spec.split(":")[1]))
+    raise ValueError(f"unknown fe strategy '{spec}'")
+
+
+def _make_h2o_strategy(spec: str):
+    if spec == "wallace_plank":
+        return ClassRangeH2OStrategy()
+    if spec.startswith("const:"):
+        return ConstantH2OStrategy(float(spec.split(":")[1]))
+    raise ValueError(f"unknown h2o strategy '{spec}'")
+
+
 def convert_rows(
     df: pd.DataFrame,
     fe_strategy_name: str = "middlemost",
+    h2o_strategy_name: str = "wallace_plank",
+    seed: int = 42,
 ) -> pd.DataFrame:
-    """Convert each row to MAGEMin's 11-oxide schema, LOI-normalize, tag provenance."""
-    if fe_strategy_name == "middlemost":
-        strategy = ClassRatioStrategy()
-    elif fe_strategy_name.startswith("const:"):
-        ratio = float(fe_strategy_name.split(":")[1])
-        strategy = ConstantRatioStrategy(ratio)
-    else:
-        raise ValueError(f"unknown fe strategy '{fe_strategy_name}'")
+    """Convert each row to MAGEMin's 11-oxide schema, LOI-normalize, tag provenance.
+
+    Both Fe³⁺/ΣFe and H2O handled via injectable strategies; provenance for each
+    is carried through to the output CSV for paper-side methodological transparency.
+    """
+    fe_strategy = _make_fe_strategy(fe_strategy_name)
+    h2o_strategy = _make_h2o_strategy(h2o_strategy_name)
+    rng = np.random.default_rng(seed)
 
     records = []
     for _, row in df.iterrows():
         qap = (row.get("qap_name") or "").strip().lower()
-        magemin = mineralml_to_magemin(row, rock_class=qap, fe3_strategy=strategy)
+        magemin = mineralml_to_magemin(
+            row, rock_class=qap,
+            fe3_strategy=fe_strategy,
+            h2o_strategy=h2o_strategy,
+            rng=rng,
+        )
         if magemin["fe_provenance"] == "no_iron":
             continue
 
@@ -183,6 +207,7 @@ def convert_rows(
         record = {"sample_id": row.get("sample_id")}
         record.update(normalized)
         record["fe_provenance"] = magemin["fe_provenance"]
+        record["h2o_provenance"] = magemin["h2o_provenance"]
         record["qap_name"] = qap
         records.append(record)
 
@@ -200,6 +225,8 @@ def main() -> None:
                         help="Scale preset: smoke (~500), dev (~2.5k), full (~22k)")
     parser.add_argument("--fe-strategy", default="middlemost",
                         help="'middlemost' (default), or 'const:<ratio>' (e.g. const:0.15)")
+    parser.add_argument("--h2o-strategy", default="wallace_plank",
+                        help="'wallace_plank' (default, per-class range), or 'const:<wt%>' (e.g. const:0.0 for dry)")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -222,11 +249,19 @@ def main() -> None:
     cnt = df_sampled["qap_name"].fillna("(unlisted)").value_counts()
     print(cnt.head(15).to_string())
 
-    print(f"converting to MAGEMin schema (fe strategy={args.fe_strategy})")
-    df_out = convert_rows(df_sampled, fe_strategy_name=args.fe_strategy)
+    print(f"converting to MAGEMin schema (fe={args.fe_strategy}, h2o={args.h2o_strategy})")
+    df_out = convert_rows(
+        df_sampled,
+        fe_strategy_name=args.fe_strategy,
+        h2o_strategy_name=args.h2o_strategy,
+        seed=args.seed,
+    )
     print(f"  converted: {len(df_out):,}")
     print("  Fe provenance distribution:")
     print(df_out["fe_provenance"].value_counts().to_string())
+    print("  H2O provenance distribution:")
+    print(df_out["h2o_provenance"].value_counts().to_string())
+    print(f"  H2O range in output: {df_out['h2o_tot'].min():.3f} – {df_out['h2o_tot'].max():.3f} wt%")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     df_out.to_csv(args.out, index=False)

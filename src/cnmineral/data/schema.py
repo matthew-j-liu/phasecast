@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from .fe_redox import ClassRatioStrategy, Fe3RatioStrategy
+from .h2o import ClassRangeH2OStrategy, H2OStrategy
 
 
 MINERALML_OXIDES: list[str] = [
@@ -49,6 +50,7 @@ MAGEMIN_OXIDES_LOWER: list[str] = [c.lower() if c != "H2O" else "h2o_tot" for c 
 FE2O3_TO_FEO_MASS = (2 * 71.844) / 159.69
 
 FeProvenance = Literal["measured", "assumed_class", "derived_partial", "no_iron"]
+H2OProvenance = Literal["measured", "assumed_class"]
 
 
 @dataclass
@@ -149,18 +151,28 @@ def mineralml_to_magemin(
     row: pd.Series,
     rock_class: str,
     fe3_strategy: Fe3RatioStrategy | None = None,
+    h2o_strategy: H2OStrategy | None = None,
+    rng: np.random.Generator | None = None,
 ) -> dict[str, float | str]:
     """Convert one row of complete.csv → MAGEMin 11-oxide schema + provenance.
 
-    Returns dict with keys matching MAGEMIN_OXIDES_LOWER plus `fe_provenance`.
-    Caller is responsible for LOI-normalizing the result if needed.
+    Returns dict with keys matching MAGEMIN_OXIDES_LOWER plus `fe_provenance`
+    and `h2o_provenance`. Caller is responsible for LOI-normalizing if needed.
 
     Missing MnO/P2O5: silently dropped (not in MAGEMin schema).
     Missing Cr2O3: set to 0 (MAGEMin handles cleanly per docs).
-    Missing H2O: set to 0 (dry assumption; safe per MAGEMin docs).
+
+    H2O handling (tiered, parallel to Fe redox):
+        T1 ("measured"):       h2o_tot reported in the row → use directly
+        T2 ("assumed_class"):  h2o_tot missing → sample from h2o_strategy
+                               (default: Wallace 2005 + Plank 2013 per-class range)
     """
     if fe3_strategy is None:
         fe3_strategy = ClassRatioStrategy()
+    if h2o_strategy is None:
+        h2o_strategy = ClassRangeH2OStrategy()
+    if rng is None:
+        rng = np.random.default_rng()
 
     fe_split = split_fe(row, rock_class, fe3_strategy)
 
@@ -170,6 +182,15 @@ def mineralml_to_magemin(
         if v is None or pd.isna(v):
             return 0.0
         return float(v)
+
+    # H2O: T1 if reported (and > 0), else T2 sample from strategy
+    h2o_raw = row.get("h2o_tot")
+    if h2o_raw is not None and not pd.isna(h2o_raw) and float(h2o_raw) > 0.0:
+        h2o_value = float(h2o_raw)
+        h2o_prov: H2OProvenance = "measured"
+    else:
+        h2o_value = float(h2o_strategy(rock_class, rng))
+        h2o_prov = "assumed_class"
 
     out: dict[str, float | str] = {
         "sio2":     _get("sio2"),
@@ -182,8 +203,9 @@ def mineralml_to_magemin(
         "na2o":     _get("na2o"),
         "tio2":     _get("tio2"),
         "cr2o3":    _get("cr2o3"),
-        "h2o_tot":  _get("h2o_tot"),
+        "h2o_tot":  h2o_value,
         "fe_provenance": fe_split.provenance,
+        "h2o_provenance": h2o_prov,
     }
     return out
 

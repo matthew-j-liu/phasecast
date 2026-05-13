@@ -235,6 +235,10 @@ def main() -> None:
         "fe_provenance",
         pd.Series(["(unknown)"] * len(merged), index=merged.index),
     ).fillna("(unknown)").astype(str).to_numpy()
+    h2o_prov = merged.get(
+        "h2o_provenance",
+        pd.Series(["(unknown)"] * len(merged), index=merged.index),
+    ).fillna("(unknown)").astype(str).to_numpy()
 
     print(f"Y_wt shape: {Y_wt.shape}")
     print(f"Y_ss shape: {Y_ss.shape}")
@@ -262,6 +266,7 @@ def main() -> None:
         f.create_dataset("Y_energy", data=Y_energy)
         f.create_dataset("qap_name", data=np.array(qap_name, dtype="S"))
         f.create_dataset("fe_prov", data=np.array(fe_prov, dtype="S"))
+        f.create_dataset("h2o_prov", data=np.array(h2o_prov, dtype="S"))
         f.attrs["n_success"] = n_success
         f.attrs["n_total"] = n_total
 
