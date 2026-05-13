@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cnmineral"
+version = "0.0.1"
+description = "CrabNet-Mineral v2: bulk geochemistry to mineral assemblage via MAGEMin x mineralML fusion"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "torch",
+    "scikit-learn",
+    "scipy",
+    "matplotlib",
+    "h5py",
+    "pyarrow",
+    "pyyaml",
+    "tqdm",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

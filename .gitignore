@@ -1,0 +1,22 @@
+# Data
+data/min_df_v1.csv
+data/complete.csv
+data/magemin_cache/
+data/pools/
+data/tuples/
+
+# Models
+checkpoints/
+*.pt
+*.pth
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# Claude Code
+CLAUDE.md 
