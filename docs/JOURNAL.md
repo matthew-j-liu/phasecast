@@ -451,3 +451,328 @@ the architecture's behavior at v1 scale first, then tune.
 
 **Next:** No action this session. Note left so future sessions know HPO
 is a planned step and where to find the reference code.
+
+---
+
+## 2026-05-13 — Full-corpus training: architecture validated, label-design issue surfaced
+
+**Q:** Does the v0 architecture generalize to ~170× more training data, and what
+does it tell us about the next direction?
+
+**Context:** Trained the same `BaseModel` (kingcrab.SubCrab wrapped) on the full
+MAGEMin-derived H5 (447,368 samples, 25 phases). Three pipeline issues handled
+during data generation:
+- Deterministic SIGSEGV in `libMAGEMin.dylib reset_SS` on 5 of 92 chunks. Solved
+  by subdivision retry (`scripts/retry_failed_chunks.py`): split each 5,000-row
+  failed chunk into 10 sub-chunks of 500 rows; ~90% per chunk recovered. Net
+  loss ~2,500 of 457,000 rows = 0.55%.
+- Switched device selection to prefer MPS over CPU (`pick_device()` helper).
+  ~9× speedup vs CPU.
+- Bumped batch size to 1024 for MPS efficiency.
+- Added tqdm batch-level progress bars to `train_one_epoch` and `evaluate`.
+
+**Training results:**
+- Wall time: 996.2s (16.6 min) on MPS. Best epoch 26, early-stop at 41 with
+  patience 15. Smoke trained in 97s for 95 epochs on CPU.
+- Best val loss: **0.00115** (vs smoke 0.00147 — 22% improvement)
+- Sparsity 0.85, sum-to-1 violation 0.005
+- Train-val gap at best epoch: +0.000042 — **no overfitting**
+
+**Per-phase R² scaling (smoke vs full):**
+
+| Phase | Pres (smoke / full) | R² (smoke / full) | Δ R² |
+|---|---|---|---|
+| liq | 0.94 / 0.97 | 0.82 / 0.82 | ~flat |
+| fsp | 0.51 / 0.52 | 0.69 / 0.64 | -0.05 |
+| cpx | 0.39 / 0.35 | 0.72 / 0.70 | flat |
+| **spl** | 0.37 / 0.32 | **0.36** / **0.82** | **+0.46** |
+| opx | 0.21 / 0.24 | 0.88 / 0.88 | flat |
+| ol | 0.24 / 0.20 | 0.99 / 0.99 | flat |
+| amp | 0.10 / 0.11 | 0.18 / 0.47 | +0.29 |
+| fl | 0.11 / 0.10 | 0.30 / 0.53 | +0.23 |
+| **cd** | 0.07 / 0.08 | **0.19** / **0.88** | **+0.69** |
+| bi | 0.09 / 0.07 | 0.81 / 0.82 | flat |
+| ilm | 0.06 / 0.04 | 0.17 / 0.39 | +0.22 |
+| q | 0.04 / 0.04 | 0.46 / 0.69 | +0.23 |
+| **sill** | 0.03 / 0.03 | **-0.09** / **0.72** | **+0.81** |
+| ne | 0.04 / 0.02 | 0.64 / 0.97 | +0.34 |
+| **fper** | 0.03 / 0.02 | **-0.02** / **0.89** | **+0.91** |
+| g | 0.02 / 0.02 | 0.05 / 0.50 | +0.45 |
+| **sph** | 0.01 / 0.01 | **-1.89** / **0.63** | **+2.52** |
+
+**Pattern:** Phases that had <5% presence at smoke scale (sph, sill, fper, g,
+cd, cor) had random or negative R² — too few samples to learn from. At 170×
+more data, they all become learnable, with R² 0.50-0.89.
+
+**14 of 17 phases with > 1% presence now have R² > 0.5.** Three exceptions:
+- `fsp` 0.64 (lower than smoke 0.69) — possibly affected by class redistribution
+- `amp` 0.47 (still the worst >10%-presence phase) — within-class composition
+  variance is plausibly the cause; worth investigating in v1
+- `ilm` 0.39 — fewer training samples than expected (4.2% presence vs smoke 5.7%)
+
+**Conclusion: architecture scales. No bottleneck on the model side at this size.**
+
+---
+
+**Label-design problem surfaced during inspection:**
+
+Investigated `liq` more carefully — it's not just present in many samples,
+it's actually the dominant phase by mass.
+
+```
+liq presence (>0.01):     97.4%
+liq presence (>0.50):     76.1%
+liq presence (>0.95):     27.9%
+mean liq mass fraction:   0.697
+fraction of total training-set mass that is liq: 70%
+```
+
+**70% of the predicted "rock" is silicate melt, not crystals.** This isn't a
+MAGEMin bug or H2O-strategy bug — it's an upstream sampling issue. We sample
+T from Putirka 2008 ranges, which are *crystallization temperatures* —
+conditions where the magma was actively crystallizing, by definition with
+substantial melt. Adding H2O (fixed amp/bi gap correctly) made the solidus
+lower → even more melt at the same T.
+
+For users of this model — people mining rocks and running ICP/XRF on
+surface samples — the target is **room-temperature mineralogy**, not in-situ
+crystallization snapshots. Our labels are answering the wrong question.
+
+For different cooling histories:
+- **Volcanic** (basalt, andesite, rhyolite — quenched at eruption): melt
+  becomes glass on rapid cooling. `liq` IS conceptually a real component of
+  the room-T sample. Model output here is approximately correct.
+- **Plutonic** (granite, gabbro, diorite — slow-cooled at depth): melt fully
+  crystallizes during cooling. `liq` in the prediction corresponds to nothing
+  in the room-T sample.
+- **Sedimentary**: not in our training corpus (rock_group == 'igneous' filter).
+
+The simple post-processing fix (drop liq, renormalize) reshuffles 70% of the
+predicted mass into a ~30% remainder. Not a defensible cleanup.
+
+**Decision (locked, see decision 004 to be written):** Regenerate labels at
+**subsolidus T** rather than crystallization T. Implementation:
+- Add `SubsolidusTPStrategy` to `tp_priors.py` with per-class T ranges below
+  the H2O-saturated solidus (granite ~500-650°C, basalt ~800-950°C, ultramafic
+  ~700-1000°C, etc.)
+- Re-run filter (unchanged bulk selection) → sample_tp (new strategy) →
+  orchestrate → parse → retrain
+- Validation target: liq mean mass fraction collapses to near-zero; per-phase
+  modes correspond to what users observe in surface-collected rocks
+
+Three rejected alternatives:
+- Bracket the solidus per bulk (more accurate but ~5× compute cost; defer)
+- Post-process the current labels (defensibility issue per above)
+- Add a Glass head separately (only helps volcanic cooling; doesn't fix
+  plutonic-rock predictions)
+
+**Action items:**
+1. Patch `scripts/03_train_base.py` to write more per-epoch info to disk
+   (unfilter r2_per_phase, add wall-time, auto-write eval.json, metadata header)
+2. Add `SubsolidusTPStrategy` to `src/cnmineral/data/tp_priors.py`
+3. Regenerate labels: full pipeline with `--strategy subsolidus`
+4. Retrain on subsolidus H5; compare per-phase R² and `liq` mass fraction
+   against the current crystallization-T results
+5. Then ship v1 paper-side claim: "model predicts surface-relevant modal
+   mineralogy from ICP/XRF bulk chemistry"
+
+**Insight worth carrying forward:** the v0 result *does* validate the
+architecture-to-data interface (BaseModel learns this kind of regression at
+scale, 14 of 17 R² > 0.5, no overfit). The subsolidus regeneration changes
+**what the model predicts**, not whether the architecture works. So the v0
+training was not wasted — it's a methodology baseline ("this is what
+crystallization-T predictions look like") for the eventual paper's
+methods section.
+
+**Next:** Patch training script (action 1), then build SubsolidusTPStrategy
+(action 2).
+
+---
+
+## 2026-05-13 — Small infra notes from the full-corpus run (parking for future debugging)
+
+Brief observations not worth their own decision docs but useful if anything
+behaves unexpectedly later:
+
+**OpenMP / `KMP_DUPLICATE_LIB_OK` on macOS.** Both PyTorch and MAGEMin link
+`libomp.dylib`. When MAGEMin runs concurrently with a PyTorch script, the
+second process aborts at startup with "OpenMP already initialized." Fix is
+documented in the handoff brief but I missed it initially. Now
+`os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")` is set at the top of
+`scripts/03_train_base.py` and `scripts/eval_checkpoint.py` to make those
+scripts immune to whether MAGEMin happens to be running. Symptom if this
+ever breaks again: SIGABRT immediately after the script imports torch.
+
+**Deterministic segfaults in `libMAGEMin.dylib reset_SS`.** ~5% of chunks
+in the full-corpus run crashed deterministically inside MAGEMin's
+solid-solution reset code. Runtimes within 0.5% of each other across re-runs;
+the bug is data-deterministic (specific composition × T × P rows trigger an
+edge case in the SS solver). Subdivision retry (`scripts/retry_failed_chunks.py`)
+splits each failed 5,000-row chunk into 10 sub-chunks of 500 — only the
+sub-chunk containing the problematic row crashes, recovering ~90% of rows
+per failed chunk. Total loss at full scale: ~2,500 of 457,000 rows (0.55%).
+The same bug almost certainly exists in upstream Stage 2 runs; if Sarah/the
+other agent ever scales there, recommend porting our subdivision script.
+
+**MPS device selection + batch size 1024.** Initial training ran on CPU
+because the script's device check was CUDA-only. Adding `pick_device()` to
+fall through CUDA → MPS → CPU + bumping `batch_size: 256 → 1024` gave a
+roughly 20× speedup on the full corpus (5.5 hr CPU estimate → 16.6 min on
+MPS in practice). Larger speedup than my predicted 4-6×; partly the MPS
+backend and partly the batch-size reduction in per-batch Python overhead.
+
+**tqdm batch-level progress bars** in `train_one_epoch` and `evaluate`.
+`progress=True` flag (default) wraps the loader with `tqdm(..., leave=False)`
+so the bar disappears at end of epoch and the per-epoch summary stays in
+scrollback. Live `loss=` postfix updates per batch. Was originally absent;
+the user requested it after seeing how long training ran without visible
+within-epoch progress.
+
+These are mostly small but each cost real debugging time when they bit us.
+Documenting so future-me doesn't re-derive them.
+
+---
+
+## 2026-05-13 — Revised near-solidus T ranges (correction to earlier table)
+
+**Q:** What T ranges to use for the regenerated training labels?
+
+**Context:** Earlier journal entry "Full-corpus training: architecture
+validated, label-design issue surfaced" proposed wider, deeper-subsolidus
+T ranges as a fix (granite 400-600, basalt 700-900, etc.). Subsequent
+external assessment via ChatGPT pushed back: at very low T, MAGEMin's `ig`
+database leaves its calibrated regime and produces metamorphic-style
+assemblages (greenschist: chl, ep, ms) that don't reflect what users see
+in granitic surface samples. The 400°C floor on granite is in this drift
+regime.
+
+**Revised ranges (use these, not the earlier table):** Pick T ranges 0-150°C
+*below* the wet solidus per class — the "kinetic arrest" regime where real
+igneous rocks stopped reacting during cooling and where MAGEMin's `ig`
+calibration is still trustworthy:
+
+| Class | Near-solidus T (°C) | Wet solidus (~) |
+|---|---|---|
+| Granite (I/S-type) | 550-650 | 650 |
+| Granodiorite, tonalite | 600-700 | 700 |
+| Rhyolite | 550-700 | 700 |
+| Dacite | 650-800 | 800 |
+| Andesite | 750-900 | 900 |
+| Basalt (all variants) | 850-1000 | 950-1000 |
+| Gabbro (all variants) | 850-1000 | 1000 |
+| Komatiite, picrite | 950-1100 | 1100 |
+| Dunite, harzburgite, lherzolite | 900-1100 | 1100 (wet) |
+| Foidite, nephelinite | 850-1050 | 1100 |
+| Trachyte, phonolite | 650-800 | 750 |
+
+**Rationale:** Stays within MAGEMin's calibrated range. Avoids metamorphic
+drift. Captures the "frozen-at-kinetic-arrest" state that approximates what
+users observe in surface samples. Each range is wide enough (~150°C) to
+preserve some marginalization, but tight enough to be class-specific.
+
+**Status:** Proposed but **not yet implemented in code**. The PetThermoTools
+experiment described in the next journal entry should run first — it might
+indicate that subsolidus equilibrium is too biased a proxy for the
+fractional-crystallization endpoint, in which case we'd go to fractional
+crystallization directly rather than implementing the near-solidus strategy.
+
+---
+
+## 2026-05-13 — PetThermoTools experiment design: equilibrium vs fractional crystallization
+
+**Q:** Before committing to near-solidus equilibrium as the label-generation
+strategy, is its modal-mineralogy output actually a good proxy for the
+endpoint of proper fractional crystallization?
+
+**Context:** Two label-generation strategies for the room-temperature
+crystalline assemblage of igneous bulk samples:
+
+- **(A) Equilibrium at near-solidus T** (the "Phase A" fix): one MAGEMin call
+  per (bulk, T_ns, P). Cheap. Treats the system as closed at T_ns. Every
+  phase has uniform composition (no zoning, no fractionation memory).
+- **(B) Fractional crystallization** ("Phase B"): step-cool the bulk from
+  liquidus to subsolidus, removing some fraction of solids at each step.
+  The integrated record includes zoned crystals (early Fo-rich olivine +
+  late Fo-poor olivine) and disproportionately Q-Kfs-heavy terminal solids
+  for granitic systems. More physically correct but ~50× more compute and
+  requires either PetThermoTools or a custom Julia loop.
+
+I had asserted earlier that "central tendency converges between (A) and (B)."
+That assertion was sloppy. It's plausible for basalts/gabbros where the
+assemblage is roughly invariant across the cooling T range, but probably
+wrong for granitic systems where the residual melt evolves substantially.
+We don't know which class it's wrong for and by how much, so the assertion
+shouldn't be load-bearing for the v1 plan.
+
+**Experiment:** Empirically measure modal-mineralogy divergence between (A)
+and (B) across rock classes.
+
+**Design:**
+- Sample ~50 bulks per rock class from existing `magemin_inputs.csv`.
+  Classes to include: basalt, andesite, dacite, rhyolite, granite, gabbro,
+  diorite, dunite, foidite, syenite (the petrologically important spectrum).
+- Per bulk, run two MAGEMin scenarios:
+  1. **Equilibrium-at-T_ns**: single MAGEMin call at the near-solidus T per
+     the revised table above. Record modal vector + per-phase composition.
+  2. **Fractional crystallization**: start at T_liquidus + 50°C, cool in ~25°C
+     steps to T_ns, removing 90% of solids per step. Final modal output =
+     accumulated removed solids + remaining solids at termination, normalized.
+- Compare with L1 distance on the modal vectors: `Σ |mode_eq[i] − mode_frac[i]|`.
+  Per-phase delta (signed) tells us *which* phases the equilibrium proxy
+  over- vs under-predicts.
+- Aggregate per class: median + IQR of L1 distance, mean per-phase delta.
+
+**Tooling decision: use PetThermoTools.** Two candidates were considered:
+
+- *Custom Julia loop* in `scripts/julia/fractional_crystallization.jl`: ~50
+  lines wrapping our existing `point_wise_minimization` call. Cheap, transparent.
+- *PetThermoTools* (https://petthermotools.readthedocs.io): community-vetted
+  Python wrapper around MAGEMin_C.jl with `Frac_solid=True` flag and proper
+  defaults (cooling step size, solid removal fraction, liquidus search).
+
+We chose PetThermoTools. Reason: if the experiment shows fractional
+crystallization is needed for production label generation (Phase B), we'd
+want PetThermoTools anyway for its solidus-bracketing and step-size logic.
+Investing the integration effort once amortizes over both the experiment
+and potential v1.5/v2 production work. The custom Julia loop saves
+implementation time short-term but doesn't reuse.
+
+See ADR `docs/decisions/004_petthermotools_for_fractional_crystallization.md`.
+
+**Decision rule based on results:**
+- **Median L1 distance < 0.10 across all classes**: subsolidus equilibrium
+  (Phase A) is a defensible proxy. Implement `NearSolidusTPStrategy` per the
+  revised T table, regenerate corpus, retrain.
+- **Median L1 distance > 0.25 for one or more classes** (likely granite per
+  the petrologic intuition): proxy is too biased. Skip Phase A, go straight
+  to PetThermoTools-generated labels (Phase B) for production.
+- **In between**: hybrid — Phase A for mafics, Phase B for felsics (since the
+  computational cost is class-localized; doing fractional crystallization on
+  only the felsic ~30% of the corpus is much cheaper than doing it on all).
+
+**Cost estimate:**
+- PetThermoTools install + integration: ~2-3 hours
+- MAGEMin compute: 500 bulks × ~21 calls each (1 equilibrium + 20 fractional
+  steps) = ~10,500 calls × ~11 ms = ~2 min actual compute
+- Comparison + analysis script: 1-2 hours
+- Journal entry + plots: 1 hour
+- **Total: ~half a day.** Much cheaper than re-running production training
+  on bad labels twice.
+
+**Implementation location:** `scripts/experiments/eq_vs_frac/` (new subdir, so
+the experiment script stays separate from the main pipeline). Outputs to
+`data/experiments/eq_vs_frac/{results.csv, plots/}`.
+
+**Next session priorities (cold-start for the fresh agent):**
+1. Clone PetThermoTools to a path of user's choosing (user is doing this)
+2. Plan integration: how to call from our Julia env, output format adaptation,
+   etc. Enter plan mode for this.
+3. Implement `scripts/experiments/eq_vs_frac/run_comparison.py` + supporting
+   Julia bits.
+4. Run experiment on a small sample first to validate, then full ~500-bulk run.
+5. Analysis + journal entry with results table.
+6. **Then decide Phase A vs Phase B vs hybrid for production label generation.**
+
+The experiment is the *gate* before committing to either Phase A or Phase B.
+Don't implement `NearSolidusTPStrategy` (the Phase A code) until the
+experiment validates that approach.

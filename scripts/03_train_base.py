@@ -8,9 +8,15 @@ Run:
 
 from __future__ import annotations
 
+import os
+# macOS-only: PyTorch + MAGEMin both link libomp; set this before importing torch
+# to avoid the "OpenMP already initialized" abort. Harmless on Linux.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 import argparse
 import json
 import random
+import subprocess
 import sys
 from pathlib import Path
 from time import time
@@ -43,6 +49,30 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def get_git_commit() -> str | None:
+    """Try to read the current git commit hash; return None if not in a repo."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=2,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
+def pick_device() -> torch.device:
+    """CUDA → MPS (Apple Silicon) → CPU."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available() \
+            and torch.backends.mps.is_built():
+        return torch.device("mps")
+    return torch.device("cpu")
+
+
 def resolve_paths(cfg: dict) -> dict:
     """Convert string paths in the config to repo-relative Path objects."""
     cfg["data"]["h5_path"] = REPO_ROOT / cfg["data"]["h5_path"]
@@ -70,7 +100,7 @@ def main() -> None:
     cfg = resolve_paths(cfg)
 
     set_seed(cfg["training"]["seed"])
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = pick_device()
     print(f"device: {device}")
     print(f"config: {args.config}")
 
@@ -126,14 +156,43 @@ def main() -> None:
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_f = open(metrics_path, "w")
 
+    # Run metadata header (first JSONL line, distinguished by "_meta" key)
+    meta = {
+        "_meta": {
+            "git_commit": get_git_commit(),
+            "device": str(device),
+            "seed": cfg["training"]["seed"],
+            "n_minerals": dataset.n_minerals,
+            "phase_names": dataset.phase_names,
+            "n_samples": len(dataset),
+            "n_train_batches": len(train_loader),
+            "n_val_batches": len(val_loader),
+            "n_params": n_params,
+            "h5_path": str(cfg["data"]["h5_path"]),
+            "config": cfg,
+        }
+    }
+    # YAML may include Path objects; coerce to strings for JSON
+    metrics_f.write(json.dumps(meta, default=str) + "\n")
+    metrics_f.flush()
+
     # Training loop
     print("\nstarting training")
     t0 = time()
     epoch_lines = []
+    progress = bool(cfg["output"].get("progress_bar", True))
     for epoch in range(cfg["training"]["epochs"]):
-        train_metrics = train_one_epoch(model, train_loader, optimizer, loss_fn, device)
-        val_metrics = evaluate(model, val_loader, loss_fn, device, dataset.phase_names)
+        t_epoch = time()
+        train_metrics = train_one_epoch(
+            model, train_loader, optimizer, loss_fn, device,
+            progress=progress, desc=f"epoch {epoch:3d} train",
+        )
+        val_metrics = evaluate(
+            model, val_loader, loss_fn, device, dataset.phase_names,
+            progress=progress, desc=f"epoch {epoch:3d} val",
+        )
         scheduler.step()
+        epoch_wall = time() - t_epoch
 
         top_r2 = format_top_k_r2(
             dataset.phase_names,
@@ -153,14 +212,12 @@ def main() -> None:
         print(line)
         epoch_lines.append(line)
 
-        # JSONL log
+        # JSONL log — keep r2_per_phase + phase_presence (they're free signal)
         log_row = {
             "epoch": epoch,
+            "epoch_wall_s": epoch_wall,
             "train": train_metrics,
-            "val": {
-                k: v for k, v in val_metrics.items()
-                if k not in ("r2_per_phase", "phase_presence")
-            },
+            "val": dict(val_metrics),
             "lr": scheduler.get_last_lr()[0],
         }
         metrics_f.write(json.dumps(log_row) + "\n")
@@ -189,7 +246,10 @@ def main() -> None:
     print(f"\nfinished in {elapsed:.1f}s. best checkpoint → {checkpoint_path}")
 
     # Final eval at best epoch
-    final = evaluate(model, val_loader, loss_fn, device, dataset.phase_names)
+    final = evaluate(
+        model, val_loader, loss_fn, device, dataset.phase_names,
+        progress=False,
+    )
     print(f"\nfinal val (best epoch {stopper.best_epoch}):")
     print(f"  total={final['total']:.5f}  mse={final['mse']:.5f}  "
           f"|Σ-1|={final['abs_sum_violation']:.4f}  sparsity={final['sparsity']:.3f}")
@@ -201,6 +261,38 @@ def main() -> None:
         print(f"    {dataset.phase_names[i]:8s} "
               f"presence={final['phase_presence'][i]:.3f}  "
               f"R²={final['r2_per_phase'][i]:+.3f}")
+
+    # Auto-write eval.json so users don't have to run scripts/eval_checkpoint.py
+    # separately. Matches the structure that script produces.
+    eval_rows = sorted(
+        [
+            {
+                "phase": ph,
+                "presence": float(pr),
+                "r2": float(r),
+            }
+            for ph, pr, r in zip(
+                dataset.phase_names, final["phase_presence"], final["r2_per_phase"]
+            )
+        ],
+        key=lambda r: -r["presence"],
+    )
+    eval_summary = {
+        "checkpoint": str(checkpoint_path),
+        "h5_path": str(cfg["data"]["h5_path"]),
+        "n_minerals": dataset.n_minerals,
+        "best_epoch": stopper.best_epoch,
+        "val_loss_at_best": stopper.best_loss,
+        "val_loss_recomputed": final["total"],
+        "val_mse": final["mse"],
+        "abs_sum_violation": final["abs_sum_violation"],
+        "sparsity": final["sparsity"],
+        "per_phase": eval_rows,
+    }
+    eval_path = out_dir / "eval.json"
+    with open(eval_path, "w") as f:
+        json.dump(eval_summary, f, indent=2, default=str)
+    print(f"\neval summary → {eval_path}")
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import numpy as np
 import torch
 from sklearn.model_selection import StratifiedShuffleSplit
 from torch.utils.data import DataLoader, Subset
+from tqdm import tqdm
 
 
 def train_one_epoch(
@@ -23,12 +24,15 @@ def train_one_epoch(
     optimizer: torch.optim.Optimizer,
     loss_fn: Callable,
     device: torch.device,
+    progress: bool = True,
+    desc: str = "train",
 ) -> dict[str, float]:
     """Run one training epoch. Returns mean loss + components over all batches."""
     model.train()
     accum: dict[str, list[float]] = defaultdict(list)
 
-    for batch in loader:
+    iterator = tqdm(loader, desc=desc, leave=False, dynamic_ncols=True) if progress else loader
+    for batch in iterator:
         src = batch["src"].to(device)
         frac = batch["frac"].to(device)
         target = batch["y_wt"].to(device)
@@ -40,9 +44,12 @@ def train_one_epoch(
         total.backward()
         optimizer.step()
 
-        accum["total"].append(float(total.item()))
+        loss_val = float(total.item())
+        accum["total"].append(loss_val)
         for k, v in components.items():
             accum[k].append(v)
+        if progress:
+            iterator.set_postfix(loss=f"{loss_val:.5f}")
 
     return {k: float(np.mean(v)) for k, v in accum.items()}
 
@@ -54,6 +61,8 @@ def evaluate(
     device: torch.device,
     phase_names: list[str],
     sparsity_threshold: float = 0.01,
+    progress: bool = True,
+    desc: str = "val",
 ) -> dict[str, float | list[float]]:
     """Run one eval pass. Returns total val loss + components + per-phase R²,
     mean prediction sparsity, mean sum-to-1 violation magnitude.
@@ -66,8 +75,9 @@ def evaluate(
     all_targets: list[np.ndarray] = []
     accum: dict[str, list[float]] = defaultdict(list)
 
+    iterator = tqdm(loader, desc=desc, leave=False, dynamic_ncols=True) if progress else loader
     with torch.no_grad():
-        for batch in loader:
+        for batch in iterator:
             src = batch["src"].to(device)
             frac = batch["frac"].to(device)
             target = batch["y_wt"].to(device)
