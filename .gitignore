@@ -5,6 +5,7 @@ data/magemin_cache/
 data/magemin_*.csv
 data/pools/
 data/tuples/
+data/*.h5
 
 # Models
 checkpoints/
