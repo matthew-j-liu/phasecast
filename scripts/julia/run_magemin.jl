@@ -77,7 +77,14 @@ function build_vectors(df::DataFrame)
 end
 
 
-"""Extract phase + SS info from a single MAGEMin output object as JSON strings."""
+"""Extract phase + SS info from a single MAGEMin output object as JSON strings.
+
+NOTE: MAGEMin can return the same phase name multiple times in out.ph when two
+compositions of the same solution phase coexist (e.g. plag + alkali feldspar
+both labeled "fsp", or two cpx compositions). We preserve those duplicates as
+a list of per-phase records so the Python parser can aggregate properly. Do
+NOT use a phase-name-keyed Dict here — that silently drops duplicates.
+"""
 function extract_result(out)
     status = try out.status catch; -1 end
 
@@ -86,16 +93,20 @@ function extract_result(out)
         "ph_frac_wt" => out.ph_frac_wt,
     ))
 
-    ss_dict = Dict{String, Any}()
-    for (name, ss) in zip(out.ph, out.SS_vec)
+    # Per-phase records: ph, ph_frac_wt (for mass-weighting on the Python side),
+    # plus emNames/emFrac_wt for SS phases. Order matches out.ph order.
+    ss_records = []
+    for (i, (name, ss)) in enumerate(zip(out.ph, out.SS_vec))
         if !isempty(getfield(ss, :emNames))
-            ss_dict[name] = Dict(
+            push!(ss_records, Dict(
+                "ph" => name,
+                "ph_frac_wt" => out.ph_frac_wt[i],
                 "emNames" => ss.emNames,
                 "emFrac_wt" => ss.emFrac_wt,
-            )
+            ))
         end
     end
-    ss_json = JSON.json(ss_dict)
+    ss_json = JSON.json(ss_records)
 
     G_sys = try out.G_system catch; NaN end
     return status, G_sys, phases_json, ss_json

@@ -40,7 +40,11 @@ OXIDE_COLS = ["sio2", "al2o3", "cao", "mgo", "feo", "fe2o3",
 
 
 def discover_vocabularies(results: pd.DataFrame) -> tuple[list[str], dict[str, list[str]]]:
-    """Scan all rows to build phase + endmember vocabularies."""
+    """Scan all rows to build phase + endmember vocabularies.
+
+    SS JSON is a LIST of per-phase records (see run_magemin.jl extract_result).
+    Each record has {"ph", "ph_frac_wt", "emNames", "emFrac_wt"}.
+    """
     phases: set[str] = set()
     ss_endmembers: dict[str, list[str]] = {}
 
@@ -51,13 +55,22 @@ def discover_vocabularies(results: pd.DataFrame) -> tuple[list[str], dict[str, l
                 phases.update(ph_d.get("ph", []))
             except json.JSONDecodeError:
                 continue
-        if ss_str and ss_str != "{}":
+        if ss_str and ss_str not in ("{}", "[]", ""):
             try:
-                ss_d = json.loads(ss_str)
+                ss_records = json.loads(ss_str)
             except json.JSONDecodeError:
                 continue
-            for phase, info in ss_d.items():
-                em_names = info.get("emNames", [])
+            # Backward-compat: old format was a dict keyed by phase name
+            if isinstance(ss_records, dict):
+                ss_records = [
+                    {"ph": k, "ph_frac_wt": 1.0, **v}
+                    for k, v in ss_records.items()
+                ]
+            for rec in ss_records:
+                phase = rec.get("ph")
+                em_names = rec.get("emNames", [])
+                if phase is None:
+                    continue
                 if phase not in ss_endmembers:
                     ss_endmembers[phase] = list(em_names)
                 else:
@@ -80,6 +93,12 @@ def build_ss_columns(ss_endmembers: dict[str, list[str]]) -> tuple[list[str], di
 
 
 def parse_phases_row(phases_json: str, phases: list[str]) -> np.ndarray:
+    """Sum (NOT overwrite) when the same phase appears multiple times in out.ph.
+
+    MAGEMin returns two `fsp` records when plagioclase + alkali feldspar
+    coexist, two `cpx` records when two pyroxene compositions are stable, etc.
+    Their wt fractions should sum into a single mineral-level entry.
+    """
     out = np.zeros(len(phases), dtype=np.float32)
     if not phases_json:
         return out
@@ -91,25 +110,50 @@ def parse_phases_row(phases_json: str, phases: list[str]) -> np.ndarray:
     for name, frac in zip(d.get("ph", []), d.get("ph_frac_wt", [])):
         i = phase_to_idx.get(name)
         if i is not None:
-            out[i] = frac
+            out[i] += float(frac)
     return out
 
 
 def parse_ss_row(ss_json: str, ss_idx: dict, n_ss: int) -> np.ndarray:
+    """Mass-weighted average of SS endmember fractions across duplicate phases.
+
+    SS JSON is a list of per-phase records (see run_magemin.jl). When two
+    records share the same phase name, we aggregate their endmember fractions
+    weighted by each record's ph_frac_wt. This produces the "average grain
+    chemistry" of all coexisting grains of that mineral, which is what users
+    measuring bulk per-phase chemistry would report.
+
+    Backward-compat: if ss_json is a dict (old format), each entry contributes
+    with unit weight.
+    """
     out = np.full(n_ss, np.nan, dtype=np.float32)
-    if not ss_json or ss_json == "{}":
+    if not ss_json or ss_json in ("{}", "[]"):
         return out
     try:
-        d = json.loads(ss_json)
+        records = json.loads(ss_json)
     except json.JSONDecodeError:
         return out
-    for phase, info in d.items():
-        em_names = info.get("emNames", [])
-        em_fracs = info.get("emFrac_wt", [])
+    if isinstance(records, dict):
+        records = [{"ph": k, "ph_frac_wt": 1.0, **v} for k, v in records.items()]
+
+    # Accumulate numerator (weight × emFrac) and denominator (sum of weights) per em column.
+    num = np.zeros(n_ss, dtype=np.float64)
+    den = np.zeros(n_ss, dtype=np.float64)
+    for rec in records:
+        phase = rec.get("ph")
+        w = float(rec.get("ph_frac_wt", 0.0) or 0.0)
+        if phase is None or w <= 0:
+            continue
+        em_names = rec.get("emNames", [])
+        em_fracs = rec.get("emFrac_wt", [])
         for em, frac in zip(em_names, em_fracs):
             i = ss_idx.get((phase, em))
-            if i is not None:
-                out[i] = frac
+            if i is not None and frac is not None:
+                num[i] += w * float(frac)
+                den[i] += w
+
+    mask = den > 0
+    out[mask] = (num[mask] / den[mask]).astype(np.float32)
     return out
 
 
