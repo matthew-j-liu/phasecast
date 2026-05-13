@@ -311,3 +311,85 @@ prerequisites for v1; next session begins model implementation
 **Next:** Commit H2O changes. Begin model side: encoder wrapper around
 kingcrab.py, ModeHead with sigmoid-gate sparsity, training loop on smoke H5
 to validate architecture end-to-end.
+
+---
+
+## 2026-05-12 — Model side v0 trains end-to-end on smoke H5
+
+**Q:** Does the architecture train, and do we hit the v0 success criteria from the plan (`/Users/mliu/.claude/plans/start-to-plan-model-tender-sunset.md`)?
+
+**Context:** Implemented v0 model side per the plan — but simpler than the
+original draft. Reading kingcrab.py confirmed that `SubCrab` already does
+encoding + masked-mean pooling + `value × sigmoid(gate)` output in one class.
+For ModeHead-only v0, that's the whole model. No separate "encoder wrapper"
+needed in v0; will refactor when v1 adds multi-head sharing.
+
+**Files added:**
+- `src/cnmineral/models/dataset.py` — `TrainMageminDataset`. Reads H5 eagerly,
+  converts 11-oxide schema → 10-cation wt% (sums FeO + Fe2O3 → Fe), divides
+  by 100 to give mass fractions in [0, 1] (the encoder expects fractions, not
+  wt% — a non-obvious gotcha)
+- `src/cnmineral/models/model.py` — `BaseModel` wrapping one `SubCrab(out_dims=2*n_minerals)`. Essentially upstream's BaseCrabNet with naming adapted
+- `src/cnmineral/models/losses.py` — `mode_loss` = MSE + soft sum-to-1
+  regularizer
+- `src/cnmineral/models/training.py` — `train_one_epoch`, `evaluate`
+  (per-phase R² + sparsity + sum-to-1 violation), `EarlyStopping`,
+  `make_loaders` with `StratifiedShuffleSplit` on qap_name
+- `configs/base_v0.yaml` — all hyperparameters in one place
+- `scripts/03_train_base.py` — sole CLI `--config PATH`; everything else
+  in YAML
+- `tests/test_shapes.py` — shape-check tests run in <1s
+
+**Two integration fixes during testing:**
+1. `element_properties/` CSVs needed to live alongside `kingcrab.py`
+   (it uses `dirname(__file__)/data/element_properties`). `git mv`d from
+   `data/element_properties/` → `src/cnmineral/data/element_properties/`.
+2. CrabNet's `FractionalEncoder` expects fractions in [0, 1], not wt% in
+   [0, 100]. The encoder discretizes the input into a lookup index using
+   `frac × resolution`, so wt%=50 produces frac_idx=2.5e5 — way out of
+   bounds. Fix: divide cation wt% by 100 in the dataset.
+
+**Result — first training run on smoke H5 (2,545 points, 22 phases, CPU, 97.7s):**
+
+Plan's 6 success criteria, scored:
+- Loop runs without errors → ✓ 95 epochs (early-stop at 94, best 79)
+- Val loss decreasing → ✓
+- Top-5 phase R² > 0.5 → 4 of 5 (spl was 0.36; others 0.69 - 0.99)
+- Sum-to-1 violation < 0.05 → ✓ 0.0105
+- Mean sparsity ~16-19 gates closed → ✓ 0.775 → ~17 of 22 closed per sample
+- Checkpoint written → ✓ `checkpoints/base_v0/best.pt`
+
+Per-phase R² at best epoch (sorted by val-set presence):
+
+| Phase | Presence | R² |
+|---|---|---|
+| liq | 94% | +0.82 |
+| fsp | 51% | +0.69 |
+| cpx | 39% | +0.72 |
+| spl | 37% | +0.36 |
+| ol | 24% | +0.99 |
+| opx | 21% | +0.88 |
+| fl | 11% | +0.30 |
+| amp | 10% | +0.18 |
+| bi | 9% | +0.81 |
+| cd | 8% | +0.19 |
+| (rare phases, presence < 5%) | — | noisy, mostly negative |
+
+**Notable findings:**
+- Olivine R²=0.99 — Fo# is highly predictable given bulk MgO + FeO
+- Biotite R²=0.81 despite only 8.6% presence. The H2O fix (journal entry above)
+  is doing real work — the model can learn hydrous phases from limited samples
+- Amphibole R²=0.18 despite similar presence to biotite — within-class
+  composition variance is likely the issue; need to investigate
+- Rare phases (< 5% presence) have noisy R² — expected at 2,545 samples;
+  should improve at scale (--scale full ≈ 440k points)
+
+**Decision validated:** architecture trains. ModeHead-only as v0 was the right
+scoping; multi-head additions can wait. Next direction is scaling MAGEMin to
+`--scale full --k 20` for a ~440k-point training corpus, then comparing the
+same architecture's per-phase R² at scale. After that, multi-head extensions
+(CompHead, GsysHead, ClassHead) can land additively.
+
+**Next:** Commit model-side v0. Decide whether to scale up MAGEMin to full
+corpus next session, or first add the comp / gsys / class heads on the smoke
+H5 to validate multi-task plumbing.
