@@ -1,7 +1,19 @@
 # Decision 004: Use PetThermoTools for fractional-crystallization experiments and (potential) production label generation
 
 **Date:** 2026-05-13
-**Status:** Active
+**Status:** Resolved → Phase B (adopt PetThermoTools for production label generation)
+
+## Resolution
+
+Experiment ran 2026-05-13. 547/550 bulks across 11 classes converged on FC;
+526/550 on eq. Overall median L1 = 0.350 (mean 0.482) — far above the 0.10
+"adopt eq" threshold. Dacite at L1 = 1.14, 9 of 11 classes above 0.25.
+Decision: adopt fractional crystallization for production label generation.
+Full results, plots, and discussion: `docs/JOURNAL.md` 2026-05-13 entry
+"PetThermoTools integration + eq-vs-frac experiment results".
+
+`NearSolidusTPStrategy` (the Phase A code path) is NOT implemented and should
+not be added.
 
 ## Decision
 

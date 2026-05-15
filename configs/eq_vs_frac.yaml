@@ -1,0 +1,49 @@
+# Equilibrium-vs-fractional crystallization experiment (ADR 004).
+#
+# Samples ~n_per_class bulks per class from data/magemin_inputs.csv, runs
+# both legs (equilibrium @ near-solidus T via existing run_magemin.jl,
+# fractional crystallization via PetThermoTools), compares modal vectors
+# with L1 distance.
+#
+# T ranges per the 2026-05-13 journal entry "Revised near-solidus T ranges":
+# pick T 0-150 C below the wet solidus per class (kinetic-arrest regime, still
+# within MAGEMin ig calibration). Each entry: T_lo, T_hi, P_kbar.
+# qap_name is the actual lowercase string in magemin_inputs.csv.
+
+experiment:
+  inputs_csv: data/magemin_inputs.csv
+  output_dir: data/experiments/eq_vs_frac
+  seed: 42
+  n_per_class: 50
+
+# (T_lo, T_hi) in C, P in kbar, T_start in C.
+# eq leg uses midpoint of (T_lo, T_hi); FC leg cools from T_start to T_lo.
+# T_start is set ~50-100C above each class's Putirka upper-bound liquidus, which
+# is empirically equivalent to find_liquidus=True (modal L1 < 0.01) at ~6x speedup.
+classes:
+  basalt:        {T_lo: 850, T_hi: 1000, P_kbar: 3,  T_start: 1350, T_floor_v2: 600}
+  andesite:      {T_lo: 750, T_hi: 900,  P_kbar: 3,  T_start: 1200, T_floor_v2: 625}
+  dacite:        {T_lo: 650, T_hi: 800,  P_kbar: 2,  T_start: 1100, T_floor_v2: 525}
+  rhyolite:      {T_lo: 550, T_hi: 700,  P_kbar: 2,  T_start: 1000, T_floor_v2: 500}
+  monzogranite:  {T_lo: 550, T_hi: 650,  P_kbar: 3,  T_start: 1000, T_floor_v2: 500}
+  granodiorite:  {T_lo: 600, T_hi: 700,  P_kbar: 3,  T_start: 1050, T_floor_v2: 500}
+  diorite:       {T_lo: 750, T_hi: 900,  P_kbar: 3,  T_start: 1150, T_floor_v2: 625}
+  gabbro:        {T_lo: 850, T_hi: 1000, P_kbar: 5,  T_start: 1300, T_floor_v2: 600}
+  dunite:        {T_lo: 900, T_hi: 1100, P_kbar: 10, T_start: 1500, T_floor_v2: 800}
+  foidite:       {T_lo: 850, T_hi: 1050, P_kbar: 3,  T_start: 1300, T_floor_v2: 600}
+  syenite:       {T_lo: 650, T_hi: 800,  P_kbar: 3,  T_start: 1050, T_floor_v2: 525}
+
+# v2 design parameters
+v2:
+  output_dir: data/experiments/eq_vs_frac_v2
+  liq_threshold: 0.05         # class mean liq_fc < 5% sets T_FC_end_class
+  T_quantize_C: 25            # snap T_FC_end_class to nearest 25C
+  dt_C: 25                    # FC cooling step
+
+# Fractional crystallization (PetThermoTools) settings
+fc:
+  model: "Green2025"        # uses MAGEMin ig database
+  dt_C: 25                  # cooling step
+  frac_solid: true
+  suppress: ["rutile", "tridymite"]   # ptt default
+  timeout_sec_per_bulk: 120

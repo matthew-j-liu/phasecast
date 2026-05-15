@@ -776,3 +776,289 @@ the experiment script stays separate from the main pipeline). Outputs to
 The experiment is the *gate* before committing to either Phase A or Phase B.
 Don't implement `NearSolidusTPStrategy` (the Phase A code) until the
 experiment validates that approach.
+
+---
+
+## 2026-05-13 — PetThermoTools integration + eq-vs-frac experiment results: adopt fractional crystallization
+
+**Q:** Is equilibrium-at-near-solidus a good enough proxy for the
+fractional-crystallization endpoint to use as production labels?
+
+**Context:** Integrated PetThermoTools v0.4.5 (Gleeson, UC Berkeley) into the
+`alignn_fix` env via pip-editable install of `~/git_clones/PetThermoTools`.
+Ran `ptt.install_MAGEMinCalc()` which provisioned an isolated Julia env at
+`~/.petthermotools_julia_env` (juliapkg auto-fetched a Julia 1.11.9 sidecar
+alongside our existing 1.12.6) with `MAGEMin_C@2.1.5 + MAGEMinCalc@v0.6.1`.
+The isolated Julia env does NOT conflict with our `scripts/julia/Project.toml`
+pin. `ptt.test_MAGEMinCalc()` passed. The crash printed at the end of
+`install_MAGEMinCalc` (`curl_multi_assign` + SIGSEGV during `Pkg.precompile()`
+cleanup) is a known cosmetic bug in juliacall on macOS — MAGEMin_C is fully
+functional.
+
+Two implementation surprises along the way:
+
+1. **DataFrame-bulks batching is broken for ptt's MAGEMin backend.** The
+   wrapper's docstring claims `bulk: dict | DataFrame`, but in practice ptt's
+   PythonCall path raises `Dict(kv::PyPandasDataFrame)` when handing a
+   DataFrame to MAGEMinCalc. Fell back to a per-bulk serial loop.
+
+2. **`find_liquidus=True` is the dominant cost (~15 s/bulk, ~85% of wall).**
+   Replacing it with a class-conditional fixed `T_start_C` (set ~50-100 C above
+   each class's Putirka upper-bound liquidus) cut per-bulk wall to 2-3 s.
+   Verified on a basalt + a granite that the FC endpoint modal vector matches
+   `find_liquidus=True` to L1 < 0.005 — empirically equivalent. Production
+   cost: 550 bulks in 26 min.
+
+**Experiment:** `scripts/experiments/eq_vs_frac/`. 550 bulks across 11 classes
+(50 per class, gabbro capped at 98 available). Equilibrium leg used our
+existing `run_magemin.jl` (database `ig`, same Project.toml pin as the main
+pipeline) at near-solidus T midpoints. Fractional leg via ptt with `Model =
+"Green2025"`, `Frac_solid=True`, `dt_C=25`, `T_end_C = T_lo` of the
+near-solidus range per class. Both legs use the same 22 bulks per class, same
+H2O strategy already applied to `magemin_inputs.csv`. Convergence: 526/550 eq,
+547/550 FC.
+
+**L1 distance, equilibrium vs fractional modal vectors (per class, median):**
+
+| Class | N | median L1 | mean L1 | IQR |
+|---|---|---|---|---|
+| rhyolite     | 49 | 0.131 | 0.153 | [0.11, 0.17] |
+| monzogranite | 49 | 0.157 | 0.195 | [0.12, 0.26] |
+| granodiorite | 50 | 0.214 | 0.250 | [0.19, 0.29] |
+| basalt       | 50 | 0.292 | 0.293 | [0.18, 0.41] |
+| andesite     | 50 | 0.376 | 0.418 | [0.27, 0.54] |
+| syenite      | 50 | 0.411 | 0.495 | [0.23, 0.69] |
+| foidite      | 32 | 0.413 | 0.527 | [0.31, 0.58] |
+| dunite       | 47 | 0.486 | 0.633 | [0.04, 1.04] |
+| diorite      | 49 | 0.547 | 0.529 | [0.27, 0.70] |
+| gabbro       | 50 | 0.674 | 0.688 | [0.50, 0.86] |
+| **dacite**   | 50 | **1.144** | **1.138** | [0.90, 1.36] |
+
+Overall median 0.350, mean 0.482. Plots at
+`data/experiments/eq_vs_frac/plots/{l1_by_class.png, phase_delta.png}`.
+
+**Decision per ADR 004 rule:** dacite median 1.14 ≫ 0.25 threshold; 9/11
+classes exceed 0.25; only rhyolite is anywhere near the 0.10 "adopt eq"
+threshold. **Adopt fractional crystallization (Phase B) for production label
+generation.** ADR 004 status updated to Resolved → Phase B.
+
+**Three findings the experiment surfaced that the petrologic intuition got
+wrong:**
+
+1. **Felsic classes were the *best* match, not the worst.** Earlier
+   reasoning (journal "PetThermoTools experiment design") predicted granitic
+   systems would diverge most because their residual melt evolves
+   substantially across cooling. Empirically rhyolite (0.13) and monzogranite
+   (0.16) are the lowest-L1 classes. Plausible explanation: felsic eutectics
+   are narrow — both legs converge on the same near-eutectic qz+fsp+bi
+   assemblage. The melt's compositional drift mostly happens in the *liq*
+   channel of the eq snapshot, which discharges into qz+fsp on either path.
+
+2. **Dacite is catastrophic at L1=1.14.** This wasn't predicted by anyone.
+   The signed-delta heatmap shows the eq leg retains ~50% mass in `liq` while
+   the FC leg has redistributed that mass into fsp (+0.3) + minor solids. The
+   dacite near-solidus T (650-800 C, midpoint 725 C) appears to sit *above*
+   the wet solidus for many dacite bulks given their H2O loadings, so the eq
+   snapshot is essentially "magma in progress" again — exactly the failure
+   mode we set out to fix. Lowering T further would push dacite eq into
+   MAGEMin's metamorphic-drift regime. There's no T window where eq is both
+   thermodynamically calibrated and below the wet solidus for hydrous dacite.
+   This is the cleanest argument for FC.
+
+3. **The dominant signed delta across most classes is `liq` -0.2 to -0.5 with
+   compensating `fsp` and ferromagnesian gains.** The eq leg systematically
+   over-predicts melt mass at the chosen near-solidus T. FC redistributes
+   that mass into the realistic crystalline endpoint. This is the same
+   failure mode the original v0 labels had (mean liq 0.70 in the crystallization-
+   T corpus) — just less severe. Near-solidus equilibrium reduces but does
+   not eliminate the melt-inflation problem.
+
+**Implications for v1:**
+- Production label generation switches to FC via PetThermoTools. Drop the
+  `NearSolidusTPStrategy` idea from the May 12 / May 13 entries — don't
+  implement it.
+- Per-bulk cost ~3 s on this machine; ~22k bulks × ~20 (P, H2O) samples per
+  bulk would be ~13 wall-hours single-process. Need to parallelize across
+  bulks via separate python workers (ptt's intra-process multi_processing
+  doesn't help with single-bulk calls) or accept the wall time.
+- The FC modal vector schema is wider than eq (FC produces `ep`,
+  occasionally other phases eq didn't show in this sample). The full
+  production phase vocabulary should be discovered fresh at scale and may
+  differ from the v0 25-phase set; check before retraining.
+- Single-T per bulk loses the multimodal-posterior framing of the v0
+  pipeline. Phase B at production should sample multiple (P, H2O, fO2)
+  combinations per bulk to preserve the many-to-one assemblage distribution
+  the model is meant to learn.
+
+**Next:**
+1. Update CLAUDE.md "Active concern" + "Status snapshot" to reflect the
+   resolved label-strategy question.
+2. ADR 005: production label generation via PetThermoTools FC — settings,
+   sampling strategy, performance budget.
+3. Design the production FC orchestration (chunking, retry, error
+   handling — mirroring the existing MAGEMin chunked pipeline).
+4. Regenerate corpus → retrain → compare to v0 baseline.
+
+**Files added:**
+- `configs/eq_vs_frac.yaml`
+- `scripts/experiments/eq_vs_frac/{01_sample_bulks, 02_run_equilibrium, 03_run_fractional, 04_compare}.py`
+- `scripts/experiments/eq_vs_frac/_phase_map.py`
+- `environment.yml` adds `juliacall`, `juliapkg`, editable install of
+  PetThermoTools (sibling clone)
+- `.gitignore` excludes `data/experiments/`
+- `data/experiments/eq_vs_frac/{bulks.parquet, equilibrium.parquet, fractional.parquet, results.csv, plots/}`
+   (gitignored)
+
+---
+
+## 2026-05-15 — eq-vs-frac v2: anchored terminal T + liq-threshold-driven T_FC_end
+
+**Q:** v1's L1s mixed three different effects (path-dependence, terminal-T
+gap between eq and FC, eq running above the wet solidus for hydrous bulks).
+What does the comparison look like when those confounds are removed?
+
+**Context:** Post-v1 audit (`docs/eq_vs_frac_diagnostics.md`) showed that:
+- eq ran at T_midpoint, FC ended at T_lo — a 50-100 C gap that contaminated
+  the L1 with terminal-T differences.
+- For hydrous classes (dacite especially), the eq T sat *above* the wet
+  solidus — eq was "magma in progress" while FC was at the crystallized
+  endpoint. Most of dacite's L1=1.14 was this artifact, not path-dependence.
+- liq_eq vs liq_fc at the chosen T's were grossly mismatched in some classes
+  (dacite eq=0.45, FC=0.00; syenite eq=0.17, FC=0.01).
+
+**v2 design changes:**
+
+1. **Terminal T anchoring.** Both legs run at the same `T_FC_end_class` per
+   class. The eq leg no longer uses T_midpoint.
+2. **Threshold-driven T selection.** For each class, pick the highest T (snap
+   to nearest 25 C) where the class-aggregate mean `liquid1` from a per-bulk
+   FC sweep falls below 5 wt%. This empirically defines "subsolidus enough"
+   per the bulk H2O distribution rather than relying on literature wet-solidus
+   tables.
+3. **Per-bulk audit.** Bulks whose own `liquid1` at the picked T still exceeds
+   5 wt% are excluded from the L1 comparison (but kept in the underlying
+   modal data).
+4. **In-situ L1.** All phases including `liq` and `fl` stay in the modal
+   vector. The L1 measures "do these two procedures agree on the system
+   state at this T?" not "do they agree on eventual surface mineralogy?"
+
+`liq` vs `fl` distinction matters here: `liq` is silicate melt, `fl` is a
+free aqueous fluid. Below the wet solidus, melt → 0 but excess H2O that
+doesn't fit in amp/bi/mu lives as fl. Threshold gates on `liq` only —
+forcing `fl` to zero would push hydrous bulks below MAGEMin's calibrated
+range.
+
+**Procedure:**
+
+1. `01_sweep_fc.py`: per-bulk FC from T_start down to T_floor_v2 (initially
+   525-800 C per class, adjusted to 600-525-800 after the basalt/gabbro/foidite
+   classes hit the floor with mean liq still > 5%).
+2. `02_pick_T_and_extract_fc.py`: derives `T_FC_end_class` from the sweep
+   trajectory, audits, extracts FC modal at that T (cumsum solids + residual
+   liq + fluid).
+3. `03_run_eq_v2.py`: shells out to `run_magemin.jl` at `T_FC_end_class` per
+   bulk's class. 526/550 converged in 3.6 s.
+4. `04_compare_v2.py`: L1 over full phase union including liq + fl.
+
+547/550 bulks converged on FC; the floor adjustment for basalt/gabbro/foidite
+(initial 725-750 C → 600 C) brought their mean liq under the threshold.
+Final per-class T's:
+
+| class        | T_FC_end_class (C) | mean liq @ T (wt%) | p95 liq | n flagged |
+|--------------|---------------------|---------------------|---------|-----------|
+| basalt       | 675                 | 3.6                 | 9.6     | 15        |
+| andesite     | 650                 | 0.0                 | 0.0     | 0         |
+| dacite       | 650                 | 0.0                 | 0.0     | 0         |
+| rhyolite     | 650                 | 0.0                 | 0.0     | 0         |
+| monzogranite | 650                 | 0.6                 | 0.0     | 2         |
+| granodiorite | 650                 | 0.0                 | 0.0     | 0         |
+| diorite      | 650                 | 0.0                 | 0.0     | 0         |
+| gabbro       | 700                 | 3.7                 | 14.0    | 15        |
+| dunite       | 975                 | 4.7                 | 15.1    | 19        |
+| foidite      | 625                 | 4.9                 | 33.0    | 7         |
+| syenite      | 650                 | 0.8                 | 3.9     | 1         |
+
+59 of 547 bulks flagged (11%); excluded from L1. Most felsic and intermediate
+classes converged on 650 C — that T is below the wet solidus for those H2O
+loadings. Basalt/gabbro hold residual fractionation-trapped evolved melt
+down to 675-700 C. Dunite picked 975 C because its 5%-quantile cools through
+mean-<5% earlier than its 95%-quantile.
+
+**L1 results (in-situ, liq + fl included, post-audit):**
+
+| class        | n   | median L1 | mean L1 | v1 median | Δ      |
+|--------------|-----|-----------|---------|-----------|--------|
+| monzogranite | 47  | **0.038** | 0.071   | 0.157     | -0.119 |
+| dunite       | 28  | **0.070** | 0.412   | 0.486     | -0.416 |
+| rhyolite     | 49  | **0.084** | 0.098   | 0.131     | -0.047 |
+| syenite      | 49  | 0.127     | 0.249   | 0.411     | -0.284 |
+| granodiorite | 50  | 0.166     | 0.193   | 0.214     | -0.048 |
+| dacite       | 50  | 0.288     | 0.336   | 1.144     | **-0.856** |
+| andesite     | 50  | 0.467     | 0.550   | 0.376     | +0.091 |
+| basalt       | 35  | 0.609     | 0.623   | 0.292     | +0.317 |
+| gabbro       | 35  | 0.715     | 0.803   | 0.674     | +0.041 |
+| diorite      | 49  | 0.719     | 0.728   | 0.547     | +0.172 |
+| foidite      | 26  | 0.787     | 0.803   | 0.413     | +0.374 |
+
+Overall: v1 median 0.350, v2 median 0.324. Mean v1 0.482, v2 0.411.
+
+**Three groups emerge cleanly in v2:**
+
+- **Path-irrelevant (median L1 < 0.10): monzogranite, dunite, rhyolite.**
+  Closed-system eq @ 650-975 C and open-system FC at the same T converge on
+  the same near-eutectic / cumulate assemblage. Felsic shallow systems sit on
+  a narrow eutectic; cooling path doesn't reorder the final phases. Dunite is
+  thermodynamically simple (ol + pyx + sp) and produces the same modal whether
+  closed or open.
+- **Mild path effect (0.10-0.25): syenite, granodiorite.** Both legs agree
+  qualitatively but differ in modal proportions by 10-15%. Acceptable for v1
+  production labels.
+- **Strong path effect (>0.25): dacite, andesite, basalt, gabbro, diorite,
+  foidite.** Fractionation-accumulated Mg-rich olivine + early cpx + zoned
+  feldspars yield a substantially different assemblage from the closed-system
+  snapshot. Plutonic mafic-intermediate compositions are the most affected
+  (gabbro 0.72, diorite 0.72, foidite 0.79). These are exactly the classes
+  for which eq labels would mislead the model.
+
+**Decision (confirms ADR 004):** adopt fractional crystallization for
+production label generation. Worst class median (foidite 0.79) is 8x the
+0.10 "adopt eq" threshold; 6 of 11 classes are above 0.25.
+
+**Refinements to the production strategy implied by v2:**
+
+- Felsic shallow (rhyolite, granite, granodiorite): a hybrid path *could*
+  work — eq labels at near-eutectic T would lose <0.15 L1. But for pipeline
+  simplicity, use FC everywhere; the marginal compute cost is small.
+- The T_FC_end_class table here (650 C for most felsic/intermediate, 675-700
+  for basalt/gabbro, 975 for dunite, 625 for foidite) is a starting point for
+  production. Production may want per-bulk T based on each bulk's individual
+  liq trajectory rather than class-aggregate T's; this avoids the 11% audit
+  attrition we hit here.
+- The 5% threshold is reasonable. A 1% threshold would push 3-4 more classes
+  toward MAGEMin's metamorphic-drift floor; not worth the marginal "cleaner
+  subsolidus" gain.
+
+**Files added under `scripts/experiments/eq_vs_frac_v2/`:**
+- `01_sweep_fc.py` (FC trajectory sweep, supports `--classes` filter and
+  `--append` for targeted re-runs)
+- `02_pick_T_and_extract_fc.py` (T_FC_end_class derivation + audit + FC modal
+  extraction)
+- `03_run_eq_v2.py` (eq leg at the picked T's via run_magemin.jl)
+- `04_compare_v2.py` (L1 comparison + plots)
+- Outputs in `data/experiments/eq_vs_frac_v2/`: `fc_sweep.parquet` (13670
+  rows × 92 cols), `T_FC_end_table.csv`, `audit_flags.parquet`,
+  `equilibrium_v2.parquet`, `fractional_v2.parquet`, `results_v2.csv`,
+  `plots/{l1_by_class_v2,phase_delta_v2}.png` (all gitignored).
+
+Config additions to `configs/eq_vs_frac.yaml`: per-class `T_floor_v2` and a
+`v2:` block with `liq_threshold: 0.05`, `T_quantize_C: 25`, `dt_C: 25`.
+
+**Next:**
+1. Update `CLAUDE.md` "Active concern" / "Status snapshot" to reflect resolved
+   label-strategy question.
+2. ADR 005: production label generation via PetThermoTools FC — per-bulk T
+   selection algorithm, (P, H2O, fO2) sampling design, chunking/retry
+   infrastructure, performance budget.
+3. Design production FC orchestration. ~22k bulks × ~20 (P, H2O) samples ×
+   ~3 s = ~13 wall-hours single-process; needs python-level worker pool.
+4. Regenerate corpus → retrain BaseModel → compare to v0 baseline.
