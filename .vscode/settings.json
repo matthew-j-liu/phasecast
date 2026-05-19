@@ -1,0 +1,22 @@
+{
+  "files.watcherExclude": {
+    "**/data/**": true,
+    "**/checkpoints/**": true,
+    "**/.petthermotools_julia_env/**": true,
+    "**/__pycache__/**": true
+  },
+  "search.exclude": {
+    "**/data/**": true,
+    "**/checkpoints/**": true
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  "python.analysis.exclude": [
+    "**/data/**",
+    "**/checkpoints/**",
+    "**/.petthermotools_julia_env/**"
+  ],
+  "python.analysis.diagnosticMode": "openFilesOnly"
+}
