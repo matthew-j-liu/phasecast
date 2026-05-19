@@ -6,7 +6,11 @@ data/magemin_*.csv
 data/pools/
 data/tuples/
 data/*.h5
+data/*.parquet
 data/experiments/
+data/T_FC_end_cache/
+data/fc_corpus_cache/
+data/fc_corpus_cache_legacy/
 
 # Models
 checkpoints/
