@@ -1062,3 +1062,165 @@ Config additions to `configs/eq_vs_frac.yaml`: per-class `T_floor_v2` and a
 3. Design production FC orchestration. ~22k bulks × ~20 (P, H2O) samples ×
    ~3 s = ~13 wall-hours single-process; needs python-level worker pool.
 4. Regenerate corpus → retrain BaseModel → compare to v0 baseline.
+
+---
+
+## 2026-05-17 to 05-19 — Production corpus generation: memory leak crisis and resolution
+
+**Q:** Generate the v1 production training corpus (~178k path-rows) per ADR 005.
+
+**Context:** Built `scripts/production/01_find_T_FC_end_per_bulk.py` (pre-pass)
+and `02_generate_corpus.py` (orchestrator). Pre-pass ran cleanly: 22,359 bulks,
+21,446 clean (95.9%) at ~3 s/bulk over ~5 hr wall.
+
+Orchestrator crashed laptop three times. Diagnosed via macOS Jetsam logs at
+`/Library/Logs/DiagnosticReports/JetsamEvent-*.ips`: workers grew from ~7 GB
+to ~180 GB RSS over ~4 hr. Kernel-level memory pressure → Jetsam cascade →
+WindowServer crashes → full reboot. Root cause is a **per-call memory leak
+in juliacall + MAGEMin_C / MAGEMinCalc** that's invisible at petrology-session
+scale (10³ calls) but catastrophic at ML-corpus scale (10⁶ calls).
+
+**Diagnosis layers:**
+
+1. First hypothesis: VSCode + Pylance file watcher amplification. Settings.json
+   exclusions for `data/` quieted that but didn't fix the crash.
+2. Second hypothesis: `maxtasksperchild=1` on `mp.Pool` would recycle workers
+   between chunks. Tested at smoke scale and confirmed memory recycling works.
+   But chunk_size=100 → 800 FC calls per chunk → ~36 GB growth per chunk per
+   worker → 4 workers × 36 GB = 144 GB peak, still exceeded 128 GB RAM.
+3. Third fix layer: `chunk_size: 100 → 25`. 200 calls per chunk → ~9 GB
+   growth per chunk per worker → 4 workers × 10 GB = 40 GB peak. Comfortable.
+4. Defense-in-depth: explicit `juliacall.Main.GC.gc(True)` between paths in
+   `process_chunk`. Slowed leak rate by ~36% but doesn't eliminate it (the
+   leak is in C-level mmap regions juliacall's GC can't reclaim).
+
+**Final settings (locked):**
+- `--workers 4 --chunk-size 25` with `maxtasksperchild=1` on the `mp.Pool`
+- Explicit Julia GC call between FC paths in `process_chunk`
+- `caffeinate -i` to prevent macOS idle sleep during the long run
+- Detached via `nohup` so VSCode close / IDE crashes don't kill the orchestrator
+- `.vscode/settings.json` excludes `data/` from Pylance + file watcher
+
+**Result:** 730 of 731 chunks completed cleanly (one chunk hung at the very
+end on what appears to be a juliacall init deadlock, lost ~200 path-rows of
+the ~146k total — negligible). Total wall time ~31 hours including the three
+crashes. The user manually killed the hung orchestrator at user request to
+recover; `merge_chunks.py` produced `data/train_fc_v1.parquet`.
+
+**Final corpus stats:**
+- **177,976 path-rows** across 22,245 unique bulks × 8 paths
+- **64 rock classes** (basalt-dominated per Gard et al. 2019 natural prevalence)
+- **18 mineral phases** discovered in the modal vocabulary
+- **Mean liq mass fraction: 0.049** (v0 baseline was 0.70 — **14× reduction**, the
+  headline metric that motivated this whole regenerate)
+- **99.96% convergence**, 69 fc_errors (mostly `JuliaError` on edge-case bulks)
+- 22.8% of rows have `liq > 5%`; 10.2% have `liq > 15%` — concentrated in
+  foidite-family and gabbro classes where fractionation-trapped melt persists
+  below MAGEMin's calibrated T range
+
+**Open upstream work to file:** This juliacall + MAGEMin_C memory leak is a
+real upstream bug. Gleeson (UC Berkeley) is local; worth opening a ptt issue
+with the minimal reproducer (8 paths × 100 bulks shows the growth pattern in
+~30 min). Their package is validated at petrology-session scale and the
+millions-of-calls workload exposes a regime they haven't tested.
+
+**Files committed in this work:**
+- `scripts/production/01_find_T_FC_end_per_bulk.py` — pre-pass with mp pool
+- `scripts/production/02_generate_corpus.py` — orchestrator with mp pool +
+  per-path Julia GC + maxtasksperchild=1
+- `scripts/production/merge_chunks.py` — generic chunk-parquet merger
+- `.vscode/settings.json` — Pylance + file watcher exclusions for `data/`
+- `.gitignore` updates for new corpus + cache directories
+
+---
+
+## 2026-05-19 — v1 model architecture: inverse-inference reframing + Stage 1 locks
+
+**Q:** Given the v1 corpus exists, what's the model architecture that justifies
+its existence (and isn't just another MAGEMin amortization)?
+
+**Context:** Spent time stress-testing the project's value proposition.
+Started from the centroid-prediction framing (deterministic head, bulk only)
+which I'd recommended for v1 simplicity. User pushed back: that's exactly
+Position B (MAGEMin emulator marginalized over T, P) which we explicitly
+rejected at project inception (see 2026-05-11 "Position C crystallized").
+
+After working through several possible escapes, **arrived at the inverse-
+inference framing**: the model's headline contribution is that it predicts
+**both formation conditions (T, P, H2O) AND mineralogy from bulk chemistry
+alone**. Geologist's workflow today is "run MAGEMin over a (T, P, H2O) sweep
+and stare at an unweighted range of possible assemblages." Our model collapses
+that range into the conditioned posterior `P(T, P, H2O, modal | bulk)`. No
+existing tool does this:
+- MAGEMin: forward map only, needs (T, P, H2O) as input
+- mineralML: per-grain classification, not per-rock
+- CIPW: single deterministic answer, no condition awareness
+
+**The decomposition that justifies each architecture piece:**
+- If corpus = MAGEMin and head is single (T, P, H2O) prediction: model is
+  ML wrapper for "predict conditions then call MAGEMin." Real value (saves
+  the unprincipled sweep) but smaller.
+- If corpus = MAGEMin and head is single modal prediction: Position B, rejected.
+- If corpus ≠ MAGEMin (mineralML fusion, DFT-corrected thermodynamics, etc.)
+  AND head is joint conditions + modal: full Position C with inverse-inference
+  layer. **This is the v1 model + v2 corpus extension.**
+
+For v1: ship the architecture with corpus = MAGEMin (no fusion yet); the
+inverse-inference contribution stands on its own. mineralML fusion (CompHead +
+empirical compositions) is a v1.1 / v2 escalation that makes the ModeHead's
+predictions irreducible to MAGEMin.
+
+**Architecture locks (Stage 1):**
+
+| Component | Decision |
+|---|---|
+| Encoder | Shared SubCrab → pooled latent (no T/P/H2O input — bulk only at inference) |
+| ModeHead | Dirichlet over mineral wt%, label-smoothing ε=1e-3 |
+| CondHead | Mixture of Gaussians per (T, P, H2O) axis, linear-space, heteroscedastic, K_gmm component count in HPO search space |
+| Ensemble | K=5 deep ensemble for σ_epistemic |
+| Loss | Joint Dirichlet NLL + GMM NLL with weight λ_cond |
+| HPO | Joint single-stage Optuna TPE search over all dims (d_model, N_layers, heads, dropout, lr, weight_decay, batch_size, λ_cond, K_gmm, ε) |
+| HPO objective | `0.5 × NLL_dir + 0.5 × NLL_gmm_zscored` (proper scoring rule, automatic calibration) |
+| HPO storage | `optuna.storages.JournalStorage` at `data/optuna/v1_hpo.journal` |
+| Evaluation report | Per-phase R², calibration coverage, mean liq, per-class breakdowns (separate from HPO objective) |
+| Device | MPS via existing `pick_device()` helper |
+| Corpus load filter | `fc_status == "ok"` AND `liq ≤ 0.10` (preserves data on disk; applied in dataset.py) |
+
+**Inference contract:**
+- Input: 11 oxide wt% from the user's ICP/XRF measurement (any total; wrapper
+  renormalizes to 100%)
+- Output:
+  - Distribution over mineral modal vector (Dirichlet mean + ensemble
+    epistemic σ + intrinsic aleatoric σ)
+  - GMM over (T, P, H2O): mean + modes + per-component weights
+- Geologist sees both inferred conditions AND assemblage, with multimodal
+  uncertainty over both, in microseconds
+
+**Aleatoric vs epistemic uncertainty (definitions for future-me):**
+- Aleatoric = inherent randomness in the data (same bulk → different paths →
+  different assemblages). Captured by the within-model distribution width
+  (Dirichlet variance, GMM component spread). Irreducible.
+- Epistemic = model-state uncertainty (different ensemble members predict
+  different things). Captured by ensemble disagreement. Reducible with more
+  data or better training.
+
+**Open implementation questions to address in Stage 1:**
+- File layout: `encoder.py`, `heads.py`, `model.py` refactor, `losses.py`,
+  `dataset.py` update for liq filter + condition labels, `objective.py`, `04_hpo.py`
+- Stratified k-fold on `qap_name` (matches v0 split convention)
+- Port the upstream Optuna scaffolding from
+  `~/git_clones/CrabNet_PyPi/CrabNet-Mineral/alignn/src/objective.py`
+- Train-from-scratch script first (sanity check), then HPO sweep
+
+**Inverse-inference experiment to design for Stage 3 (validation):**
+The two-step baseline (CondHead → MAGEMin → modal) is the upper bound for
+modal accuracy (since MAGEMin generated the corpus labels). Quantify how
+close the joint model's ModeHead gets to two-step's MAGEMin call. Small gap =
+good ModeHead approximation. Large gap = ModeHead is the bottleneck. Either
+result is informative.
+
+**Documents created/updated in this work:**
+- `notebooks/train_fc_v1_eda.ipynb` — corpus EDA with liq-threshold filtering
+- ADR 006 (this commit) — v1 model architecture decisions
+- ADR 005 status updated to Resolved → Executed
+- CLAUDE.md status snapshot updated

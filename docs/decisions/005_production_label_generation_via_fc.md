@@ -1,7 +1,16 @@
 # Decision 005: Production label generation via PetThermoTools fractional crystallization
 
 **Date:** 2026-05-15
-**Status:** Active
+**Status:** Resolved → Executed (2026-05-19)
+
+## Execution outcome
+
+Corpus generated at `data/train_fc_v1.parquet` (gitignored). 177,976 path-rows
+across 22,245 bulks × 8 paths. Mean `liq` mass fraction = 0.049 (vs v0
+baseline 0.70 — 14× reduction). 99.96% FC convergence. Memory leak in
+juliacall+MAGEMin required workarounds (maxtasksperchild=1, chunk_size=25,
+explicit Julia GC between paths) — full diagnosis in JOURNAL.md 2026-05-17
+entry. ADR 006 picks up at model architecture.
 
 ## Decision
 
