@@ -1,0 +1,47 @@
+# BaseModelV1 - single-trial training on data/train_fc_v1.parquet.
+#
+# Sane defaults for sanity-checking the architecture end-to-end before HPO.
+# Use `--limit-bulks` on the CLI to subsample bulks for smoke runs.
+
+model_version: v1
+
+data:
+  parquet_path: data/train_fc_v1.parquet
+  liq_threshold: 0.10
+  splits_path: data/splits_v1.json
+  val_frac: 0.16
+  test_frac: 0.20
+  min_bulks_per_class: 25
+  stratify_by: qap_name
+  num_workers: 0
+
+model:
+  d_model: 256
+  N: 2
+  heads: 8
+  dropout: 0.1
+  elem_prop: mat2vec
+  K_gmm: 3
+  alpha_floor: 1.0e-3
+  mode_hidden: [256, 128]
+  cond_hidden: [256, 128]
+
+training:
+  batch_size: 1024
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  epochs: 100
+  cosine_eta_min: 1.0e-6
+  patience: 15
+  min_delta: 5.0e-6
+  grad_clip: 1.0
+  seed: 42
+
+loss:
+  lambda_cond: 1.0
+  eps_smooth: 1.0e-3
+
+output:
+  checkpoint_dir: checkpoints/base_v1
+  metrics_log: checkpoints/base_v1/metrics.jsonl
+  progress_bar: true
