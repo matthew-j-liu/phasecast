@@ -1224,3 +1224,68 @@ result is informative.
 - ADR 006 (this commit) — v1 model architecture decisions
 - ADR 005 status updated to Resolved → Executed
 - CLAUDE.md status snapshot updated
+
+## 2026-05-22 — Stage 1-3 executed: v1 model built, trained, two leaks fixed
+
+**Q:** Build, train, and evaluate the ADR 006 architecture end to end.
+
+Covers ~3 days of work. Two data-handling bugs were caught and fixed along
+the way — both were my misreads of the corpus structure, not findings. Notes
+kept terse but complete enough to retrace.
+
+**Stage 1 — architecture built.** Files: `src/cnmineral/models/{encoder,
+heads,model,losses,dataset,training,objective}.py`. `BaseModelV1` = shared
+SubCrab encoder → Dirichlet ModeHead (18-phase modal wt%) + GMM CondHead
+(T/P/H2O, K_gmm Gaussians/axis). Joint NLL loss. Driver scripts
+`03_train_base.py` (v0/v1 dispatch), `04_hpo.py`, `05_train_ensemble.py`,
+`06_eval_ensemble.py`. Configs `base_v1.yaml`, `hpo_v1.yaml`.
+
+**Bug 1 — row-level split leak.** First HPO + K=5 ensemble used
+`StratifiedShuffleSplit`/`StratifiedKFold` on *row* indices. Each bulk has 8
+FC paths sharing ~identical encoder input (10 of 11 oxides identical across
+paths), so row-level splits scattered a bulk's paths across train and val →
+memorization. Reported metrics (val_loss -55, T MAE 7.6) were inflated.
+Fix: bulk-level split on `sample_id`. `make_loaders_v1_bulk_split` does a
+two-stage stratified `train_test_split` (64/16/20 train/val/test);
+`make_cv_folds_v1` uses `StratifiedGroupKFold` for HPO CV. Classes with
+< 25 bulks dropped from the corpus (31 classes, 199 bulks, 0.9%) so per-class
+test metrics stay interpretable. Split persisted to `data/splits_v1.json`.
+Row-leaked artifacts archived `*_rowleak` / `*_rowsplit`.
+
+**Bug 2 — H2O target leak.** Input oxide `h2o_tot` == CondHead H2O target
+`h2o_path_wt` (corr 1.0, the corpus set bulk water to each FC path's sampled
+H2O). The CondHead H2O axis was copying an input, not inferring it (fake MAE
+0.034). Fix: dropped `h2o_tot` from `V1_OXIDE_COLS` → model takes 10 oxides /
+9 cations. New `V1_CATIONS_ORDER` keeps v0's `TrainMageminDataset` untouched.
+Cost: `h2o_tot` was also a genuine input for hydrous-phase modal prediction;
+removing it regressed amp/bi/mu/fl/ne modal R² (~0.13-0.25 each). Anhydrous
+majors unaffected. v1.1 fix is Option C — use complete.csv's *measured*
+`h2o_tot` (≠ `h2o_path_wt`) as input.
+
+**HPO.** Bulk-level 3-fold CV, joint-NLL objective, JournalStorage. Search
+space widened (d_model/N/heads kept pegging the ceiling). 10-oxide run
+stopped at 16 complete + 25 pruned (50-trial target abandoned — pace ~34
+min/complete on the big d=512 config, top-3 tied; diminishing returns).
+Best trial #32: `d_model=512, N=4, heads=16, K_gmm=3, lr=1.25e-4,
+weight_decay=1.0e-5, batch=512, lambda_cond=3.44, dropout=0.13, eps=1.0e-4`.
+
+**v1 model = K=5 deep ensemble at trial #32, honest 10-oxide.** Bulk-level
+test set (4,239 bulks, 30,212 rows):
+- T MAE 15.4 C, P MAE 1.76 kbar, H2O MAE 0.535 wt% (genuine inference now).
+- joint NLL -43.4; 1σ coverage T/P/H2O = 0.88/0.64/0.76 (nominal 0.68).
+- per-phase R² > 0.5 for 7/18; anhydrous majors solid: fsp 0.93, q 0.97,
+  cpx 0.91, ol 0.97, opx 0.75. Hydrous + rare phases weak.
+
+**Artifacts:** `checkpoints/base_v1_ensemble/` (honest v1, seed_1000-1004 +
+eval_v1.json + predictions parquets). Archived: `base_v1_ensemble_h2oleak`
+(11-oxide), `base_v1_ensemble_rowsplit`, `base_v1_rowleak`. HPO journals
+`data/optuna/v1_hpo_{10ox,wide,smallsearch,rowleak}.journal`.
+`notebooks/v1_eval.ipynb` — eval dashboard + simulated-user inference demo.
+
+**Next:**
+- Tag `v1-trained` at this commit.
+- v1.1: Option C (measured-`h2o_tot` input) to recover hydrous-phase modal;
+  CompHead for per-mineral solid-solution chemistry (the phases predicted are
+  mostly solid solutions — modal abundance alone is half the answer).
+- Calibration is loose (T/H2O underconfident); post-hoc temperature scaling
+  is cheap if needed.
