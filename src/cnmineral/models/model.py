@@ -1,20 +1,15 @@
-"""BaseModel for v0: wraps kingcrab.SubCrab to predict mineral wt% from
-cation wt% input.
+"""BaseModel (v0) + BaseModelV1 (v1, inverse-inference architecture).
 
-This is essentially upstream CrabNet-Mineral's BaseCrabNet
-(alignn/src/base_model.py, lines 16-52), adapted to our parameter names. The
-sigmoid-gate sparsity behavior (value × sigmoid(logits)) comes for free from
-SubCrab's existing output head — see kingcrab.py:542-544.
+v0 — `BaseModel` wraps kingcrab.SubCrab end-to-end (encoder + sigmoid-gated
+ResidualNetwork head); predicts only modal wt%. Kept here so the v0
+checkpoint at `checkpoints/base_v0/best.pt` can be re-loaded for comparison
+without code juggling.
 
-The model expects pre-converted cation wt%, not oxide wt%. See
-TrainMageminDataset for the conversion.
-
-When v1 adds CompHead / GsysHead / ClassHead, this file is replaced with a
-new model.py that separates the Encoder from per-head outputs and shares the
-encoder across heads. Not in v0 scope.
+v1 — `BaseModelV1` is the inverse-inference architecture defined in ADR 006:
+shared SubCrab Encoder -> {Dirichlet ModeHead, GMM CondHead}. Forward returns
+a dict so heads can be added later (CompHead v1.1, GsysHead v2) without
+breaking the call signature.
 """
-
-from __future__ import annotations
 
 from pathlib import Path
 import sys
@@ -22,29 +17,15 @@ import sys
 import torch
 import torch.nn as nn
 
-# Vendored kingcrab.py lives at src/cnmineral/kingcrab.py
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from kingcrab import SubCrab
 
+from cnmineral.models.encoder import Encoder
+from cnmineral.models.heads import ModeHead, CondHead
+
 
 class BaseModel(nn.Module):
-    """Wraps SubCrab; predicts mineral wt% from atomic numbers + cation fractions.
-
-    Parameters
-    ----------
-    n_minerals : int
-        Number of mineral phases to predict (= H5's /Y_cols length, e.g. 22).
-        Internally `out_dims` is set to `2 * n_minerals` so SubCrab's
-        `value × sigmoid(gate)` splits cleanly: first half is value, second is
-        gate logits.
-    d_model, N, heads, dropout, elem_prop : standard CrabNet params.
-
-    Notes
-    -----
-    The compute_device argument forwarded to SubCrab matters when SubCrab loads
-    its element-property embedding (mat2vec) — let SubCrab decide based on
-    the parent module's device after `.to(device)`.
-    """
+    """v0 ModeHead-only model. Preserved for the v0 baseline checkpoint."""
 
     def __init__(
         self,
@@ -61,7 +42,7 @@ class BaseModel(nn.Module):
             d_model=d_model,
             N=N,
             heads=heads,
-            out_dims=2 * n_minerals,        # value + gate, sigmoid-gated inside SubCrab
+            out_dims=2 * n_minerals,
             fractional=True,
             attention=True,
             dropout=dropout,
@@ -69,22 +50,81 @@ class BaseModel(nn.Module):
         )
 
     def forward(self, src: torch.Tensor, frac: torch.Tensor) -> torch.Tensor:
-        """Predict mineral wt% vector.
-
-        Parameters
-        ----------
-        src : LongTensor [batch, n_cations]
-            Atomic numbers; same vocabulary per sample. Zeros are treated as
-            padding (SubCrab masks them in pooling).
-        frac : FloatTensor [batch, n_cations]
-            Cation wt% in the same order as `src`.
-
-        Returns
-        -------
-        FloatTensor [batch, n_minerals]
-            Per-mineral predicted wt fractions. The sigmoid gate inside SubCrab
-            zeros out absent phases; values are in roughly [0, 1] but not
-            constrained to sum exactly to 1 — the soft sum-to-1 regularizer in
-            the loss handles that.
-        """
         return self.subcrab(src, frac)
+
+
+class BaseModelV1(nn.Module):
+    """Encoder + Dirichlet ModeHead + 3-axis 1D-GMM CondHead.
+
+    Forward graph takes 11 oxide wt% (as 10-cation `src`/`frac` after Fe
+    collapse) only. T, P, H2O are NOT inputs — they are per-row training
+    supervision for the CondHead.
+
+    Parameters
+    ----------
+    n_minerals : int
+        Modal vocabulary size from the corpus (18 in v1).
+    K_gmm : int
+        Mixture components per condition axis. ADR 006 expects HPO over {2,3,4}.
+    d_model, N, heads, dropout, elem_prop, dim_feedforward
+        Encoder knobs.
+    mode_hidden, cond_hidden : list[int]
+        ResidualNetwork hidden sizes for each head.
+
+    Returns
+    -------
+    dict
+        {"alpha": [B, n_minerals],
+         "cond_means": [B, 3, K_gmm],
+         "cond_log_sigmas": [B, 3, K_gmm],
+         "cond_mix_logits": [B, 3, K_gmm]}
+    """
+
+    def __init__(
+        self,
+        n_minerals: int,
+        K_gmm: int = 3,
+        d_model: int = 256,
+        N: int = 2,
+        heads: int = 8,
+        dropout: float = 0.1,
+        elem_prop: str = "mat2vec",
+        dim_feedforward: int = 2048,
+        mode_hidden: list[int] | None = None,
+        cond_hidden: list[int] | None = None,
+        alpha_floor: float = 1e-3,
+    ) -> None:
+        super().__init__()
+        self.n_minerals = n_minerals
+        self.K_gmm = K_gmm
+        self.encoder = Encoder(
+            d_model=d_model,
+            N=N,
+            heads=heads,
+            dropout=dropout,
+            elem_prop=elem_prop,
+            dim_feedforward=dim_feedforward,
+        )
+        self.mode_head = ModeHead(
+            d_model=d_model,
+            n_minerals=n_minerals,
+            hidden=mode_hidden,
+            alpha_floor=alpha_floor,
+        )
+        self.cond_head = CondHead(
+            d_model=d_model,
+            K_gmm=K_gmm,
+            n_axes=3,
+            hidden=cond_hidden,
+        )
+
+    def forward(self, src: torch.Tensor, frac: torch.Tensor) -> dict[str, torch.Tensor]:
+        h = self.encoder(src, frac)
+        alpha = self.mode_head(h)
+        cond = self.cond_head(h)
+        return {
+            "alpha": alpha,
+            "cond_means": cond["means"],
+            "cond_log_sigmas": cond["log_sigmas"],
+            "cond_mix_logits": cond["mix_logits"],
+        }

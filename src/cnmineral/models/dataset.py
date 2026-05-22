@@ -1,20 +1,13 @@
-"""PyTorch dataset for the MAGEMin-derived training H5.
+"""PyTorch datasets.
 
-Loads `data/train_magemin.h5` (or any H5 matching the schema produced by
-`scripts/parse_magemin.py`) and converts the 11-oxide MAGEMin schema into the
-elemental wt% format CrabNet's encoder expects. Specifically:
+- `TrainMageminDataset`: v0 H5 corpus (`data/train_magemin.h5`).
+- `TrainFCv1Dataset`: v1 fractional-crystallization parquet
+  (`data/train_fc_v1.parquet`). 11 oxides as inputs; modal wt% + (T, P, H2O)
+  as supervision; conditions are z-scored at load.
 
-- Drop nothing — the H5 already has the MAGEMin 11-oxide system after Position C
-  conversion (SiO2, Al2O3, CaO, MgO, FeO, Fe2O3, K2O, Na2O, TiO2, Cr2O3, H2O).
-- Convert each oxide column to a cation wt% via molar-mass factor.
-- Sum FeO + Fe2O3 into Fe total (single cation column).
-- Build a shared `src` tensor of atomic numbers, same for every sample
-  (matches upstream CrabNet's MineralDataSet / SyntheticRockDataset
-  convention).
-
-Result: 10 cation columns (Si, Al, Ca, Mg, Fe, K, Na, Ti, Cr, H), one fraction
-value per sample per cation. T and P live in /X but are not (yet) part of the
-encoder input — they're stored for downstream conditional analysis.
+Both share the same oxide -> cation conversion (FeO + Fe2O3 collapsed to a
+single Fe column) and the same `src`/`frac` output convention CrabNet's
+encoder expects.
 """
 
 from __future__ import annotations
@@ -23,6 +16,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
@@ -65,20 +59,27 @@ CATIONS_ORDER: list[tuple[str, int]] = [
 ]
 
 
-def oxides_to_cations(X_oxide: np.ndarray, x_cols: list[str]) -> np.ndarray:
-    """Convert [N, 11] oxide wt% → [N, 10] cation wt% in CATIONS_ORDER.
+def oxides_to_cations(
+    X_oxide: np.ndarray,
+    x_cols: list[str],
+    cations_order: list[tuple[str, int]] = CATIONS_ORDER,
+) -> np.ndarray:
+    """Convert oxide wt% → cation wt% in `cations_order`.
 
     FeO and Fe2O3 both contribute to the Fe column. Any column in `x_cols` that
-    isn't in OXIDE_TO_CATION (e.g., T_celsius, P_kbar) is silently ignored.
+    isn't in OXIDE_TO_CATION (e.g., T_celsius, P_kbar), or whose cation isn't
+    in `cations_order` (e.g., H once h2o_tot is dropped), is silently ignored.
     """
     n_samples = X_oxide.shape[0]
-    out = np.zeros((n_samples, len(CATIONS_ORDER)), dtype=np.float32)
-    cation_to_idx = {sym: i for i, (sym, _z) in enumerate(CATIONS_ORDER)}
+    out = np.zeros((n_samples, len(cations_order)), dtype=np.float32)
+    cation_to_idx = {sym: i for i, (sym, _z) in enumerate(cations_order)}
 
     for col_idx, col in enumerate(x_cols):
         if col not in OXIDE_TO_CATION:
             continue
         cation_sym, _atomic_num, factor = OXIDE_TO_CATION[col]
+        if cation_sym not in cation_to_idx:
+            continue
         out[:, cation_to_idx[cation_sym]] += X_oxide[:, col_idx] * factor
 
     return out
@@ -150,5 +151,133 @@ class TrainMageminDataset(Dataset):
             "src":      torch.from_numpy(self._src),
             "frac":     torch.from_numpy(self._frac[idx]),
             "y_wt":     torch.from_numpy(self._y_wt[idx]),
+            "qap_name": str(self._qap_names[idx]),
+        }
+
+
+# h2o_tot is excluded from model inputs: in the FC corpus it equals the
+# CondHead H2O target h2o_path_wt (corr 1.0), so feeding it in target-leaks
+# the H2O axis. The model takes the 10 anhydrous oxides; CondHead infers H2O.
+V1_OXIDE_COLS = [
+    "sio2", "al2o3", "cao", "mgo", "feo", "fe2o3",
+    "k2o", "na2o", "tio2", "cr2o3",
+]
+V1_DROPPED_INPUT_COLS = ["h2o_tot"]
+V1_COND_COLS = ("T_FC_end_used", "P_kbar", "h2o_path_wt")
+V1_META_COLS = {
+    "sample_id", "path_idx", "qap_name", "fe_provenance", "h2o_provenance",
+    "fc_status", "T_FC_end_attrition",
+    *V1_COND_COLS, *V1_OXIDE_COLS, *V1_DROPPED_INPUT_COLS,
+}
+
+# 9 cations after dropping h2o_tot (no H). v0's CATIONS_ORDER keeps H.
+V1_CATIONS_ORDER: list[tuple[str, int]] = [
+    ("Si", 14), ("Al", 13), ("Ca", 20), ("Mg", 12), ("Fe", 26),
+    ("K",  19), ("Na", 11), ("Ti", 22), ("Cr", 24),
+]
+
+
+class TrainFCv1Dataset(Dataset):
+    """v1 corpus dataset over `data/train_fc_v1.parquet`.
+
+    Parquet on disk is untouched. Load-time filters:
+      - keep `fc_status == "ok"` only
+      - drop rows with `liq > liq_threshold` (default 0.10): physically real
+        FC endpoints but reintroduce the v0 melt-inflation problem.
+
+    Per-sample outputs:
+      src         LongTensor  [9]    atomic numbers in V1_CATIONS_ORDER
+      frac        FloatTensor [9]    cation mass fractions (wt% / 100)
+      y_modal     FloatTensor [P]    mineral wt fractions (P = 18 in v1)
+      y_cond_z    FloatTensor [3]    z-scored (T, P, H2O); inverse via
+                                     `cond_mean`/`cond_std` attributes
+      qap_name    str
+
+    Class attributes after construction:
+      n_minerals (int), phase_names (list[str]), qap_names (np.ndarray[str])
+      cond_mean, cond_std (np.ndarray[3] float32)  -- saved for de-norm at
+        inference; must be checkpointed alongside model weights.
+
+    Parameters
+    ----------
+    parquet_path : str | Path
+    liq_threshold : float
+        Inclusive upper bound for liq mass fraction. ADR 006 / 2026-05-19
+        journal pick 0.10.
+    sample_id_filter : array-like[int] | None
+        If provided, restrict to these sample_ids before stratification.
+        Useful for `--limit N` smoke runs that subset bulks rather than rows
+        (preserves the 8-paths-per-bulk multimodality signal).
+    """
+
+    def __init__(
+        self,
+        parquet_path: str | Path,
+        liq_threshold: float = 0.10,
+        sample_id_filter: np.ndarray | list[int] | None = None,
+        cond_norm: tuple[np.ndarray, np.ndarray] | None = None,
+    ) -> None:
+        parquet_path = Path(parquet_path)
+        df = pd.read_parquet(parquet_path)
+
+        df = df[df["fc_status"] == "ok"]
+        df = df[df["liq"] <= liq_threshold].reset_index(drop=True)
+        if sample_id_filter is not None:
+            keep = pd.Series(sample_id_filter).unique()
+            df = df[df["sample_id"].isin(keep)].reset_index(drop=True)
+        if len(df) == 0:
+            raise ValueError(f"No rows survived filtering in {parquet_path}")
+
+        phase_names = [c for c in df.columns if c not in V1_META_COLS]
+        if len(phase_names) == 0:
+            raise ValueError("No phase columns discovered; check column lists")
+
+        X_oxide = df[V1_OXIDE_COLS].to_numpy(dtype=np.float32)
+        cation_wt_pct = oxides_to_cations(X_oxide, V1_OXIDE_COLS,
+                                          cations_order=V1_CATIONS_ORDER)
+        cation_fraction = (cation_wt_pct / 100.0).astype(np.float32)
+
+        y_modal = df[phase_names].to_numpy(dtype=np.float32)
+        y_cond_raw = df[list(V1_COND_COLS)].to_numpy(dtype=np.float32)
+
+        if cond_norm is None:
+            cond_mean = y_cond_raw.mean(axis=0).astype(np.float32)
+            cond_std = y_cond_raw.std(axis=0).astype(np.float32)
+            cond_std = np.maximum(cond_std, 1e-6)
+        else:
+            cond_mean, cond_std = cond_norm
+            cond_mean = np.asarray(cond_mean, dtype=np.float32)
+            cond_std = np.asarray(cond_std, dtype=np.float32)
+        y_cond_z = ((y_cond_raw - cond_mean) / cond_std).astype(np.float32)
+
+        self._frac = cation_fraction
+        self._y_modal = y_modal
+        self._y_cond_z = y_cond_z
+        self._y_cond_raw = y_cond_raw
+        self._qap_names = df["qap_name"].to_numpy(dtype=object)
+        self._sample_ids = df["sample_id"].to_numpy(dtype=np.int64)
+        self._path_idx = df["path_idx"].to_numpy(dtype=np.int64)
+        self._src = np.array([z for _sym, z in V1_CATIONS_ORDER], dtype=np.int64)
+
+        self.n_minerals: int = y_modal.shape[1]
+        self.phase_names: list[str] = phase_names
+        self.qap_names: np.ndarray = self._qap_names
+        self.sample_ids: np.ndarray = self._sample_ids
+        self.path_idx: np.ndarray = self._path_idx
+        self.cond_mean: np.ndarray = cond_mean
+        self.cond_std: np.ndarray = cond_std
+        self.cond_axes: tuple[str, ...] = V1_COND_COLS
+        self.liq_threshold: float = liq_threshold
+        self.parquet_path: Path = parquet_path
+
+    def __len__(self) -> int:
+        return len(self._frac)
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "src":      torch.from_numpy(self._src),
+            "frac":     torch.from_numpy(self._frac[idx]),
+            "y_modal":  torch.from_numpy(self._y_modal[idx]),
+            "y_cond_z": torch.from_numpy(self._y_cond_z[idx]),
             "qap_name": str(self._qap_names[idx]),
         }
