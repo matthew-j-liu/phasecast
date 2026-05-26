@@ -1289,3 +1289,129 @@ eval_v1.json + predictions parquets). Archived: `base_v1_ensemble_h2oleak`
   mostly solid solutions — modal abundance alone is half the answer).
 - Calibration is loose (T/H2O underconfident); post-hoc temperature scaling
   is cheap if needed.
+
+---
+
+## 2026-05-22 — A2 calibration + B2 amp diagnostic; B1/B8 corpus gating
+
+**Q:** Pick up after `v1-trained`. HANDOFF Tier-2 (A2 calibration) and Tier-1
+analysis (B2 amp). And: do the cached FC chunks already carry per-mineral
+`Comp_wt` and `G_sys`, so B1+B8 can be a cheap re-parse?
+
+**B1/B8 gating finding.** No. All 731 chunks in `data/fc_corpus_cache/` (and
+the 40 in `_legacy/`) carry 37–38 cols: meta + 11 oxides + per-phase modal
+wt% only. `scripts/production/02_generate_corpus.py:final_modal_from_res`
+extracts `res["mass_g"]` and discards the rest of the PetThermoTools FC return
+dict; per-phase compositions and system Gibbs energy were computed in-memory
+and never persisted. B1 + B8 therefore require a **full FC re-run** (the
+31-hour multi-crash path), not a re-parse. Do them in one bundle; needs
+explicit time/infra buy-in before starting.
+
+---
+
+**A2 — post-hoc temperature scaling on the GMM CondHead.** New
+`scripts/07_calibrate.py`. Method = Guo et al. 2017 ("On Calibration of Modern
+Neural Networks") adapted to a probabilistic regression head: one scalar per
+axis fit on val by minimizing NLL, applied as `log_sigma → log_sigma + t_axis`
+(Guo et al.'s sigma-scaling regression analog, cf. Laves 2020, Levi 2022).
+Coverage = diagnostic, not the fit target.
+
+NLL-fit temperatures (adopted): **T=0.655, P=0.943, H2O=0.932** — all shrink
+sigma. Test before → after:
+
+|axis|NLL|cov1 (gauss)|cov1 (PIT)|KS vs uniform|
+|---|---|---|---|---|
+|T  |-2.570 → -2.652|0.878 → 0.861|0.808 → 0.781|0.169 → 0.120|
+|P  |-0.009 → -0.011|0.635 → 0.618|0.620 → 0.601|0.051 → 0.060|
+|H2O|-0.534 → -0.536|0.758 → 0.732|0.706 → 0.686|0.114 → 0.117|
+
+**Reframing finding.** The headline Gaussian-σ coverage (0.88/0.64/0.76) is
+the wrong metric for a multimodal mixture predictive. The proper diagnostic
+is the **PIT** (probability integral transform — predictive CDF evaluated at
+the target; uniform if calibrated). PIT central-68 coverage is 0.81/0.62/0.71
+on test — H2O is essentially calibrated already, P is a hair under, only T is
+materially over-covered (PIT histogram is a clean dome). KS vs uniform
+agrees: P 0.05 (near-uniform), H2O 0.11, T 0.17.
+
+Temperature scaling **helps T meaningfully** (KS 0.17→0.12, NLL clearly down,
+central-68 coverage 0.81→0.78); for P and H2O it is near a no-op because
+their PIT non-uniformity is not a scale problem. Concretely the v1 corpus
+samples h2o_path_wt at 2 discrete values per bulk and P_kbar at 4 — so PIT
+lumpiness on those axes is largely an artifact of evaluating a continuous CDF
+on discrete targets, not miscalibration. T_FC_end_used is per-bulk constant
+and continuous globally, so T is the one axis where calibration is a
+well-posed problem and Guo-style temperature scaling does its job. (Deeper
+consequence, flagged not acted on: the CondHead's P and H2O outputs largely
+recover the per-class sampling grid, not a bulk-conditional inverse
+inference — the per-axis "inverse inference" claim is substantively only
+about T.)
+
+Artifacts: `checkpoints/base_v1_ensemble/calibration_v1.json`,
+`data/diagnostics/calibration/pit_hist_v1.png` (PIT before/after per axis).
+A single residual t-fit shape — a small dome remains for T after scaling —
+shows a one-scalar fit can't fully flatten the T PIT; the NLL-fit
+deliberately stops short of full coverage-matching (which would want t=0.27,
+hurting NLL). Inference/eval wiring deferred (one flag reading the JSON).
+
+---
+
+**B2 — amp diagnostic.** New `scripts/b2_amp_diagnostic.py`. Pure analysis on
+test split: variance decomposition + h2oleak comparison + per-class
+breakdown. Decomposes amp per-path R² as `ceiling × R²_bulk` where
+ceiling = SS_between/SS_tot is the highest per-path R² any bulk-only model
+can reach (because the 8 FC paths share an identical input — verified honest
+`pred_amp` per-bulk std = 0.00 exactly).
+
+**amp per-path R² = 0.22 = ceiling 0.67 × R²_bulk 0.32.** Both terms matter.
+
+|phase|presence|within%|ceiling|R²_bulk|R²_path|
+|---|---|---|---|---|---|
+|fl |0.16|0.40|0.60|0.17|0.10|
+|**amp**|**0.33**|**0.33**|**0.67**|**0.32**|**0.22**|
+|liq|0.34|0.31|0.69|0.43|0.30|
+|opx|0.49|0.07|0.93|0.81|0.75|
+|cpx|0.63|0.02|0.98|0.93|0.91|
+|ol |0.30|0.01|0.99|0.98|0.97|
+|q  |0.76|0.00|1.00|0.97|0.97|
+|fsp|0.89|0.02|0.98|0.95|0.93|
+
+The three high-within-bulk phases are exactly the (P, H2O)-sensitive ones:
+amphibole, silicate melt, free fluid. All anhydrous majors have <5%
+within-bulk spread. **amp's low ceiling is amp-specific, not a global corpus
+property.**
+
+**h2o_tot leak contribution.** Honest amp per-path R² 0.216, leaked
+(11-oxide `base_v1_ensemble_h2oleak`) 0.342 (+0.13). The leaked `h2o_tot`
+varied per path so the leaked model could chase within-bulk spread; that
+0.13 is irreducible by honest means (ADR 007).
+
+**Per-class amp R² (honest).** Negative in the amp-rich classes: gabbro
+-1.70, quartz diorite -1.03, foid-bearing diorite -0.88,
+foid-bearing monzodiorite -0.92, diorite -0.64, andesite -0.30. Positive
+only for amp-poor classes (rhyolite +0.36, monzogranite +0.17,
+phonolite +0.17). The headline R²_bulk = 0.32 is buoyed by easy
+near-zero predictions in felsic classes; **in the classes where amp matters,
+the model is genuinely bad — not just metric-artifact bad.**
+
+**Implications for B1 / CompHead.** CompHead predicts per-mineral composition,
+not abundance. It cannot move amp's modal R² at either the per-path or the
+bulk level. amp abundance is hard for two independent reasons: (1) ceiling 0.67
+(33% within-bulk path spread, structurally invisible to a bulk-only model),
+(2) genuine bulk-level difficulty in plutonic mafic-intermediate classes.
+CompHead's value for amp is in predicting amphibole *chemistry* (Mg#, Al, Na),
+which is a separate and worthwhile target — but **B1 should not be pitched as
+"fixes amp"**.
+
+Plots: `data/diagnostics/b2_amp/{phase_variance_ceilings, amp_parity,
+amp_per_class_r2}.png`.
+
+---
+
+**Next.**
+- Update MODEL.md "Calibration is loose" bullet with the PIT reframing.
+- B1+B8 require full FC re-run; cost ≈ 31 h + the leak workaround; needs
+  user buy-in before starting.
+- B3 (modal-haze / Dirichlet sparsity) is the remaining Tier-1 item not
+  blocked on a corpus regen; it's a ModeHead change + retrain.
+- Inference wiring for the calibration JSON: one flag in 06_eval / the
+  notebook reads it and adds `t_axis` to `cond_log_sigmas`.

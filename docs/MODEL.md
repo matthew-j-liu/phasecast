@@ -210,10 +210,24 @@ ol 0.97, opx 0.75.
 
 ## Known limitations
 
-- **Calibration is loose.** 1-sigma coverage should be ~0.68; T and H2O sit
-  higher (underconfident -- predicted sigma too wide), P lower (slightly
-  overconfident). Post-hoc temperature scaling on the GMM sigma is a cheap
-  fix if needed.
+- **Calibration: T was loose, P and H2O were already close** (corrected
+  reading -- the Gaussian-`mean +/- sqrt(var)` coverage 0.88/0.64/0.76 used
+  in the headline overstates miscalibration for a mixture predictive). The
+  proper diagnostic is the PIT (predictive CDF at the target; uniform if
+  calibrated). PIT central-68 coverage on test is **T 0.81 / P 0.62 / H2O
+  0.71**; PIT KS vs uniform is **0.17 / 0.05 / 0.11**. Only T is materially
+  miscalibrated (clean dome PIT -- predictive too wide). Post-hoc temperature
+  scaling per Guo et al. 2017 (sigma-scaling regression variant -- multiply
+  each component sigma by `exp(t_axis)`) is implemented in
+  `scripts/07_calibrate.py`; adopted temperatures
+  `T=0.655, P=0.943, H2O=0.932` shrink T's PIT KS to 0.12 with NLL gain;
+  P and H2O scaling is near a no-op (their PIT lumpiness is largely an
+  artifact of evaluating a continuous CDF on the discrete sampled targets --
+  P takes 4 values per bulk, H2O takes 2). Calibration artifact at
+  `checkpoints/base_v1_ensemble/calibration_v1.json`; PIT histograms at
+  `data/diagnostics/calibration/pit_hist_v1.png`. Inference/eval wiring (one
+  flag that loads the JSON and adds `t_axis` to `cond_log_sigmas`) is
+  deferred.
 - **Hydrous-phase modal accuracy is weak.** amp, bi, mu, fl regressed when
   `h2o_tot` was dropped to fix the H2O leak -- that column was also a genuine
   predictor for water-dependent phases. v1.1 Option C restores the legitimate

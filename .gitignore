@@ -12,6 +12,7 @@ data/T_FC_end_cache/
 data/fc_corpus_cache/
 data/fc_corpus_cache_legacy/
 data/optuna/
+data/diagnostics/
 
 # Models
 checkpoints/
