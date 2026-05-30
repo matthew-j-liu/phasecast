@@ -93,6 +93,7 @@ class BaseModelV1(nn.Module):
         mode_hidden: list[int] | None = None,
         cond_hidden: list[int] | None = None,
         alpha_floor: float = 1e-3,
+        pretrain_init: str | None = None,
     ) -> None:
         super().__init__()
         self.n_minerals = n_minerals
@@ -117,6 +118,12 @@ class BaseModelV1(nn.Module):
             n_axes=3,
             hidden=cond_hidden,
         )
+        if pretrain_init is not None:
+            # SSL-pretrained encoder weights (v2). Checkpoint is the dict
+            # written by scripts/08_pretrain.py: {"encoder_state_dict": ...}.
+            import torch as _t
+            ck = _t.load(pretrain_init, map_location="cpu", weights_only=False)
+            self.encoder.load_state_dict(ck["encoder_state_dict"])
 
     def forward(self, src: torch.Tensor, frac: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.encoder(src, frac)

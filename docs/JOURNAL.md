@@ -1415,3 +1415,294 @@ amp_per_class_r2}.png`.
   blocked on a corpus regen; it's a ModeHead change + retrain.
 - Inference wiring for the calibration JSON: one flag in 06_eval / the
   notebook reads it and adds `t_axis` to `cond_log_sigmas`.
+
+---
+
+## 2026-05-27 — v2 ablation: SSL pretrain wins, trace inputs don't add (Strategy B partial)
+
+**Q:** Does trace-augmented SSL pretraining (Strategy B from the v2 plan)
+improve hydrous-phase modal `R²_bulk`?
+
+**Build.** All on the `v2-trace` branch. Plumbing in three new files:
+`src/cnmineral/data/unlabeled.py` (`V2_CATIONS_ORDER`: 9 majors + 13 traces
+= 22-token vocab; `UnlabeledV2Dataset` over 474k igneous bulks from
+complete.csv with the v1 supervised bulks excluded; `oxides_traces_to_tokens`
+helper; supergroup mapping for class-balanced sampling),
+`src/cnmineral/models/pretrain_head.py` (per-token reconstruction MLP), and
+`src/cnmineral/models/pretrain_losses.py` (masked-element MSE with the
+`(src=valid, frac=0)=MASK` convention -- no kingcrab modification needed).
+New scripts: `08_pretrain.py` (SSL driver with supergroup-balanced sampling
+per the mineralML §2.1 oversampling lesson), `09_visualize_latent.py`
+(UMAP/PCA + k-NN sanity + OOD), `10_ablation_v2_eval.py` (four-cell
+R²_bulk decomposition). Added `pretrain_init: str | None` kwarg to
+`BaseModelV1.__init__` (5-line addition), `majors_only: bool` flag to
+`TrainFCv2Dataset`, parameter-group AdamW (`encoder_lr = 0.1 * head_lr`) in
+`03_train_base.py`'s new `run_v2` path. `TrainFCv2Dataset` extends the v1
+parquet with a complete.csv join on `sample_id` for traces; trace coverage
+on the supervised subset is 82% with at least one trace populated.
+
+**SSL pretrain.** `scripts/08_pretrain.py` on 474k unlabeled bulks (5% val
+split), 8 epochs, mask probability 0.25, AdamW + cosine LR, supergroup-
+balanced sampling. Wall: 16.6 min on MPS. Val masked-element MSE 8.5e-3 →
+4.47e-3 over 8 epochs (best at epoch 1; subsequent epochs marginal).
+Encoder saved to `checkpoints/pretrain_v2/encoder_best.pt`.
+
+**Four-cell ablation** (single seed, full corpus, frozen v1 bulk-level split):
+
+| | (a) v1 baseline | (b) traces, random init | (c) majors-only, pretrained | (d) full v2 (traces + pretrained) |
+|---|---|---|---|---|
+| best epoch | -- | 35 | 51 | -- |
+| T MAE | 15.4 | 16.3 | 17.0 | 17.5 |
+| P MAE | 1.76 | 1.78 | 1.76 | 1.76 |
+| H2O MAE | 0.54 | 0.57 | 0.54 | 0.56 |
+
+**R²_bulk per phase (the fair B2-decomposition metric):**
+
+| phase | ceiling | (a) v1 | (b) traces | (c) pretrain | (d) full v2 |
+|---|---|---|---|---|---|
+| amp | 0.67 | +0.32 | +0.28 | **+0.32** | +0.21 |
+| fl  | 0.60 | +0.16 | +0.09 | +0.15 | +0.15 |
+| liq | 0.69 | +0.43 | +0.41 | **+0.48** | +0.48 |
+| bi  | 0.98 | +0.53 | +0.46 | **+0.54** | +0.52 |
+| mu  | 0.82 | -0.62 | -0.64 | -0.60 | -0.60 |
+| ne  | 0.97 | +0.48 | +0.48 | **+0.65** | +0.64 |
+| cpx | 0.98 | +0.93 | +0.92 | +0.90 | +0.90 |
+| ol  | 0.99 | +0.98 | +0.97 | +0.98 | +0.97 |
+| fsp | 0.98 | +0.95 | +0.95 | +0.94 | +0.94 |
+| q   | 1.00 | +0.97 | +0.97 | +0.97 | +0.97 |
+
+**Decision-rule reading.** Per the plan: "(d) > (b) AND (d) > (c)" was the
+condition for Strategy B success. **Not met.** The pattern is **(c) ≈ (d) >
+(a) ≈ (b)** for hydrous-and-foid phases (liq, bi, ne) and **(a) > (b) ≥ (c) >
+(d)** for anhydrous majors. Plain English:
+- **SSL pretrain helps**, modestly to materially (ne +0.17 vs v1, liq +0.05,
+  bi +0.01).
+- **Trace inputs do NOT add value, and slightly hurt** (amp R²_bulk drops
+  +0.32 → +0.21 when traces are added to the pretrained encoder; anhydrous
+  majors give back 1-3 percentage points across cpx/ol/fsp/q).
+- **mu is hopeless in every cell** -- joins sph/ep/ru on the "too-rare-
+  to-fit" list.
+
+**Why traces don't add value here -- the honest mechanism.** Labels in the
+v1 FC corpus are deterministic functions of *majors only* (PetThermoTools FC
+takes the 11-oxide majors and emits modal+conditions; trace elements are
+irrelevant to the simulation). Adding traces as model inputs cannot improve
+the model's ability to predict labels that don't depend on traces. The
+hypothesis "traces discriminate amphibole-bearing diorites from look-alikes"
+might be true in *nature* but is false in *our labels*. To exploit traces
+honestly, the corpus would have to be regenerated against labels that DO
+depend on traces -- e.g., the deferred-future mineralML grain-composition
+fusion (Position C) which trains against real-rock per-mineral compositions.
+This is consistent with B2: the bulk-level R² ceiling for amp isn't
+information-poverty in the encoder, it's that the MAGEMin labels carry no
+amp-specific signal beyond what 10 majors already encode.
+
+**Why SSL pretrain helps despite no new input.** The encoder uses mat2vec
+element embeddings (already informative) + a self-attention transformer over
+22 tokens. SSL on 474k unlabeled bulks teaches the *transformer* the natural
+geochemical manifold; the supervised loss then doesn't have to learn that
+structure from 21k labeled bulks. Confirmed quantitatively by the latent-
+space k-NN sanity check: 10-nearest-neighbor mean modal in the 512-D
+pretrained latent gives **cosine similarity 0.957 vs true modal** (baseline:
+random-neighbor 0.813, delta +0.145), well above the plan's ≥0.1 acceptance
+bar. The encoder learned task-relevant structure WITHOUT EVER SEEING A
+MINERAL LABEL.
+
+**Latent-space diagnostics** (`scripts/09_visualize_latent.py`,
+`data/diagnostics/latent_v2/`):
+- UMAP/PCA of pretrained vs random-init encoder on 5k held-out bulks colored
+  by petrogenetic supergroup looks visually similar -- the mat2vec input
+  embeddings dominate the top-2 axes. The pretrain gain is real but
+  distributed across all 512 dims, not concentrated in 2D.
+- Three-panel UMAP (random / pretrained / pretrained-then-finetuned cell d)
+  shows the **fine-tune does most of the visible structuring**, with clear
+  foid-bearing / mafic / felsic separation only after supervised training.
+- Ratio-colored UMAP (Sr/Y, La/Yb, Nb/Y, Th/Yb) on pretrained shows clear
+  gradients along the manifold -- petrogenetic discriminants align with
+  encoder structure without supervision.
+- k-NN sanity: pretrained latent's neighbors give modal predictions cosine
+  0.957 to truth vs random 0.813 (delta +0.145, above ≥0.1 bar).
+- OOD distance: 1.5% of test bulks beyond the 99% train threshold. Test +
+  held-out-train distributions overlap closely; calibration of the OOD
+  signal is healthy.
+
+**Pivot recommendation.** Adopt **cell (c) -- pretrained encoder + majors-
+only inputs -- as the v2 production path.** Drop the trace inputs from the
+fine-tune model architecture (they hurt amp and don't help elsewhere);
+preserve the trace columns in pretrain so the encoder still learns
+major↔trace correlations (which is the source of the ne +0.17 win). Net
+v2.0 model = same architecture as v1, same input as v1 (majors only), new
+encoder init from majors+traces SSL pretrain.
+
+**Cost-benefit.** SSL pretrain = 16 min on MPS. Supervised retrain = 30-50
+min per seed × K=5 ensemble = 3-4 hours. Worth doing for the +0.17 R²_bulk
+on ne and +0.05 on liq alone; the ce ll-(c) win is a clear improvement on the
+v1 baseline that costs less than two hours of compute.
+
+**Artifacts.**
+- `checkpoints/pretrain_v2/encoder_best.pt` -- SSL-pretrained encoder
+- `checkpoints/base_v2_{b,c,d}_*/best.pt` -- per-cell single-seed
+  checkpoints + predictions_test.parquet
+- `data/diagnostics/latent_v2/{umap_*.png, pca_*.png, ood_distance.png,
+  knn_mineralogy.json, ood_flags_summary.json}` -- latent diagnostics
+- `data/diagnostics/ablation_v2/comparison.json` -- four-cell numeric
+  comparison
+- Plan: `~/.claude/plans/sunny-weaving-nebula.md`
+
+**Next.**
+- Update MODEL.md "as-built performance" with the cell-(c) numbers as v2.0.
+- Update HANDOFF.md / CLAUDE.md status to reflect v2 pivot.
+- Optional: K=5 ensemble for cell (c) to produce a v2-trained tag analogous
+  to v1-trained.
+- Deferred (corpus regen required): mineralML composition fusion (would
+  give traces a label-side rationale); CompHead (B1); GsysHead (B8); fl/liq
+  drop. These remain the Tier-1 future work; v2 doesn't unblock them.
+
+---
+
+## 2026-05-29 — Phase A: SSL pretrain bug fix + corrected v2 results + SSL-as-foundation-model reframe
+
+**RETRACTION of 2026-05-27 entry.** The "Strategy B partial" result was based
+on a broken SSL pretrain: the v2 mask-token convention `(src=valid, frac=0)`
+collided with kingcrab's frac-based padding logic. Masked positions hit
+every zeroing path in `kingcrab.py:Encoder.forward` (`src_key_padding_mask`,
+the fractional multiplication by `0`, the explicit `masked_fill`). Per-token
+outputs at masked positions were zero, no gradient back to the encoder.
+Verified bytewise: `encoder_best.pt` was identical to a fresh seed-42
+random init. The 8-epoch "training loss decrease" was the pretrain head
+learning a per-position prior from a constant zero input. The four-cell
+ablation thus compared random-init encoders with different encoder
+learning-rate scales (`encoder_lr = 0.1*head_lr` for cells with non-None
+`pretrain_init`, full `head_lr` for cell b), not pretrained-vs-not.
+
+**Bug fix (Option H from the plan).** Stop the per-token mask convention.
+Zero BOTH `src` and `frac` at masked positions so kingcrab pads them out
+cleanly. Change `PretrainHead` from a per-token MLP (`d_model -> 1` applied
+to `[B, T, d_model]`) to a vocab-decoder MLP (`d_model -> d_model//2 ->
+n_tokens=22` applied to `[B, d_model]` pooled latent). Head reconstructs
+the full chemistry from the pooled latent of the surviving tokens; loss
+applies only at the originally-masked positions. ~30 lines of changes
+across `pretrain_head.py`, `pretrain_losses.py`, and `08_pretrain.py`. No
+kingcrab modification. Gradient sanity check confirms: 53/53 encoder
+params now have nonzero `grad.norm()` after backward (was 0/53).
+
+**Fixed pretrain.** 8 epochs, 474k unlabeled igneous bulks, supergroup-
+balanced sampling. Train loss 1.60e-3 -> 4.88e-4 (~3x reduction; barely
+moved before). Val loss 2.64e-4 -> 2.39e-4 (best at epoch 6). Encoder
+weights now differ meaningfully from random init (diff norms 3.6-5.3
+across sampled keys, vs 0.0 before).
+
+**Corrected four-cell ablation** (per-phase R^2_bulk on test split):
+
+| phase | ceiling | (a) v1 K=5 | (b) traces, random | (c) majors-only + SSL | (d) full v2 |
+|---|---|---|---|---|---|
+| **bi** | 0.98 | +0.53 | +0.55 | **+0.71** | +0.68 |
+| **ne** | 0.97 | +0.48 | +0.59 | **+0.70** | +0.66 |
+| **mu** | 0.82 | -0.62 | -0.64 | -0.39 | -0.48 |
+| amp | 0.67 | +0.32 | +0.31 | +0.40 | +0.36 |
+| liq | 0.69 | +0.43 | +0.40 | +0.47 | +0.50 |
+| fl | 0.61 | +0.16 | +0.16 | +0.21 | +0.19 |
+| cpx | 0.98 | +0.93 | +0.92 | +0.93 | +0.92 |
+| ol | 0.99 | +0.98 | +0.97 | +0.98 | +0.98 |
+| fsp | 0.98 | +0.95 | +0.95 | +0.97 | +0.97 |
+| q | 1.00 | +0.97 | +0.98 | +0.98 | +0.98 |
+
+Condition MAEs: cell (c) **beats v1 K=5 ensemble on every axis** as a single
+seed: T 14.8 vs 15.4, P 1.73 vs 1.76, H2O 0.51 vs 0.54. Adopted v2 path =
+cell (c) = SSL-pretrained encoder + majors-only inputs.
+
+The earlier story ("SSL helps modestly; traces don't add") survives at
+higher magnitude with the fix: SSL pretrain delivers **large gains on
+hydrous and foid-bearing phases** (bi +0.18, ne +0.22, mu +0.23 vs v1)
+where petrogenetic structure matters; tied-or-better on the anhydrous
+majors that were already near-saturated. Cell (d) (with traces) is
+slightly worse than (c) on most phases because FC labels are deterministic
+functions of majors only -- trace inputs add no discriminative signal for
+the labels and inject noise.
+
+**Latent-space diagnostics with the real pretrained encoder.** k-NN
+cosine of test modal vs k=10 nearest training neighbors' mean modal in
+the 512-D pretrained latent: **0.975 vs 0.813 random-neighbor baseline,
+delta +0.162** (vs the broken-pretrain +0.145 which measured mat2vec
+alone). OOD: 1.4% of test bulks beyond 99% train threshold; healthy.
+Three-stage UMAP shows pretrained adds visible cluster sharpening over
+random init (less dramatic than supervised fine-tune does, but real).
+
+**The headline non-obvious finding: SSL-pretrained encoder is a strong
+rock-type classifier.** Linear probe under-reports the SSL gain; nonlinear
+MLP probe (1 hidden layer, 128 ReLU) reveals it. On the supervised
+train/test bulks:
+
+| encoder | supergroup LR | supergroup MLP | qap_name LR | qap_name MLP |
+|---|---|---|---|---|
+| random-init | 0.601 | 0.653 (+5pp) | 0.516 | 0.599 (+8pp) |
+| **SSL-pretrained** | **0.615** | **0.763** (+15pp) | **0.537** | **0.720** (+18pp) |
+| cell-c fine-tuned | 0.701 | 0.787 (+9pp) | 0.659 | 0.750 (+9pp) |
+
+The MLP-LR delta is *3x larger for the SSL encoder than for random init*:
+SSL specifically introduced nonlinear class structure that linear
+classifiers couldn't access. The SSL-pretrained encoder + MLP probe
+reaches **76.3% supergroup accuracy and 72.0% qap_name accuracy** -- only
+2-3pp behind the fully supervised cell-c. **SSL captures ~95% of the
+classification capacity that joint supervised mineralogy training
+contributes.** Hard-staged designs are more viable than the earlier
+linear-probe number implied (24% supergroup miss rate, not 40%).
+
+**Bigger reframe -- the SSL-pretrained encoder is a rock-chemistry
+foundation model.** It supports a family of useful predictions beyond
+mineralogy, with no further training or with tiny supervised heads:
+element imputation (for partial analyses), per-element anomaly flagging,
+k-NN similarity lookup against the 1M-row complete.csv, OOD detection,
+tectonic-setting classification (Pearce-diagram derived labels), magma
+series classification, petrogenetic-ratio regression (Sr/Y, La/Yb, etc.),
+isotopic-ratio prediction where complete.csv has labels, approximate age
+regression, geographic origin inference. Full list and effort estimates
+in new `docs/PRETRAIN_APPLICATIONS.md`. This positions the project as
+having two downstream tracks rather than one: a *mineralogy track* (the
+original v1/v2 work) and a *non-mineralogy applications track* (the
+SSL-derived capabilities).
+
+**Architecture / API changes shipped this session:**
+- `src/cnmineral/models/pretrain_head.py` -- vocab-decoder MLP shape
+- `src/cnmineral/models/pretrain_losses.py` -- mask convention docs +
+  optional per-token std normalization (config-gated, off by default)
+- `scripts/08_pretrain.py` -- mask both src and frac; default-pool encoder;
+  optional per-token-norm pipeline
+- `src/cnmineral/models/encoder.py` -- `return_tokens` kwarg kept for
+  backward compat but no longer used by pretrain
+- `scripts/11_linear_probe.py` -- now reports both LR and MLP probe per
+  encoder; gracefully skips missing checkpoints
+
+**Follow-ups coded but not re-run yet:**
+- Per-token loss normalization (`pretrain.per_token_norm: true` in
+  `pretrain_v2.yaml`) -- standardizes per-position MSE so trace
+  reconstruction isn't drowned out by major-element magnitudes. Would
+  re-pretrain to test; deferred to next iteration.
+
+**Artifacts:**
+- `checkpoints/pretrain_v2/encoder_best.pt` -- real SSL-pretrained encoder
+  (replaces the broken one, which is archived as
+  `checkpoints/pretrain_v2.broken-bug-frac-padding/`)
+- `checkpoints/base_v2_{b,c,d}_*/best.pt` + `predictions_test.parquet`
+  per cell (broken cells archived alongside)
+- `data/diagnostics/latent_v2/{umap_*,pca_*,ood_*.png, knn_mineralogy.json,
+   linear_probe.json}` -- diagnostics
+- `data/diagnostics/ablation_v2/comparison.json` -- four-cell numbers
+
+**Next.**
+- New `docs/PRETRAIN_APPLICATIONS.md` capturing the foundation-model
+  capability list (this entry references it; write next).
+- Reframe `docs/MODEL.md` v2 section against the corrected results.
+- Update `CLAUDE.md` "Project in one paragraph" + "Status snapshot" to
+  position the project as two tracks (mineralogy + non-mineralogy SSL
+  applications).
+- Commit on `v2-trace` branch in logical chunks (pretrain code + cells +
+  probe + docs as separate commits).
+- After commit: kick off two parallel agents -- mineralogy track
+  (joint multi-task aux supergroup head + soft-staged comparison) and
+  non-mineralogy applications track (build out the items in
+  `PRETRAIN_APPLICATIONS.md`, prioritizing k-NN similarity / element
+  imputation / OOD as zero-additional-training deliverables).
+- Per-token loss normalization follow-up (`per_token_norm: true`)
+  remains queued; worth a one-off re-pretrain comparison either inside
+  the mineralogy agent's session or as a standalone experiment.

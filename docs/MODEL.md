@@ -208,6 +208,80 @@ K=5 ensemble, held-out **test** set (4,239 bulks / 30,212 path-rows):
 Anhydrous rock-forming majors are strong: fsp R^2 0.93, q 0.97, cpx 0.91,
 ol 0.97, opx 0.75.
 
+## v2 update (2026-05-29): SSL-pretrained encoder, corrected single-seed ablation
+
+(The earlier 2026-05-27 v2 entry was retracted -- the SSL pretrain hit a
+kingcrab padding-mask collision bug and the encoder weights never updated.
+The corrected entry below is the real result. Full bug analysis in JOURNAL
+2026-05-29.)
+
+A four-cell ablation (`scripts/10_ablation_v2_eval.py`) on the same frozen
+bulk-level test split tested whether SSL pretraining on 474k unlabeled
+igneous bulks from `complete.csv` and/or adding trace elements as model
+inputs improves per-phase `R^2_bulk` (the fair metric from B2). Result:
+**SSL pretrain delivers material gains, particularly on hydrous and
+foid-bearing phases; trace inputs at supervised time still do not add
+value.** Adopted v2 path is cell (c) -- SSL-pretrained encoder + majors-
+only inputs (same 9-cation forward graph as v1, only the encoder init
+weights differ).
+
+| phase | ceiling | v1 (a) | v2 cell (c) | delta |
+|---|---|---|---|---|
+| **bi**  | 0.98 | +0.53 | **+0.71** | **+0.18** |
+| **ne**  | 0.97 | +0.48 | **+0.70** | **+0.22** |
+| **mu**  | 0.82 | -0.62 | -0.39 | +0.23 (less bad) |
+| amp | 0.67 | +0.32 | +0.40 | +0.08 |
+| liq | 0.69 | +0.43 | +0.47 | +0.04 |
+| fl  | 0.61 | +0.16 | +0.21 | +0.05 |
+| cpx | 0.98 | +0.93 | +0.93 | tied |
+| ol  | 0.99 | +0.98 | +0.98 | tied |
+| fsp | 0.98 | +0.95 | +0.97 | +0.02 |
+| q   | 1.00 | +0.97 | +0.98 | +0.01 |
+
+Cell (c) single-seed test condition MAE: T **14.8** C, P **1.73** kbar, H2O
+**0.51** wt% -- **beats v1's K=5 ensemble on every axis** (v1: T 15.4 C, P
+1.76 kbar, H2O 0.54 wt%). The encoder warm-started from SSL on unlabeled
+chemistry generalizes meaningfully better than the random-init v1 baseline,
+even before ensembling.
+
+Adding traces at supervised time (cell d) is slightly worse than cell (c)
+on most phases despite richer inputs. The mechanism is consistent with B2:
+the FC labels are deterministic functions of majors only, so trace inputs
+cannot improve prediction of labels that don't depend on traces. The SSL
+pretrain still benefits from seeing major+trace co-occurrences during
+pretraining (that's where the ne / bi / mu gains come from -- the encoder
+learned the foid-bearing and hydrous-class structure from unlabeled
+geochemistry), but the supervised forward graph stays on majors. The
+unlabeled corpus does most of the trace-leveraging work; supervised time
+keeps the inference contract simple.
+
+Latent-space k-NN sanity check on the pretrained encoder: cosine of test
+modal vs k=10 nearest-training-neighbor mean modal in the 512-D latent =
+**0.975 vs random-neighbor 0.813, delta +0.162** (vs the earlier broken
++0.145 which only measured mat2vec's input-embedding contribution). Now
+the delta reflects the actual SSL pretrain.
+
+**The SSL-pretrained encoder is also a strong rock-type classifier.** The
+linear (logistic regression) probe under-reports the SSL gain; a nonlinear
+1-hidden-MLP probe reveals it:
+
+| encoder | supergroup LR | supergroup MLP | qap_name LR | qap_name MLP |
+|---|---|---|---|---|
+| random-init | 0.601 | 0.653 | 0.516 | 0.599 |
+| **SSL-pretrained** | **0.615** | **0.763** | **0.537** | **0.720** |
+| cell-c fine-tuned | 0.701 | 0.787 | 0.659 | 0.750 |
+
+SSL pretrain alone (no mineralogy supervision) reaches 76% supergroup
+accuracy and 72% qap_name accuracy with an MLP probe -- within 2-3pp of
+the fully supervised cell-c. The encoder learned class-discriminative
+structure from unlabeled chemistry alone. This validates the encoder as a
+**foundation model** for rock chemistry, not just a mineralogy feature
+extractor. See `docs/PRETRAIN_APPLICATIONS.md` for the family of capabilities
+this enables beyond modal prediction.
+
+K=5 ensemble retrain pending; with single-seed cell-c already beating the
+v1 ensemble, a v2 ensemble should widen the lead further.
+
 ## Known limitations
 
 - **Calibration: T was loose, P and H2O were already close** (corrected

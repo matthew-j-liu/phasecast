@@ -59,7 +59,9 @@ class Encoder(nn.Module):
             dropout=dropout,
         )
 
-    def forward(self, src: torch.Tensor, frac: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, src: torch.Tensor, frac: torch.Tensor, return_tokens: bool = False,
+    ) -> torch.Tensor:
         """Encode + mask-mean pool.
 
         Parameters
@@ -69,14 +71,20 @@ class Encoder(nn.Module):
         frac : FloatTensor [B, T]
             Cation mass fractions in same order as `src` (already / 100 by the
             dataset to match kingcrab's [0, 1] expectation).
+        return_tokens : bool
+            If False (default, backward-compatible), return the pooled latent
+            [B, d_model]. If True, return the pre-pool per-token output
+            [B, T, d_model] with padding positions zeroed — used by the SSL
+            pretraining head for per-token reconstruction.
 
         Returns
         -------
-        FloatTensor [B, d_model]
-            Pooled latent.
+        FloatTensor [B, d_model] if return_tokens=False, else [B, T, d_model].
         """
         h = self.encoder(src, frac)
         pad_mask = (src == 0).unsqueeze(-1)
         h = h.masked_fill(pad_mask, 0.0)
+        if return_tokens:
+            return h
         n_real = (~pad_mask).sum(dim=1).clamp(min=1).to(h.dtype)
         return h.sum(dim=1) / n_real

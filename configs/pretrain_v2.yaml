@@ -1,0 +1,50 @@
+# SSL pretrain config (v2). Masked-element modeling on the 22-token V2 vocab.
+
+data:
+  complete_csv_path: data/complete.csv
+  # Bulks to exclude from the unlabeled corpus to avoid label-snooping.
+  # Loads the union of train + val + test + dropped_class sample_ids from
+  # the v1 splits manifest. Set to null to disable (lenient policy).
+  splits_path_for_exclusion: data/splits_v1.json
+  val_frac: 0.05
+  min_sum: 80.0
+  max_sum: 120.0
+  num_workers: 0
+
+# Encoder dims match the v1 supervised model so the pretrained weights drop
+# straight into BaseModelV1.encoder without shape adapters.
+encoder:
+  d_model: 512
+  N: 4
+  heads: 16
+  dropout: 0.1
+  elem_prop: mat2vec
+
+pretrain_head:
+  hidden: 256       # d_model // 2
+  dropout: 0.1
+
+pretrain:
+  mask_p: 0.25
+  batch_size: 512
+  epochs: 8
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  grad_clip: 1.0
+  cosine_eta_min: 1.0e-6
+  seed: 42
+  # When true, scale per-token MSE by 1/std(frac) per position so traces
+  # (frac ~1e-6) contribute proportionally vs majors (frac ~0.24). Off by
+  # default so existing runs reproduce; flip to true for follow-up 1.
+  per_token_norm: false
+
+sampling:
+  # Per "Lessons lifted from mineralML" in the plan: weight the random sampler
+  # by 1/supergroup_count so basalt-dominated complete.csv doesn't drown out
+  # rare classes (ultramafic 1.3%, foid-bearing 9%).
+  supergroup_balanced: true
+
+output:
+  checkpoint_dir: checkpoints/pretrain_v2
+  metrics_log: checkpoints/pretrain_v2/metrics.jsonl
+  progress_bar: true

@@ -281,3 +281,170 @@ class TrainFCv1Dataset(Dataset):
             "y_cond_z": torch.from_numpy(self._y_cond_z[idx]),
             "qap_name": str(self._qap_names[idx]),
         }
+
+
+class TrainFCv2Dataset(Dataset):
+    """v2 supervised dataset: v1 corpus joined to complete.csv for trace inputs.
+
+    Same modal + condition supervision as `TrainFCv1Dataset` (18 phases,
+    3-axis z-scored conditions). Different INPUTS only: emits the 22-token
+    v2 vocabulary (9 majors + 13 traces) instead of v1's 9-token majors-only.
+
+    Trace coverage on the corpus subset is partial (Sr 76% / Zr 73% / Ba 72%
+    / etc., 31% have all 8 high-coverage traces). Absent traces emit padding
+    tokens (`src=0, frac=0`); the kingcrab Encoder's masked-mean pool already
+    handles this via the `src == 0` convention.
+
+    Parameters
+    ----------
+    parquet_path : str | Path
+        v1 FC corpus parquet (data/train_fc_v1.parquet).
+    complete_csv_path : str | Path
+        complete.csv for the trace join.
+    liq_threshold : float
+        Same as v1.
+    sample_id_filter : array-like[int] | None
+        Same as v1.
+    cond_norm : (mean, std) | None
+        Same as v1.
+
+    Attributes mirror `TrainFCv1Dataset` for compatibility with the existing
+    training/eval loops; the only behavioral difference is per-sample shape:
+    `src` and `frac` are `[22]` instead of `[9]`.
+    """
+
+    def __init__(
+        self,
+        parquet_path: str | Path,
+        complete_csv_path: str | Path,
+        liq_threshold: float = 0.10,
+        sample_id_filter: np.ndarray | list[int] | None = None,
+        cond_norm: tuple[np.ndarray, np.ndarray] | None = None,
+        majors_only: bool = False,
+    ) -> None:
+        # Lazy import: avoid a circular import (unlabeled imports OXIDE_TO_CATION
+        # from this module at top-level).
+        from cnmineral.data.unlabeled import (
+            V2_N_TOKENS, V2_TRACES_ORDER, V2_TRACE_PPM_COLS,
+            _combine_fe, oxides_traces_to_tokens,
+        )
+
+        parquet_path = Path(parquet_path)
+        df = pd.read_parquet(parquet_path)
+        df = df[df["fc_status"] == "ok"]
+        df = df[df["liq"] <= liq_threshold].reset_index(drop=True)
+        if sample_id_filter is not None:
+            keep = pd.Series(sample_id_filter).unique()
+            df = df[df["sample_id"].isin(keep)].reset_index(drop=True)
+        if len(df) == 0:
+            raise ValueError(f"No rows survived filtering in {parquet_path}")
+
+        phase_names = [c for c in df.columns if c not in V1_META_COLS]
+        if len(phase_names) == 0:
+            raise ValueError("No phase columns discovered; check column lists")
+
+        # Trace join: one fetch from complete.csv keyed on sample_id. complete.csv
+        # is ~790 MB but we only read sample_id + 13 ppm columns, ~tens of MB.
+        complete_csv_path = Path(complete_csv_path)
+        trace_use = ["sample_id"] + V2_TRACE_PPM_COLS
+        trace_use_set = set(trace_use)
+        traces_full = pd.read_csv(
+            complete_csv_path,
+            encoding="latin-1",
+            low_memory=False,
+            usecols=lambda c: c.lower() in trace_use_set,
+        )
+        traces_full.columns = [c.lower() for c in traces_full.columns]
+        # complete.csv has duplicates on sample_id (multiple analyses of same
+        # rock); take the first row per sample_id deterministically.
+        traces_full = traces_full.drop_duplicates(subset=["sample_id"], keep="first")
+        traces_lookup = traces_full.set_index("sample_id")
+
+        # Build per-row (src [22], frac [22]). Majors come from the parquet's
+        # own oxide columns (fe_provenance-adjusted FeO + Fe2O3 already split);
+        # combine to total-Fe-as-FeO for the v2 helper's single-Fe convention.
+        n = len(df)
+        srcs = np.zeros((n, V2_N_TOKENS), dtype=np.int64)
+        fracs = np.zeros((n, V2_N_TOKENS), dtype=np.float32)
+        trace_present_count = 0
+        for i in range(n):
+            row = df.iloc[i]
+            fe_eq = _combine_fe(row.to_dict())
+            majors = {
+                "sio2": float(row["sio2"]), "al2o3": float(row["al2o3"]),
+                "cao": float(row["cao"]), "mgo": float(row["mgo"]),
+                "feo": fe_eq, "fe2o3": 0.0,
+                "k2o": float(row["k2o"]), "na2o": float(row["na2o"]),
+                "tio2": float(row["tio2"]), "cr2o3": float(row["cr2o3"]),
+            }
+            sid = int(row["sample_id"])
+            if sid in traces_lookup.index:
+                trace_row = traces_lookup.loc[sid]
+                traces_ppm = {sym.lower(): trace_row.get(f"{sym.lower()}_ppm")
+                              for sym, _z in V2_TRACES_ORDER}
+                if any(v is not None and not pd.isna(v) and float(v) > 0
+                       for v in traces_ppm.values()):
+                    trace_present_count += 1
+            else:
+                traces_ppm = None
+            src, frac = oxides_traces_to_tokens(majors, traces_ppm)
+            srcs[i] = src
+            fracs[i] = frac
+
+        y_modal = df[phase_names].to_numpy(dtype=np.float32)
+        y_cond_raw = df[list(V1_COND_COLS)].to_numpy(dtype=np.float32)
+        if cond_norm is None:
+            cond_mean = y_cond_raw.mean(axis=0).astype(np.float32)
+            cond_std = y_cond_raw.std(axis=0).astype(np.float32)
+            cond_std = np.maximum(cond_std, 1e-6)
+        else:
+            cond_mean, cond_std = cond_norm
+            cond_mean = np.asarray(cond_mean, dtype=np.float32)
+            cond_std = np.asarray(cond_std, dtype=np.float32)
+        y_cond_z = ((y_cond_raw - cond_mean) / cond_std).astype(np.float32)
+
+        if majors_only:
+            # Ablation cell (c): pretrained init evaluated on majors-only
+            # input. Zero out the trace token slots so the encoder sees only
+            # the 9 major tokens (kingcrab padding via src=0). The pretrained
+            # encoder still benefits from having learned major<->trace
+            # correlations during pretrain, even though it sees only majors at
+            # supervised time.
+            from cnmineral.data.unlabeled import V2_MAJORS_ORDER
+            n_maj = len(V2_MAJORS_ORDER)
+            srcs[:, n_maj:] = 0
+            fracs[:, n_maj:] = 0.0
+
+        self._src = srcs
+        self._frac = fracs
+        self._y_modal = y_modal
+        self._y_cond_z = y_cond_z
+        self._y_cond_raw = y_cond_raw
+        self._qap_names = df["qap_name"].to_numpy(dtype=object)
+        self._sample_ids = df["sample_id"].to_numpy(dtype=np.int64)
+        self._path_idx = df["path_idx"].to_numpy(dtype=np.int64)
+
+        self.n_minerals: int = y_modal.shape[1]
+        self.phase_names: list[str] = phase_names
+        self.qap_names: np.ndarray = self._qap_names
+        self.sample_ids: np.ndarray = self._sample_ids
+        self.path_idx: np.ndarray = self._path_idx
+        self.cond_mean: np.ndarray = cond_mean
+        self.cond_std: np.ndarray = cond_std
+        self.cond_axes: tuple[str, ...] = V1_COND_COLS
+        self.liq_threshold: float = liq_threshold
+        self.parquet_path: Path = parquet_path
+        self.n_tokens: int = V2_N_TOKENS
+        self.trace_coverage: float = trace_present_count / max(n, 1)
+
+    def __len__(self) -> int:
+        return len(self._sample_ids)
+
+    def __getitem__(self, idx: int) -> dict:
+        return {
+            "src":      torch.from_numpy(self._src[idx]),
+            "frac":     torch.from_numpy(self._frac[idx]),
+            "y_modal":  torch.from_numpy(self._y_modal[idx]),
+            "y_cond_z": torch.from_numpy(self._y_cond_z[idx]),
+            "qap_name": str(self._qap_names[idx]),
+        }

@@ -32,7 +32,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from cnmineral.models.dataset import TrainMageminDataset, TrainFCv1Dataset
+from cnmineral.models.dataset import TrainMageminDataset, TrainFCv1Dataset, TrainFCv2Dataset
 from cnmineral.models.losses import mode_loss, joint_loss
 from cnmineral.models.model import BaseModel, BaseModelV1
 from cnmineral.models.training import (
@@ -327,18 +327,222 @@ def run_v1(cfg, args, device):
     print(f"\neval summary -> {eval_path}")
 
 
+def run_v2(cfg, args, device):
+    """v2 supervised: same loss + loop as v1, but TrainFCv2Dataset (22-token
+    vocab) + optional pretrain_init on the encoder + parameter-group lrs.
+    """
+    cfg["data"]["parquet_path"] = REPO_ROOT / cfg["data"]["parquet_path"]
+    cfg["data"]["complete_csv_path"] = REPO_ROOT / cfg["data"]["complete_csv_path"]
+    cfg["output"]["checkpoint_dir"] = REPO_ROOT / cfg["output"]["checkpoint_dir"]
+    cfg["output"]["metrics_log"] = REPO_ROOT / cfg["output"]["metrics_log"]
+    if args.epochs is not None:
+        cfg["training"]["epochs"] = args.epochs
+
+    print(f"\nloading v2 corpus: {cfg['data']['parquet_path']}")
+    sample_id_filter = None
+    if args.limit_bulks is not None:
+        import pandas as pd
+        all_ids = pd.read_parquet(cfg["data"]["parquet_path"], columns=["sample_id"])
+        unique_ids = all_ids["sample_id"].unique()
+        rng = np.random.default_rng(cfg["training"]["seed"])
+        sample_id_filter = rng.choice(unique_ids, size=min(args.limit_bulks, len(unique_ids)),
+                                       replace=False)
+        print(f"  limiting to {len(sample_id_filter)} bulks (~{len(sample_id_filter)*8} rows)")
+
+    dataset = TrainFCv2Dataset(
+        cfg["data"]["parquet_path"],
+        complete_csv_path=cfg["data"]["complete_csv_path"],
+        liq_threshold=cfg["data"]["liq_threshold"],
+        sample_id_filter=sample_id_filter,
+        majors_only=cfg["data"].get("majors_only", False),
+    )
+    print(f"  {len(dataset)} path-rows, {dataset.n_minerals} phases, "
+          f"{dataset.n_tokens} tokens/sample, trace_coverage={dataset.trace_coverage:.3f}")
+    print(f"  cond_mean (T, P, H2O): {dataset.cond_mean}")
+    print(f"  cond_std  (T, P, H2O): {dataset.cond_std}")
+
+    splits_path = REPO_ROOT / cfg["data"].get("splits_path", "data/splits_v1.json")
+    train_loader, val_loader, test_loader, split_info = make_loaders_v1_bulk_split(
+        dataset,
+        val_frac=cfg["data"].get("val_frac", 0.16),
+        test_frac=cfg["data"].get("test_frac", 0.20),
+        min_bulks_per_class=cfg["data"].get("min_bulks_per_class", 25),
+        batch_size=cfg["training"]["batch_size"],
+        seed=cfg["training"]["seed"],
+        num_workers=cfg["data"]["num_workers"],
+        splits_path=str(splits_path),
+    )
+    print(f"  split: train={split_info['n_train_rows']}/{split_info['n_train_bulks']}b  "
+          f"val={split_info['n_val_rows']}/{split_info['n_val_bulks']}b  "
+          f"test={split_info['n_test_rows']}/{split_info['n_test_bulks']}b")
+
+    pretrain_init_cfg = cfg["model"].pop("pretrain_init", None)
+    pretrain_init_path = None
+    if pretrain_init_cfg:
+        pretrain_init_path = REPO_ROOT / pretrain_init_cfg
+        print(f"  pretrain_init: {pretrain_init_path}")
+    else:
+        print("  pretrain_init: (random init)")
+
+    model = BaseModelV1(
+        n_minerals=dataset.n_minerals,
+        **cfg["model"],
+        pretrain_init=str(pretrain_init_path) if pretrain_init_path else None,
+    ).to(device)
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"\nmodel: BaseModelV1(n_minerals={dataset.n_minerals}, K_gmm={cfg['model']['K_gmm']})"
+          f" -- {n_params:,} params")
+
+    # Parameter-group lrs: encoder gets a smaller lr (transfer-learning practice
+    # when starting from a pretrained init). Heads always get the config lr.
+    enc_lr_scale = cfg["training"].get("encoder_lr_scale", 1.0)
+    head_lr = cfg["training"]["lr"]
+    enc_lr = head_lr * (enc_lr_scale if pretrain_init_path else 1.0)
+    param_groups = [
+        {"params": model.encoder.parameters(), "lr": enc_lr, "name": "encoder"},
+        {"params": list(model.mode_head.parameters())
+                   + list(model.cond_head.parameters()),
+         "lr": head_lr, "name": "heads"},
+    ]
+    optimizer = AdamW(param_groups, weight_decay=cfg["training"]["weight_decay"])
+    print(f"  optimizer: AdamW(encoder_lr={enc_lr:.3e}, head_lr={head_lr:.3e})")
+    scheduler = CosineAnnealingLR(optimizer, T_max=cfg["training"]["epochs"],
+                                  eta_min=cfg["training"]["cosine_eta_min"])
+
+    lam = cfg["loss"]["lambda_cond"]
+    eps = cfg["loss"]["eps_smooth"]
+    loss_fn = lambda out, ymod, ycond: joint_loss(out, ymod, ycond,
+                                                  lambda_cond=lam, eps_smooth=eps)
+
+    stopper = EarlyStopping(patience=cfg["training"]["patience"],
+                            min_delta=cfg["training"]["min_delta"])
+    out_dir = cfg["output"]["checkpoint_dir"]
+    out_dir.mkdir(parents=True, exist_ok=True)
+    metrics_path = cfg["output"]["metrics_log"]
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_f = open(metrics_path, "w")
+    meta = {"_meta": {
+        "git_commit": get_git_commit(), "device": str(device),
+        "seed": cfg["training"]["seed"], "n_minerals": dataset.n_minerals,
+        "phase_names": dataset.phase_names, "n_samples": len(dataset),
+        "n_params": n_params, "n_tokens_per_sample": dataset.n_tokens,
+        "trace_coverage": dataset.trace_coverage,
+        "majors_only": cfg["data"].get("majors_only", False),
+        "pretrain_init": str(pretrain_init_path) if pretrain_init_path else None,
+        "encoder_lr": enc_lr, "head_lr": head_lr,
+        "cond_mean": dataset.cond_mean.tolist(),
+        "cond_std": dataset.cond_std.tolist(),
+        "cond_axes": list(dataset.cond_axes),
+        "liq_threshold": dataset.liq_threshold,
+        "limit_bulks": args.limit_bulks,
+        "config": cfg,
+    }}
+    metrics_f.write(json.dumps(meta, default=str) + "\n"); metrics_f.flush()
+
+    t0 = time()
+    progress = bool(cfg["output"].get("progress_bar", True))
+    grad_clip = cfg["training"].get("grad_clip", 1.0)
+    for epoch in range(cfg["training"]["epochs"]):
+        t_epoch = time()
+        tr = train_one_epoch_v1(model, train_loader, optimizer, loss_fn, device,
+                                grad_clip=grad_clip, progress=progress,
+                                desc=f"epoch {epoch:3d} train")
+        va = evaluate_v1(model, val_loader, loss_fn, device,
+                         dataset.cond_mean, dataset.cond_std,
+                         progress=progress, desc=f"epoch {epoch:3d} val")
+        scheduler.step()
+        top_r2 = format_top_k_r2(dataset.phase_names, va["r2_per_phase"],
+                                 va["phase_presence"], k=5)
+        mae = va["cond_mae_raw"]
+        print(f"epoch {epoch:3d}  train={tr['total']:.4f}  val={va['total']:.4f}  "
+              f"dir={va['nll_dir']:+.3f}  gmm={va['nll_gmm']:+.3f}\n"
+              f"           top-5 R2: {top_r2}\n"
+              f"           cond MAE: T={mae[0]:.1f}C  P={mae[1]:.2f}kbar  H2O={mae[2]:.2f}wt%")
+        metrics_f.write(json.dumps({
+            "epoch": epoch, "epoch_wall_s": time() - t_epoch,
+            "train": tr, "val": dict(va),
+            "lr_encoder": optimizer.param_groups[0]["lr"],
+            "lr_heads": optimizer.param_groups[1]["lr"],
+        }) + "\n"); metrics_f.flush()
+        if stopper(epoch, va["total"], model):
+            print(f"\nearly stop at epoch {epoch} (best {stopper.best_epoch})")
+            break
+
+    metrics_f.close()
+    stopper.restore_best(model)
+    ckpt = out_dir / "best.pt"
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "config": cfg, "phase_names": dataset.phase_names,
+        "n_minerals": dataset.n_minerals,
+        "K_gmm": cfg["model"]["K_gmm"],
+        "cond_mean": dataset.cond_mean.tolist(),
+        "cond_std": dataset.cond_std.tolist(),
+        "cond_axes": list(dataset.cond_axes),
+        "liq_threshold": dataset.liq_threshold,
+        "n_tokens": dataset.n_tokens,
+        "majors_only": cfg["data"].get("majors_only", False),
+        "best_epoch": stopper.best_epoch, "best_val_loss": stopper.best_loss,
+    }, ckpt)
+    print(f"\nfinished in {time() - t0:.1f}s. best -> {ckpt}")
+
+    final_test = evaluate_v1(model, test_loader, loss_fn, device,
+                             dataset.cond_mean, dataset.cond_std, progress=False)
+    print(f"\nTEST  total={final_test['total']:.4f}  "
+          f"T_MAE={final_test['cond_mae_raw'][0]:.1f}C  "
+          f"P_MAE={final_test['cond_mae_raw'][1]:.2f}kbar  "
+          f"H2O_MAE={final_test['cond_mae_raw'][2]:.2f}wt%")
+    eval_summary = {
+        "checkpoint": str(ckpt),
+        "best_epoch": stopper.best_epoch,
+        "val_loss_at_best": stopper.best_loss,
+        "test": {k: (v if not hasattr(v, "tolist") else v.tolist())
+                 for k, v in final_test.items()},
+        "phase_names": dataset.phase_names,
+    }
+    with open(out_dir / "eval.json", "w") as f:
+        json.dump(eval_summary, f, indent=2, default=str)
+    print(f"eval summary -> {out_dir / 'eval.json'}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--limit-bulks", type=int, default=None,
-                        help="v1 only: subsample to N unique bulks "
+                        help="v1/v2: subsample to N unique bulks "
                              "(keeps all 8 paths per bulk)")
     parser.add_argument("--epochs", type=int, default=None,
                         help="override config epochs")
+    parser.add_argument("--pretrain-init", type=str, default=None,
+                        help="v2: override model.pretrain_init "
+                             "(pass 'none' to force random init)")
+    parser.add_argument("--majors-only", action="store_true",
+                        help="v2: override data.majors_only=True "
+                             "(ablation cell c)")
+    parser.add_argument("--output-suffix", type=str, default="",
+                        help="appended to output.checkpoint_dir + metrics_log "
+                             "so ablation cells don't overwrite each other")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="override training.seed")
     args = parser.parse_args()
 
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
+
+    if args.pretrain_init is not None:
+        cfg.setdefault("model", {})
+        cfg["model"]["pretrain_init"] = (
+            None if args.pretrain_init.lower() == "none" else args.pretrain_init)
+    if args.majors_only:
+        cfg.setdefault("data", {})
+        cfg["data"]["majors_only"] = True
+    if args.seed is not None:
+        cfg["training"]["seed"] = args.seed
+    if args.output_suffix:
+        cfg["output"]["checkpoint_dir"] = cfg["output"]["checkpoint_dir"] + args.output_suffix
+        cfg["output"]["metrics_log"] = cfg["output"]["metrics_log"].replace(
+            ".jsonl", f"{args.output_suffix}.jsonl")
+
     set_seed(cfg["training"]["seed"])
     device = pick_device()
     print(f"device: {device}")
@@ -349,6 +553,8 @@ def main() -> None:
         run_v0(cfg, args, device)
     elif version == "v1":
         run_v1(cfg, args, device)
+    elif version == "v2":
+        run_v2(cfg, args, device)
     else:
         raise ValueError(f"Unknown model_version: {version}")
 
