@@ -1706,3 +1706,114 @@ SSL-derived capabilities).
 - Per-token loss normalization follow-up (`per_token_norm: true`)
   remains queued; worth a one-off re-pretrain comparison either inside
   the mineralogy agent's session or as a standalone experiment.
+
+## 2026-06-01 -- Design crystallization for fresh-codebase v3 rewrite
+
+**Q.** Before committing to another corpus regen + retrain, can we
+crystallize the value proposition, architecture, training data, and
+implementation plan into a single doc, so a from-scratch rewrite can
+proceed cleanly without re-deriving design choices?
+
+**Context.** Several long sessions of debugging (kingcrab padding-mask
+bug, mass%_Liq scale collision, per-phase composition extraction)
+revealed both the right invariants and the wrong ones. The v3 design
+is now stable enough to write down. The user wants primary ownership
+of the rewrite with agentic help only in specific spots; that requires
+a tight handoff doc.
+
+**Conversational arc this session:**
+
+1. Built `scripts/experiments/visualize_degeneracy.py` and
+   `plot_degeneracy.py` to visualize per-bulk (P, H2O) degeneracy on
+   one real Arc basalt (sample_id=356546). Ran 100 paths, 10x10 grid
+   over (P 1-5 kbar, H2O 2-6 wt%), per-path T_FC_end where liq<5%.
+   Three bug rounds before extraction worked: (a) mass%_Liq is a
+   fraction not a percent, (b) FC-snapshot vs FC-cumulate semantics
+   differ (production uses cumulate via mass_g cumsum), (c) res["All"]
+   uses PTT short codes (Cpx/Plag/Sp) that aren't in _phase_map.py.
+   Documented why production never hit these: it tackled a narrower
+   problem (modal only, pre-computed T) with a cleaner data path.
+
+2. Results: modal CV across paths is 0.03-1.6 (tight for anhydrous
+   majors, blowing up for amp/ol/fl/opx); per-phase composition CV is
+   10-30x tighter than modal CV. Empirical evidence that CompHead's
+   per-path R² ceiling is meaningfully higher than ModeHead's --
+   composition is mostly bulk-controlled, modal is mostly
+   path-controlled.
+
+3. P / H2O sampling argument: T's "rock exists at surface = rock has
+   cooled" is uniquely clean. P has a partial analog
+   (volcanic-vs-plutonic). H2O has no clean per-rock analog (degassing
+   confound). Recommendation: condition the P sampling grid on
+   qap_name volcanic-vs-plutonic; keep H2O on tectonic-class
+   population prior.
+
+4. Value-proposition deep-dive (with the user's own ChatGPT framing
+   as a useful structuring tool). Crystallized one-sentence pitch:
+   "A probabilistic emulator of MAGEMin integrated over geologically
+   plausible formation conditions, with a rock-chemistry foundation-
+   model encoder learned from real bulks, parameterized so real
+   labeled data can replace synthetic labels later without retraining
+   the encoder." Three pieces: marginal not conditional, distribution
+   not point estimate, encoder as foundation model independent of
+   MAGEMin's correctness.
+
+5. UMAP recoloring: added `scripts/09b_latent_chem_axes_and_3d.py`
+   producing `umap_by_chem_axes.png` (SiO2 / Mg# / Na2O+K2O gradients
+   across the SSL latent) and `umap_3d_supergroup.png` (3D UMAP).
+   The chem-axis figure is the headline -- smooth continuous gradients
+   on the SSL latent, showing the encoder organized along
+   differentiation and alkalinity axes without supervision. mineralML's
+   cleaner-looking UMAP is because their loss is supervised
+   classification of discrete mineral species; ours is unsupervised
+   SSL on continuous bulk chemistry. Different signals, both faithful.
+
+6. CompHead parameterization discussion. User proposed flattening
+   ModeHead+CompHead into a single endmember-wt% head. Mass-balance
+   argument is correct but the flattened head has 4x output dim,
+   extreme sparsity, database-coupled basis, and loses interpretability.
+   Refined alternative: keep two heads, parameterize CompHead as
+   per-phase endmember mole fractions (simplex per phase). Physically
+   valid composition by construction. Decision deferred to new pilot
+   test 2b added to the plan (and to memory
+   [[comphead_parameterization_options]]).
+
+**Deliverables this session:**
+
+- `scripts/experiments/visualize_degeneracy.py` + `plot_degeneracy.py`
+  -- 100-path degeneracy viz on one Arc basalt; outputs in
+  `data/diagnostics/degeneracy_viz/`
+- `scripts/09b_latent_chem_axes_and_3d.py` -- continuous-chem-axis
+  recoloring + 3D UMAP; outputs in `data/diagnostics/latent_v2/`
+- `docs/FRESH_START.md` -- the consolidated implementation handoff
+  for the v3 rewrite. Crystallizes value prop, architecture, training
+  data, kingcrab decision, G_sys placement, what to keep vs drop
+- Plan update: pilot 2b added to the v3 corpus regen plan
+  (`~/.claude/plans/sunny-weaving-nebula.md`), gating the regen on an
+  explicit oxide-wt% vs endmember-fraction CompHead decision
+- Memory: `comphead_parameterization_options` capturing the tradeoff
+
+**Crystallized design choices for v3:**
+
+- 22-token input vocab (9 majors + 13 traces); src=0 for absent
+- Encoder: own thin transformer with mat2vec embeddings; drop kingcrab
+- 4-5 heads in parallel: ModeHead (Dirichlet, 18 phases), CompHead
+  (parameterization pending pilot 2b), CondHead (GMM per axis),
+  ClassHead (CE supergroup, auxiliary), optional G_sys (scalar regression,
+  auxiliary; only if corpus regen persists it)
+- SSL pretraining: masked-element modeling, Option H pooled-latent
+  decoder (zero both src and frac at masked positions)
+- Loss: NLL_modal + λ_comp·comp_loss + λ_balance·mass_balance +
+  λ_cond·NLL_cond + (optional) λ_class·CE_class + (optional) λ_gsys·MSE_gsys
+- Padding mask derived from `src == 0` ONLY; masked-for-SSL means
+  BOTH src and frac are zero; the single most important code invariant
+
+**Next.**
+
+- User drives the fresh-codebase implementation; agentic help in
+  specific spots (mat2vec loading, ADR migration, mass-balance loss
+  validation, kingcrab-free encoder verification)
+- Before any corpus regen: execute pilot tests 1, 2, 2b, 3, 4 per the
+  updated plan; decide oxide-wt% vs endmember-fraction CompHead
+- Skipped from v3 first pass: TracePartitionHead, ALIGNN, polymorph
+  head, fO2 sweep. All deferred to v4+.

@@ -7,6 +7,14 @@ see `JOURNAL.md`.
 
 As-built as of the `v1-trained` tag (2026-05-22).
 
+> **Direction forward (2026-06-01):** v1 (this doc) and v2 (SSL pretrain +
+> traces, see JOURNAL 2026-05-29) are stable reference points. The next
+> direction is a fresh-codebase v3 rewrite that adds CompHead, ClassHead,
+> optional G_sys head, and uses the SSL-pretrained encoder as the durable
+> substrate. The crystallized design and implementation handoff is in
+> `docs/FRESH_START.md`. This MODEL.md document remains the reference for
+> the v1 / v2 trained checkpoints; do not edit it to describe v3.
+
 ## What the model does
 
 One forward pass takes a whole-rock bulk chemistry and returns, jointly:
