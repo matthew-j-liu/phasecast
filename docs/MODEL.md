@@ -1,4 +1,4 @@
-# v1 model: how it works
+# v1 / v2 model reference (historical)
 
 Living reference for the CrabNet-Mineral v1 model. Explains the architecture
 in plain terms; updated in place as the model evolves. For *why* each choice
@@ -7,13 +7,14 @@ see `JOURNAL.md`.
 
 As-built as of the `v1-trained` tag (2026-05-22).
 
-> **Direction forward (2026-06-01):** v1 (this doc) and v2 (SSL pretrain +
-> traces, see JOURNAL 2026-05-29) are stable reference points. The next
-> direction is a fresh-codebase v3 rewrite that adds CompHead, ClassHead,
-> optional G_sys head, and uses the SSL-pretrained encoder as the durable
-> substrate. The crystallized design and implementation handoff is in
-> `docs/FRESH_START.md`. This MODEL.md document remains the reference for
-> the v1 / v2 trained checkpoints; do not edit it to describe v3.
+> **Direction forward (2026-06-02):** v1 and v2 are stable reference
+> points; the v3 envisioned section near the end of this doc sketches
+> the upcoming architecture in the same pipeline / inputs / heads /
+> training format used for v1/v2 above. The implementation handoff
+> and execution plan live in `docs/FRESH_START.md` and
+> `docs/V3_WORKFLOW.md` respectively. Update v3 architecture details
+> in this doc as they crystallize, but the v1/v2 sections above are
+> historical and should not be edited to describe v3.
 
 ## What the model does
 
@@ -290,7 +291,231 @@ this enables beyond modal prediction.
 K=5 ensemble retrain pending; with single-seed cell-c already beating the
 v1 ensemble, a v2 ensemble should widen the lead further.
 
-## Known limitations
+## v3 envisioned (2026-06-02): heads expand, encoder durable, parameterization choices pending pilots
+
+After v2 cell (c) validated the SSL-pretrained encoder as the durable
+substrate, v3 commits to the SSL-pretrained encoder architecture validated by v2 cell-c the encoder design and rewrites the supervised heads to add per-phase composition (CompHead) and auxiliary
+representation-shaping heads. The crystallized rationale and
+implementation handoff live in `docs/FRESH_START.md` and
+`docs/V3_WORKFLOW.md`; this section sketches what the trained v3 model
+will look like, in the same layout as v1/v2 above. Numbers will land
+on the corresponding lines once each piece trains.
+
+### Pipeline at a glance (v3)
+
+```
+22-token input  ->  own thin transformer  ->  pooled latent (frozen after SSL pretrain)
+   src [22]              (mat2vec + N=4, heads=16,                  |
+   frac [22]              d_model=512; explicit padding             |
+                          from src==0 only)                    latent h [512]
+                                                                    |
+        +------------------+------------------+------------------+------------------+
+        |                  |                  |                  |                  |
+    ModeHead          CompHead           CondHead          ClassHead         G_sys head
+   (Dirichlet,       (Dirichlet per     (GMM x 3 axes,    (CE supergroup,    (Gaussian scalar,
+    16-18 phases)     SS phase over      T, P, H2O)        aux, free          mu+log_sigma,
+                      endmember moles)                     latent shaping)    aux, optional)
+        |                  |                  |                  |                  |
+   modal vector      per-phase            conditions         supergroup         G_sys est
+   distribution      composition          distribution        distribution
+                     distribution
+```
+
+K=5 ensemble at deployment (same as v1); single-seed acceptance gate
+first. Optional Track C end-to-end fine-tune of the encoder runs only
+if Track B's frozen-encoder result leaves measurable headroom.
+
+### Input (v3)
+
+Up to **22 cation+trace tokens** per sample (vs v1's 9 cations):
+
+- **9 majors** -- Si, Al, Ca, Mg, Fe, K, Na, Ti, Cr -- from anhydrous
+  oxide wt% (FeO + Fe2O3 summed to Fe), divided by 100.
+- **13 traces** -- Sr, Zr, Ba, Y, Rb, Ni, Nb, V, La, Ce, Nd, Yb, Th --
+  from ppm divided by 1e6.
+
+`src` carries atomic numbers; `frac` carries normalized values in
+[0, 1]. **Absent elements use `src=0, frac=0` (padding); masked-for-SSL
+also uses `src=0, frac=0` (indistinguishable from padding by design).**
+This convention is the lesson from the v2 bug -- see "The single most
+load-bearing code invariant" in `CLAUDE.md` / `docs/FRESH_START.md`.
+
+T, P, H2O remain supervision-only -- never forward-graph inputs. h2o_tot
+also stays out of the input (the v1 leak fix carries through).
+
+### Encoder (v3)
+
+**Own thin transformer (~50 lines)**, not a wrapper around vendored
+kingcrab. Same `d_model=512`, `N=4`, `heads=16` as v1/v2. mat2vec
+embeddings load from `src/cnmineral/data/element_properties/mat2vec.csv`
+exactly as in v1/v2. Padding mask derived **explicitly** from
+`src == 0`, never from `frac > 0`. Masked-mean pool over non-padding
+tokens to a single `[d_model]` latent.
+
+After SSL pretrain (next section), the encoder is **frozen** during
+supervised head training. End-to-end fine-tune is opt-in via Track C.
+
+### Pretraining (v3)
+
+**Masked-element modeling with pooled-latent decoder** (Option H from
+the v2 bug-fix design):
+
+- Per training batch, pick 25% of populated tokens per sample,
+  uniformly at random.
+- Zero **both** `src` and `frac` at those positions (masked = padding,
+  indistinguishable to the encoder).
+- Run the corrupted `(src, frac)` through the encoder.
+- A small decoder MLP (`d_model -> d_model//2 -> n_tokens=22`) reads
+  the **pooled latent** and predicts `frac` for **every** position.
+- Loss = MSE on originally-masked positions only.
+- Class-balanced sampling by supergroup so basalt-heavy `complete.csv`
+  doesn't dominate.
+
+Pretrain corpus: ~474k unlabeled igneous bulks from `data/complete.csv`
+(post igneous filter). One full pass ~16 min on MPS at d_model=512
+(v2 timing). **Acceptance gate**: supergroup MLP-probe accuracy
+>=75%, k-NN modal cosine >=0.95 on a held-out 5k subset --
+matches v2 cell (c)'s numbers.
+
+### The heads (v3)
+
+Each head is a small residual MLP reading the shared pooled latent.
+Every head emits the parameters of a probability distribution -- no
+MSE / point-estimate heads anywhere in v3 (CLAUDE.md project rule).
+All heads run in parallel; turning auxiliary heads off does not
+change inference for the others.
+
+**ModeHead** -- Dirichlet over the 16-18-phase modal vector. Same
+parameterization as v1/v2. The phase vocabulary may shrink in v3 if
+the corpus regen drops `liq` and `fl` from the modal targets per the
+deferred v1.1 plan; the head architecture is unchanged.
+
+**CompHead** -- per-phase composition as **per-phase Dirichlet over
+endmember mole fractions**. Per solid-solution phase: a simplex of
+3-12 endmember fractions (cpx ~6-8 endmembers, amp ~10-12, fsp 3,
+opx 4-5, etc.); each phase's head emits a Dirichlet concentration
+vector `alpha_phase` (softplus + clamp). ~80 total simplex outputs
+across the SS phases.  Per-phase oxide composition is recovered at
+output time via `Σ em_frac × em_oxide_stoichiometry` (fixed constant
+matrix from the Green2025 endmember basis), so predicted compositions
+are **physically valid by construction** -- always inside the convex
+hull of endmember oxide vectors.  Mass balance is exact *within* each
+phase by construction; bilinear and still-soft at the bulk level
+(handled by the mass-balance term in the joint loss).
+
+Pilot 2b in the v3 plan validates that endmember mole fractions are
+extractable from PetThermoTools cleanly (or invertible from per-phase
+oxide composition with low enough noise that the basis advantage
+survives) before the full corpus regen commits.  Decision was for
+endmember-fraction over oxide-wt% on three grounds: physical validity
+by construction, lower output dimensionality (~80 vs ~143), and
+symmetry with ModeHead's Dirichlet parameterization.
+
+**CondHead** -- GMM per axis (T, P, H2O), `K_gmm=3` components per
+axis. Identical parameterization to v1/v2.
+
+**ClassHead** (auxiliary) -- cross-entropy over the 8 petrogenetic
+supergroups. Reads the same pooled latent; the supervised gradient
+shapes the encoder toward petrogenetically meaningful axes for free.
+Not a deployment output; can be turned off without affecting inference
+for the other heads.
+
+**G_sys head** (auxiliary, optional) -- **heteroscedastic Gaussian**
+over MAGEMin's system Gibbs energy at the FC endpoint.  Emits
+`(mu, log_sigma)`; loss is the 1-D Gaussian NLL.  **Kept as a
+separate head from CondHead, not folded in as a 4th axis.**  The
+reason is semantic role in the MAGEMin forward map: (T, P, H2O) are
+*conditions you give MAGEMin* (the CondHead re-infers the thermodynamic
+context that produced the rock); G_sys is *what MAGEMin produces at
+the resulting state* (the G_sys head re-infers a derived thermodynamic
+quantity of the equilibrium).  Different semantic role → different
+head, with an independent `lambda_gsys` knob and an independent
+calibration story.
+
+**Not a polymorph disambiguator** -- a scalar cannot separate Ky/Sil/And
+(architectural decision in CLAUDE.md).  Useful for (1) encoder
+regularization toward thermodynamic-stability axes, (2) internal-
+consistency check at inference (predicted M + C + conditions should
+imply the predicted G_sys; large divergence is an uncertainty signal
+independent of ensemble disagreement).  **Conditional on the v3 corpus
+regen persisting G_sys**, which the v1 corpus generator discarded;
+include only if persistence is cheap to add to the regen.
+
+Bump to GMM only if pilot evidence shows multimodality in per-bulk
+G_sys across FC paths.  Default starts at K=1 (single Gaussian).
+
+### Training (v3)
+
+**Joint loss**, fully probabilistic, with mass-balance regularization:
+
+```
+joint_loss = NLL_dirichlet(ModeHead, FC_modal)                                       # phase simplex
+           + lambda_comp     * sum_phase NLL_dirichlet(CompHead_phase, FC_endmember_fracs_phase)
+           + lambda_balance  * mass_balance_loss(bulk, M_pred, C_pred)               # bilinear bulk reconstruction
+           + lambda_cond     * sum_axis NLL_gmm(CondHead_axis, FC_axis)              # axes: T, P, H2O
+           + lambda_class    * CE(ClassHead, supergroup)                             # categorical
+           + lambda_gsys     * NLL_gauss(G_sys_head, FC_G_sys)                       # mean + log_sigma
+```
+
+Every term is the NLL (or CE for the discrete categorical) of a
+probability distribution matched against its label.  No MSE anywhere
+-- the project rule in CLAUDE.md ("Don't use MSE as the head loss")
+holds end-to-end for v3.
+
+`mass_balance_loss` reconstructs each bulk-oxide from the predicted
+modal × per-phase composition (recovered from CompHead endmember
+fractions × known stoichiometry matrix) and penalises deviation from
+the input bulk: `Σ_oxide (bulk_oxide - Σ_phase M_phase × C_phase_oxide)²`.
+`lambda_balance` swept in pilot 3 (0 / 0.1 / 1.0 / 10.0).
+
+The last two terms are auxiliary; setting `lambda_class` or `lambda_gsys`
+to zero removes those gradient signals without affecting the supervised
+heads.  `lambda_cond` inherits v1's HPO-tuned region as a starting
+point.
+
+**Encoder frozen** during Track B head training; Track C unfreezes
+with `encoder_lr = 0.1 * head_lr` per the standard transfer-learning
+recipe.
+
+**Data splits** -- bulk-level, same convention as v1.
+`data/splits_v3.json` rebuilt once the v3 corpus regen produces
+`train_fc_v3.parquet`. Splits regenerate because the v3 corpus may
+have a different bulk set (filter changes, attrition differences) than
+v1; bulk-level 64/16/20 stratified by `qap_name`, rare classes
+(<25 bulks) dropped, same recipe.
+
+**HPO** -- joint single-stage Optuna TPE over the new lambdas
+(`lambda_comp`, `lambda_balance`, `lambda_class`, `lambda_gsys`,
+`lambda_cond`) and `K_gmm`.  `JournalStorage` backend (resumable).
+Search bounds inherit v1's winning region for shared knobs.
+
+**Acceptance gate for Track B (single seed)**: per-phase `R^2_bulk`
+>= v2 cell-c on hydrous + foid-bearing phases (amp, bi, mu, fl, ne);
+CondHead 1-sigma coverage closer to nominal 0.68 than v1's loose
+0.88/0.64/0.76; CompHead predictions land inside stoichiometric bounds
+for >=90% of test bulks.
+
+### Inference contract (v3)
+
+**Inputs:** majors + traces in oxide wt% / ppm units, any subset
+(absent elements pad to `src=0`).
+
+**Outputs (per sample):**
+- Dirichlet over the 16-18-phase modal vector (mean = predicted modal
+  fractions; variance = aleatoric uncertainty)
+- One Dirichlet per SS phase over its endmember mole fractions; the
+  per-phase oxide composition is derivable at inference via the fixed
+  endmember stoichiometry matrix (always physically valid)
+- GMM per condition axis (T, P, H2O)
+- Supergroup categorical distribution (auxiliary; optional surface)
+- G_sys Gaussian (mean, sigma; auxiliary; optional surface, if trained)
+- Latent vector h (for downstream applications -- k-NN retrieval, OOD
+  scoring, imputation; see `docs/PRETRAIN_APPLICATIONS.md`)
+
+K=5 ensemble at deployment for epistemic uncertainty (same recipe as
+v1/v2).
+
+## Known limitations of v1 / v2
 
 - **Calibration: T was loose, P and H2O were already close** (corrected
   reading -- the Gaussian-`mean +/- sqrt(var)` coverage 0.88/0.64/0.76 used
@@ -321,7 +546,10 @@ v1 ensemble, a v2 ensemble should widen the lead further.
   ModeHead predicts how *much* of each phase, not its *composition*. The
   v1.1 CompHead (`[n_minerals, 11]` per-mineral oxide wt%) addresses this.
 
-## Code map
+## Code map (v1 / v2)
+
+The v3 codebase rewrites these files under a new package structure; see
+`docs/FRESH_START.md` and `docs/V3_WORKFLOW.md` for the v3 layout.
 
 | file | role |
 |---|---|
@@ -342,6 +570,16 @@ v1 ensemble, a v2 ensemble should widen the lead further.
 
 ## Keeping this doc current
 
-Update in place when the model changes. The likely next edits: v1.1 Option C
-(input set goes back to including a measured `h2o_tot`), the CompHead (a third
-head), and any calibration fix. Note the change here and in `JOURNAL.md`.
+Two living areas in this doc:
+
+- **v1 / v2 sections above are historical** -- frozen at the
+  `v1-trained` and `v2-traces-ssl-final` tags. Edit only to correct
+  errors of fact about those trained checkpoints.
+- **v3 envisioned section** -- update as design crystallizes during
+  the Track A and Track B work. As specific lambdas, head shapes, and
+  acceptance numbers land, replace the "pending" language with the
+  measured result and the corresponding JOURNAL entry. When v3 ships,
+  this section graduates from "envisioned" to a permanent v3 reference
+  alongside v1/v2.
+
+Note significant changes here and in `docs/JOURNAL.md`.
