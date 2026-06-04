@@ -1,0 +1,323 @@
+"""Unit tests pinning the load-bearing v3 encoder invariants.
+
+These tests exist specifically because v2 didn't have them: a regression
+that masks gradient flow at masked-token positions is silent and only
+detectable by inspecting downstream metrics (the v2 SSL pretraining
+appeared to train cleanly for 8 epochs while the encoder weights never
+updated).  Each test below fails on a specific failure mode that would
+otherwise reach production unnoticed.
+
+Run with:
+    pytest tests/test_encoder.py -v
+"""
+
+import pytest
+import torch
+
+from cnmineral.data.tokens import (
+    MASK_TOKEN_ID,
+    N_TOKENS,
+    ATOMIC_NUMBERS,
+    assert_padding_convention,
+    mask_for_ssl,
+)
+from cnmineral.losses.pretrain import masked_element_mse
+from cnmineral.models.encoder import (
+    ELEMENT_EMBEDDING_ROWS,
+    MAT2VEC_DIM,
+    Encoder,
+    load_mat2vec_matrix,
+)
+from cnmineral.models.pretrain_head import PretrainHead
+
+
+# ---------------------------------------------------------------------
+# Test fixtures
+# ---------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def encoder() -> Encoder:
+    """One encoder shared across tests in this module."""
+    torch.manual_seed(0)
+    return Encoder(d_model=64, n_layers=2, n_heads=4, dropout=0.0)
+
+
+@pytest.fixture(scope="module")
+def head() -> PretrainHead:
+    """One pretrain head matched to the test encoder."""
+    return PretrainHead(d_model=64, hidden=32)
+
+
+def _make_batch(
+    batch_size: int = 4,
+    seed: int = 0,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Synthesize a batch of (src, frac) inputs that obeys the v3 convention.
+
+    Populates the 9 majors deterministically with random ``frac``
+    values in ``(0.01, 0.5]``; leaves the 13 trace slots padded
+    (``src=0, frac=0``).  Useful for the smaller deterministic tests.
+    """
+    g = torch.Generator().manual_seed(seed)
+    src = torch.zeros(batch_size, N_TOKENS, dtype=torch.long)
+    frac = torch.zeros(batch_size, N_TOKENS, dtype=torch.float32)
+    # Fill the first 9 token slots with the 9 majors.
+    src[:, :9] = ATOMIC_NUMBERS[:9]
+    frac[:, :9] = 0.01 + 0.49 * torch.rand(
+        (batch_size, 9), generator=g,
+    )
+    return src, frac
+
+
+# ---------------------------------------------------------------------
+# Padding convention
+# ---------------------------------------------------------------------
+
+class TestPaddingConvention:
+    """v3 invariant: src==0 iff frac==0 at the dataset boundary."""
+
+    def test_valid_batch_passes(self) -> None:
+        src, frac = _make_batch()
+        assert_padding_convention(src, frac)  # should not raise
+
+    def test_src_populated_but_frac_zero_fails(self) -> None:
+        """A populated src with frac==0 is the v2 bug shape -- catch it."""
+        src, frac = _make_batch()
+        # Simulate the buggy v2 mask: keep src valid, zero frac.
+        frac[0, 0] = 0.0
+        with pytest.raises(ValueError, match="padding convention"):
+            assert_padding_convention(src, frac)
+
+    def test_src_zero_but_frac_populated_fails(self) -> None:
+        src, frac = _make_batch()
+        src[0, 0] = 0
+        # frac[0, 0] is still > 0
+        with pytest.raises(ValueError, match="padding convention"):
+            assert_padding_convention(src, frac)
+
+
+# ---------------------------------------------------------------------
+# mat2vec loader direct tests
+# ---------------------------------------------------------------------
+
+class TestMat2vecLoading:
+    """Direct tests for the mat2vec embedding matrix loader.
+
+    The encoder fixture catches shape-mismatch errors in load_mat2vec_matrix
+    but would happily accept a matrix where Si's data landed in Mg's row or
+    a matrix that's all zeros.  These tests pin the value-level contract so
+    such silent value bugs are caught directly rather than surfacing
+    downstream as "the model trains but doesn't learn anything."
+    """
+
+    @pytest.fixture(scope="class")
+    def matrix(self) -> torch.Tensor:
+        """One matrix shared across tests in this class."""
+        return load_mat2vec_matrix()
+
+    def test_shape(self, matrix: torch.Tensor) -> None:
+        assert matrix.shape == (ELEMENT_EMBEDDING_ROWS, MAT2VEC_DIM)
+
+    def test_dtype_is_float32(self, matrix: torch.Tensor) -> None:
+        """Must be float32 so nn.Embedding.from_pretrained doesn't upcast
+        the embedding table to float64 (2x memory + dtype clashes with
+        the float32 Linear layers downstream)."""
+        assert matrix.dtype == torch.float32, (
+            f"expected float32, got {matrix.dtype}; numpy defaults to "
+            f"float64 -- cast at load time via dtype=torch.float32"
+        )
+
+    def test_padding_row_is_zero(self, matrix: torch.Tensor) -> None:
+        """Row 0 = padding embedding; must stay at zeros so the encoder's
+        padding handling matches the dataset convention (src=0 -> absent)."""
+        assert (matrix[0] == 0).all()
+
+    def test_mask_row_is_zero_before_encoder_rebinds(
+        self, matrix: torch.Tensor,
+    ) -> None:
+        """Row MASK_TOKEN_ID is zero at load time; Encoder.__init__ later
+        re-initializes it as N(0, 0.02).  The loader is not responsible
+        for that re-init; it just must not leave junk there."""
+        assert (matrix[MASK_TOKEN_ID] == 0).all()
+
+    def test_real_elements_have_nonzero_embeddings(
+        self, matrix: torch.Tensor,
+    ) -> None:
+        """Spot-check that rocks-relevant elements actually loaded.
+        Si (Z=14), Fe (Z=26), Th (Z=90) -- our heaviest v3 trace."""
+        for z in (14, 26, 90):
+            assert matrix[z].abs().sum() > 0, (
+                f"row {z} is all zeros; mat2vec for that element didn't "
+                f"load (check the loader's symbol -> row-index mapping)"
+            )
+
+    def test_known_element_distinct_from_padding(
+        self, matrix: torch.Tensor,
+    ) -> None:
+        """Trivial sanity check: Si's embedding shouldn't equal the padding
+        embedding.  Catches "I wrote into the wrong row" bugs."""
+        assert not torch.equal(matrix[14], matrix[0])
+
+
+# ---------------------------------------------------------------------
+# Encoder shape + padding-mask semantics
+# ---------------------------------------------------------------------
+
+class TestEncoderForward:
+    """The encoder's job: produce a pooled latent shaped [B, d_model]."""
+
+    def test_output_shape(self, encoder: Encoder) -> None:
+        src, frac = _make_batch(batch_size=4)
+        h = encoder(src, frac)
+        assert h.shape == (4, encoder.d_model)
+
+    def test_all_padding_does_not_nan(self, encoder: Encoder) -> None:
+        """An all-zero (all padding) row should not divide-by-zero."""
+        src = torch.zeros(2, N_TOKENS, dtype=torch.long)
+        frac = torch.zeros(2, N_TOKENS, dtype=torch.float32)
+        h = encoder(src, frac)
+        assert torch.isfinite(h).all(), "all-padding input produced non-finite output"
+
+    def test_padding_invariance(self, encoder: Encoder) -> None:
+        """Reordering the populated tokens vs padding slots within the
+        sequence must NOT change the pooled latent (masked-mean pool is
+        order-invariant over present-vs-absent assignment of slots).
+
+        This is a regression catch for any future change that, say,
+        weighted positions or used positional encodings.
+        """
+        src_a, frac_a = _make_batch(batch_size=1)
+        # Shuffle the 9 populated majors into a different set of slot
+        # indices; pad the rest.
+        perm = torch.randperm(N_TOKENS)
+        src_b = src_a[:, perm]
+        frac_b = frac_a[:, perm]
+        h_a = encoder(src_a, frac_a)
+        h_b = encoder(src_b, frac_b)
+        # The masked-mean pool is order-invariant, but the transformer
+        # mixes tokens, so the per-token outputs differ; the pooled
+        # latent should be close-but-not-identical.  Loose tolerance.
+        torch.testing.assert_close(h_a, h_b, rtol=1e-3, atol=1e-3)
+
+
+# ---------------------------------------------------------------------
+# The load-bearing test: masked-token gradient flow
+# ---------------------------------------------------------------------
+
+class TestSSLGradientFlow:
+    """The v2 bug regression test.
+
+    The v2 SSL pretrain ran for 8 epochs while encoder weights stayed at
+    their random-init values, byte-for-byte.  The cause was a padding
+    convention where masked positions were treated as padding by the
+    encoder, so the SSL reconstruction loss had zero gradient through
+    the encoder.
+
+    This test verifies that with the v3 masking convention and the
+    pooled-latent decoder, encoder parameters receive non-zero
+    gradient from the SSL loss.
+    """
+
+    def test_encoder_receives_gradient(
+        self, encoder: Encoder, head: PretrainHead,
+    ) -> None:
+        torch.manual_seed(42)
+        src, frac = _make_batch(batch_size=8, seed=42)
+
+        masked = mask_for_ssl(src, frac, mask_prob=0.25)
+
+        h = encoder(masked.src_corrupted, masked.frac_corrupted)
+        predicted = head(h)
+        loss = masked_element_mse(
+            predicted, masked.target_frac, masked.mask_positions,
+        )
+
+        assert loss.requires_grad, "loss must require grad to test gradient flow"
+        loss.backward()
+
+        # Every encoder parameter should have a non-zero gradient.
+        zero_grad_params: list[str] = []
+        for name, param in encoder.named_parameters():
+            if param.grad is None:
+                zero_grad_params.append(f"{name} (grad=None)")
+                continue
+            if param.grad.abs().sum().item() == 0.0:
+                zero_grad_params.append(f"{name} (grad.norm=0)")
+        assert not zero_grad_params, (
+            "SSL loss must flow gradient to every encoder parameter; "
+            f"these had no gradient: {zero_grad_params}.  This is the "
+            f"v2 padding-mask bug shape -- check Encoder.forward's "
+            f"padding mask derivation."
+        )
+
+    def test_loss_is_finite(
+        self, encoder: Encoder, head: PretrainHead,
+    ) -> None:
+        torch.manual_seed(43)
+        src, frac = _make_batch(batch_size=8, seed=43)
+        masked = mask_for_ssl(src, frac, mask_prob=0.25)
+        h = encoder(masked.src_corrupted, masked.frac_corrupted)
+        predicted = head(h)
+        loss = masked_element_mse(
+            predicted, masked.target_frac, masked.mask_positions,
+        )
+        assert torch.isfinite(loss).item(), f"loss not finite: {loss.item()}"
+
+
+# ---------------------------------------------------------------------
+# Masking convention smoke checks
+# ---------------------------------------------------------------------
+
+class TestMaskingConvention:
+    """v3 masking convention C: masked src is MASK_TOKEN_ID; masked frac is 0."""
+
+    def test_masked_src_is_mask_token_id(self) -> None:
+        torch.manual_seed(0)
+        src, frac = _make_batch(batch_size=16, seed=1)
+        masked = mask_for_ssl(src, frac, mask_prob=0.5)
+        m = masked.mask_positions
+        assert (masked.src_corrupted[m] == MASK_TOKEN_ID).all(), (
+            f"masked positions must have src=MASK_TOKEN_ID ({MASK_TOKEN_ID}); "
+            f"convention C BERT-style mask token, NOT src=0 (padding)"
+        )
+        assert (masked.frac_corrupted[m] == 0).all(), (
+            "masked positions must have frac=0 (the value the SSL loss predicts)"
+        )
+
+    def test_mask_token_distinguishable_from_padding(self) -> None:
+        """MASK_TOKEN_ID positions must NOT collide with padding positions."""
+        torch.manual_seed(0)
+        src, frac = _make_batch(batch_size=8, seed=99)
+        masked = mask_for_ssl(src, frac, mask_prob=0.5)
+        m = masked.mask_positions
+        # Where mask_positions is True, src is MASK_TOKEN_ID, not 0.
+        assert (masked.src_corrupted[m] != 0).all(), (
+            "masked positions must NOT have src=0 -- that would make them "
+            "indistinguishable from padding (the v3 convention A failure mode)"
+        )
+        # Where mask_positions is False, src is either 0 (padding) or in
+        # [1, 118] (populated) -- it is never MASK_TOKEN_ID outside the
+        # masked positions.
+        not_m = ~m
+        assert (masked.src_corrupted[not_m] != MASK_TOKEN_ID).all(), (
+            "MASK_TOKEN_ID must appear ONLY at masked positions"
+        )
+
+    def test_masking_preserves_target(self) -> None:
+        """The target_frac should equal the *original* frac, not the corrupted one."""
+        torch.manual_seed(0)
+        src, frac = _make_batch(batch_size=4, seed=2)
+        masked = mask_for_ssl(src, frac, mask_prob=0.25)
+        torch.testing.assert_close(masked.target_frac, frac)
+
+    def test_only_populated_positions_get_masked(self) -> None:
+        """An originally-absent token (src==0) must never appear in mask_positions."""
+        src, frac = _make_batch(batch_size=4)
+        masked = mask_for_ssl(src, frac, mask_prob=0.9)
+        # masked.mask_positions must be a strict subset of (src > 0).
+        assert (
+            masked.mask_positions & (src == 0)
+        ).sum().item() == 0, (
+            "mask_for_ssl masked an absent token; only populated "
+            "(src>0) tokens may be selected"
+        )
