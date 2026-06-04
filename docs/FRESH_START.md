@@ -39,44 +39,75 @@ Three things this captures that "MAGEMin surrogate" doesn't:
 
 ## Should you keep CrabNet (kingcrab.py) or roll your own?
 
-**Verdict: keep mat2vec, write your own encoder.**
+**Verdict: keep mat2vec, lift CrabNet's FractionalEncoder as a single
+self-contained module, write your own Encoder that composes them.**
 
-What CrabNet gives:
-- mat2vec embeddings (a 200-dim chemistry-aware vector per element, learned
-  from a materials-science text corpus). Genuinely valuable; not trivial
-  to replicate. Keep the CSV.
-- FractionalEncoder (discretizes continuous `frac` into indexed lookups).
-  Cute but not essential; an MLP on continuous `frac` works.
-- TransformerEncoder + padding convention. **Drop this.** The padding
-  convention (`frac > 0` means populated) collided with our SSL mask token
-  and cost a full day of debugging plus an entire round of invalidated
-  ablation results. Owning the padding semantics matters.
+What CrabNet gives, and how v3 uses each piece:
 
-What to write yourself (~1 day):
+- **mat2vec embeddings** (a 200-dim chemistry-aware vector per element,
+  learned from a materials-science text corpus). Genuinely valuable; not
+  trivial to replicate. Keep the CSV at
+  `src/cnmineral/data/element_properties/mat2vec.csv`.
+- **FractionalEncoder** (sinusoidal lookup over discretized `frac`,
+  one linear and one log10 variant). Provides the trace-element
+  resolution a single linear projection would lose. Lift the class
+  verbatim into `src/cnmineral/models/fractional_encoder.py` with
+  attribution (it's ~70 lines, no external dependencies). Don't vendor
+  the rest of kingcrab.
+- **TransformerEncoder + padding convention.** **Drop this.** The
+  kingcrab padding convention (`frac > 0` means populated) collided
+  with our SSL mask token and cost a full day of debugging plus an
+  entire round of invalidated ablation results. Owning the padding
+  semantics matters.
+
+What to write yourself (~1 day, ~70 lines):
 
 ```python
+from cnmineral.data.tokens import MASK_TOKEN_ID
+from cnmineral.models.fractional_encoder import FractionalEncoder
+
+ELEMENT_EMBEDDING_ROWS = MASK_TOKEN_ID + 1  # 120: row 0 padding,
+                                            # 1-118 mat2vec, 119 MASK
+
 class Encoder(nn.Module):
-    def __init__(self, d_model=512, N=4, heads=16, n_tokens=22):
-        self.elem_emb = nn.Embedding.from_pretrained(mat2vec_matrix, freeze=False)
-        self.frac_proj = nn.Linear(1, d_model)
-        # Or keep CrabNet's discretization if you like it
-        self.element_proj = nn.Linear(200, d_model)
-        layer = nn.TransformerEncoderLayer(d_model, heads, batch_first=True)
+    def __init__(self, d_model=512, N=4, heads=16, frac_resolution=5000):
+        # element embedding: mat2vec rows + learnable [MASK] row
+        self.element_embedding   = nn.Embedding.from_pretrained(
+            load_mat2vec_matrix(), freeze=False, padding_idx=0,
+        )  # [ELEMENT_EMBEDDING_ROWS, 200]
+        # MASK row reinitialised as N(0, 0.02) for a non-degenerate start
+        self.element_projection  = nn.Linear(200, d_model)
+
+        # CrabNet's dual fractional encoders
+        self.frac_encoder_linear = FractionalEncoder(d_model, frac_resolution, log10=False)
+        self.frac_encoder_log    = FractionalEncoder(d_model, frac_resolution, log10=True)
+
+        # learnable rescaling per stream
+        self.emb_scaler     = nn.Parameter(torch.tensor([1.0]))
+        self.pos_scaler     = nn.Parameter(torch.tensor([1.0]))
+        self.pos_scaler_log = nn.Parameter(torch.tensor([1.0]))
+
+        layer = nn.TransformerEncoderLayer(d_model, heads, batch_first=True, norm_first=True)
         self.transformer = nn.TransformerEncoder(layer, N)
 
     def forward(self, src, frac):
-        # src: [B, 22] atomic numbers, 0 = padding
-        # frac: [B, 22] values in [0, 1]
-        pad_mask = (src == 0)  # EXPLICIT, not derived from frac
-        token = self.element_proj(self.elem_emb(src)) + self.frac_proj(frac.unsqueeze(-1))
-        h = self.transformer(token, src_key_padding_mask=pad_mask)
-        mask = (~pad_mask).float().unsqueeze(-1)
-        return (h * mask).sum(1) / mask.sum(1).clamp(min=1.0)  # masked-mean pool
+        # src:  [B, 22] long.  0 = padding; 1..118 = element; 119 = MASK.
+        # frac: [B, 22] float in [0, 1].  0 at padding/masked positions.
+        pad_mask = (src == 0)  # EXPLICIT, never derived from frac
+        elem  = self.element_projection(self.element_embedding(src)) * self.emb_scaler
+        lin_e = self.frac_encoder_linear(frac) * self.pos_scaler        # [B, 22, d/2]
+        log_e = self.frac_encoder_log(frac)    * self.pos_scaler_log    # [B, 22, d/2]
+        frac_e = torch.cat([lin_e, log_e], dim=-1)                      # [B, 22, d]
+        token = elem + frac_e
+        h_tokens = self.transformer(token, src_key_padding_mask=pad_mask)
+        keep = (~pad_mask).float().unsqueeze(-1)
+        return (h_tokens * keep).sum(1) / keep.sum(1).clamp(min=1.0)
 ```
 
-That's the whole encoder. Padding mask derived from `src` only; SSL masking
-zeros both `src` and `frac` to make masked = padding indistinguishable, as
-in the v2 bug-fix design (Option H). No accidental gradient holes.
+That's the whole encoder. The padding mask is one explicit line we own;
+MASK_TOKEN_ID positions are NOT padding, so the encoder attends to them
+and the SSL loss demands their original `frac` back from context. See
+"The single most load-bearing code invariant" below for the longer story.
 
 ## Input / output / architecture sketch
 
@@ -251,10 +282,18 @@ Add later: G_sys head, TracePartitionHead, ALIGNN, polymorph head.
 
 ```
 padding mask is derived from `src == 0` ONLY.
-masked-for-SSL means BOTH src AND frac are zeroed.
-masked-for-SSL is therefore indistinguishable from padding.
+masked-for-SSL sets `src = MASK_TOKEN_ID` (= 119) and `frac = 0`.
+masked-for-SSL is therefore DISTINGUISHABLE from padding by `src`,
+and the encoder attends to MASK positions (it must, to predict).
 ```
 
-If you remember nothing else from the v2 codebase, remember that one. It's
-the difference between "SSL works" and "SSL silently has zero encoder
-gradients for a week."
+This is **convention C** from the 2026-06-02 design discussion.  An
+earlier v3 sketch used convention A (mask = padding, both `src=0`),
+which makes the padding-mask one-liner above the only safeguard.  We
+switched to C so the encoder can BERT-style attend specifically to
+masked positions; the explicit padding-mask line remains the
+load-bearing v2-bug-prevention invariant.
+
+If you remember nothing else from the v2 codebase, remember the
+padding-mask line.  It's the difference between "SSL works" and "SSL
+silently has zero encoder gradients for a week."

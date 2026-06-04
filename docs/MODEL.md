@@ -335,36 +335,68 @@ Up to **22 cation+trace tokens** per sample (vs v1's 9 cations):
   from ppm divided by 1e6.
 
 `src` carries atomic numbers; `frac` carries normalized values in
-[0, 1]. **Absent elements use `src=0, frac=0` (padding); masked-for-SSL
-also uses `src=0, frac=0` (indistinguishable from padding by design).**
-This convention is the lesson from the v2 bug -- see "The single most
-load-bearing code invariant" in `CLAUDE.md` / `docs/FRESH_START.md`.
+[0, 1].  Special `src` values:
+
+  - `src = 0` -- padding (absent element).  `frac = 0` at these
+    positions; the encoder excludes them from attention via the
+    padding mask.
+  - `src = MASK_TOKEN_ID` (= 119, one past the periodic table) --
+    SSL-masked token (BERT-style).  `frac = 0` at these positions;
+    the encoder DOES attend to them and the SSL loss demands the
+    original `frac` value back.  The MASK row of the element embedding
+    table is a learnable parameter, separate from any mat2vec row.
+
+This is **convention C** from the design discussion (2026-06-02): mask
+and padding are distinguishable by `src`, so the encoder knows which
+slots to predict.  Earlier convention A (mask = padding, both `src=0`)
+was rejected because it deprived the encoder of the "predict here"
+signal.  The v3 padding-mask derivation is `padding_mask = (src == 0)`
+explicitly -- this is the v2 bug fix and remains the load-bearing
+invariant.  See `docs/FRESH_START.md`.
 
 T, P, H2O remain supervision-only -- never forward-graph inputs. h2o_tot
 also stays out of the input (the v1 leak fix carries through).
 
 ### Encoder (v3)
 
-**Own thin transformer (~50 lines)**, not a wrapper around vendored
-kingcrab. Same `d_model=512`, `N=4`, `heads=16` as v1/v2. mat2vec
-embeddings load from `src/cnmineral/data/element_properties/mat2vec.csv`
-exactly as in v1/v2. Padding mask derived **explicitly** from
-`src == 0`, never from `frac > 0`. Masked-mean pool over non-padding
-tokens to a single `[d_model]` latent.
+**Own thin transformer (~70 lines)**, not a wrapper around vendored
+kingcrab.  Same `d_model=512`, `N=4`, `heads=16` as v1/v2.  Per-token
+construction mirrors CrabNet's Element Derived Matrix pattern:
+
+  - **Element embedding**: mat2vec rows 1-118 + a learnable row
+    at MASK_TOKEN_ID, projected from 200-D to `d_model`.
+  - **Frac encoding**: two `FractionalEncoder` instances (sinusoidal
+    lookup over discretized `frac`), one linear and one log10.  Each
+    emits `d_model // 2` channels; concatenated they fill `d_model`.
+    The log channel gives the encoder real resolution at low frac --
+    important for traces (Sr ~10 ppm vs 100 ppm).
+  - **Combination**: three learnable scalars (`emb_scaler`,
+    `pos_scaler`, `pos_scaler_log`) let the model re-weight element
+    vs linear-frac vs log-frac contributions during training.
+  - `token = elem_e * emb_scaler + concat(linear_frac * pos_scaler, log_frac * pos_scaler_log)`
+
+The `FractionalEncoder` is lifted verbatim from CrabNet's
+`kingcrab.py` into `src/cnmineral/models/fractional_encoder.py` with
+attribution; the rest of kingcrab is NOT vendored.  Padding mask is
+derived **explicitly** from `src == 0`, never from `frac > 0`.
+MASK_TOKEN_ID positions are NOT padding; the encoder attends to them.
+Masked-mean pool over non-padding tokens yields a `[d_model]` latent.
 
 After SSL pretrain (next section), the encoder is **frozen** during
-supervised head training. End-to-end fine-tune is opt-in via Track C.
+supervised head training.  End-to-end fine-tune is opt-in via Track C.
 
 ### Pretraining (v3)
 
 **Masked-element modeling with pooled-latent decoder** (Option H from
-the v2 bug-fix design):
+the v2 bug-fix design, refined with convention C masking 2026-06-02):
 
 - Per training batch, pick 25% of populated tokens per sample,
   uniformly at random.
-- Zero **both** `src` and `frac` at those positions (masked = padding,
-  indistinguishable to the encoder).
-- Run the corrupted `(src, frac)` through the encoder.
+- At each masked position set `src = MASK_TOKEN_ID` and `frac = 0`
+  (BERT-style sentinel; distinguishable from padding by `src`).
+- Run the corrupted `(src, frac)` through the encoder.  Padding
+  tokens (`src == 0`) are excluded from attention; MASK_TOKEN_ID
+  positions are included.
 - A small decoder MLP (`d_model -> d_model//2 -> n_tokens=22`) reads
   the **pooled latent** and predicts `frac` for **every** position.
 - Loss = MSE on originally-masked positions only.
