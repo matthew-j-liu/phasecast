@@ -66,7 +66,7 @@ suggests headroom.
 | port mat2vec embedding matrix | CSV in `data/element_properties/` | loads, indexable by atomic number 1-100 |
 | write thin encoder (own transformer + mat2vec) | `src_v3/encoder.py` with explicit `src==0` padding | unit test: random (src, frac) -> non-zero pooled latent |
 | build UnlabeledDataset over complete.csv | dataset class with igneous filter + supergroup labels | length matches expected ~474k; supergroup counts look right |
-| write SSL training loop (Option H from v2 bug-fix) | `scripts_v3/01_pretrain.py` with pooled-latent decoder | held-out reconstruction MSE drops monotonically across epochs |
+| write SSL training loop (Option H from v2 bug-fix) | `scripts/pretrain.py` with pooled-latent decoder | held-out reconstruction MSE drops monotonically across epochs |
 | save encoder checkpoint | `checkpoints/encoder.pt` + manifest of cation order + scale config | bytewise diff from random init > 0 (the v2 sanity gate) |
 | reproduce UMAP + probe diagnostics | the 5 plots in `data/diagnostics/latent_v3/` | supergroup MLP probe >= 75%, k-NN cosine on modal vectors >= 0.95 |
 
