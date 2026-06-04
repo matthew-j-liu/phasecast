@@ -11,9 +11,10 @@ n_startup_trials: 5            # TPE random-warmup trials
 pruner_warmup_steps: 1         # MedianPruner skips epoch 0
 hpo_run_epochs: 3              # SSL pretrain is too expensive for CV per trial
 
-# base hyperparameter values that suggest_hyperparams leaves at default
-# when a knob isn't being swept
+# Full pretrain_run config dict.  Trial overrides from suggest_hyperparams
+# land on top; `hpo_run_epochs` above replaces `epochs`.
 base:
+  seed: 0
   batch_size: 64
   lr: 3.0e-4
   mask_prob: 0.25
@@ -22,3 +23,6 @@ base:
   d_model: 512
   n_layers: 4
   n_heads: 16
+  frac_resolution: 5000
+  num_workers: 0
+  data_source: real

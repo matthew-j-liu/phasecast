@@ -1,0 +1,24 @@
+# Single-run SSL pretrain config (production-shape).
+#
+# After an HPO sweep picks winners, copy the best params from the
+# study summary JSON into this file and run a longer training run:
+#     python scripts/01_pretrain.py --config configs/pretrain.yaml
+
+seed: 0
+epochs: 10
+batch_size: 64
+lr: 3.0e-4
+mask_prob: 0.25
+weight_decay: 0.01
+dropout: 0.0
+d_model: 512
+n_layers: 4
+n_heads: 16
+frac_resolution: 5000
+num_workers: 0
+
+data_source: real
+# data_kwargs:     # forwarded to UnlabeledDataset(**data_kwargs) once it lands
+#   parquet_path: data/complete.csv
+
+checkpoint_dir: checkpoints/pretrain_v3

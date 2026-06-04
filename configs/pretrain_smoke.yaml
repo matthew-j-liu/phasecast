@@ -1,0 +1,21 @@
+# Smoke-test config: synthetic data, tiny model, 1 epoch.
+# Verifies the script + dataset wiring without touching the real corpus.
+#     python scripts/01_pretrain.py --config configs/pretrain_smoke.yaml
+
+seed: 0
+epochs: 1
+batch_size: 4
+lr: 3.0e-4
+mask_prob: 0.25
+weight_decay: 0.01
+dropout: 0.0
+d_model: 32
+n_layers: 2
+n_heads: 4
+frac_resolution: 200
+num_workers: 0
+
+data_source: synthetic
+synthetic_n: 16
+
+checkpoint_dir: null
