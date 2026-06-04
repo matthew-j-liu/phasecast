@@ -7,7 +7,7 @@ the per-step training loop and the HPO suggest_hyperparams body:
   reaches the encoder; loss is finite).
 - The synthetic dataset satisfies the v3 padding convention.
 - Checkpoint save/load is a clean roundtrip.
-- pretrain_run and the Optuna objective both return a finite float on
+- run_pretraining and the Optuna objective both return a finite float on
   synthetic data, even with the stubbed-out inner loop.
 - An Optuna study at a JournalStorage path survives recreation
   (load_if_exists=True).
@@ -16,8 +16,6 @@ Run with:
     pytest tests/test_pretrain_script.py -v
 """
 
-import copy
-import importlib.util
 import sys
 from pathlib import Path
 
@@ -38,27 +36,14 @@ from cnmineral.losses.pretrain import masked_element_mse
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT_PATH = REPO_ROOT / "scripts" / "01_pretrain.py"
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-
-def _load_pretrain_module():
-    """Import scripts/01_pretrain.py by path (numeric prefix blocks normal import)."""
-    spec = importlib.util.spec_from_file_location("pretrain_script", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["pretrain_script"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-@pytest.fixture(scope="module")
-def pretrain_module():
-    return _load_pretrain_module()
+import pretrain  # noqa: E402  -- needs the sys.path insert above
 
 
 def _tiny_config(checkpoint_dir: Path | None = None) -> dict:
-    """A config small enough that pretrain_run finishes in milliseconds."""
+    """A config small enough that run_pretraining finishes in milliseconds."""
     return {
         "epochs": 1,
         "batch_size": 4,
@@ -83,7 +68,7 @@ def test_one_step_runs() -> None:
     torch.manual_seed(0)
     encoder = Encoder(d_model=32, n_layers=2, n_heads=4, dropout=0.0,
                       frac_resolution=200)
-    head = PretrainHead(d_model=32, hidden=16)
+    head = PretrainHead(d_model=32)
     optimizer = torch.optim.AdamW(
         list(encoder.parameters()) + list(head.parameters()),
         lr=3e-4,
@@ -141,18 +126,18 @@ class TestSyntheticDataset:
         torch.testing.assert_close(a[0]["frac"], b[0]["frac"])
 
 
-def test_checkpoint_roundtrip(tmp_path: Path, pretrain_module) -> None:
+def test_checkpoint_roundtrip(tmp_path: Path) -> None:
     torch.manual_seed(0)
     encoder_a = Encoder(d_model=32, n_layers=2, n_heads=4,
                         frac_resolution=200)
-    head_a = PretrainHead(d_model=32, hidden=16)
+    head_a = PretrainHead(d_model=32)
     optimizer = torch.optim.AdamW(
         list(encoder_a.parameters()) + list(head_a.parameters()), lr=1e-3,
     )
     config = _tiny_config()
 
     ckpt_path = tmp_path / "ckpt.pt"
-    pretrain_module.save_checkpoint(
+    pretrain.save_checkpoint(
         ckpt_path, encoder_a, head_a, optimizer, epoch=1,
         config=config, train_loss=0.123,
     )
@@ -160,8 +145,8 @@ def test_checkpoint_roundtrip(tmp_path: Path, pretrain_module) -> None:
     torch.manual_seed(99)  # different init for the fresh instances
     encoder_b = Encoder(d_model=32, n_layers=2, n_heads=4,
                         frac_resolution=200)
-    head_b = PretrainHead(d_model=32, hidden=16)
-    payload = pretrain_module.load_checkpoint(ckpt_path, encoder_b, head_b)
+    head_b = PretrainHead(d_model=32)
+    payload = pretrain.load_checkpoint(ckpt_path, encoder_b, head_b)
 
     for (n_a, p_a), (n_b, p_b) in zip(
         encoder_a.named_parameters(), encoder_b.named_parameters(),
@@ -177,15 +162,15 @@ def test_checkpoint_roundtrip(tmp_path: Path, pretrain_module) -> None:
     assert payload["train_loss"] == pytest.approx(0.123)
 
 
-def test_pretrain_run_returns_float(pretrain_module) -> None:
+def test_run_pretraining_returns_float() -> None:
     config = _tiny_config()
-    loss = pretrain_module.pretrain_run(config, device=torch.device("cpu"))
+    loss = pretrain.run_pretraining(config, device=torch.device("cpu"))
     assert isinstance(loss, float)
     assert torch.isfinite(torch.tensor(loss))
 
 
-def test_objective_returns_float(pretrain_module) -> None:
-    """suggest_hyperparams + pretrain_run smoke (HPO objective body)."""
+def test_objective_returns_float() -> None:
+    """suggest_hyperparams + run_pretraining smoke (HPO objective body)."""
     base = _tiny_config()
     trial = optuna.trial.FixedTrial({
         "lr": 1e-4,
@@ -194,10 +179,10 @@ def test_objective_returns_float(pretrain_module) -> None:
         "dropout": 0.0,
         "batch_size": 4,
     })
-    overrides = pretrain_module.suggest_hyperparams(trial)
+    overrides = pretrain.suggest_hyperparams(trial)
     assert isinstance(overrides, dict)
     merged = {**base, **overrides}
-    loss = pretrain_module.pretrain_run(
+    loss = pretrain.run_pretraining(
         merged, device=torch.device("cpu"), trial=trial,
     )
     assert isinstance(loss, float)

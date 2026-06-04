@@ -45,7 +45,7 @@ def encoder() -> Encoder:
 @pytest.fixture(scope="module")
 def head() -> PretrainHead:
     """One pretrain head matched to the test encoder."""
-    return PretrainHead(d_model=64, hidden=32)
+    return PretrainHead(d_model=64)
 
 
 def _make_batch(
