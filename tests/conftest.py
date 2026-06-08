@@ -16,3 +16,26 @@ gotcha section.
 import os
 
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture(scope="session")
+def corpus_subset_path() -> Path:
+    """Path to the 2000-row deterministic parquet subset of complete.csv.
+
+    Built by ``scripts/build_test_fixture.py`` (seed=42).  Tests that
+    want a built ``BulkChemistryDataset`` instantiate it themselves
+    with the filter combo they need.
+    """
+    path = REPO_ROOT / "tests" / "fixtures" / "complete_subset.parquet"
+    if not path.exists():
+        pytest.fail(
+            f"test fixture missing: {path}\n"
+            f"rebuild with: python scripts/build_test_fixture.py"
+        )
+    return path

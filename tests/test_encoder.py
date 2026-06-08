@@ -21,7 +21,7 @@ from cnmineral.data.tokens import (
     assert_padding_convention,
     mask_for_ssl,
 )
-from cnmineral.losses.pretrain import masked_element_mse
+from cnmineral.losses.pretrain_loss import masked_element_mse
 from cnmineral.models.encoder import (
     ELEMENT_EMBEDDING_ROWS,
     MAT2VEC_DIM,
