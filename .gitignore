@@ -31,7 +31,10 @@ dist/
 .DS_Store
 
 # Claude Code
-CLAUDE.md 
+CLAUDE.md
 
 # Papers
-literature/ 
+literature/
+
+# Local exploratory scripts
+scripts/profile_csv_load.py
