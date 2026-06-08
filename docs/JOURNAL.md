@@ -1817,3 +1817,184 @@ a tight handoff doc.
   updated plan; decide oxide-wt% vs endmember-fraction CompHead
 - Skipped from v3 first pass: TracePartitionHead, ALIGNN, polymorph
   head, fO2 sweep. All deferred to v4+.
+
+## 2026-06-04 -- BulkChemistryDataset lands; HPO smoke runs end-to-end on real data
+
+**Q.** Can the v3 pretrain pipeline run on the real Gard 2019 corpus
+end-to-end, and what filter shape + wall time should the full pretrain
+plan around?
+
+**Context.** Day 4 of the v3 first-week sequence in
+`docs/V3_WORKFLOW.md`. `scripts/pretrain.py` was already wired against
+a stub `BulkChemistryDataset` (imported lazily, falling back to
+`SyntheticBulkChemistryDataset` if absent). The real loader was the unlock
+for items 1-3 of the Track A gate (UMAP + probe diagnostics + full SSL
+pretrain). Built it, ran smoke + HPO smoke on the real corpus.
+
+**`BulkChemistryDataset` in `src/cnmineral/data/bulk_chemistry.py`.**
+
+Constructor knobs: `csv_path`, `rock_group` (default `"igneous"`),
+`drop_zero_as_nan` (default `True`), `require_all_majors` (default
+`True`), `include_cr2o3` (default `False`).
+
+The strict default filter walks:
+
+| step | rows |
+|---|---|
+| start (igneous) | 739,727 |
+| + all 7 non-Fe majors non-null | 544,050 |
+| + feo non-null | 260,718 |
+| + fe2o3 non-null | 172,060 |
+| + k2o, na2o, tio2 non-null | 169,024 |
+| + non-negative on the 9 majors | 168,524 |
+| + drop_zero_as_nan applied | 166,893 |
+
+Sanity check: `len(BulkChemistryDataset())` is 166,893. The "474k" figure
+floating in `CLAUDE.md` predates the explicit Fe-fallback convention
+and corresponds to a looser filter (7 non-Fe majors + any of
+feo/fe2o3/feo_tot/fe2o3_tot present), which yields ~501k rows. Under
+`require_all_majors=False` the loader returns ~737k rows.
+
+The big attrition is iron: requiring `feo` halves the pool
+(544k -> 261k) and requiring `fe2o3` halves it again (261k -> 172k).
+Many igneous samples report `feo_tot` or `fe2o3_tot` alone, not the
+split pair. The Fe-fallback chain (`feo_tot` first, then
+`fe2o3_tot`) is implemented per the handoff but only fires under
+`require_all_majors=False`. Worth a follow-up decision on whether the
+full SSL pretrain should relax the filter to recover the ~330k extra
+rows (P2 below).
+
+**Edge cases:**
+
+- exact-zero in any oxide / trace -> treated as NaN (geochemists use
+  0 for below-detection; the v1 convention is to drop those slots)
+- negative oxide -> row dropped entirely (corrupt sample signal)
+- negative trace -> only the trace slot NaN'd out (one bad trace
+  shouldn't discard an otherwise-good bulk)
+- `qap_name` carried as a parallel `np.ndarray` of strings (None for
+  missing) so downstream split logic can stratify without rebuilding
+- `sample_id` is the CSV's canonical identifier; deterministic
+  ordering is preserved
+
+**Tests landed in `tests/test_bulk_chemistry.py` (17 added):**
+
+structural -- shape/dtype, padding convention, MASK_TOKEN_ID absent
+from raw output, sample_id stable across construction, oxide-cation
+conversion numerical pin (sio2=50 -> Si frac ≈ 0.2337), iron
+aggregation pin, iron fallback to feo_tot pin, zero-as-NaN per-slot
+pin + row-drop variant, negative-major drops row, negative-trace nans
+only the slot, qap_name preserved, rock_group filter excludes
+sedimentary, `include_cr2o3` toggle, trace ppm->frac pin, missing-CSV
+raises. Plus one skip-if-absent regression pin against the real CSV
+that asserts `160k <= len(ds) <= 175k` so a drift surfaces here
+rather than after a long pretrain.
+
+Suite: 54 passed (37 existing + 17 new) in 5.4 s.
+
+**Real-data smoke: single-run.**
+
+`epochs=1`, `d_model=512`, `n_layers=4`, `n_heads=16`, `batch_size=64`
+on MPS:
+
+```
+split: trainval=133514 test=33379
+run_pretraining: n_train=106811 n_val=26703
+epoch 1/1 train=0.0008 val=0.0002 elapsed=40.8s
+final: train=0.0008 val=0.0002 test=0.0002
+```
+
+40.8 s / epoch on MPS at the full production model. A 10-epoch run is
+~7 min. Memory was not the bottleneck.
+
+**Real-data smoke: HPO.**
+
+3 trials × 1 epoch + 1 production run on best-params + 1 test eval.
+Trial wall times 31-63 s (batch_size=256 -> 32 s; batch_size=32 -> 62
+s). Total HPO sweep: ~4 min 11 s.
+
+Summary JSON has all four loss fields populated:
+- `best_trial_val_loss`: 0.000143 (trial 2)
+- `final_train_loss`: 0.00115
+- `final_val_loss`: 0.000158
+- `final_test_loss`: 0.000154
+
+(All values are absolute MSE on `frac` in [0, 1]; the model converges
+quickly because the masked targets cluster tightly around per-position
+medians.)
+
+The `assert_padding_convention` check on the first batch passed for
+both runs.
+
+**Codebase change recommendations (not implemented this session per
+the handoff's no-touch list).**
+
+P1 -- **`reserve_test` should stratify by `qap_name`** when the dataset
+exposes it. CLAUDE.md mandates 64/16/20 stratified by `qap_name` for
+the production split, and `BulkChemistryDataset.qap_names` is now
+available. Today `reserve_test` calls `train_test_split` without
+`stratify=`, so rare QAP classes can end up entirely in train or
+entirely in test. Fix: in `scripts/pretrain.py::reserve_test`, when
+the dataset has a `qap_names` attribute, pass `stratify=` and drop
+rows whose class count is below sklearn's threshold (CLAUDE.md
+mentions a 25-bulk floor). The smoke runs are unaffected by this
+gap because they only validate wiring, not split quality.
+
+P1 -- **dataset construction is duplicated 5+ times per HPO run.**
+`reserve_test`, each trial's `run_pretraining`, the production run,
+and `evaluate_on_test` each call `create_dataset(config)`, which
+reads + parses the 828 MB CSV anew (~3 s) and holds the parsed
+pandas frame transiently (~1.2 GB peak per construction). Three
+sequential constructions drove RSS from 265 MB to 2 GB. A 20-trial
+sweep would construct the dataset ~22 times. Fix: memoize in
+`scripts/pretrain.py::create_dataset` by a `(csv_path, frozenset
+data_kwargs)` key so the dataset is built once per study. The peak
+resident state per dataset is only ~45 MB of tensors; the bloat is
+pandas not releasing back to the OS. P1 because it caps how many
+trials can fit on a 16 GB machine before swapping.
+
+P2 -- **build a parquet cache of `complete.csv` on first read.** The
+CSV parse takes ~3 s but is purely deterministic given the column
+subset; a parquet sidecar would drop this to <300 ms. Not a blocker
+for the 167k corpus and 40 s/epoch wall times, but compounds with
+the P1 memoization gap (each cache miss multiplies). Recommend
+`data/complete.parquet` built once via a small `scripts/` helper,
+with `BulkChemistryDataset` preferring the parquet when it exists and
+falling back to CSV otherwise.
+
+P2 -- **revisit the strict `require_all_majors=True` default.** The
+strict filter discards ~330k rows that have computable Fe via
+`feo_tot` / `fe2o3_tot`. For SSL pretrain (where more data is almost
+always better and the supervised loss isn't dependent on label
+quality), it may be worth toggling to `require_all_majors=False` to
+recover those rows. The CompHead / mass-balance numerics in Track B
+have stronger reasons to want strict majors, so the toggle should
+land in the config not the default. Worth a 1-epoch smoke comparison
+on both settings before the full run.
+
+P3 -- **`num_workers` on MPS.** Single-process loading is fine at this
+scale; MPS + multiprocessing data loading is fragile on macOS
+(libomp conflicts + spawn semantics). Defer until the wall time
+becomes a real constraint.
+
+**Deliverables this session:**
+
+- `src/cnmineral/data/bulk_chemistry.py` -- the real CSV-backed dataset
+- `tests/test_bulk_chemistry.py` -- 17 tests pinning the contract
+- `data/optuna/v3_pretrain_hpo_realsmoke.journal` +
+  `data/optuna/v3_pretrain_hpo_realsmoke_summary.json` -- HPO smoke
+  artifacts
+- `checkpoints/pretrain_v3_smoke/epoch_001.pt` -- single-run smoke
+  checkpoint with test fields populated
+
+**Next.**
+
+- Day 6: port UMAP + probe diagnostics from v2's
+  `scripts/09_visualize_latent.py` +
+  `scripts/09b_latent_chem_axes_and_3d.py` against
+  `src/cnmineral/eval/`.
+- Day 7: full-corpus SSL pretrain. Plan around ~7 min/epoch on MPS at
+  the production model; a 20-epoch run is ~2.3 h, a 50-epoch run is
+  ~6 h. Memoize `create_dataset` first (P1) so an HPO sweep doesn't
+  thrash memory.
+- Decide whether to relax `require_all_majors` for SSL pretrain
+  (P2) before the production run.
