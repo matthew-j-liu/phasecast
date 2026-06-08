@@ -1,13 +1,7 @@
-"""V3 SSL pretrain loss.
-
+"""
 Masked-element MSE on the positions that were masked during the SSL
 corruption step.  The predicted `frac` for non-masked positions is
-ignored (no gradient through the loss).
-
-See `../crabnet-mineral-v2-legacy/src/cnmineral/models/pretrain_losses.py`
-for the v2 reference implementation.  The v2 version had a per-token
-gradient path; v3 uses the pooled-latent decoder so the loss shape is
-unchanged but the reconstruction surface is different.
+ignored (no gradient through the loss)
 """
 
 import torch
@@ -19,7 +13,8 @@ def masked_element_mse(
     mask_positions: torch.Tensor,
     reduction: str = "mean_per_masked_position",
 ) -> torch.Tensor:
-    """Mean-squared error between predicted and target frac at masked positions.
+    """
+    Mean-squared error between predicted and target frac at masked positions.
 
     Parameters
     ----------

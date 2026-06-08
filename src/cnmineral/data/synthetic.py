@@ -1,4 +1,4 @@
-"""Synthetic stand-in for the real unlabeled SSL pretrain dataset.
+"""Synthetic stand-in for the real bulk-chemistry SSL pretrain dataset.
 
 Used by `scripts/pretrain.py` (when `data_source: synthetic` is set in
 the YAML) and by the pretrain script tests so neither path depends on
@@ -27,7 +27,7 @@ class _Sample:
     sample_id: int
 
 
-class SyntheticUnlabeledDataset(Dataset[dict[str, torch.Tensor | int]]):
+class SyntheticBulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
     """Synthetic majors-only batches that match the real dataset's shape.
 
     Parameters
