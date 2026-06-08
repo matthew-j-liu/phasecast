@@ -17,8 +17,13 @@ n_heads: 16
 frac_resolution: 5000
 num_workers: 0
 
+# train/val/test split: 80/20 to reserve test, then 80/20 on the
+# trainval pool to get train/val. defaults yield the canonical 64/16/20.
+test_frac: 0.20
+val_frac: 0.20
+
 data_source: real
-# data_kwargs:     # forwarded to UnlabeledDataset(**data_kwargs) once it lands
+# data_kwargs:     # forwarded to BulkChemistryDataset(**data_kwargs) once it lands
 #   parquet_path: data/complete.csv
 
 checkpoint_dir: checkpoints/pretrain_v3

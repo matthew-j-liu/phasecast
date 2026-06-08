@@ -15,6 +15,11 @@ n_heads: 4
 frac_resolution: 200
 num_workers: 0
 
+# at n=16, default 0.20/0.20 yields 10 train / 3 val / 3 test -- tight but
+# enough to exercise the split + val pass in smoke.
+test_frac: 0.20
+val_frac: 0.20
+
 data_source: synthetic
 synthetic_n: 16
 

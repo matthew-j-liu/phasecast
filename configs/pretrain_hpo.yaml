@@ -1,5 +1,11 @@
-# SSL pretrain HPO sweep config.  Search space lives in
-# scripts/pretrain.py::suggest_hyperparams.
+# SSL pretrain HPO sweep config.
+#
+# `base:` carries the locked config (every knob NOT under optimization);
+# `search_space:` declares the optimized hyperparameters.  The two sets
+# are DISJOINT -- a key lives in exactly one section.  To freeze a
+# parameter after a sweep, move it from `search_space:` into `base:`
+# with the best-trial value.  To start optimizing one, move it the
+# other way.
 #
 # Storage: JournalStorage (filesystem); resumable via load_if_exists.
 
@@ -11,18 +17,30 @@ n_startup_trials: 5            # TPE random-warmup trials
 pruner_warmup_steps: 1         # MedianPruner skips epoch 0
 hpo_run_epochs: 3              # SSL pretrain is too expensive for CV per trial
 
-# Full run_pretraining config dict.  Trial overrides from suggest_hyperparams
-# land on top; `hpo_run_epochs` above replaces `epochs`.
+# Locked config: every key here is held constant across all trials.
 base:
   seed: 0
-  batch_size: 64
-  lr: 3.0e-4
-  mask_prob: 0.25
-  weight_decay: 0.01
-  dropout: 0.0
-  d_model: 512
-  n_layers: 4
-  n_heads: 16
   frac_resolution: 5000
   num_workers: 0
+  # split: same seed across trials guarantees identical train/val/test
+  test_frac: 0.20
+  val_frac: 0.20
   data_source: real
+
+# Trial-sampled hyperparameters.  Each entry becomes a `trial.suggest_*`
+# call inside the HPO objective and fills in a search-space dim that
+# `base:` deliberately leaves out.
+search_space:
+  # Architecture dims.  d_model and n_heads are constrained so every
+  # legal pair satisfies d_model % n_heads == 0 (the PyTorch
+  # MultiheadAttention requirement).  Adding/removing entries here means
+  # re-checking the divisibility matrix by hand.
+  d_model:      {type: categorical, choices: [256, 512, 768]}
+  n_layers:     {type: int, low: 2, high: 6}
+  n_heads:      {type: categorical, choices: [4, 8, 16]}
+  # Optimizer + masking + batch dims.
+  lr:           {type: float, low: 1.0e-5, high: 1.0e-3, log: true}
+  mask_prob:    {type: float, low: 0.15,   high: 0.40}
+  weight_decay: {type: float, low: 1.0e-4, high: 1.0e-1, log: true}
+  dropout:      {type: float, low: 0.0,    high: 0.2}
+  batch_size:   {type: categorical, choices: [32, 64, 128, 256]}
