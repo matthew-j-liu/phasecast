@@ -2,11 +2,11 @@
 Two modes, one CLI flag (`--config PATH`):
 
   Single-run:
-      python scripts/pretrain.py --config configs/pretrain.yaml
+      python scripts/pretrain.py --config configs/pretrain/pretrain_production.yaml
 
   Optuna HPO sweep (--hpo switches the interpretation of --config):
       python scripts/pretrain.py --hpo \
-          --config configs/pretrain_hpo.yaml --n-trials 20
+          --config configs/pretrain/pretrain_hpo.yaml --n-trials 20
 
 How the three top-level functions fit together:
 
@@ -14,8 +14,8 @@ How the three top-level functions fit together:
                                   |
               +-------------------+--------------------+
               |                                        |
-     --config pretrain.yaml           --hpo --config pretrain_hpo.yaml
-     (single-run mode)                (sweep mode)
+     --config pretrain_production.yaml  --hpo --config pretrain_hpo.yaml
+     (single-run mode)                  (sweep mode)
               |                                        |
               v                                        v
         run_single(...)                          run_hpo(...)
@@ -137,8 +137,7 @@ Role of each function:
 
 The dataset defaults to the real `BulkChemistryDataset` (imported lazily
 so the script still runs without it); set `data_source: synthetic` in the
-YAML to swap in `SyntheticBulkChemistryDataset` for smoke tests
-(`configs/pretrain_smoke.yaml`).
+YAML to swap in `SyntheticBulkChemistryDataset`.
 """
 
 import os
@@ -974,7 +973,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--hpo", action="store_true",
-        help="treat --config as an HPO sweep config (configs/pretrain_hpo.yaml)",
+        help="treat --config as an HPO sweep config (configs/pretrain/pretrain_hpo.yaml)",
     )
     parser.add_argument(
         "--n-trials", type=int, default=None,
