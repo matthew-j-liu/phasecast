@@ -2,7 +2,7 @@
 #
 # After an HPO sweep picks winners, copy the best params from the
 # study summary JSON into this file and run a longer training run:
-#     python scripts/pretrain.py --config configs/pretrain.yaml
+#     python scripts/pretrain.py --config configs/pretrain/pretrain_production.yaml
 
 seed: 0
 epochs: 10
