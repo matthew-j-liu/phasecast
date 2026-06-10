@@ -326,3 +326,61 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
             "frac": self._frac[idx].clone(),
             "sample_id": int(self.sample_ids[idx]),
         }
+
+    def petrological_axes(
+        self, indices: np.ndarray | None = None,
+    ) -> dict[str, np.ndarray]:
+        """SiO2 wt%, Mg#, and Na2O+K2O wt% per row.
+
+        Inverts the encoder-input cation conversion: SiO2 wt% comes
+        back as `frac[Si] * 100 / OXIDE_TO_CATION_FACTOR['sio2']`.
+        Token positions are `MAJORS + TRACES`: Si=0, Al=1, Ca=2,
+        Mg=3, Fe=4, K=5, Na=6.  Padded slots map to NaN so the caller
+        can filter at viz time.
+
+        Parameters
+        ----------
+        indices
+            Row indices to score.  Defaults to every row in the
+            dataset.
+
+        Returns
+        -------
+        dict[str, np.ndarray]
+            Keys `"SiO2 (wt%)"`, `"Mg#"`, `"Na2O+K2O (wt%)"`.  Each
+            value is a 1D array aligned with `indices`.
+        """
+        if indices is None:
+            indices = np.arange(len(self))
+        indices = np.asarray(indices, dtype=np.int64)
+        src_sub = self._src.numpy()[indices]
+        frac_sub = self._frac.numpy()[indices]
+
+        def oxide_wt_pct(token_idx: int, oxide_key: str) -> np.ndarray:
+            cation_wt = frac_sub[:, token_idx] * 100.0
+            factor = OXIDE_TO_CATION_FACTOR[oxide_key]
+            oxide = cation_wt / factor
+            oxide[src_sub[:, token_idx] == 0] = np.nan
+            return oxide
+
+        sio2 = oxide_wt_pct(0, "sio2")
+        mgo = oxide_wt_pct(3, "mgo")
+        # `frac[Fe]` is already cation wt% (Fe is resolved at
+        # construction, not via OXIDE_TO_CATION_FACTOR).  Molar mass
+        # of Fe = 55.845 g/mol; molar mass of MgO = 40.30 g/mol.
+        feo = frac_sub[:, 4] * 100.0
+        feo[src_sub[:, 4] == 0] = np.nan
+        na2o = oxide_wt_pct(6, "na2o")
+        k2o = oxide_wt_pct(5, "k2o")
+
+        mol_mgo = mgo / 40.30
+        mol_feo = feo / 55.845
+        denom = mol_mgo + mol_feo
+        with np.errstate(invalid="ignore", divide="ignore"):
+            mg_num = np.where(denom > 0, mol_mgo / denom, np.nan)
+
+        return {
+            "SiO2 (wt%)": sio2,
+            "Mg#": mg_num,
+            "Na2O+K2O (wt%)": na2o + k2o,
+        }

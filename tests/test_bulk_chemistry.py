@@ -349,3 +349,42 @@ def test_fixture_size_regression_pin(corpus_subset_path: Path) -> None:
         f"expected 456.  Regenerate via scripts/build_test_fixture.py "
         f"or update this pin if the change is intended."
     )
+
+
+def test_petrological_axes_returns_finite_values(
+    corpus_subset_path: Path,
+) -> None:
+    """SiO2/Mg#/alkalis reconstruction recovers wt% in a sane range."""
+    ds = BulkChemistryDataset(
+        csv_path=corpus_subset_path, min_class_count=2,
+    )
+    if len(ds) == 0:
+        pytest.skip("fixture has no rows after filter")
+    axes = ds.petrological_axes()
+    assert set(axes.keys()) == {"SiO2 (wt%)", "Mg#", "Na2O+K2O (wt%)"}
+    sio2 = axes["SiO2 (wt%)"]
+    finite = np.isfinite(sio2)
+    assert finite.any()
+    # SiO2 wt% in nature lives in roughly 35-80 for igneous rocks; the
+    # fixture is a 2000-row random sample so the median should land in
+    # that band even if individual outlier rows fall outside.
+    assert 30 <= float(np.median(sio2[finite])) <= 80
+    assert sio2[finite].max() <= 100
+    mg_num = axes["Mg#"]
+    finite_mg = np.isfinite(mg_num)
+    assert ((mg_num[finite_mg] >= 0) & (mg_num[finite_mg] <= 1)).all()
+
+
+def test_petrological_axes_indices_subset_shape(
+    corpus_subset_path: Path,
+) -> None:
+    """Passing `indices` returns arrays sized to the subset, not the full dataset."""
+    ds = BulkChemistryDataset(
+        csv_path=corpus_subset_path, min_class_count=2,
+    )
+    if len(ds) < 3:
+        pytest.skip("fixture too small for subset test")
+    indices = np.array([0, 1, 2], dtype=np.int64)
+    axes = ds.petrological_axes(indices)
+    for key, arr in axes.items():
+        assert arr.shape == (3,), f"{key} has shape {arr.shape}; expected (3,)"
