@@ -1,0 +1,228 @@
+# Canonical ML-technique list for crabnet-mineral-v2.
+#
+# Schema per entry:
+#   name:       short identifier (used as JSON key in technique_index.json)
+#   type:       one of architecture | initialization | training_strategy |
+#               optimization | loss | preprocessing | hpo | evaluation |
+#               data_loading
+#   patterns:   list of substrings; a file:line containing any of them counts
+#               as a hit.  Pick distinctive symbols (`TPESampler`, not
+#               `sampler`) to keep the index precision-first.
+#
+# Used by:    scripts/build_technique_index.py -> docs/technique_index.json
+# Scoped to:  src/cnmineral/, scripts/, configs/  (.py + .yaml + .yml only)
+#
+# See docs/techniques.md for the static-vs-runtime gap discussion and the
+# hook insertion-point map.
+
+techniques:
+
+  # ---- architecture ----
+  - name: transformer_encoder
+    type: architecture
+    patterns:
+      - "nn.TransformerEncoder"
+      - "TransformerEncoderLayer"
+      - "norm_first"
+  - name: masked_mean_pool
+    type: architecture
+    patterns:
+      - "masked-mean pool"
+      - "pooled_latent"
+      - "token_mask"
+  - name: dropout
+    type: architecture
+    patterns:
+      - "nn.Dropout"
+      - "dropout:"
+      - "dropout="
+  - name: layer_norm
+    type: architecture
+    patterns:
+      - "nn.LayerNorm"
+      - "LayerNorm("
+  - name: gelu_activation
+    type: architecture
+    patterns:
+      - "nn.GELU"
+      - 'activation="gelu"'
+  - name: fractional_encoding
+    type: architecture
+    patterns:
+      - "FractionalEncoder"
+      - "frac_encoder_linear"
+      - "frac_encoder_log"
+  - name: pretrain_head_mlp
+    type: architecture
+    patterns:
+      - "PretrainHead"
+
+  # ---- initialization ----
+  - name: mat2vec_embedding
+    type: initialization
+    patterns:
+      - "mat2vec.csv"
+      - "MAT2VEC_DIM"
+      - "MAT2VEC_PATH"
+      - "load_mat2vec_matrix"
+  - name: mat2vec_frozen_load
+    type: initialization
+    patterns:
+      - "nn.Embedding.from_pretrained"
+      - "padding_idx=0"
+  - name: mask_token_learnable
+    type: initialization
+    patterns:
+      - "MASK_TOKEN_ID"
+      - "ELEMENT_EMBEDDING_ROWS"
+  - name: checkpoint_load
+    type: initialization
+    patterns:
+      - "load_state_dict"
+      - "load_encoder_from_checkpoint"
+      - "torch.load"
+
+  # ---- training_strategy ----
+  - name: masked_element_modeling
+    type: training_strategy
+    patterns:
+      - "mask_for_ssl"
+      - "MaskedBatch"
+      - "mask_positions"
+      - "mask_prob"
+  - name: stratified_split
+    type: training_strategy
+    patterns:
+      - "train_test_split"
+      - "stratify="
+      - "_qap_labels_for_indices"
+  - name: bulk_level_qap_stratification
+    type: training_strategy
+    patterns:
+      - "qap_names"
+      - "qap_name"
+  - name: early_stopping
+    type: training_strategy
+    patterns:
+      - "early_stop_patience"
+      - "best_val_loss"
+      - "bad_epochs"
+  - name: grad_clip
+    type: training_strategy
+    patterns:
+      - "clip_grad_norm_"
+      - "max_norm=1.0"
+
+  # ---- optimization ----
+  - name: adamw
+    type: optimization
+    patterns:
+      - "torch.optim.AdamW"
+      - "AdamW("
+  - name: cosine_scheduler
+    type: optimization
+    patterns:
+      - "CosineAnnealingLR"
+      - "use_cosine_schedule"
+  - name: label_smoothing
+    type: optimization
+    patterns:
+      - "label_smoothing"
+
+  # ---- loss ----
+  - name: masked_element_mse
+    type: loss
+    patterns:
+      - "masked_element_mse"
+      - "mean_per_masked_position"
+  - name: cross_entropy
+    type: loss
+    patterns:
+      - "nn.CrossEntropyLoss"
+      - "CrossEntropyLoss("
+
+  # ---- preprocessing ----
+  - name: standard_scaler
+    type: preprocessing
+    patterns:
+      - "StandardScaler"
+  - name: l2_normalize_inputs
+    type: preprocessing
+    patterns:
+      - "_l2_normalize_rows"
+      - "l2_normalize_inputs"
+  - name: oxide_to_cation_conversion
+    type: preprocessing
+    patterns:
+      - "OXIDE_TO_CATION_FACTOR"
+      - "_resolve_iron"
+
+  # ---- hpo ----
+  - name: optuna_tpe_sampler
+    type: hpo
+    patterns:
+      - "TPESampler"
+      - "n_startup_trials"
+  - name: optuna_median_pruner
+    type: hpo
+    patterns:
+      - "MedianPruner"
+      - "pruner_warmup_steps"
+      - "should_prune"
+  - name: optuna_journal_storage
+    type: hpo
+    patterns:
+      - "JournalStorage"
+      - "JournalFileBackend"
+  - name: optuna_study
+    type: hpo
+    patterns:
+      - "optuna.create_study"
+      - "study.optimize"
+      - "trial.suggest_"
+      - "_sample_hyperparameter"
+
+  # ---- evaluation ----
+  - name: mlp_probe
+    type: evaluation
+    patterns:
+      - "train_mlp_probe"
+      - "_MLPProbe"
+  - name: logreg_probe
+    type: evaluation
+    patterns:
+      - "train_logreg_probe"
+      - "LogisticRegression"
+  - name: knn_label_purity
+    type: evaluation
+    patterns:
+      - "knn_label_purity"
+      - "NearestNeighbors"
+      - "random_label_purity"
+  - name: umap_projection
+    type: evaluation
+    patterns:
+      - "umap.UMAP"
+      - "fit_umap_2d"
+      - "fit_umap_3d"
+      - "UMAP_DEFAULTS"
+  - name: supergroup_collapse
+    type: evaluation
+    patterns:
+      - "qap_to_supergroup"
+      - "map_qap_array"
+      - "SUPERGROUPS"
+
+  # ---- data_loading ----
+  - name: parquet_sidecar_cache
+    type: data_loading
+    patterns:
+      - "to_parquet"
+      - "read_parquet"
+      - ".parquet"
+  - name: torch_dataloader
+    type: data_loading
+    patterns:
+      - "DataLoader("
+      - "TensorDataset"
+      - "Subset("
