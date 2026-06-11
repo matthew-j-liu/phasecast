@@ -17,7 +17,8 @@
 # colliding.
 
 study_name: probe_hpo_qap
-storage_path: data/optuna/probe_hpo_{encoder_tag}.journal
+storage_path: data/optuna/journals/probe_hpo_{encoder_tag}.journal
+output_dir: results/probe_hpo # summary JSON lands at output_dir/<encoder_tag>/summary.json
 sampler_seed: 42
 n_trials: 30
 n_startup_trials: 6            # TPE random-warmup trials

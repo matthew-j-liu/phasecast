@@ -9,11 +9,11 @@
 #               as a hit.  Pick distinctive symbols (`TPESampler`, not
 #               `sampler`) to keep the index precision-first.
 #
-# Used by:    scripts/build_technique_index.py -> docs/technique_index.json
+# Used by:    scripts/build/build_technique_index.py -> docs/methodology/technique_index.json
 # Scoped to:  src/cnmineral/, scripts/, configs/  (.py + .yaml + .yml only)
 #
-# See docs/techniques.md for the static-vs-runtime gap discussion and the
-# hook insertion-point map.
+# See docs/methodology/techniques.md for the static-vs-runtime gap discussion
+# and the hook insertion-point map.
 
 techniques:
 

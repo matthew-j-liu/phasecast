@@ -1,5 +1,5 @@
 """
-Reads `data/complete.csv` (latin-1 encoded, 1.02M rows, 192 columns),
+Reads `data/bulks/gard2019.csv` (latin-1 encoded, 1.02M rows, 192 columns),
 filters to igneous rocks with all 9 major oxides reported, converts
 oxide wt% to cation wt%, and emits per-sample `{src, frac, sample_id}`
 dicts that match `SyntheticBulkChemistryDataset` so the same training
@@ -161,12 +161,12 @@ def _resolve_iron(df: pd.DataFrame) -> pd.Series:
 
 class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
     """
-    SSL pretrain corpus over `data/complete.csv`.
+    SSL pretrain corpus over `data/bulks/gard2019.csv`.
 
     Parameters
     ----------
     csv_path
-        Path to the source CSV.  Defaults to `data/complete.csv`.
+        Path to the source CSV.  Defaults to `data/bulks/gard2019.csv`.
     rock_group
         Value of the `rock_group` column to keep.  Defaults to
         `"igneous"`.  Pass `None` to skip the filter entirely.
@@ -210,7 +210,7 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
 
     def __init__(
         self,
-        csv_path: str | Path = "data/complete.csv",
+        csv_path: str | Path = "data/bulks/gard2019.csv",
         rock_group: str | None = "igneous",
         drop_zero_as_nan: bool = True,
         require_all_majors: bool = True,
@@ -226,7 +226,7 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
         # 3 identifiers + filter (sample_id, qap_name, and rock_group)
         csv_path = Path(csv_path)
         if not csv_path.exists():
-            raise FileNotFoundError(f"complete.csv not found at {csv_path}")
+            raise FileNotFoundError(f"bulk corpus CSV not found at {csv_path}")
 
         df = _load_raw_dataframe(csv_path)
 

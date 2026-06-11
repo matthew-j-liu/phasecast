@@ -31,11 +31,12 @@ Three things this captures that "MAGEMin surrogate" doesn't:
 
 3. **Foundation-model encoder.** SSL pretraining on 474k real bulks
    organizes the latent by petrogenetic structure WITHOUT MAGEMin labels.
-   Measured: 76% supergroup classification accuracy via MLP probe with
-   zero supervision; 0.975 cosine on modal vectors via k-NN in latent vs
-   0.813 for random neighbors. The encoder is the durable contribution
-   that survives any specific generator's biases. Heads are application
-   slots; the encoder is the substrate.
+   Empirically: ~80% supergroup MLP-probe accuracy with zero supervision
+   (vs ~76% for v2 cell-c); strong k-NN neighborhood structure on
+   qap_name -- a large multiple over a random-neighbor baseline. The
+   encoder is the durable contribution that survives any specific
+   generator's biases. Heads are application slots; the encoder is the
+   substrate.
 
 ## Should you keep CrabNet (kingcrab.py) or roll your own?
 
@@ -180,7 +181,7 @@ worth a section in the regen if it's cheap, but not blocking.
 
 Three corpora, all generated upstream of the model:
 
-1. **SSL pretrain corpus**: `data/complete.csv`, igneous-filtered to ~474k
+1. **SSL pretrain corpus**: `data/bulks/gard2019.csv`, igneous-filtered to ~474k
    bulks. Inputs only (no labels). Used for masked-element pretraining.
 
 2. **Supervised corpus (v3)**: per-bulk × N FC paths with per-path
@@ -238,7 +239,7 @@ over-fitting (complete.csv is ~50% mafic-volcanic).
   when extracting per-phase composition from PTT)
 - `data/splits_v1.json` if reusing v1 split; rebuild if changing input
   vocab or filter rules
-- `data/min_df_v1.csv` (mineralML grain corpus) for held-out CompHead eval
+- `data/grains/mineralml.csv` (mineralML grain corpus) for held-out CompHead eval
 - ADRs 004, 005, 006 from `docs/decisions/` (label-design, corpus, model arch)
 
 ## What to drop

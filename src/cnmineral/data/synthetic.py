@@ -1,6 +1,6 @@
 """Synthetic stand-in for the real bulk-chemistry SSL pretrain dataset.
 
-Used by `scripts/pretrain.py` (when `data_source: synthetic` is set in
+Used by `scripts/training/pretrain.py` (when `data_source: synthetic` is set in
 the YAML) and by the pretrain script tests so neither path depends on
 the real Gard 2019 parquet being present.  Emits batches that obey the v3 padding convention
 (`src==0 iff frac==0`) so `assert_padding_convention` passes and the

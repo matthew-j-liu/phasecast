@@ -1,4 +1,4 @@
-"""Tests for `cnmineral.eval.{latent, probes, umap_views, supergroup}`.
+"""Tests for `cnmineral.eval.{latent, probe.primitives, umap_views, supergroup}`.
 
 Structural tests on the synthetic dataset (no real CSV needed) plus an
 end-to-end probe + UMAP run on the 2000-row corpus fixture.  The
@@ -18,7 +18,7 @@ from cnmineral.eval.latent import (
     extract_latents,
     load_encoder_from_checkpoint,
 )
-from cnmineral.eval.probes import (
+from cnmineral.eval.probe.primitives import (
     knn_label_purity,
     random_label_purity,
     train_logreg_probe,
@@ -130,23 +130,6 @@ def test_extract_latents_deterministic_in_eval_mode() -> None:
     assert torch.allclose(a, b)
 
 
-def test_load_encoder_from_checkpoint_smoke_ckpt() -> None:
-    """The Day-5 smoke checkpoint loads + produces a non-zero latent.
-
-    Skipped when the checkpoint isn't present (clean clone, CI without
-    long-running artifacts).
-    """
-    ckpt = Path(__file__).resolve().parent.parent / "checkpoints" / "pretrain_v3_smoke" / "epoch_001.pt"
-    if not ckpt.exists():
-        pytest.skip(f"checkpoint missing: {ckpt}")
-    encoder, payload = load_encoder_from_checkpoint(ckpt)
-    assert encoder.d_model == payload["config"]["d_model"]
-    dataset = SyntheticBulkChemistryDataset(n=4, seed=0)
-    latents = extract_latents(encoder, dataset, batch_size=2)
-    assert latents.shape == (4, encoder.d_model)
-    assert latents.abs().sum() > 0
-
-
 # ---------- probes ----------
 
 
@@ -212,6 +195,12 @@ def test_mlp_probe_runs_and_beats_random() -> None:
     assert np.isfinite(metrics.train_accuracy)
     assert np.isfinite(metrics.test_accuracy)
     assert metrics.test_accuracy > 1.0 / n_classes + 0.1
+
+    # per-epoch loss curve is captured; train and val track together
+    # and never exceed the epoch budget (early stop may cut it short)
+    assert 0 < len(metrics.monitor["train"]) <= 20
+    assert len(metrics.monitor["val"]) == len(metrics.monitor["train"])
+    assert all(np.isfinite(v) for v in metrics.monitor["val"])
 
 
 def test_probe_metrics_to_dict_is_json_friendly() -> None:

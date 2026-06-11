@@ -1,12 +1,19 @@
 # SSL-pretrained encoder: capabilities beyond mineralogy
 
-The v2 SSL-pretrained encoder is a **rock-chemistry foundation model**, not
+The SSL-pretrained encoder is a **rock-chemistry foundation model**, not
 just a feature extractor for the mineralogy task. Trained via masked-element
-modeling on 474k unlabeled igneous bulks from `data/complete.csv`, it
-organizes rocks in a 512-D latent space that captures real geochemical
+modeling on 474k unlabeled igneous bulks from `data/bulks/gard2019.csv`, it
+organizes rocks in a latent space that captures real geochemical
 structure. Mineralogy is one downstream application. This doc enumerates the
-others — capabilities the existing encoder already supports with no further
+others -- capabilities the existing encoder already supports with no further
 training, or with tiny supervised heads on the pretrained latent.
+
+**v3 encoder is available.**  Canonical checkpoint at
+`checkpoints/pretrain_v3_seed0/epoch_best.pt`; hyperparameters in
+`configs/pretrain/pretrain_production.yaml`.  See
+`docs/V3_WORKFLOW.md` for current probe numbers and gate-close
+status.  All capabilities in this doc target the v3 encoder;
+v2's encoder remains usable as a reference.
 
 Living document; update as capabilities are built or evaluated.
 

@@ -15,7 +15,7 @@ Things the team has already considered and rejected, with reasons. Don't re-pitc
 **Rejected.** mineralML's training corpus is 98.3% single-mineral samples (35,062 of 35,677 by Sample Name). Only 615 multi-mineral samples. Useful as a smoke test, not as a primary signal.
 
 ## Validation_Data/PetDB_allminerals/ as a training source
-**Rejected.** It's mineralML's test set (partial coverage, single source). Use min_df_v1.csv from Zenodo instead — multi-source, curated, 88k rows.
+**Rejected.** It's mineralML's test set (partial coverage, single source). Use the mineralML grain corpus from Zenodo (`data/grains/mineralml.csv`) instead — multi-source, curated, 88k rows.
 
 ## Using mineralML as a runtime dependency
 **Rejected.** Vendor only the specific classifiers needed (FeldsparClassifier, PyroxeneClassifier, etc.) into `src/cnmineral/stoichiometry/`. Avoids version coupling and lets us hot-fix boundary rules without upstream PRs.

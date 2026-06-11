@@ -1,18 +1,8 @@
-# Data
-data/min_df_v1.csv
-data/complete.csv
-data/magemin_cache/
-data/magemin_*.csv
-data/pools/
-data/tuples/
-data/*.h5
-data/*.parquet
-data/experiments/
-data/T_FC_end_cache/
-data/fc_corpus_cache/
-data/fc_corpus_cache_legacy/
-data/optuna/
-data/diagnostics/
+# Data: input corpora (large, re-downloadable) + optuna sweep state
+/data/
+
+# Run artifacts (regenerable)
+results/
 
 # Models
 checkpoints/
@@ -30,11 +20,5 @@ dist/
 # OS
 .DS_Store
 
-# Claude Code
-CLAUDE.md
-
 # Papers
 literature/
-
-# Local exploratory scripts
-scripts/profile_csv_load.py

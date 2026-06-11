@@ -1,11 +1,12 @@
 """Build the static technique index.
 
-Reads docs/techniques.yaml, scans src/cnmineral/, scripts/, configs/ for
-each technique's substring patterns, and writes the matching file paths
-to docs/technique_index.json.  Re-runnable; the output is regenerated
-from scratch each invocation so stale entries cannot survive.
+Reads docs/methodology/techniques.yaml, scans src/cnmineral/, scripts/,
+configs/ for each technique's substring patterns, and writes the matching
+file paths to docs/methodology/technique_index.json.  Re-runnable; the
+output is regenerated from scratch each invocation so stale entries
+cannot survive.
 
-    conda run -n alignn_fix python scripts/build_technique_index.py
+    conda run -n alignn_fix python scripts/build/build_technique_index.py
 
 Output JSON shape (grouped by technique type):
 
@@ -13,7 +14,7 @@ Output JSON shape (grouped by technique type):
       "<type>": {
         "<technique_name>": [
           "configs/probe/probe_hpo.yaml",
-          "scripts/pretrain.py",
+          "scripts/training/pretrain.py",
           "src/cnmineral/eval/probes.py"
         ],
         ...
@@ -34,9 +35,9 @@ import sys
 import yaml
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-TECHNIQUES_YAML = REPO_ROOT / "docs" / "techniques.yaml"
-OUTPUT_JSON = REPO_ROOT / "docs" / "technique_index.json"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TECHNIQUES_YAML = REPO_ROOT / "docs" / "methodology" / "techniques.yaml"
+OUTPUT_JSON = REPO_ROOT / "docs" / "methodology" / "technique_index.json"
 
 SCAN_ROOTS = ("src/cnmineral", "scripts", "configs")
 SCAN_SUFFIXES = (".py", ".yaml", ".yml")

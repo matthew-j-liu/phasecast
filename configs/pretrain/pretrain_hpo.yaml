@@ -1,58 +1,39 @@
-# SSL pretrain HPO sweep config.
-#
-# `base:` carries the locked config (every knob NOT under optimization);
-# `search_space:` declares the optimized hyperparameters.  The two sets
-# are DISJOINT -- a key lives in exactly one section.  To freeze a
-# parameter after a sweep, move it from `search_space:` into `base:`
-# with the best-trial value.  To start optimizing one, move it the
-# other way.
-#
-# Storage: JournalStorage (filesystem); resumable via load_if_exists.
+study_name: v3_pretrain_hpo_long
+storage_path: data/optuna/journals/v3_pretrain_hpo_long.journal
+output_dir: results/pretrain_hpo # summary JSON lands at output_dir/<study_name>/summary.json
+sampler_seed: 42 # seed for the Optuna sampler
+n_trials: 100                  
+n_startup_trials: 10 # uniform random sampling over search space to enable TPE to fit density estimators 
+pruner_warmup_steps: 8 # MedianPruner: After k=pruner_warmup_steps epochs, stop a trial if its loss is worse than median of previously completed trials
+hpo_run_epochs: 20             
 
-study_name: v3_pretrain_hpo
-storage_path: data/optuna/v3_pretrain_hpo.journal
-sampler_seed: 42
-n_trials: 200                  # resumable; safe to kill partway
-n_startup_trials: 10           # TPE random-warmup trials (10 of 200)
-pruner_warmup_steps: 1         # MedianPruner skips epoch 0
-hpo_run_epochs: 3              # SSL pretrain is too expensive for CV per trial
-
-# Locked config: every key here is held constant across all trials.
+# Every key here is held constant across all trials.
+# Also applies to the post-Optuna production run (assuming all trials finish)
 base:
-  seed: 0
+  seed: 0 # for training run each trial; encoder weight init, stratified train/val/test split, dataloader shuffling, etc. 
   frac_resolution: 5000
   num_workers: 0
-  # split: same seed across trials guarantees identical train/val/test
   test_frac: 0.20
   val_frac: 0.20
   data_source: real
 
-# Trial-sampled hyperparameters.  Each entry becomes a `trial.suggest_*`
-# call inside the HPO objective and fills in a search-space dim that
-# `base:` deliberately leaves out.
+  # if all trials finish, production training will occur for `base.epochs` 
+  # at the best params from Optuna
+  epochs: 20
+  checkpoint_dir: checkpoints/pretrain_v3_long
+  checkpoint_best_filename: epoch_best.pt
+  checkpoint_last_filename: epoch_last.pt
+
+# For Optuna 
 search_space:
-  # Architecture dims.  d_model and n_heads are constrained so every
-  # legal pair satisfies d_model % n_heads == 0 (the PyTorch
-  # MultiheadAttention requirement).  Adding/removing entries here means
-  # re-checking the divisibility matrix by hand.
+  # Architecture dimensions. Note that we must satisfy d_model % n_heads == 0
   d_model:      {type: categorical, choices: [256, 512, 768]}
   n_layers:     {type: int, low: 2, high: 6}
   n_heads:      {type: categorical, choices: [4, 8, 16]}
+
   # Optimizer + masking + batch dims.
   lr:           {type: float, low: 1.0e-5, high: 1.0e-3, log: true}
   mask_prob:    {type: float, low: 0.15,   high: 0.40}
   weight_decay: {type: float, low: 1.0e-4, high: 1.0e-1, log: true}
   dropout:      {type: float, low: 0.0,    high: 0.2}
   batch_size:   {type: categorical, choices: [32, 64, 128, 256]}
-
-
-
-"best_params": {
-    "d_model": 768,
-    "n_layers": 3,
-    "n_heads": 8,
-    "lr": 0.0004021554526690286,
-    "mask_prob": 0.1686376609199427,
-    "weight_decay": 0.09133995846860977,
-    "dropout": 0.1544489538593315,
-    "batch_size": 128

@@ -1998,3 +1998,98 @@ becomes a real constraint.
   thrash memory.
 - Decide whether to relax `require_all_majors` for SSL pretrain
   (P2) before the production run.
+
+## 2026-06-11 -- Track A closed: 20-epoch encoder beats v2 cell-c by ~5 points
+
+**Q.** Did the v3 SSL pretrain produce an encoder that clears the
+Track A acceptance gate (>= 76% supergroup MLP, >= 72% qap_name
+MLP -- the v2 cell-c numbers)?  And is 20 epochs enough or do we
+need more?
+
+**Context.** Trained the v3 encoder at the Optuna-tuned
+hyperparameters from `data/optuna/v3_pretrain_hpo_long.journal`
+trial #44 (d_model=256, n_layers=4, n_heads=8, lr=1.47e-4,
+mask_prob=0.230, weight_decay=7.67e-3, dropout=0.013).  Worried
+mid-session that 40 epochs might still be undertraining since the
+train and val SSL curves were both still descending in lockstep
+(zero train/val gap) -- the classic "no overfitting but possibly
+not converged" pattern.  Decided to compare 20-epoch and 40-epoch
+probe results to settle it empirically.
+
+**Considered.**
+
+A. Take the 40-epoch probe number as the headline (more compute,
+   more training).
+B. Take the 20-epoch number as the headline; relegate 40 to a
+   methodology footnote.
+C. Run multi-seed at both to get error bars before deciding.
+
+**Decision.** B.  Probe accuracy on the 20-epoch encoder at
+library-default probe HPs (`scripts/eval/probe_encoder.py
+--checkpoint epoch_best.pt`):
+
+  qap_name LR     0.708
+  qap_name MLP    0.762  (gate 0.72; +4.2)
+  supergroup LR   0.737
+  supergroup MLP  0.806  (gate 0.76; +4.6)
+  k-NN qap purity 0.582 / 0.555 / 0.494 at k=5/10/50  (random 0.10)
+
+40-epoch deltas vs 20 (same seed):
+
+  qap_name LR     +0.003
+  qap_name MLP    -0.003
+  supergroup LR    0.000
+  supergroup MLP  +0.003
+
+All within probe stochasticity (>= +/- 0.005 from MLP init / data
+shuffle / single-seed noise).  The SSL loss kept descending past
+epoch 20 but the downstream metric did not -- the SSL-loss-as-
+proxy curve flattens at the downstream level well before SSL loss
+itself does.  20-epoch is the canonical budget; 40-epoch is kept
+as `epoch_best_40.pt` for the paper ablation ("we trained to 40 to
+verify convergence; no measurable gain past 20").  Skipped C
+(multi-seed) because gate clears by ~5 points; the qualitative
+answer doesn't change with error bars and the work is better spent
+moving forward.
+
+Probe HPO on the 20-epoch encoder afterwards tuned qap_name MLP
+from 0.762 to 0.776 (30-trial TPE sweep over the MLP probe HPs;
+summary in `results/probe_hpo/`).  The library-default 0.762 stays
+the headline for the v2 comparison since cell-c was also probed at
+library defaults.
+
+Also closed this session: collapsed three confusingly-named eval
+scripts into two (`probe_encoder.py --hpo` + `calibrate_probe.py`),
+eliminated 7 CLI flags that overrode or duplicated YAML keys,
+dropped `--pretrain-config` entirely by reading from `ckpt.config`
+(the YAML and stamped config could silently disagree, e.g. a
+post-training `frac_resolution` edit would rebuild the dataset at
+the wrong tokenization), promoted the four probe modules into a
+`cnmineral/eval/probe/` subpackage that mirrors `cnmineral/training/`
+structurally, deleted one dead skipped test.  Net: cleaner CLI
+surface, fewer redundant flags, structurally consistent package
+layout.
+
+**Next.**
+
+- Track A part 2: PRETRAIN_APPLICATIONS, starting with element
+  imputation (the natural first capability -- the pretrain head
+  literally predicts missing elements from context).  See
+  `docs/PRETRAIN_APPLICATIONS.md` for the 11-capability list and
+  prioritization.  Target files: `scripts/eval/impute_elements.py`
+  + `src/cnmineral/eval/imputation.py`.  Plan mode before writing
+  code.
+- Track B remains gated on the FC corpus regen pilots in
+  `~/.claude/plans/sunny-weaving-nebula.md`.  Not the next move.
+- Defer multi-seed and probe-HPO methodology rigor work to the
+  paper-writing phase if reviewers ask for error bars.
+- Two open questions for the next probe HPO run: the qap_name
+  sweep's best hit the ceiling on both `hidden_dim` (best=1024 of
+  [256, 512, 1024]) and `n_hidden_layers` (best=2 of [1, 2]).
+  Methodology caveat before expanding: a bigger search space will
+  push the probe number up, but past a certain probe complexity
+  the metric stops measuring "is the latent organized well?" and
+  starts measuring "can a big classifier extract signal?" --
+  SimCLR/MoCo/CLIP standardize on *linear* probes for exactly this
+  reason.  Expand ONE dimension at a time (start with `hidden_dim`
+  to [256, 512, 1024, 2048]) and resist doing both at once.

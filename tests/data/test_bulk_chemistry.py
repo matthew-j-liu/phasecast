@@ -1,8 +1,8 @@
 """Tests for `cnmineral.data.bulk_chemistry.BulkChemistryDataset`.
 
 Structural tests use a 10-row in-memory CSV fixture so they don't
-depend on `data/complete.csv` being present.  One regression-pin test
-loads the real file when it's available and skips otherwise; this
+depend on `data/bulks/gard2019.csv` being present.  One regression-pin
+test loads the real file when it's available and skips otherwise; this
 guards against silent row-count regressions without coupling the suite
 to exact production numbers.
 """
@@ -25,8 +25,8 @@ from cnmineral.data.bulk_chemistry import (
     BulkChemistryDataset,
 )
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-REAL_CSV = REPO_ROOT / "data" / "complete.csv"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REAL_CSV = REPO_ROOT / "data" / "bulks" / "gard2019.csv"
 
 
 # every fixture row carries the same trace block + sample_id so each
@@ -260,7 +260,7 @@ def test_missing_csv_raises(tmp_path: Path) -> None:
 # ----- regression pin against the real corpus (skip if absent) -----
 
 
-@pytest.mark.skipif(not REAL_CSV.exists(), reason="data/complete.csv absent")
+@pytest.mark.skipif(not REAL_CSV.exists(), reason="data/bulks/gard2019.csv absent")
 def test_real_corpus_default_filter_size() -> None:
     """Strict default filter against the real CSV lands near ~167k rows.
 
@@ -346,7 +346,7 @@ def test_fixture_size_regression_pin(corpus_subset_path: Path) -> None:
     )
     assert len(ds_strict) == 456, (
         f"strict-filter fixture size drifted: got {len(ds_strict)}; "
-        f"expected 456.  Regenerate via scripts/build_test_fixture.py "
+        f"expected 456.  Regenerate via scripts/build/build_test_fixture.py "
         f"or update this pin if the change is intended."
     )
 

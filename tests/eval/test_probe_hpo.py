@@ -1,40 +1,18 @@
-"""Tests for `scripts/run_probe_hpo.py`.
+"""Tests for `cnmineral.eval.probe.{hpo, calibration}`.
 
-Two scopes:
-
-- Helper-level: `_encoder_tag` produces a stable, filesystem-safe
-  namespacing tag.
-- End-to-end: a 2-trial sweep against a small random-init encoder on
-  the corpus fixture writes a usable summary JSON and respects
-  resumability (`load_if_exists=True`).
+End-to-end: a 2-trial sweep against a small random-init encoder on
+the corpus fixture writes a usable summary JSON and respects
+resumability (`load_if_exists=True`).
 """
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
-from compare_probe_hpos import build_report, run as run_compare  # noqa: E402
-from run_probe_hpo import _encoder_tag, run  # noqa: E402
-
-
-def test_encoder_tag_stable_and_filesystem_safe() -> None:
-    """Tag derives from parent_dir + filename stem with non-alnum chars
-    replaced by underscores; reruns on the same path produce the same
-    string (study-storage namespacing depends on this)."""
-    p = Path("checkpoints/pretrain_v3_smoke/epoch_001.pt")
-    tag = _encoder_tag(p)
-    assert tag == "pretrain_v3_smoke_epoch_001"
-    # idempotent
-    assert _encoder_tag(p) == tag
-    # special chars are sanitized
-    tricky = Path("checkpoints/run name (v3)/final ckpt.pt")
-    sanitized = _encoder_tag(tricky)
-    assert all(c.isalnum() or c in "_-" for c in sanitized), sanitized
+from cnmineral.eval.probe import build_report, run_calibration, run_hpo
 
 
 def _build_smoke_pretrain_config(
@@ -67,39 +45,47 @@ def _build_smoke_pretrain_config(
             "min_class_count": 2,
         },
         "checkpoint_dir": str(ckpt_dir),
+        "checkpoint_best_filename": "epoch_best.pt",
+        "checkpoint_last_filename": "epoch_last.pt",
     }
 
 
 def _train_fixture_checkpoint(
     corpus_subset_path: Path, ckpt_dir: Path,
 ) -> Path:
-    """Drive `scripts/pretrain.py::run_single` for 1 epoch on the
+    """Drive `cnmineral.training.run_single` for 1 epoch on the
     corpus fixture so we have a real checkpoint to probe-HPO against."""
     import yaml
 
-    from pretrain import run_single
+    from cnmineral.training import run_single
 
     cfg_path = ckpt_dir / "pretrain_test.yaml"
     cfg = _build_smoke_pretrain_config(corpus_subset_path, ckpt_dir)
     with open(cfg_path, "w") as f:
         yaml.safe_dump(cfg, f)
     run_single(cfg_path, device="cpu")
-    return ckpt_dir / "epoch_001.pt"
+    return ckpt_dir / "epoch_best.pt"
 
 
 def _write_probe_hpo_yaml(
-    path: Path, study_name: str, storage_dir: Path,
+    path: Path, study_name: str, storage_dir: Path, output_dir: Path,
+    *, n_trials: int = 2,
 ) -> Path:
     """Hand-write a minimal probe_hpo.yaml that doesn't depend on
     `configs/probe/probe_hpo.yaml` parsing -- this way the test breaks
-    if `run` mishandles the YAML, not if I edit the prod config."""
+    if `run_hpo` mishandles the YAML, not if I edit the prod config.
+
+    `output_dir` must be absolute because `probe_hpo.run_hpo` resolves it
+    relative to `REPO_ROOT`; test fixtures stamp the absolute tmp path.
+    """
     import yaml
 
     spec = {
         "study_name": study_name,
         "storage_path": str(storage_dir / "probe_hpo_{encoder_tag}.journal"),
+        "output_dir": str(output_dir),
         "sampler_seed": 7,
-        "n_trials": 2,
+        "n_trials": n_trials,
         "n_startup_trials": 2,
         "pruner_warmup_steps": 0,
         "probe_target": "qap_name",
@@ -150,20 +136,17 @@ def test_run_probe_hpo_end_to_end_on_fixture(
 
     storage_dir = tmp_path / "optuna"
     storage_dir.mkdir()
+    output_dir = tmp_path / "out"
     hpo_cfg_path = _write_probe_hpo_yaml(
         tmp_path / "probe_hpo.yaml",
         study_name="probe_hpo_test",
         storage_dir=storage_dir,
-    )
-    pretrain_cfg_path = ckpt_dir / "pretrain_test.yaml"
-    output_dir = tmp_path / "out"
-
-    summary = run(
-        checkpoint_path=ckpt_path,
-        pretrain_config_path=pretrain_cfg_path,
-        hpo_config_path=hpo_cfg_path,
         output_dir=output_dir,
-        extract_batch_size=64,
+    )
+
+    summary = run_hpo(
+        checkpoint_path=ckpt_path,
+        hpo_config_path=hpo_cfg_path,
         device="cpu",
     )
 
@@ -174,11 +157,16 @@ def test_run_probe_hpo_end_to_end_on_fixture(
     assert 0.0 <= summary["final_mlp"]["test_accuracy"] <= 1.0
     assert 0.0 <= summary["baseline_lr"]["test_accuracy"] <= 1.0
 
-    summary_files = list(output_dir.glob("*_summary.json"))
+    summary_files = list(output_dir.glob("*/summary.json"))
     assert len(summary_files) == 1
     with open(summary_files[0]) as f:
         on_disk = json.load(f)
     assert on_disk["n_trials_complete"] == 2
+
+    # study figure + production-MLP loss curve land next to the summary
+    encoder_dir = summary_files[0].parent
+    assert (encoder_dir / "hpo_history.png").stat().st_size > 0
+    assert (encoder_dir / "loss_curve.png").stat().st_size > 0
 
     # storage file should exist + be re-openable (resumability prereq).
     journal_files = list(storage_dir.glob("*.journal"))
@@ -248,7 +236,7 @@ def test_compare_probe_hpos_flags_converged_vs_scattered() -> None:
 
 
 def test_compare_probe_hpos_writes_report_and_yaml(tmp_path: Path) -> None:
-    """run_compare writes both the markdown report and calibrated YAML."""
+    """run_calibration writes both the markdown report and calibrated YAML."""
     summaries = [
         _fake_summary(f"enc_{i}", {
             "hidden_dim": 512,
@@ -272,7 +260,7 @@ def test_compare_probe_hpos_writes_report_and_yaml(tmp_path: Path) -> None:
         summary_paths.append(p)
 
     out_dir = tmp_path / "out"
-    report = run_compare(summary_paths, out_dir)
+    report = run_calibration(summary_paths, out_dir)
     assert (out_dir / "calibration_report.md").exists()
     assert (out_dir / "calibrated_probe.yaml").exists()
     assert report["consensus"]["hidden_dim"] == 512
@@ -293,16 +281,13 @@ def test_run_probe_hpo_zero_trials_returns_baseline_only(
         tmp_path / "probe_hpo.yaml",
         study_name="probe_hpo_test_zero",
         storage_dir=storage_dir,
-    )
-    pretrain_cfg_path = ckpt_dir / "pretrain_test.yaml"
-
-    summary = run(
-        checkpoint_path=ckpt_path,
-        pretrain_config_path=pretrain_cfg_path,
-        hpo_config_path=hpo_cfg_path,
         output_dir=tmp_path / "out",
-        extract_batch_size=64,
-        n_trials_override=0,
+        n_trials=0,
+    )
+
+    summary = run_hpo(
+        checkpoint_path=ckpt_path,
+        hpo_config_path=hpo_cfg_path,
         device="cpu",
     )
     assert summary["n_trials_complete"] == 0

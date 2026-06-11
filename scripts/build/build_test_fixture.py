@@ -1,27 +1,25 @@
-"""Build the deterministic 2000-row test corpus from data/complete.csv.
+"""Build the deterministic 2000-row test corpus from data/bulks/gard2019.csv.
 
 Output: tests/fixtures/complete_subset.parquet (~113 KB; checked in).
 Re-run if `_load_raw_dataframe`'s column list changes or the seed
 needs to be redrawn.  Idempotent: same seed produces the same bytes.
 
-    conda run -n alignn_fix python scripts/build_test_fixture.py
+    conda run -n alignn_fix python scripts/build/build_test_fixture.py
 """
 
 import os
 
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
-import sys
 from pathlib import Path
 
 import numpy as np
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "src"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 from cnmineral.data.bulk_chemistry import _load_raw_dataframe
 
-SOURCE_CSV = REPO_ROOT / "data" / "complete.csv"
+SOURCE_CSV = REPO_ROOT / "data" / "bulks" / "gard2019.csv"
 OUTPUT_PARQUET = REPO_ROOT / "tests" / "fixtures" / "complete_subset.parquet"
 SAMPLE_SIZE = 2000
 SEED = 42

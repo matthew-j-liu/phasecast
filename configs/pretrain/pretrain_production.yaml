@@ -1,37 +1,30 @@
-# Single-run SSL pretrain config (production-shape).
-#
-# Hyperparameters baked in from the 200-trial Optuna sweep
-# (data/optuna/v3_pretrain_hpo_summary.json, trial #4,
-# val_loss = 9.13e-5).  Float values pasted at full precision so
-# the production run matches the sweep's winning point exactly.
-#
-# Run:
-#     python scripts/pretrain.py --config configs/pretrain/pretrain_production.yaml
+# Take the best hyperparameters found by Optuna trials and paste here
+batch_size: 32                      
+lr: 1.4708512167257399e-4                       
+mask_prob: 0.22994349809709916      
+weight_decay: 0.007669492144818994           
+dropout: 0.013193520455011092           
+d_model: 256      
+n_layers: 4                  
+n_heads: 8   
 
-seed: 0
-epochs: 20                                      # post-sweep production budget (sweep used hpo_run_epochs=3)
-batch_size: 128                                 # sweep best_params
-lr: 4.021554526690286e-4                        # sweep best_params
-mask_prob: 0.1686376609199427                   # sweep best_params
-weight_decay: 0.09133995846860977               # sweep best_params
-dropout: 0.1544489538593315                     # sweep best_params
-d_model: 768                                    # sweep best_params
-n_layers: 3                                     # sweep best_params
-n_heads: 8                                      # sweep best_params
-frac_resolution: 5000
-num_workers: 0
-
-# train/val/test split: 80/20 to reserve test, then 80/20 on the
-# trainval pool to get train/val.  Defaults yield the canonical 64/16/20.
+# should match what was used in `probe_hpo.yaml`
+seed: 0 # update the checkpoint_dir with this as well! 
+epochs: 20
 test_frac: 0.20
 val_frac: 0.20
 
+num_workers: 0
+frac_resolution: 5000
+
 data_source: real
 data_kwargs:
-  csv_path: data/complete.csv
+  csv_path: data/bulks/gard2019.csv
   rock_group: igneous
   drop_zero_as_nan: true
   require_all_majors: true
   include_cr2o3: false
 
-checkpoint_dir: checkpoints/pretrain_v3_seed0   # seed-suffixed so multi-seed runs don't collide
+checkpoint_dir: checkpoints/pretrain_v3_seed0 
+checkpoint_best_filename: epoch_best.pt
+checkpoint_last_filename: epoch_last.pt

@@ -1,9 +1,9 @@
 # Techniques: implementation vs activation
 
-`docs/techniques.yaml` lists the ML techniques implemented in this codebase.
-`scripts/build_technique_index.py` scans `src/cnmineral/`, `scripts/`, and
+`docs/methodology/techniques.yaml` lists the ML techniques implemented in this codebase.
+`scripts/build/build_technique_index.py` scans `src/cnmineral/`, `scripts/`, and
 `configs/` for each technique's substring patterns and writes the matching
-file paths to `docs/technique_index.json`, grouped by technique type
+file paths to `docs/methodology/technique_index.json`, grouped by technique type
 (`architecture`, `optimization`, `hpo`, etc.) and then by technique name.
 No line numbers, since those churn on every edit.
 
@@ -23,7 +23,7 @@ under specific config values:
 - `masked_element_modeling` always appears; logically inactive at
   `mask_prob = 0`.
 - `optuna_tpe_sampler`, `optuna_median_pruner`, `optuna_journal_storage`
-  only activate in HPO mode (`scripts/pretrain.py --hpo`), not in
+  only activate in HPO mode (`scripts/training/pretrain.py --hpo`), not in
   single-config production runs.
 
 The static index marks these as implemented every time.  A reader cannot
@@ -45,13 +45,13 @@ for the paper, scaling-experiment cross-run join, etc.).
 | `src/cnmineral/losses/pretrain_loss.py` | `masked_element_mse` | `masked_element_mse` (with reduction mode) |
 | `src/cnmineral/eval/probes.py` | `train_mlp_probe` | `mlp_probe`, `adamw`, conditionally `cosine_scheduler`, `label_smoothing`, `l2_normalize_inputs` |
 | `src/cnmineral/eval/probes.py` | `train_logreg_probe` | `logreg_probe`, `standard_scaler` |
-| `scripts/pretrain.py` | end of `run_single` or `run_hpo` | `optuna_tpe_sampler`, `optuna_median_pruner`, `optuna_journal_storage`, `stratified_split`, `grad_clip` (HPO-only entries gated) |
+| `cnmineral.training` / `scripts/training/pretrain.py` | end of `run_single` or `run_hpo` | `optuna_tpe_sampler`, `optuna_median_pruner`, `optuna_journal_storage`, `stratified_split`, `grad_clip` (HPO-only entries gated) |
 
 ### Flush sites (one JSON per surviving run, not per Optuna trial)
 
-- Single-run (`run_single` in `scripts/pretrain.py`): one JSON written next
+- Single-run (`run_single` in `cnmineral.training` / `scripts/training/pretrain.py`): one JSON written next
   to the checkpoint after the final test eval.
-- HPO sweep (`run_hpo` in `scripts/pretrain.py`): one JSON written for the
+- HPO sweep (`run_hpo` in `cnmineral.training` / `scripts/training/pretrain.py`): one JSON written for the
   post-sweep production run on `study.best_params`.  Per-trial writes are
   explicitly excluded -- Optuna's `JournalStorage` already records every
   trial's params and val loss, and per-trial technique JSONs would be
@@ -101,7 +101,7 @@ for f in glob.glob("data/**/run_techniques.json", recursive=True):
     rows.append({**flatten(payload["active_techniques"]), **payload["metrics"]})
 ```
 
-Joining `docs/technique_index.json` (implemented set) against the
+Joining `docs/methodology/technique_index.json` (implemented set) against the
 collection of `run_techniques.json` files (activated set across runs)
 distinguishes:
 
@@ -114,7 +114,7 @@ distinguishes:
 ### Caveat: reconstruction vs explicit stamping
 
 Most of `active_techniques` is reconstructible from the stamped config in
-the checkpoint payload (see `save_checkpoint` in `scripts/pretrain.py`,
+the checkpoint payload (see `save_checkpoint` in `cnmineral.training` / `scripts/training/pretrain.py`,
 which already stores the full `config` dict).  Per the project's
 schema-design rule ("every field earns its place against reconstruction"),
 the runtime registry earns its keep only for the parts that are NOT

@@ -11,10 +11,11 @@ Written 2026-06-01 as the v2 -> v3 handoff.
 
 Reasons to stay in this repo:
 
-- `data/` contains ~1 GB of files (complete.csv, train_fc_v1.parquet,
-  min_df_v1.csv, diagnostics, cached chunks). All gitignored, all
-  already where you want them. Migrating to a fresh repo means symlinks
-  or copies.
+- `data/` contains ~1 GB of files (`bulks/gard2019.csv`,
+  `grains/mineralml.csv`, `optuna/` journals, diagnostics outputs,
+  and Track B's eventual `MAGEMin/` corpus).  All gitignored, all
+  already where you want them.  Migrating to a fresh repo means
+  symlinks or copies.
 - Memory files in `~/.claude/projects/-Users-mliu-git-clones-crabnet-mineral-v2/memory/`
   are keyed by repo path. New repo = orphaned memories = re-deriving
   what you already learned.
@@ -59,27 +60,49 @@ End-to-end fine-tuning (Track C) is optional and last. Probably small
 gains given how strong the SSL encoder is. Add only if Track B's eval
 suggests headroom.
 
-### Track A: foundation-model encoder (~2-3 weeks)
+### Track A: foundation-model encoder (closed 2026-06-11)
 
-| step | output | gate |
+Wrapped up: SSL encoder pretrained on Gard 2019 (~474k igneous
+bulks) at the post-Optuna hyperparameters in
+`configs/pretrain/pretrain_production.yaml`.  Canonical budget is
+20 epochs (a 40-epoch comparison landed within stochastic noise:
+supergroup MLP +0.003, qap_name MLP -0.003 -- SSL loss kept
+descending but downstream metric did not).  Canonical checkpoint
+lives at `checkpoints/pretrain_v3_seed0/epoch_best.pt`.
+
+Probe results on the 20-epoch encoder (`scripts/eval/probe_encoder.py`,
+library-default probe HPs; figures + JSON under
+`results/probe/pretrain_v3_seed0_epoch_best/`):
+
+| probe | test accuracy | v2 cell-c bar |
 |---|---|---|
-| port mat2vec embedding matrix | CSV in `data/element_properties/` | loads, indexable by atomic number 1-100 |
-| write thin encoder (own transformer + mat2vec) | `src_v3/encoder.py` with explicit `src==0` padding | unit test: random (src, frac) -> non-zero pooled latent |
-| build BulkChemistryDataset over complete.csv | dataset class with igneous filter + supergroup labels | length matches expected ~474k; supergroup counts look right |
-| write SSL training loop (Option H from v2 bug-fix) | `scripts/pretrain.py` with pooled-latent decoder | held-out reconstruction MSE drops monotonically across epochs |
-| save encoder checkpoint | `checkpoints/encoder.pt` + manifest of cation order + scale config | bytewise diff from random init > 0 (the v2 sanity gate) |
-| reproduce UMAP + probe diagnostics | the 5 plots in `data/diagnostics/latent_v3/` | supergroup MLP probe >= 75%, k-NN cosine on modal vectors >= 0.95 |
+| supergroup MLP | 0.806 | 0.76 (+4.6) |
+| qap_name MLP   | 0.762 | 0.72 (+4.2) |
+| qap_name MLP (probe-HPO-tuned) | 0.776 | -- |
+| supergroup LR  | 0.737 | -- |
+| qap_name LR    | 0.708 | -- |
 
-Acceptance: SSL encoder reproduces v2 cell-c probe numbers (76%
-supergroup MLP / 72% qap_name MLP). Then **stop touching it** and
-start Track B.
+The tuned row is the same encoder probed at the
+probe-HPO best params (`results/probe_hpo/`); the
+library-default rows are the apples-to-apples comparison against
+v2 cell-c.
+
+k-NN qap purity at k=5/10/50: 0.582 / 0.555 / 0.494 against a
+random baseline of 0.100 -- the encoder organizes rock chemistry
+into qap-coherent neighborhoods without ever seeing a label.
+
+Stops here: the encoder is the durable contribution.  Two parallel
+follow-up tracks: **Track A part 2** (PRETRAIN_APPLICATIONS) and
+**Track B** (supervised mineralogy heads).  Track A part 2 is
+unblocked now; Track B is still gated on the FC corpus regen
+pilots in `~/.claude/plans/sunny-weaving-nebula.md`.
 
 ### Track B: supervised mineralogy heads (~4-6 weeks)
 
 | step | output | gate |
 |---|---|---|
-| port the v3 corpus regen + run pilots 1, 2, 2b, 3, 4 | `data/diagnostics/v3_pilot/` + an explicit CompHead parameterization decision | pilot decision gate passes (see `~/.claude/plans/sunny-weaving-nebula.md` section "Pilot decision gate") |
-| run the full v3 corpus regen | `data/train_fc_v3.parquet` with per-phase composition + optional G_sys | 95%+ FC convergence; per-bulk audit clean |
+| port the v3 corpus regen + run pilots 1, 2, 2b, 3, 4 | `results/v3_pilot/` + an explicit CompHead parameterization decision | pilot decision gate passes (see `~/.claude/plans/sunny-weaving-nebula.md` section "Pilot decision gate") |
+| run the full v3 corpus regen | `data/MAGEMin/fc_corpus.parquet` (per-phase composition + optional G_sys) | 95%+ FC convergence; per-bulk audit clean |
 | build ModeHead (Dirichlet) | head module | predicted alpha positive; mean sums to 1 |
 | build CompHead (using pilot-2b parameterization) | head module | physically valid outputs (within stoichiometric bounds for endmember version; within oxide-sum constraints for oxide version) |
 | build CondHead (GMM per axis) | head module | NLL computable; sigmas positive; weights sum to 1 |

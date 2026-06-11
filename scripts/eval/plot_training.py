@@ -3,13 +3,14 @@
 Two modes, picked by which flag you pass:
 
   Single-run loss curve:
-      python scripts/plot_training.py --checkpoint checkpoints/.../epoch_010.pt \\
+      python scripts/eval/plot_training.py --checkpoint checkpoints/.../epoch_best.pt \\
           --out figures/run_curve.png
 
-  HPO study (two-panel: optimization history + per-trial curves):
-      python scripts/plot_training.py \\
-          --study-storage data/optuna/v3_pretrain_hpo_smoke.journal \\
-          --study-name v3_pretrain_hpo_smoke \\
+  HPO study (optimization history + per-trial curves as a second
+  `<out>_trials.png` file):
+      python scripts/eval/plot_training.py \\
+          --study-storage data/optuna/journals/v3_pretrain_hpo_long.journal \\
+          --study-name v3_pretrain_hpo_long \\
           --out figures/study.png
 
 Omitting `--out` opens an interactive window.
@@ -20,7 +21,6 @@ import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import argparse
-import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -28,13 +28,12 @@ import optuna
 import torch
 from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "src"))
-
-from cnmineral.eval.training_curves import (
-    plot_run_loss, plot_study_history, plot_trial_curves,
+from optuna.visualization.matplotlib import (
+    plot_intermediate_values,
+    plot_optimization_history,
 )
+
+from cnmineral.eval.training_curves import plot_run_loss
 
 
 def plot_from_checkpoint(checkpoint_path: Path, out: Path | None) -> None:
@@ -44,7 +43,7 @@ def plot_from_checkpoint(checkpoint_path: Path, out: Path | None) -> None:
     plot_run_loss(monitor, ax=ax, title=f"{checkpoint_path.name}")
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(out, bbox_inches="tight")
+        fig.savefig(out, dpi=300, bbox_inches="tight")
         print(f"saved {out}")
     else:
         plt.show()
@@ -55,17 +54,15 @@ def plot_from_study(
 ) -> None:
     storage = JournalStorage(JournalFileBackend(str(storage_path)))
     study = optuna.load_study(study_name=study_name, storage=storage)
-    fig, (ax_history, ax_trials) = plt.subplots(
-        nrows=2, ncols=1, figsize=(8, 8),
-    )
-    plot_study_history(study, ax=ax_history)
-    plot_trial_curves(study, ax=ax_trials)
-    fig.suptitle(study_name)
-    fig.tight_layout()
+    history_ax = plot_optimization_history(study)
+    trials_ax = plot_intermediate_values(study)
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(out, bbox_inches="tight")
+        trials_out = out.with_stem(out.stem + "_trials")
+        history_ax.figure.savefig(out, dpi=300, bbox_inches="tight")
+        trials_ax.figure.savefig(trials_out, dpi=300, bbox_inches="tight")
         print(f"saved {out}")
+        print(f"saved {trials_out}")
     else:
         plt.show()
 
