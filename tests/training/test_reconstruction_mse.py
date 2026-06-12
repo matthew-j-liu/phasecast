@@ -1,8 +1,12 @@
-"""Tests for `cnmineral.training.{checkpoint, io}`.
+"""Tests for `cnmineral.training.{checkpoint, reconstruction_mse}`.
 
-Three contracts:
+The contracts:
 - `Checkpoint.from_models` + `.save` + `.load` + `.apply_to` round-trip
   the dict-shaped monitor, val_loss, optimizer state dict, etc.
+- `Checkpoint.load` tolerates unknown payload keys (legacy checkpoints
+  on disk carry fields the schema has since dropped).
+- `Checkpoint.summary` renders the headline fields for terminal
+  inspection; `_compact_curve` truncates long val curves.
 - `checkpoint_tag` produces a stable, filesystem-safe namespacing tag.
 - `evaluate_on_test` runs the in-memory model over the test split
   and returns a finite float.
@@ -17,6 +21,7 @@ from conftest import _tiny_config
 
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
+from cnmineral.training.checkpoint import _compact_curve
 from cnmineral.training import (
     Checkpoint,
     checkpoint_tag,
@@ -98,6 +103,72 @@ def test_checkpoint_with_test_results_creates_new_instance() -> None:
     # other fields unchanged
     assert updated.epoch == original.epoch
     assert updated.val_loss == original.val_loss
+
+
+def test_checkpoint_load_ignores_unknown_payload_keys(tmp_path) -> None:
+    """Payloads carrying keys the schema has since dropped (e.g. the
+    removed `rng_state`) must still load -- real checkpoints on disk,
+    including the canonical pretrain best, carry them.  Guards against
+    a future strict-keys refactor breaking every existing .pt file."""
+    encoder = Encoder(d_model=32, n_layers=2, n_heads=4,
+                      frac_resolution=200)
+    head = PretrainHead(d_model=32)
+    optimizer = torch.optim.AdamW(
+        list(encoder.parameters()) + list(head.parameters()), lr=1e-3,
+    )
+    ckpt = Checkpoint.from_models(
+        encoder, head, optimizer, epoch=1, config=_tiny_config(),
+        train_loss=0.1, val_loss=0.2, monitor={"train": [0.1], "val": [0.2]},
+    )
+    path = tmp_path / "legacy.pt"
+    ckpt.save(path)
+
+    payload = torch.load(path, map_location="cpu", weights_only=False)
+    payload["rng_state"] = {"torch": torch.get_rng_state()}
+    torch.save(payload, path)
+
+    reloaded = Checkpoint.load(path)
+    assert reloaded.epoch == 1
+    assert reloaded.val_loss == pytest.approx(0.2)
+
+
+def test_summary_renders_headline_fields() -> None:
+    """summary() carries the fields a terminal reader needs: epoch,
+    losses, architecture knobs, provenance; an unstamped checkpoint
+    says so instead of printing a number."""
+    encoder = Encoder(d_model=32, n_layers=2, n_heads=4,
+                      frac_resolution=200)
+    head = PretrainHead(d_model=32)
+    optimizer = torch.optim.AdamW(
+        list(encoder.parameters()) + list(head.parameters()), lr=1e-3,
+    )
+    ckpt = Checkpoint.from_models(
+        encoder, head, optimizer, epoch=2, config=_tiny_config(),
+        train_loss=0.1, val_loss=0.2,
+        monitor={"train": [0.3, 0.1], "val": [0.4, 0.2]},
+    )
+    text = ckpt.summary(name="my_ckpt.pt")
+    for needle in ("my_ckpt.pt", "epoch", "val_loss", "d_model=32",
+                   "not stamped", "git_sha"):
+        assert needle in text, f"summary missing {needle!r}:\n{text}"
+
+    stamped = ckpt.with_test_results(0.05, [0, 1]).summary()
+    assert "5.0000e-02" in stamped
+    assert "not stamped" not in stamped
+
+
+def test_compact_curve_truncates_long_runs() -> None:
+    """Short curves print every epoch; long curves keep head + tail
+    around an ellipsis with epoch numbering preserved."""
+    short = _compact_curve([0.3, 0.2, 0.1])
+    assert "..." not in short
+    assert short.startswith("1:")
+
+    long = _compact_curve([0.1 * i for i in range(20, 0, -1)])
+    assert "..." in long
+    assert long.startswith("1:")
+    assert "20:" in long
+    assert _compact_curve([]) == "(empty)"
 
 
 def test_checkpoint_tag_stable_and_filesystem_safe() -> None:

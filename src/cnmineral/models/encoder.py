@@ -26,12 +26,10 @@ abundances and trace abundances. The three scalers are learnable
 vs frac contributions during training.
 """
 
-import numpy as np
 import pandas as pd
 import torch
 from pathlib import Path
 from torch import nn
-from pymatgen.core import Element 
 from cnmineral.data.tokens import MASK_TOKEN_ID
 from cnmineral.models.fractional_encoder import FractionalEncoder
 

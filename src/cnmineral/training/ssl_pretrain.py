@@ -1,4 +1,5 @@
-"""The training loop + single-run entry point.
+"""
+The training loop + single-run entry point.
 
 `run_pretraining` is the workhorse: trainval indices + config in, a
 result dict out (val_loss, train_loss, encoder, head, monitor,
@@ -43,8 +44,8 @@ from cnmineral.training.checkpoint import (
     CheckpointStore,
     checkpoint_tag,
 )
-from cnmineral.training.factory import create_dataset, create_encoder_and_head
-from cnmineral.training.io import evaluate_on_test
+from cnmineral.training.build_from_config import create_dataset, create_encoder_and_head
+from cnmineral.training.reconstruction_mse import evaluate_on_test
 from cnmineral.training.splits import _qap_labels_for_indices, reserve_test
 
 # yaml + Path are still needed (run_single reads the YAML; pathlib
@@ -384,6 +385,4 @@ def run_single(config_path: Path, device: torch.device) -> dict:
         "val_loss": result["val_loss"],
         "train_loss": result["train_loss"],
         "test_loss": test_loss,
-        "monitor": result["monitor"],
-        "final_epoch": result["final_epoch"],
     }

@@ -1,4 +1,5 @@
-"""Optuna HPO sweep + post-sweep production run.
+"""
+Optuna HPO sweep + post-sweep production run.
 
 `run_hpo` orchestrates: TPE sampler + median pruner sweep against
 the search space in the YAML, a post-sweep production run at
@@ -28,9 +29,9 @@ from optuna.visualization.matplotlib import (
 )
 
 from cnmineral.training.checkpoint import CheckpointStore
-from cnmineral.training.factory import create_dataset, create_encoder_and_head
-from cnmineral.training.io import evaluate_on_test
-from cnmineral.training.loop import run_pretraining, write_run_results
+from cnmineral.training.build_from_config import create_dataset, create_encoder_and_head
+from cnmineral.training.reconstruction_mse import evaluate_on_test
+from cnmineral.training.ssl_pretrain import run_pretraining, write_run_results
 from cnmineral.training.splits import reserve_test
 
 

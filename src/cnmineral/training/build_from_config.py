@@ -1,41 +1,25 @@
-"""Build the dataset + encoder + head from a config dict.
+"""
+Build the dataset + encoder + head from a config dict.
 
 Two small builder functions called by `run_pretraining`.  Kept
-separate from `loop.py` so a future ablation harness can call them
+separate from `ssl_pretrain.py` so a future ablation harness can call them
 without going through the training loop.
 """
 
 from torch.utils.data import Dataset
 
-from cnmineral.data.synthetic import SyntheticBulkChemistryDataset
+from cnmineral.data.bulk_chemistry import BulkChemistryDataset
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
 
 
 def create_dataset(config: dict) -> Dataset:
-    """Build the SSL pretrain dataset per `config['data_source']`.
+    """Build the SSL pretrain dataset from `config['data_kwargs']`.
 
-    `synthetic` always works; `real` tries `cnmineral.data.bulk_chemistry`
-    and falls back to synthetic with a printed warning if the module
-    is unavailable.
+    `data_kwargs` is passed to `BulkChemistryDataset` verbatim; a
+    missing key means the dataset's own defaults (the full Gard 2019
+    corpus at `data/bulks/gard2019.csv`).
     """
-    source = config.get("data_source", "real")
-    if source == "synthetic":
-        return SyntheticBulkChemistryDataset(
-            n=config.get("synthetic_n", 256),
-            seed=config.get("synthetic_seed", 0),
-        )
-    try:
-        from cnmineral.data.bulk_chemistry import BulkChemistryDataset
-    except ImportError as exc:
-        print(
-            f"warning: BulkChemistryDataset unavailable ({exc}); "
-            f"falling back to SyntheticBulkChemistryDataset"
-        )
-        return SyntheticBulkChemistryDataset(
-            n=config.get("synthetic_n", 256),
-            seed=config.get("synthetic_seed", 0),
-        )
     return BulkChemistryDataset(**config.get("data_kwargs", {}))
 
 

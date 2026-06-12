@@ -1,15 +1,12 @@
-"""Test-set evaluation pass.
+"""
+Masked-element reconstruction MSE on the held-out test split.
 
-After the Checkpoint refactor this module only carries
-`evaluate_on_test`.  The previous `save_checkpoint` and
-`load_checkpoint` functions moved into
-`cnmineral.training.checkpoint::Checkpoint` (their work is now
-`Checkpoint.save` / `Checkpoint.load` / `Checkpoint.apply_to`).
-
-`evaluate_on_test` stays here because it's not really an "IO"
-operation -- it runs a forward pass under no_grad and returns a
-loss number.  The name is historical; living next to the
-checkpoint module keeps the discovery story together.
+`evaluate_on_test` is the final step of a training run: after
+`reserve_test` peels off the test indices and `run_pretraining`
+trains on the rest, the entry points (`run_single` / `run_hpo`)
+load the headline checkpoint and call this once to score the model
+on rows it structurally never saw.  Checkpoint persistence itself
+lives in `cnmineral.training.checkpoint::Checkpoint`.
 """
 
 import torch
@@ -41,10 +38,10 @@ def evaluate_on_test(
         if `test_indices` is empty (e.g. `test_frac: 0` in config) --
         callers should translate that to `None` for downstream JSON.
     """
-    # imported here to avoid a circular import: loop.py imports
-    # io.py for evaluate_on_test, and _forward_loss is the only
-    # loop.py symbol io.py needs.
-    from cnmineral.training.loop import _forward_loss
+    # imported here to avoid a circular import: ssl_pretrain.py imports this
+    # module for evaluate_on_test, and _forward_loss is the only
+    # ssl_pretrain.py symbol this module needs.
+    from cnmineral.training.ssl_pretrain import _forward_loss
 
     if not test_indices:
         print("warning: test_indices is empty; returning nan")

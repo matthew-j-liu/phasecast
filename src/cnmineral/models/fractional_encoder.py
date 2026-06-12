@@ -31,7 +31,7 @@ class FractionalEncoder(nn.Module):
 
     pe: torch.Tensor 
 
-    def __init__(self, d_model, resolution=100, log10=False, compute_device=None):
+    def __init__(self, d_model, resolution=100, log10=False):
         """Instantiate the FractionalEncoder.
 
         Parameters
@@ -42,14 +42,11 @@ class FractionalEncoder(nn.Module):
             Number of discretizations for the fractional prevalence encoding, by default 100
         log10 : bool
             Whether to apply a log operation to fraction prevalence encoding, by default False
-        compute_device : str
-            The compute device to store and run the FractionalEncoder class
         """
         super().__init__()
         self.d_model = d_model // 2
         self.resolution = resolution
         self.log10 = log10
-        self.compute_device = compute_device
 
         x = torch.linspace(
             0, self.resolution - 1, self.resolution, requires_grad=False
@@ -82,7 +79,6 @@ class FractionalEncoder(nn.Module):
         if self.log10:
             x = 0.0025 * (torch.log2(x)) ** 2
             x[x > 1] = 1
-            # x = 1 - x  # for sinusoidal encoding at x=0
         x[x < 1 / self.resolution] = 1 / self.resolution
         frac_idx = torch.round(x * (self.resolution)).to(dtype=torch.long) - 1
         out = self.pe[frac_idx]

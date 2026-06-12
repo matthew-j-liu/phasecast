@@ -1,4 +1,4 @@
-"""Tests for `cnmineral.training.loop`: run_pretraining + run_single
+"""Tests for `cnmineral.training.ssl_pretrain`: run_pretraining + run_single
 + the best/last checkpoint policy.
 
 Nine contracts:
@@ -22,7 +22,6 @@ from torch.utils.data import DataLoader
 
 from conftest import _tiny_config, _write_yaml
 
-from cnmineral.data.synthetic import SyntheticBulkChemistryDataset
 from cnmineral.data.tokens import mask_for_ssl
 from cnmineral.losses.pretrain_loss import masked_element_mse
 from cnmineral.models.encoder import Encoder
@@ -47,7 +46,7 @@ def test_one_step_runs() -> None:
         lr=3e-4,
     )
 
-    ds = SyntheticBulkChemistryDataset(n=8, seed=0)
+    ds = create_dataset(_tiny_config())
     loader = DataLoader(ds, batch_size=4, shuffle=False)
     batch = next(iter(loader))
 
@@ -73,6 +72,20 @@ def test_one_step_runs() -> None:
         "no encoder parameter changed after one optimizer step; "
         "training is silently a no-op"
     )
+
+
+def test_val_frac_zero_raises() -> None:
+    """run_pretraining requires a val curve (HPO prunes on it and the
+    best-checkpoint policy monitors it); val_frac <= 0 must fail
+    loudly at entry instead of producing an empty val loader."""
+    config = _tiny_config()
+    config["val_frac"] = 0
+    dataset = create_dataset(config)
+    with pytest.raises(ValueError, match="val_frac"):
+        run_pretraining(
+            dataset, list(range(len(dataset))), config,
+            device=torch.device("cpu"),
+        )
 
 
 def test_run_pretraining_returns_result_dict() -> None:
@@ -162,7 +175,8 @@ def test_run_single_writes_results_artifacts(
         summary = json.load(f)
     assert summary["test_loss"] == pytest.approx(result["test_loss"])
     assert summary["config"]["checkpoint_dir"] == str(tmp_path / "ckpts")
-    assert summary["monitor"] == result["monitor"]
+    assert set(summary["monitor"]) == {"train", "val"}
+    assert len(summary["monitor"]["val"]) == config["epochs"]
     assert set(summary) == {
         "epoch", "train_loss", "val_loss", "test_loss",
         "monitor", "git_sha", "saved_at", "config",
@@ -260,6 +274,11 @@ def test_best_and_last_have_distinct_model_states(
     """
     config = _tiny_config()
     config["epochs"] = 3
+    # lr high enough that val overshoots after its minimum, so the
+    # best epoch lands before the final one and the two snapshots
+    # genuinely differ (at the default lr the corpus-fixture val
+    # curve improves monotonically and this test would self-skip).
+    config["lr"] = 0.1
     dataset = create_dataset(config)
     splits = reserve_test(dataset, config)
     store = CheckpointStore(

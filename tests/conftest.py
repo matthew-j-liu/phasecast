@@ -33,10 +33,10 @@ def pretrain_results_root(monkeypatch, tmp_path: Path) -> Path:
     asserting on the summary artifact request this fixture by name to
     learn the patched root.
     """
-    from cnmineral.training import loop
+    from cnmineral.training import ssl_pretrain
 
     root = tmp_path / "results"
-    monkeypatch.setattr(loop, "RESULTS_ROOT", root)
+    monkeypatch.setattr(ssl_pretrain, "RESULTS_ROOT", root)
     return root
 
 

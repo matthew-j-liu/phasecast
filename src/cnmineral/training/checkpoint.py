@@ -1,6 +1,7 @@
-"""Checkpoint payload + directory-shaped store.
+"""
+Checkpoint payload + directory-shaped store.
 
-- `Checkpoint` -- frozen dataclass holding one serialized payload.
+- `Checkpoint` -- frozen dataclas1s holding one serialized payload.
   Has `Checkpoint.from_models`, `.load(path)`, `.save(path)`,
   `.apply_to(encoder, head)`, `.with_test_results(...)`.  Caller
   supplies the path; the class has no opinion on filename conventions.
@@ -16,7 +17,7 @@
 import datetime
 import re
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import torch
@@ -53,24 +54,9 @@ def checkpoint_tag(checkpoint_path: Path) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "_", raw)
 
 
-def _capture_rng_state() -> dict:
-    return {
-        "torch": torch.get_rng_state(),
-        "cuda": (
-            torch.cuda.get_rng_state_all()
-            if torch.cuda.is_available() else None
-        ),
-    }
-
-
 @dataclass(frozen=True, slots=True)
 class Checkpoint:
     """In-memory representation of one serialized checkpoint payload.
-
-    Field shape mirrors the `torch.save`-ready dict the prior
-    `save_checkpoint` function used to write -- callers loading old
-    `.pt` files via `Checkpoint.load(path)` get the same data, just
-    typed.
 
     Mutable container caveat: the `*_state` fields and `config` /
     `monitor` hold dicts the dataclass cannot make immutable.  The
@@ -93,7 +79,6 @@ class Checkpoint:
     monitor: dict
     test_loss: float | None = None
     test_indices: list[int] | None = None
-    rng_state: dict | None = None
     git_sha: str | None = None
     saved_at: str | None = None
 
@@ -123,7 +108,6 @@ class Checkpoint:
             monitor=monitor,
             test_loss=test_loss,
             test_indices=test_indices,
-            rng_state=_capture_rng_state(),
             git_sha=_git_sha(),
             saved_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         )
@@ -139,18 +123,10 @@ class Checkpoint:
         payload = torch.load(
             Path(path), map_location="cpu", weights_only=False,
         )
-        # Tolerate the historical field name "encoder" / "head" /
-        # "optimizer" used by the prior save_checkpoint shape, so
-        # checkpoints written before this refactor still load.
-        encoder_state = payload.get("encoder_state", payload.get("encoder"))
-        head_state = payload.get("head_state", payload.get("head"))
-        optimizer_state = payload.get(
-            "optimizer_state", payload.get("optimizer"),
-        )
         return cls(
-            encoder_state=encoder_state,
-            head_state=head_state,
-            optimizer_state=optimizer_state,
+            encoder_state=payload["encoder"],
+            head_state=payload["head"],
+            optimizer_state=payload["optimizer"],
             epoch=payload["epoch"],
             config=payload["config"],
             train_loss=payload["train_loss"],
@@ -158,7 +134,6 @@ class Checkpoint:
             monitor=payload["monitor"],
             test_loss=payload.get("test_loss"),
             test_indices=payload.get("test_indices"),
-            rng_state=payload.get("rng_state"),
             git_sha=payload.get("git_sha"),
             saved_at=payload.get("saved_at"),
         )
@@ -167,9 +142,9 @@ class Checkpoint:
         """Serialize to disk; creates parent dirs as needed."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        # Match the on-disk field names the prior code used so any
-        # external tool reading a payload via raw `torch.load` still
-        # finds the expected keys.
+        # On-disk keys are "encoder" / "head" / "optimizer" (not the
+        # *_state field names); `load` and any external tool reading
+        # a payload via raw `torch.load` expect these.
         torch.save(
             {
                 "encoder": self.encoder_state,
@@ -182,7 +157,6 @@ class Checkpoint:
                 "monitor": self.monitor,
                 "test_loss": self.test_loss,
                 "test_indices": self.test_indices,
-                "rng_state": self.rng_state,
                 "git_sha": self.git_sha,
                 "saved_at": self.saved_at,
             },
@@ -217,7 +191,6 @@ class Checkpoint:
             monitor=self.monitor,
             test_loss=test_loss,
             test_indices=test_indices,
-            rng_state=self.rng_state,
             git_sha=self.git_sha,
             saved_at=self.saved_at,
         )

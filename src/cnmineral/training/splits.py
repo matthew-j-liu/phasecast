@@ -1,11 +1,10 @@
-"""Train/val/test split logic.
+"""
+Train/val/test split logic.
 
 `reserve_test` is the outer 80/20 that peels off the test indices
-before any training touches the data.  Stratified by `qap_name` when
-the dataset exposes it (the real corpus), falling through to
-unstratified for synthetic datasets.
+before any training touches the data, stratified by `qap_name`.
 
-The inner train/val 80/20 lives in `loop.py::run_pretraining` because
+The inner train/val 80/20 lives in `ssl_pretrain.py::run_pretraining` because
 it depends on per-trial config and runs many times during HPO.
 """
 
@@ -21,9 +20,8 @@ def reserve_test(dataset: Dataset, config: dict) -> dict[str, list[int]]:
     cannot reach the held-out test rows.  The test evaluation happens
     once at the very end via `evaluate_on_test`.
 
-    Splits are stratified by `dataset.qap_names` when that attribute
-    exists (the real corpus); synthetic datasets without rock-class
-    labels fall through to unstratified random split.
+    Splits are stratified by `dataset.qap_names` so per-class
+    proportions are preserved on both sides.
 
     Parameters
     ----------
@@ -49,6 +47,7 @@ def reserve_test(dataset: Dataset, config: dict) -> dict[str, list[int]]:
     if test_frac == 0:
         return {"trainval": list(range(n)), "test": []}
 
+    # stratify: hand a class label of every row and sklearn will balance the split 
     stratify_labels = _qap_labels_for_indices(dataset, range(n))
     trainval_idx, test_idx = train_test_split(
         list(range(n)), test_size=test_frac, random_state=seed,
@@ -62,16 +61,10 @@ def reserve_test(dataset: Dataset, config: dict) -> dict[str, list[int]]:
     return {"trainval": trainval_idx, "test": test_idx}
 
 
-def _qap_labels_for_indices(
-    dataset: Dataset, indices,
-) -> list | None:
-    """Stratification labels indexed by `indices`, or None.
+def _qap_labels_for_indices(dataset: Dataset, indices) -> list:
+    """Stratification labels indexed by `indices`.
 
-    Returns None when `dataset` has no `qap_names` attribute (synthetic
-    datasets fall through to unstratified split).  When present, returns
-    a list of `dataset.qap_names[i]` for each i in `indices` so
+    Returns `dataset.qap_names[i]` for each i in `indices` so
     `train_test_split(stratify=...)` can preserve per-class proportions.
     """
-    if not hasattr(dataset, "qap_names"):
-        return None
     return [dataset.qap_names[i] for i in indices]
