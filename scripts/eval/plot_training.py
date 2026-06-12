@@ -5,14 +5,14 @@ Two modes, picked by which flag you pass:
 
   Single-run loss curve:
       python scripts/eval/plot_training.py --checkpoint checkpoints/.../epoch_best.pt \\
-          --out figures/run_curve.png
+          --out results/scratch/run_curve.png
 
   HPO study (optimization history + per-trial curves as a second
   `<out>_trials.png` file):
       python scripts/eval/plot_training.py \\
           --study-storage data/optuna/journals/v3_pretrain_hpo_long.journal \\
           --study-name v3_pretrain_hpo_long \\
-          --out figures/study.png
+          --out results/scratch/study.png
 
 Omitting `--out` opens an interactive window.
 """
@@ -21,10 +21,13 @@ import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import argparse
+import warnings
 import optuna
 import torch
 import matplotlib.pyplot as plt
 from pathlib import Path
+from matplotlib.ticker import MaxNLocator
+from optuna.exceptions import ExperimentalWarning
 from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend
 from optuna.visualization.matplotlib import (
@@ -52,8 +55,12 @@ def plot_from_study(
 ) -> None:
     storage = JournalStorage(JournalFileBackend(str(storage_path)))
     study = optuna.load_study(study_name=study_name, storage=storage)
-    history_ax = plot_optimization_history(study)
-    trials_ax = plot_intermediate_values(study)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ExperimentalWarning)
+        history_ax = plot_optimization_history(study)
+        trials_ax = plot_intermediate_values(study)
+    trials_ax.set_xlabel("hpo_run_epoch")
+    trials_ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)
         trials_out = out.with_stem(out.stem + "_trials")
