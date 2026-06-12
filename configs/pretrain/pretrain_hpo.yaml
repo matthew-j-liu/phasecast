@@ -15,7 +15,6 @@ base:
   num_workers: 0
   test_frac: 0.20
   val_frac: 0.20
-  data_source: real
 
   # if all trials finish, production training will occur for `base.epochs` 
   # at the best params from Optuna

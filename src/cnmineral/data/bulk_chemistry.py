@@ -2,8 +2,7 @@
 Reads `data/bulks/gard2019.csv` (latin-1 encoded, 1.02M rows, 192 columns),
 filters to igneous rocks with all 9 major oxides reported, converts
 oxide wt% to cation wt%, and emits per-sample `{src, frac, sample_id}`
-dicts that match `SyntheticBulkChemistryDataset` so the same training
-loop consumes both.
+dicts in the shape the training loop consumes.
 
 The 22-token vocabulary lives in `cnmineral.data.tokens`: 9 majors
 (Si Al Ca Mg Fe K Na Ti Cr) + 13 traces (Sr Zr Ba Y Rb Ni Nb V La Ce

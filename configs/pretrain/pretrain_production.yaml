@@ -17,7 +17,6 @@ val_frac: 0.20
 num_workers: 0
 frac_resolution: 5000
 
-data_source: real
 data_kwargs:
   csv_path: data/bulks/gard2019.csv
   rock_group: igneous
