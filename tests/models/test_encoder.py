@@ -160,6 +160,59 @@ class TestMat2vecLoading:
 
 
 # ---------------------------------------------------------------------
+# Embedding-table invariants the Encoder constructor must establish
+# ---------------------------------------------------------------------
+
+class TestEmbeddingTable:
+    """The loader hands over zeros at rows 0 and MASK_TOKEN_ID; the
+    Encoder is responsible for re-initializing the MASK row (so the
+    mask token is learnable and distinct from padding) while keeping
+    the padding row pinned at zero.  If the re-init silently broke,
+    SSL would still train -- just with a degenerate mask embedding."""
+
+    def test_mask_row_reinitialized_nonzero(self, encoder: Encoder) -> None:
+        mask_row = encoder.element_embedding.weight[MASK_TOKEN_ID]
+        assert mask_row.abs().sum() > 0, (
+            "MASK row is all zeros after Encoder.__init__; the N(0, 0.02) "
+            "re-init didn't happen and the mask token embeds like padding"
+        )
+
+    def test_padding_row_zero_after_init(self, encoder: Encoder) -> None:
+        assert (encoder.element_embedding.weight[0] == 0).all()
+
+    def test_padding_row_stays_zero_after_optimizer_step(self) -> None:
+        """padding_idx=0 keeps the padding row gradient-free, and
+        AdamW's decoupled weight decay multiplies a zero row by a
+        scalar -- so row 0 must stay exactly zero through a real
+        train step.  Guards against losing padding_idx in a refactor."""
+        torch.manual_seed(0)
+        encoder = Encoder(d_model=64, n_layers=1, n_heads=4, dropout=0.0)
+        head = PretrainHead(d_model=64)
+        optimizer = torch.optim.AdamW(
+            list(encoder.parameters()) + list(head.parameters()),
+            lr=1e-2, weight_decay=0.01,
+        )
+        src, frac = _make_batch(batch_size=8)
+        masked = mask_for_ssl(src, frac, mask_prob=0.5)
+        loss = masked_element_mse(
+            head(encoder(masked.src_corrupted, masked.frac_corrupted)),
+            masked.target_frac, masked.mask_positions,
+        )
+        loss.backward()
+        optimizer.step()
+        assert (encoder.element_embedding.weight[0] == 0).all(), (
+            "padding row moved during training; padding_idx=0 contract broken"
+        )
+
+
+def test_odd_d_model_raises() -> None:
+    """The two FractionalEncoder halves concatenate to d_model, so an
+    odd value must fail loudly at construction."""
+    with pytest.raises(ValueError, match="even"):
+        Encoder(d_model=33, n_layers=1, n_heads=1)
+
+
+# ---------------------------------------------------------------------
 # Encoder shape + padding-mask semantics
 # ---------------------------------------------------------------------
 

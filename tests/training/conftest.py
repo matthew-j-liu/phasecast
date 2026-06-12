@@ -9,13 +9,23 @@ from pathlib import Path
 
 import yaml
 
+CORPUS_FIXTURE = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "complete_subset.parquet"
+)
+
 
 def _tiny_config(checkpoint_dir: Path | str | None = None) -> dict:
-    """A config small enough that run_pretraining finishes in milliseconds.
+    """A config small enough that run_pretraining finishes in ~a second.
 
-    synthetic_n=16 with test_frac=0.25 -> 12 trainval / 4 test;
-    val_frac=0.25 inside run_pretraining -> 9 train / 3 val.  All
-    non-empty so the split + train + val passes all exercise.
+    The corpus fixture yields ~413 rows under these data_kwargs;
+    test_frac=0.25 -> ~310 trainval / ~103 test, then val_frac=0.25
+    inside run_pretraining -> ~232 train / ~78 val.  All non-empty so
+    the split + train + val passes all exercise.
+
+    `min_class_count=5` (not the fixture-wide minimum of 2) because
+    both splits stratify by qap_name: a 2-member class leaves a
+    singleton in trainval after the outer split, and sklearn rejects
+    stratifying a singleton in the inner train/val split.
 
     When `checkpoint_dir` is set, the two filename keys must be
     set too -- production callers will `KeyError` otherwise, so
@@ -23,7 +33,7 @@ def _tiny_config(checkpoint_dir: Path | str | None = None) -> dict:
     """
     config = {
         "epochs": 1,
-        "batch_size": 4,
+        "batch_size": 32,
         "lr": 3e-4,
         "mask_prob": 0.25,
         "weight_decay": 0.01,
@@ -32,8 +42,12 @@ def _tiny_config(checkpoint_dir: Path | str | None = None) -> dict:
         "n_layers": 2,
         "n_heads": 4,
         "frac_resolution": 200,
-        "data_source": "synthetic",
-        "synthetic_n": 16,
+        "data_kwargs": {
+            "csv_path": str(CORPUS_FIXTURE),
+            "rock_group": "igneous",
+            "require_all_majors": True,
+            "min_class_count": 5,
+        },
         "test_frac": 0.25,
         "val_frac": 0.25,
         "num_workers": 0,

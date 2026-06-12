@@ -37,7 +37,6 @@ def _build_smoke_pretrain_config(
         "num_workers": 0,
         "test_frac": 0.20,
         "val_frac": 0.20,
-        "data_source": "real",
         "data_kwargs": {
             "csv_path": str(fixture_path),
             "rock_group": "igneous",

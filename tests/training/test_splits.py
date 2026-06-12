@@ -1,46 +1,35 @@
 """Tests for `cnmineral.training.splits.reserve_test`.
 
-Three contracts:
+Two contracts:
 - Deterministic split sizes for a given seed.
-- Synthetic datasets (no qap_names) fall through to unstratified.
-- Real datasets (with qap_names) stratify proportionally.
+- Splits stratify proportionally by qap_names.
 """
 
+import math
 from pathlib import Path
 
 from conftest import _tiny_config
 
 from cnmineral.training import create_dataset, reserve_test
-from cnmineral.training.splits import _qap_labels_for_indices
 
 
 def test_reserve_test_split_sizes() -> None:
     """reserve_test splits to expected sizes, deterministic on seed."""
     config = _tiny_config()
     dataset = create_dataset(config)
+    n = len(dataset)
     splits_a = reserve_test(dataset, config)
     splits_b = reserve_test(dataset, config)
-    # n=16, test_frac=0.25 -> 4 test, 12 trainval
-    assert len(splits_a["test"]) == 4
-    assert len(splits_a["trainval"]) == 12
+    # test_frac=0.25 -> a quarter of the corpus held out (sklearn
+    # takes ceil(n * test_size) for the test side)
+    assert len(splits_a["test"]) == math.ceil(n * 0.25)
+    assert len(splits_a["trainval"]) == n - math.ceil(n * 0.25)
     # disjoint + cover everything
     assert set(splits_a["test"]).isdisjoint(set(splits_a["trainval"]))
-    assert sorted(splits_a["test"] + splits_a["trainval"]) == list(range(16))
+    assert sorted(splits_a["test"] + splits_a["trainval"]) == list(range(n))
     # same seed -> same indices
     assert splits_a["test"] == splits_b["test"]
     assert splits_a["trainval"] == splits_b["trainval"]
-
-
-def test_reserve_test_synthetic_falls_back_to_unstratified() -> None:
-    """Synthetic datasets lack qap_names; _qap_labels_for_indices
-    returns None so train_test_split runs unstratified.  This test
-    pins that the synthetic code path still works end-to-end after
-    the stratify wiring landed."""
-    from cnmineral.data.synthetic import SyntheticBulkChemistryDataset
-    dataset = SyntheticBulkChemistryDataset(n=16, seed=0)
-    assert not hasattr(dataset, "qap_names")
-    labels = _qap_labels_for_indices(dataset, range(len(dataset)))
-    assert labels is None
 
 
 def test_reserve_test_stratifies_when_qap_names_present(

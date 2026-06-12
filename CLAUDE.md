@@ -22,6 +22,10 @@ from parallel workers at this suite size.
    they now satisfy or fail on), that IS the coverage.  Each new
    test should fail on something that would otherwise go
    unnoticed; flag redundant or outdated tests along the way.
+   **Whenever a test is added, deleted, renamed, or repurposed,
+   update [tests/TESTS.md](tests/TESTS.md) in the same change** —
+   it's the per-test inventory (one sentence each, organized by
+   directory) the owner uses to track suite coverage.
 2. **Profile new or touched tests before checkin.**  Run
    `pytest <touched_tests>`. We will dial in specificity on what
    test durations we should shoot for, though as a general principle, code 
@@ -121,6 +125,15 @@ with this as well!").  Group related parameters by logical
 bundle (architecture / optimization / data / I/O) with a one-line
 header so the reader can navigate by skim.  Keep individual
 comments terse; single line, inline preferred.
+
+**Module docstrings: model them on
+`src/cnmineral/training/reconstruction_mse.py`.**  A short
+paragraph that says what the module does and where it sits in the
+pipeline (who calls it, when, what its neighbors own) -- no
+changelog, no structured `Run:`/`Outputs:` sections, no
+function-by-function inventory.  If a responsibility lives
+elsewhere, one pointer line ("checkpoint persistence lives in
+`cnmineral.training.checkpoint`") is enough.
 
 **Never add `from __future__ import annotations` to any file in this
 repo.**  Quote individual forward references as strings; disabling

@@ -1,9 +1,9 @@
 """Tests for `cnmineral.eval.{latent, probe.primitives, umap_views, supergroup}`.
 
-Structural tests on the synthetic dataset (no real CSV needed) plus an
-end-to-end probe + UMAP run on the 2000-row corpus fixture.  The
-end-to-end test exercises every code path the CLI hits except the
-checkpoint round-trip, which gets its own targeted test.
+Structural tests plus an end-to-end probe + UMAP run, all against the
+2000-row corpus fixture.  The end-to-end test exercises every code
+path the CLI hits except the checkpoint round-trip, which gets its
+own targeted test.
 """
 
 from pathlib import Path
@@ -13,7 +13,6 @@ import pytest
 import torch
 
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset
-from cnmineral.data.synthetic import SyntheticBulkChemistryDataset
 from cnmineral.eval.latent import (
     extract_latents,
     load_encoder_from_checkpoint,
@@ -97,36 +96,40 @@ def _tiny_encoder() -> Encoder:
     )
 
 
-def test_extract_latents_full_dataset_shape() -> None:
+@pytest.fixture(scope="module")
+def fixture_dataset(corpus_subset_path: Path) -> BulkChemistryDataset:
+    """One corpus-fixture dataset shared by the latent-shape tests
+    (module-scoped so the parquet is parsed once)."""
+    return _build_fixture_dataset(corpus_subset_path)
+
+
+def test_extract_latents_full_dataset_shape(fixture_dataset) -> None:
     """N samples -> [N, d_model] tensor on CPU."""
     encoder = _tiny_encoder()
-    dataset = SyntheticBulkChemistryDataset(n=32, seed=0)
-    latents = extract_latents(encoder, dataset, batch_size=8)
-    assert latents.shape == (32, 16)
+    latents = extract_latents(encoder, fixture_dataset, batch_size=64)
+    assert latents.shape == (len(fixture_dataset), 16)
     assert latents.device.type == "cpu"
     assert torch.isfinite(latents).all()
 
 
-def test_extract_latents_indices_subset_shape() -> None:
+def test_extract_latents_indices_subset_shape(fixture_dataset) -> None:
     """Passing `indices` returns the subset count, not the full dataset."""
     encoder = _tiny_encoder()
-    dataset = SyntheticBulkChemistryDataset(n=32, seed=0)
     latents = extract_latents(
-        encoder, dataset, indices=[0, 5, 10, 15], batch_size=2,
+        encoder, fixture_dataset, indices=[0, 5, 10, 15], batch_size=2,
     )
     assert latents.shape == (4, 16)
 
 
-def test_extract_latents_deterministic_in_eval_mode() -> None:
+def test_extract_latents_deterministic_in_eval_mode(fixture_dataset) -> None:
     """Two calls with the same encoder + dataset produce identical latents.
 
     Dropout is on in train mode; this guards against future refactors
     that forget to call `encoder.eval()`.
     """
     encoder = _tiny_encoder()
-    dataset = SyntheticBulkChemistryDataset(n=8, seed=0)
-    a = extract_latents(encoder, dataset, batch_size=4)
-    b = extract_latents(encoder, dataset, batch_size=4)
+    a = extract_latents(encoder, fixture_dataset, batch_size=64)
+    b = extract_latents(encoder, fixture_dataset, batch_size=64)
     assert torch.allclose(a, b)
 
 
