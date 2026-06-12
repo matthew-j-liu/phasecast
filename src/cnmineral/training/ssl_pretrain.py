@@ -72,11 +72,19 @@ def _forward_loss(
     """
     src = batch["src"].to(device)
     frac = batch["frac"].to(device)
+
+    # 1. Create a MaskedBatch
     masked_batch = mask_for_ssl(src=src, frac=frac, mask_prob=mask_prob)
+
+    # 2. Pass `src_corrupted`, `frac_corrupted` to Encoder.forward
     pooled_latent = encoder(
         src=masked_batch.src_corrupted, frac=masked_batch.frac_corrupted,
     )
+
+    # 3. Pass `pooled_latent` to the PretrainHead.forward
     predicted_frac = head(pooled_latent=pooled_latent)
+
+    # 4. Calculate the loss (torch.Tensor object)
     return masked_element_mse(
         predicted_frac=predicted_frac,
         target_frac=masked_batch.target_frac,
@@ -175,6 +183,14 @@ def run_pretraining(
         f"lr={config['lr']} mask_prob={mask_prob}"
     )
 
+    # conceptually, our training loop will always be the trio of forward, backward, and step
+    # what changes between models is: (1) how the forward is built and
+    # (2) what the loss is. in our case, the forward is defined in 3 places
+    #   1. cnmineral.data.tokens.mask_for_ssl: takes (src, frac) from the batch and returns a MaskedBatch
+    #   2. cnmineral.models.encoder.Encoder: the `forward` method takes (src_corrupted, frac_corrupted) from the MaskedBatch and returns a `pooled_latent`
+    #   3. cnmineral.models.pretrain_head.PretrainHead: the `forward` method takes the `pooled_latent` and returns `predicted` (one frac value for every position in the 22-token vocab)
+    # as for the loss, we employ `masked_element_mse` in cnmineral.losses.pretrain_loss, which takes `predicted` at the `mask_positions` and compares to `target_frac`.
+
     monitor: dict[str, list[float]] = {"train": [], "val": []}
     train_mean = 0.0
     val_mean = 0.0
@@ -183,16 +199,30 @@ def run_pretraining(
     best_epoch = 0
     for epoch in range(config["epochs"]):
         # ---- train pass ----
+        # toggle training mode: nonzero dropout will randomly zero out activations
         encoder.train()
         head.train()
         train_total, n_train_batches = 0.0, 0
         epoch_start_time = time()
         for batch in train_loader:
-            loss = _forward_loss(batch, encoder, head, mask_prob, device)
+            loss = _forward_loss(batch, encoder, head, mask_prob, device) # see function for comments #1-4
+
+            # Note by this point, by virtue of calling `forward`, PyTorch has constructed a graph data structure
+            # that stores how to compute gradients. So we have built a graph connecting
+            # parameters (weights and biases), predictions, and loss
+
+            # 5. Standard PyTorch learning mechanism
+            # we now compute gradients and use them to update parameters
+            #   (i). Clear out gradients from the previous batch
+            #   (ii). Compute gradients
+            #   (iii). Update parameters
             optimizer.zero_grad()
             loss.backward()
+            # cap global grad norm at 1.0 to prevent spikes
             torch.nn.utils.clip_grad_norm_(trainable_params, max_norm=1.0)
             optimizer.step()
+
+            # 6. Track and aggregate loss
             train_total += loss.item()
             n_train_batches += 1
         assert n_train_batches > 0, "no train batches processed"
