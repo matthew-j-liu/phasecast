@@ -1,4 +1,5 @@
-"""Plot loss curves from a checkpoint or Optuna study.
+"""
+Plot loss curves from a checkpoint or Optuna study.
 
 Two modes, picked by which flag you pass:
 
@@ -17,22 +18,19 @@ Omitting `--out` opens an interactive window.
 """
 
 import os
-
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import argparse
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import optuna
 import torch
+import matplotlib.pyplot as plt
+from pathlib import Path
 from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend
 from optuna.visualization.matplotlib import (
     plot_intermediate_values,
     plot_optimization_history,
 )
-
 from cnmineral.eval.training_curves import plot_run_loss
 
 

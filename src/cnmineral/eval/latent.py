@@ -1,4 +1,5 @@
-"""Pooled-latent extraction for downstream probes + UMAP.
+"""
+Pooled-latent extraction for downstream probes + UMAP.
 
 Runs an `Encoder` over a dataset in eval mode (no SSL masking, no dropout)
 and returns the per-sample pooled latents stacked as `[N, d_model]`.  No
@@ -16,11 +17,9 @@ Two entry points:
 """
 
 from pathlib import Path
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
-
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
 from cnmineral.training.checkpoint import Checkpoint

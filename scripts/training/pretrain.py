@@ -8,12 +8,10 @@
 """
 
 import os
-
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import argparse
 from pathlib import Path
-
 from cnmineral.training import pick_device, run_hpo, run_single
 
 

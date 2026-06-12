@@ -9,12 +9,10 @@ this file is the argparse shell.
 """
 
 import os
-
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import argparse
 from pathlib import Path
-
 from cnmineral.eval.probe import run_calibration
 
 

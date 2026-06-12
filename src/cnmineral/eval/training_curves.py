@@ -1,4 +1,5 @@
-"""Loss-curve plotting for training runs.
+"""
+Loss-curve plotting for training runs.
 
 One pure function, matplotlib-only:
 

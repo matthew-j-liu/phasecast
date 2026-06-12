@@ -1,4 +1,5 @@
-"""qap_name -> 9-supergroup lookup.
+"""
+qap_name -> 9-supergroup lookup.
 
 Coarse petrogenetic supergroup labels used for SSL-encoder probe diagnostics
 and UMAP coloring.  The qap_name column on `BulkChemistryDataset` has 70+

@@ -20,15 +20,13 @@ returned alongside the saved PNG path so the caller can persist them.
 """
 
 from pathlib import Path
-
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
 import numpy as np
 import umap
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  -- registers 3d projection
-
 from cnmineral.eval.supergroup import SUPERGROUP_COLORS, SUPERGROUPS
 
 UMAP_DEFAULTS: dict = {
