@@ -35,7 +35,7 @@ def evaluate_on_test(
     -------
     float
         Mean reconstruction MSE over the test subset.  Returns `nan`
-        if `test_indices` is empty (e.g. `test_frac: 0` in config) --
+        if `test_indices` is empty (e.g. `test_split: 0` in config) --
         callers should translate that to `None` for downstream JSON.
     """
     # imported here to avoid a circular import: ssl_pretrain.py imports this

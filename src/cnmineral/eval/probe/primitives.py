@@ -213,11 +213,11 @@ def train_mlp_probe(
     l2_normalize_inputs: bool = False,
     use_cosine_schedule: bool = True,
     class_weight: str | None = None,
-    epochs: int = 50,
+    probe_epochs: int = 50,
     batch_size: int = 256,
     lr: float = 1e-3,
     weight_decay: float = 1e-4,
-    val_frac: float = 0.1,
+    val_split: float = 0.1,
     early_stop_patience: int = 5,
     device: torch.device | str = "cpu",
     seed: int = 0,
@@ -245,7 +245,7 @@ def train_mlp_probe(
     # train/val carve-out for early stopping
     n_train_full = len(y_train_full)
     perm = rng.permutation(n_train_full)
-    n_val = max(1, int(n_train_full * val_frac))
+    n_val = max(1, int(n_train_full * val_split))
     val_idx = perm[:n_val]
     tr_idx = perm[n_val:]
 
@@ -268,7 +268,7 @@ def train_mlp_probe(
         model.parameters(), lr=lr, weight_decay=weight_decay,
     )
     scheduler = (
-        torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+        torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=probe_epochs)
         if use_cosine_schedule
         else None
     )
@@ -294,7 +294,7 @@ def train_mlp_probe(
     best_state: dict | None = None
     bad_epochs = 0
     monitor: dict[str, list[float]] = {"train": [], "val": []}
-    for _epoch in range(epochs):
+    for _epoch in range(probe_epochs):
         model.train()
         train_total, n_batches = 0.0, 0
         for xb, yb in train_loader:
@@ -349,11 +349,11 @@ def train_mlp_probe(
             "l2_normalize_inputs": l2_normalize_inputs,
             "use_cosine_schedule": use_cosine_schedule,
             "class_weight": class_weight,
-            "epochs": epochs,
+            "probe_epochs": probe_epochs,
             "batch_size": batch_size,
             "lr": lr,
             "weight_decay": weight_decay,
-            "val_frac": val_frac,
+            "val_split": val_split,
             "early_stop_patience": early_stop_patience,
             "seed": seed,
         },

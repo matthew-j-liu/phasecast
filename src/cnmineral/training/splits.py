@@ -30,7 +30,7 @@ def reserve_test(dataset: Dataset, config: dict) -> dict[str, list[int]]:
         point (`run_single` / `run_hpo`) so the corpus is built once
         per invocation, not once per call into this helper.
     config
-        Required: `seed`.  Optional: `test_frac` (default 0.20).
+        Required: `seed`.  Optional: `test_split` (default 0.20).
 
     Returns
     -------
@@ -39,24 +39,24 @@ def reserve_test(dataset: Dataset, config: dict) -> dict[str, list[int]]:
         `dataset`.
     """
     n = len(dataset)
-    test_frac = config.get("test_frac", 0.20)
+    test_split = config.get("test_split", 0.20)
     seed = config.get("seed", 0)
 
-    # test_frac=0 short-circuit -- sklearn rejects test_size=0, and the
+    # test_split=0 short-circuit -- sklearn rejects test_size=0, and the
     # downstream evaluate_on_test handles an empty test_indices already.
-    if test_frac == 0:
+    if test_split == 0:
         return {"trainval": list(range(n)), "test": []}
 
     # stratify: hand a class label of every row and sklearn will balance the split 
     stratify_labels = _qap_labels_for_indices(dataset, range(n))
     trainval_idx, test_idx = train_test_split(
-        list(range(n)), test_size=test_frac, random_state=seed,
+        list(range(n)), test_size=test_split, random_state=seed,
         stratify=stratify_labels,
     )
     if not trainval_idx:
         raise ValueError(
             f"reserve_test produced empty trainval pool: n={n}, "
-            f"test_frac={test_frac}"
+            f"test_split={test_split}"
         )
     return {"trainval": trainval_idx, "test": test_idx}
 

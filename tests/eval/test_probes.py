@@ -192,7 +192,7 @@ def test_mlp_probe_runs_and_beats_random() -> None:
         80, 20, n_classes, d=8, seed=0,
     )
     metrics = train_mlp_probe(
-        X_train, y_train, X_test, y_test, epochs=20, hidden_dim=32,
+        X_train, y_train, X_test, y_test, probe_epochs=20, hidden_dim=32,
     )
     assert metrics.probe == "mlp"
     assert np.isfinite(metrics.train_accuracy)
@@ -237,7 +237,7 @@ def test_probe_metrics_carries_hyperparameters() -> None:
 
     mlp = train_mlp_probe(
         X_train, y_train, X_test, y_test,
-        epochs=3, hidden_dim=16, n_hidden_layers=2,
+        probe_epochs=3, hidden_dim=16, n_hidden_layers=2,
         l2_normalize_inputs=True, label_smoothing=0.05,
         use_cosine_schedule=False, class_weight="balanced",
     )
@@ -298,7 +298,7 @@ def test_mlp_probe_l2_normalize_runs_and_records_flag() -> None:
     )
     metrics = train_mlp_probe(
         X_train, y_train, X_test, y_test,
-        epochs=20, hidden_dim=32, l2_normalize_inputs=True,
+        probe_epochs=20, hidden_dim=32, l2_normalize_inputs=True,
     )
     assert np.isfinite(metrics.test_accuracy)
     assert 0.0 <= metrics.test_accuracy <= 1.0
@@ -313,7 +313,7 @@ def test_mlp_probe_two_layer_runs_end_to_end() -> None:
     )
     metrics = train_mlp_probe(
         X_train, y_train, X_test, y_test,
-        epochs=20, hidden_dim=32, n_hidden_layers=2,
+        probe_epochs=20, hidden_dim=32, n_hidden_layers=2,
     )
     assert np.isfinite(metrics.test_accuracy)
     assert metrics.test_accuracy > 1.0 / n_classes + 0.1
@@ -329,7 +329,7 @@ def test_mlp_probe_invalid_n_hidden_layers_raises() -> None:
     with pytest.raises(ValueError):
         train_mlp_probe(
             X_train, y_train, X_test, y_test,
-            epochs=1, n_hidden_layers=3,
+            probe_epochs=1, n_hidden_layers=3,
         )
 
 
@@ -357,12 +357,12 @@ def test_mlp_probe_class_weighting_lifts_rare_class() -> None:
 
     unweighted = train_mlp_probe(
         X_train, y_train, X_test, y_test,
-        epochs=30, hidden_dim=32, batch_size=64,
+        probe_epochs=30, hidden_dim=32, batch_size=64,
         use_cosine_schedule=False,
     )
     weighted = train_mlp_probe(
         X_train, y_train, X_test, y_test,
-        epochs=30, hidden_dim=32, batch_size=64,
+        probe_epochs=30, hidden_dim=32, batch_size=64,
         use_cosine_schedule=False, class_weight="balanced",
     )
     assert (
@@ -442,7 +442,7 @@ def test_run_probes_end_to_end_on_fixture(
     )
     mlp = train_mlp_probe(
         latents[train_idx], qap_train, latents[test_idx], qap_test,
-        epochs=5, hidden_dim=32, batch_size=64,
+        probe_epochs=5, hidden_dim=32, batch_size=64,
     )
     n_classes_train = len(np.unique(qap_train))
     assert np.isfinite(logreg.test_accuracy)

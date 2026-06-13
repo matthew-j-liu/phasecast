@@ -20,7 +20,7 @@ def test_reserve_test_split_sizes() -> None:
     n = len(dataset)
     splits_a = reserve_test(dataset, config)
     splits_b = reserve_test(dataset, config)
-    # test_frac=0.25 -> a quarter of the corpus held out (sklearn
+    # test_split=0.25 -> a quarter of the corpus held out (sklearn
     # takes ceil(n * test_size) for the test side)
     assert len(splits_a["test"]) == math.ceil(n * 0.25)
     assert len(splits_a["trainval"]) == n - math.ceil(n * 0.25)
@@ -39,13 +39,13 @@ def test_reserve_test_stratifies_when_qap_names_present(
     per-class proportions in train/test within tolerance.
 
     Uses min_class_count=5 so every surviving class is large enough
-    that stratification can actually divide it; uses test_frac=0.25
+    that stratification can actually divide it; uses test_split=0.25
     so smallest classes (>=5 samples) land >=1 row in test."""
     from cnmineral.data.bulk_chemistry import BulkChemistryDataset
     dataset = BulkChemistryDataset(
         csv_path=corpus_subset_path, min_class_count=5,
     )
-    config = {"seed": 0, "test_frac": 0.25}
+    config = {"seed": 0, "test_split": 0.25}
     splits = reserve_test(dataset, config)
     test_set = set(splits["test"])
     trainval_set = set(splits["trainval"])
@@ -58,7 +58,7 @@ def test_reserve_test_stratifies_when_qap_names_present(
     for cls, n in total.items():
         assert in_test[cls] >= 1, f"class {cls!r} (n={n}) missing from test"
         assert in_test[cls] < n, f"class {cls!r} (n={n}) entirely in test"
-        # proportional preservation: in_test/total approximately test_frac
+        # proportional preservation: in_test/total approximately test_split
         # tolerance is wide for small classes (5-sample class -> 1 in test
         # is 20%, ratio swings if class has 6 samples -> 1 in test = 16.7%)
         ratio = in_test[cls] / n

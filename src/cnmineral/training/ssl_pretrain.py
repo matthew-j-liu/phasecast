@@ -105,7 +105,7 @@ def run_pretraining(
 
     `trainval_indices` is the output of
     `reserve_test(dataset, config)["trainval"]`.  The function further
-    splits these indices 80/20 (configurable via `val_frac`) into
+    splits these indices 80/20 (configurable via `val_split`) into
     train + val, runs the training loop on train, and evaluates per
     epoch on val.  Test indices never reach this function.
 
@@ -142,19 +142,19 @@ def run_pretraining(
 
     # inner 80/20: trainval -> train + val.  Stratify by qap_names when
     # available so per-class proportions match the outer split.
-    val_frac = config.get("val_frac", 0.20)
-    if val_frac <= 0:
+    val_split = config.get("val_split", 0.20)
+    if val_split <= 0:
         raise ValueError(
-            f"val_frac must be > 0 (HPO needs a val curve); got {val_frac}"
+            f"val_split must be > 0 (HPO needs a val curve); got {val_split}"
         )
     train_indices, val_indices = train_test_split(
-        trainval_indices, test_size=val_frac, random_state=seed,
+        trainval_indices, test_size=val_split, random_state=seed,
         stratify=_qap_labels_for_indices(dataset, trainval_indices),
     )
     if not train_indices or not val_indices:
         raise ValueError(
             f"train_val split produced empty subset: "
-            f"trainval={len(trainval_indices)}, val_frac={val_frac}"
+            f"trainval={len(trainval_indices)}, val_split={val_split}"
         )
 
     train_loader = DataLoader(
@@ -182,6 +182,7 @@ def run_pretraining(
         f"epochs={config['epochs']} batch_size={config['batch_size']} "
         f"lr={config['lr']} mask_prob={mask_prob}"
     )
+    print()
 
     # conceptually, our training loop will always be the trio of forward, backward, and step
     # what changes between models is: (1) how the forward is built and
@@ -246,11 +247,14 @@ def run_pretraining(
         print(
             f"epoch {epoch + 1}/{config['epochs']} "
             f"train={train_mean:.4f} val={val_mean:.4f} "
-            f"elapsed={time() - epoch_start_time:.1f}s"
+            f"elapsed={(time() - epoch_start_time) * 1000:.0f}ms"
         )
 
         if trial is not None:
-            trial.report(val_mean, epoch)
+            # 1-indexed to match the printed `epoch 1/N` lines and the
+            # loss-curve figures; optuna only needs the index to be
+            # consistent across trials for pruner alignment.
+            trial.report(val_mean, epoch + 1)
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
@@ -324,7 +328,7 @@ def write_run_results(result: dict, store: CheckpointStore) -> Path:
     summary_path = results_dir / "run_summary.json"
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2)
-    print(f"summary -> {summary_path}")
+    print(f"\nsummary -> {summary_path}")
 
     fig, ax = plt.subplots()
     plot_run_loss(
@@ -341,7 +345,7 @@ def run_single(config_path: Path, device: torch.device) -> dict:
     """Full single-run pipeline: split, train+val, test eval.
 
     Returns a dict with val_loss, train_loss, test_loss (None when
-    `test_frac=0`).  Stamps test_loss + test_indices onto the
+    `test_split=0`).  Stamps test_loss + test_indices onto the
     store's best checkpoint when `config["checkpoint_dir"]` is set,
     and writes the headline numbers to
     `RESULTS_ROOT/<run_tag>/run_summary.json`.

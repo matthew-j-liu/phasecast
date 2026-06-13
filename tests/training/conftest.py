@@ -18,7 +18,7 @@ def _tiny_config(checkpoint_dir: Path | str | None = None) -> dict:
     """A config small enough that run_pretraining finishes in ~a second.
 
     The corpus fixture yields ~413 rows under these data_kwargs;
-    test_frac=0.25 -> ~310 trainval / ~103 test, then val_frac=0.25
+    test_split=0.25 -> ~310 trainval / ~103 test, then val_split=0.25
     inside run_pretraining -> ~232 train / ~78 val.  All non-empty so
     the split + train + val passes all exercise.
 
@@ -48,8 +48,8 @@ def _tiny_config(checkpoint_dir: Path | str | None = None) -> dict:
             "require_all_majors": True,
             "min_class_count": 5,
         },
-        "test_frac": 0.25,
-        "val_frac": 0.25,
+        "test_split": 0.25,
+        "val_split": 0.25,
         "num_workers": 0,
         "seed": 0,
         "checkpoint_dir": checkpoint_dir,

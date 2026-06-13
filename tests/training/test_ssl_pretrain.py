@@ -7,7 +7,7 @@ Nine contracts:
 - The monitor dict is shaped right both in-memory and on disk.
 - run_single returns finite test_loss + stamps the store's best.
 - run_single writes a run_summary.json mirroring the stamped best.
-- test_frac=0 records None at the API surface.
+- test_split=0 records None at the API surface.
 - Only best + last land in the store directory (no per-epoch files).
 - The store's best carries the minimum val loss seen across the run.
 - The store's last stays without test_loss after run_single.
@@ -74,14 +74,14 @@ def test_one_step_runs() -> None:
     )
 
 
-def test_val_frac_zero_raises() -> None:
+def test_val_split_zero_raises() -> None:
     """run_pretraining requires a val curve (HPO prunes on it and the
-    best-checkpoint policy monitors it); val_frac <= 0 must fail
+    best-checkpoint policy monitors it); val_split <= 0 must fail
     loudly at entry instead of producing an empty val loader."""
     config = _tiny_config()
-    config["val_frac"] = 0
+    config["val_split"] = 0
     dataset = create_dataset(config)
-    with pytest.raises(ValueError, match="val_frac"):
+    with pytest.raises(ValueError, match="val_split"):
         run_pretraining(
             dataset, list(range(len(dataset))), config,
             device=torch.device("cpu"),
@@ -187,17 +187,17 @@ def test_run_single_writes_results_artifacts(
     assert curve_path.stat().st_size > 0
 
 
-def test_test_frac_zero_records_none(tmp_path: Path) -> None:
-    """test_frac=0 should produce test_loss=None (no nan in user-facing API)."""
+def test_test_split_zero_records_none(tmp_path: Path) -> None:
+    """test_split=0 should produce test_loss=None (no nan in user-facing API)."""
     config = _tiny_config(checkpoint_dir=str(tmp_path / "ckpts"))
-    config["test_frac"] = 0.0
+    config["test_split"] = 0.0
     config_path = _write_yaml(tmp_path / "cfg.yaml", config)
 
     result = run_single(config_path, device=torch.device("cpu"))
 
     assert result["test_loss"] is None
     # Store's best is stamped with test_loss=None + test_indices=[]
-    # under test_frac=0: the stamp-step still fires (no guard against
+    # under test_split=0: the stamp-step still fires (no guard against
     # empty splits), but evaluate_on_test produced NaN -> None and the
     # reserved-test list is empty.
     store = CheckpointStore(

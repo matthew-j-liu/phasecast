@@ -11,8 +11,8 @@ n_heads: 8
 # should match what was used in `probe_hpo.yaml`
 seed: 0 # update the checkpoint_dir with this as well! 
 epochs: 20
-test_frac: 0.20
-val_frac: 0.20
+test_split: 0.20
+val_split: 0.20
 
 num_workers: 0
 frac_resolution: 5000

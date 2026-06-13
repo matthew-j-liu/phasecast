@@ -30,9 +30,9 @@ probe_target: qap_name
 
 # Locked probe knobs: same across all trials.
 base:
-  epochs: 50
+  probe_epochs: 50
   batch_size: 256
-  val_frac: 0.1
+  val_split: 0.1
   early_stop_patience: 5
   seed: 0
 

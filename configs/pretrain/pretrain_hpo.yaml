@@ -13,8 +13,8 @@ base:
   seed: 0 # for training run each trial; encoder weight init, stratified train/val/test split, dataloader shuffling, etc. 
   frac_resolution: 5000
   num_workers: 0
-  test_frac: 0.20
-  val_frac: 0.20
+  test_split: 0.20
+  val_split: 0.20
 
   # if all trials finish, production training will occur for `base.epochs` 
   # at the best params from Optuna

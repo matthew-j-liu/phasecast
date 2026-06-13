@@ -81,7 +81,7 @@ rename, or repurpose a test) updates this file in the same change.**
 21. `TestMaskingConvention::test_masking_preserves_target` -- `target_frac` equals the original (uncorrupted) frac.
 22. `TestMaskingConvention::test_only_populated_positions_get_masked` -- absent tokens (src=0) are never selected for masking.
 
-### test_fractional_encoder.py
+### test_splittional_encoder.py
 
 1. `test_output_shape_is_half_d_model` -- output is [B, T, d_model // 2] (two encoders concatenate to d_model downstream).
 2. `test_extreme_fracs_stay_finite` (x2, parametrized over linear/log10) -- encodings stay finite at frac 0 / 1e-6 / 1 bin / 0.5 / 1.0; the log10 branch survives `log2(0) = -inf` only via its clamp chain.
@@ -91,18 +91,18 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_splits.py
 
-1. `test_reserve_test_split_sizes` -- `reserve_test` produces ceil(n * test_frac) test rows, disjoint and covering all indices, identical across same-seed calls.
-2. `test_reserve_test_stratifies_when_qap_names_present` -- on the corpus fixture every qap class appears in both splits with a test ratio near test_frac.
+1. `test_reserve_test_split_sizes` -- `reserve_test` produces ceil(n * test_split) test rows, disjoint and covering all indices, identical across same-seed calls.
+2. `test_reserve_test_stratifies_when_qap_names_present` -- on the corpus fixture every qap class appears in both splits with a test ratio near test_split.
 
 ### test_ssl_pretrain.py
 
 1. `test_one_step_runs` -- one mask/forward/backward/step on the fixture dataset changes at least one encoder parameter (training is not a silent no-op).
-2. `test_val_frac_zero_raises` -- `val_frac <= 0` fails loudly at entry (HPO pruning and the best-checkpoint policy both need a val curve).
+2. `test_val_split_zero_raises` -- `val_split <= 0` fails loudly at entry (HPO pruning and the best-checkpoint policy both need a val curve).
 3. `test_run_pretraining_returns_result_dict` -- `run_pretraining` returns the expected keys with finite losses.
 4. `test_run_pretraining_monitor_shape` -- the monitor carries train+val lists of length epochs, in memory and on disk.
 5. `test_run_single_returns_test_loss` -- `run_single` returns finite val/train/test losses.
 6. `test_run_single_writes_results_artifacts` -- `run_single` lands run_summary.json + loss_curve.png with headline fields matching the stamped best checkpoint and a full-run monitor.
-7. `test_test_frac_zero_records_none` -- `test_frac: 0` surfaces `test_loss=None` at the API boundary, not NaN.
+7. `test_test_split_zero_records_none` -- `test_split: 0` surfaces `test_loss=None` at the API boundary, not NaN.
 8. `test_best_and_last_are_the_only_files_after_run` -- a multi-epoch run leaves exactly the best + last snapshots in the store directory.
 9. `test_epoch_best_holds_minimum_val_loss` -- the best snapshot's val_loss and epoch match the run's val-curve minimum.
 10. `test_best_and_last_have_distinct_model_states` -- at a deliberately-overshooting lr (0.1) the best and last snapshots hold genuinely different encoder weights.
