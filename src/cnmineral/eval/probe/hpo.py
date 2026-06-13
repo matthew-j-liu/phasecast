@@ -13,6 +13,7 @@ updates the encoder weights.
 """
 
 import json
+import warnings
 from pathlib import Path
 from time import time
 
@@ -21,6 +22,7 @@ import numpy as np
 import optuna
 import torch
 import yaml
+from optuna.exceptions import ExperimentalWarning
 from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler
 from optuna.storages import JournalStorage
@@ -82,18 +84,18 @@ def run_hpo(
     storage_path.parent.mkdir(parents=True, exist_ok=True)
     storage = JournalStorage(JournalFileBackend(str(storage_path)))
 
-    print("loading encoder (pretrain config comes from ckpt.config)...")
+    print("\nloading encoder (pretrain config comes from ckpt.config)...")
     encoder, ckpt = load_encoder_from_checkpoint(checkpoint_path)
     pretrain_config = ckpt.config
 
-    print("building dataset + reproducing test split...")
+    print("\nbuilding dataset + reproducing test split...")
     dataset = create_dataset(pretrain_config)
     splits = reserve_test(dataset, pretrain_config)
     n_train = len(splits["trainval"])
     n_test = len(splits["test"])
     print(f"  dataset n={len(dataset)} trainval={n_train} test={n_test}")
 
-    print("extracting latents (once at study scope)...")
+    print("\nextracting latents (once at study scope)...")
     t0 = time()
     latents = extract_latents(encoder, dataset, device=device).numpy()
     print(f"  latents {latents.shape} in {time() - t0:.1f}s")
@@ -112,7 +114,7 @@ def run_hpo(
 
     # fixed-protocol LR baseline, run once, recorded alongside the
     # tuned MLP result so the calibration report can cross-reference.
-    print("fixed-protocol LR baseline (no tuning)...")
+    print("\nfixed-protocol LR baseline (no tuning)...")
     t0 = time()
     lr_baseline = train_logreg_probe(X_train, y_train, X_test, y_test)
     print(
@@ -140,7 +142,7 @@ def run_hpo(
     )
     trials_left = max(0, n_trials - n_done)
     print(
-        f"resuming study {cfg['study_name']!r}: {n_done} complete, "
+        f"\nresuming study {cfg['study_name']!r}: {n_done} complete, "
         f"running {trials_left} more to reach n_trials={n_trials}"
     )
 
@@ -224,7 +226,16 @@ def run_hpo(
 
     # No hpo_trial_curves.png here: probe trials never call
     # trial.report, so the study has no intermediate values to plot.
-    ax = plot_optimization_history(study)
+    # warnings filter: optuna's matplotlib module flags itself
+    # experimental on every call; stable across 4.x, noise here.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ExperimentalWarning)
+        # empty studies (n_trials=0) additionally trip matplotlib's
+        # no-legend-artists warning inside optuna's plot
+        warnings.filterwarnings(
+            "ignore", message="No artists with labels found",
+        )
+        ax = plot_optimization_history(study)
     history_path = summary_path.parent / "hpo_history.png"
     ax.figure.savefig(history_path, dpi=300, bbox_inches="tight")
     plt.close(ax.figure)

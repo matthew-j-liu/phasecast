@@ -63,7 +63,7 @@ def run_scoring(
     print(f"checkpoint: {checkpoint_path}")
     print(f"output:     {output_dir}")
 
-    print("loading encoder (pretrain config comes from ckpt.config)...")
+    print("\nloading encoder (pretrain config comes from ckpt.config)...")
     encoder, ckpt = load_encoder_from_checkpoint(checkpoint_path)
     config = ckpt.config
     print(
@@ -72,14 +72,14 @@ def run_scoring(
         f"val_loss={ckpt.val_loss}"
     )
 
-    print("building dataset + reproducing test split...")
+    print("\nbuilding dataset + reproducing test split...")
     dataset = create_dataset(config)
     splits = reserve_test(dataset, config)
     n_train = len(splits["trainval"])
     n_test = len(splits["test"])
     print(f"  dataset n={len(dataset)} trainval={n_train} test={n_test}")
 
-    print("extracting latents over the full corpus...")
+    print("\nextracting latents over the full corpus...")
     latents = _timed(
         "extract_latents",
         extract_latents,
@@ -105,7 +105,7 @@ def run_scoring(
     sg_train = sg_full[train_idx]
     sg_test = sg_full[test_idx]
 
-    print("training qap_name probes...")
+    print("\ntraining qap_name probes...")
     qap_logreg = _timed(
         "logreg",
         train_logreg_probe,
@@ -124,7 +124,7 @@ def run_scoring(
         f"n_classes={qap_mlp.n_classes}"
     )
 
-    print("training supergroup probes...")
+    print("\ntraining supergroup probes...")
     sg_logreg = _timed(
         "logreg",
         train_logreg_probe,
@@ -143,7 +143,7 @@ def run_scoring(
         f"n_classes={sg_mlp.n_classes}"
     )
 
-    print("computing k-NN qap_name purity (test latents)...")
+    print("\ncomputing k-NN qap_name purity (test latents)...")
     purity = _timed(
         "knn",
         knn_label_purity,
@@ -155,7 +155,7 @@ def run_scoring(
         f"k=50: {purity[50]:.3f}  baseline: {random_baseline:.3f}"
     )
 
-    print("fitting UMAP-2D over the full latent...")
+    print("\nfitting UMAP-2D over the full latent...")
     emb2 = _timed("umap_2d", fit_umap_2d, latents)
     print("fitting UMAP-3D over the full latent...")
     emb3 = _timed("umap_3d", fit_umap_3d, latents)

@@ -13,6 +13,9 @@ The dataset and train/test split are reconstructed from
 
 import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+# silence libomp's informational stderr chatter (e.g. the
+# omp_set_nested deprecation note umap/numba trips)
+os.environ.setdefault("KMP_WARNINGS", "off")
 
 import argparse
 from pathlib import Path

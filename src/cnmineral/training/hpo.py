@@ -13,12 +13,15 @@ collide in `checkpoint_dir`.
 
 import json
 import math
+import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import optuna
 import torch
 import yaml
+from matplotlib.ticker import MaxNLocator
+from optuna.exceptions import ExperimentalWarning
 from optuna.pruners import MedianPruner
 from optuna.samplers import TPESampler
 from optuna.storages import JournalStorage
@@ -257,26 +260,42 @@ def run_hpo(
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, default=str)
-    print(f"summary -> {summary_path}")
+    print(f"\nsummary -> {summary_path}")
 
     for plot_fn, filename in (
         (plot_optimization_history, "hpo_history.png"),
         (plot_intermediate_values, "hpo_trial_curves.png"),
     ):
-        ax = plot_fn(study)
+        # optuna's matplotlib module warns that its interface is
+        # experimental on every call; the API has been stable across
+        # 4.x and the warning is noise at our call sites.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ExperimentalWarning)
+            # empty studies (n_trials=0) additionally trip matplotlib's
+            # no-legend-artists warning inside optuna's plot
+            warnings.filterwarnings(
+                "ignore", message="No artists with labels found",
+            )
+            ax = plot_fn(study)
+        if plot_fn is plot_intermediate_values:
+            # optuna labels the x-axis with its generic "Step"; ours is
+            # the 1-indexed trial-training epoch, which is also always
+            # integral
+            ax.set_xlabel("hpo_run_epoch")
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         fig_path = summary_path.parent / filename
         ax.figure.savefig(fig_path, dpi=300, bbox_inches="tight")
         plt.close(ax.figure)
         print(f"figure -> {fig_path}")
 
     if completed:
-        print(f"best trial val:   {best_trial_value:.4f}")
+        print(f"\nbest trial val:   {best_trial_value:.4f}")
         print(f"best params:      {best_params}")
         test_str = (
             f"{final_test_loss:.4f}"
             if final_test_loss is not None else "n/a"
         )
         print(
-            f"final production: train={final_train_loss:.4f} "
+            f"\nfinal production: train={final_train_loss:.4f} "
             f"val={final_val_loss:.4f} test={test_str}"
         )

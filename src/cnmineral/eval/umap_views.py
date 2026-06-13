@@ -19,6 +19,7 @@ different `n_components` requires refitting anyway.  Embeddings are
 returned alongside the saved PNG path so the caller can persist them.
 """
 
+import warnings
 from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
@@ -38,18 +39,24 @@ UMAP_DEFAULTS: dict = {
 }
 
 
+def _fit_umap(latents: np.ndarray, n_components: int, **kwargs) -> np.ndarray:
+    params = {**UMAP_DEFAULTS, **kwargs}
+    reducer = umap.UMAP(n_components=n_components, **params)
+    with warnings.catch_warnings():
+        # umap warns that random_state forces single-threaded; the
+        # determinism is deliberate (figures must be reproducible)
+        warnings.filterwarnings("ignore", message="n_jobs value 1 overridden")
+        return reducer.fit_transform(latents)
+
+
 def fit_umap_2d(latents: np.ndarray, **kwargs) -> np.ndarray:
     """2D UMAP fit with project-wide defaults (cosine metric, 15 neighbors)."""
-    params = {**UMAP_DEFAULTS, **kwargs}
-    reducer = umap.UMAP(n_components=2, **params)
-    return reducer.fit_transform(latents)
+    return _fit_umap(latents, 2, **kwargs)
 
 
 def fit_umap_3d(latents: np.ndarray, **kwargs) -> np.ndarray:
     """3D UMAP fit; same defaults as the 2D path so structure is comparable."""
-    params = {**UMAP_DEFAULTS, **kwargs}
-    reducer = umap.UMAP(n_components=3, **params)
-    return reducer.fit_transform(latents)
+    return _fit_umap(latents, 3, **kwargs)
 
 
 def plot_umap_supergroup(

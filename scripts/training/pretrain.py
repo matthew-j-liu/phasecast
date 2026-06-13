@@ -40,7 +40,7 @@ def main() -> None:
             if result["test_loss"] is not None else "n/a"
         )
         print(
-            f"final: train={result['train_loss']:.4f} "
+            f"\nfinal: train={result['train_loss']:.4f} "
             f"val={result['val_loss']:.4f} test={test_str}"
         )
 
