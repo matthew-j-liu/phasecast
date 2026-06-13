@@ -35,8 +35,8 @@ def _build_smoke_pretrain_config(
         "n_heads": 2,
         "frac_resolution": 200,
         "num_workers": 0,
-        "test_frac": 0.20,
-        "val_frac": 0.20,
+        "test_split": 0.20,
+        "val_split": 0.20,
         "data_kwargs": {
             "csv_path": str(fixture_path),
             "rock_group": "igneous",
@@ -89,9 +89,9 @@ def _write_probe_hpo_yaml(
         "pruner_warmup_steps": 0,
         "probe_target": "qap_name",
         "base": {
-            "epochs": 3,
+            "probe_epochs": 3,
             "batch_size": 64,
-            "val_frac": 0.1,
+            "val_split": 0.1,
             "early_stop_patience": 2,
             "seed": 0,
         },

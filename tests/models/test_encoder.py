@@ -8,7 +8,7 @@ updated).  Each test below fails on a specific failure mode that would
 otherwise reach production unnoticed.
 
 Run with:
-    pytest tests/test_encoder.py -v
+    pytest tests/models/test_encoder.py -v
 """
 
 import pytest

@@ -5,10 +5,10 @@
       "configs/pretrain/pretrain_production.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/latent.py",
-      "src/cnmineral/eval/probes.py",
+      "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/models/encoder.py",
-      "src/cnmineral/training/checkpoint.py",
-      "src/cnmineral/training/factory.py"
+      "src/cnmineral/training/build_from_config.py",
+      "src/cnmineral/training/checkpoint.py"
     ],
     "fractional_encoding": [
       "src/cnmineral/models/encoder.py",
@@ -19,22 +19,21 @@
       "src/cnmineral/models/pretrain_head.py"
     ],
     "layer_norm": [
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/primitives.py"
     ],
     "masked_mean_pool": [
-      "src/cnmineral/data/synthetic.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/pretrain_head.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "pretrain_head_mlp": [
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/losses/pretrain_loss.py",
       "src/cnmineral/models/pretrain_head.py",
+      "src/cnmineral/training/build_from_config.py",
       "src/cnmineral/training/checkpoint.py",
-      "src/cnmineral/training/factory.py",
-      "src/cnmineral/training/io.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/training/reconstruction_mse.py",
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "transformer_encoder": [
       "src/cnmineral/models/encoder.py"
@@ -47,62 +46,63 @@
     ],
     "torch_dataloader": [
       "src/cnmineral/eval/latent.py",
-      "src/cnmineral/eval/probes.py",
-      "src/cnmineral/training/io.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/training/reconstruction_mse.py",
+      "src/cnmineral/training/ssl_pretrain.py"
     ]
   },
   "evaluation": {
     "knn_label_purity": [
-      "src/cnmineral/eval/probe_report.py",
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/__init__.py",
+      "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/eval/probe/scoring.py"
     ],
     "logreg_probe": [
-      "src/cnmineral/eval/probe_hpo.py",
-      "src/cnmineral/eval/probe_report.py",
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/__init__.py",
+      "src/cnmineral/eval/probe/hpo.py",
+      "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/eval/probe/scoring.py"
     ],
     "mlp_probe": [
-      "src/cnmineral/eval/probe_hpo.py",
-      "src/cnmineral/eval/probe_report.py",
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/__init__.py",
+      "src/cnmineral/eval/probe/hpo.py",
+      "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/eval/probe/scoring.py"
     ],
     "supergroup_collapse": [
-      "src/cnmineral/eval/probe_hpo.py",
-      "src/cnmineral/eval/probe_report.py",
+      "src/cnmineral/eval/probe/hpo.py",
+      "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/eval/supergroup.py",
       "src/cnmineral/eval/umap_views.py"
     ],
     "umap_projection": [
-      "src/cnmineral/eval/probe_report.py",
+      "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/eval/umap_views.py"
     ]
   },
   "hpo": {
     "optuna_journal_storage": [
-      "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
       "scripts/eval/plot_training.py",
-      "src/cnmineral/eval/probe_hpo.py",
+      "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py"
     ],
     "optuna_median_pruner": [
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe_hpo.py",
+      "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "optuna_study": [
-      "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe_hpo.py",
+      "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py"
     ],
     "optuna_tpe_sampler": [
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe_hpo.py",
+      "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py"
     ]
   },
@@ -110,9 +110,9 @@
     "checkpoint_load": [
       "scripts/eval/plot_training.py",
       "src/cnmineral/eval/latent.py",
-      "src/cnmineral/eval/probe_hpo.py",
-      "src/cnmineral/eval/probe_report.py",
-      "src/cnmineral/eval/probes.py",
+      "src/cnmineral/eval/probe/hpo.py",
+      "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/training/checkpoint.py"
     ],
     "mask_token_learnable": [
@@ -128,41 +128,41 @@
   },
   "loss": {
     "cross_entropy": [
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/primitives.py"
     ],
     "masked_element_mse": [
       "src/cnmineral/data/tokens.py",
       "src/cnmineral/losses/pretrain_loss.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/training/ssl_pretrain.py"
     ]
   },
   "optimization": {
     "adamw": [
-      "src/cnmineral/eval/probes.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "cosine_scheduler": [
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe_calibration.py",
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/calibration.py",
+      "src/cnmineral/eval/probe/primitives.py"
     ],
     "label_smoothing": [
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe_calibration.py",
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/calibration.py",
+      "src/cnmineral/eval/probe/primitives.py"
     ]
   },
   "preprocessing": {
     "l2_normalize_inputs": [
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe_calibration.py",
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/calibration.py",
+      "src/cnmineral/eval/probe/primitives.py"
     ],
     "oxide_to_cation_conversion": [
       "src/cnmineral/data/bulk_chemistry.py"
     ],
     "standard_scaler": [
-      "src/cnmineral/eval/probes.py"
+      "src/cnmineral/eval/probe/primitives.py"
     ]
   },
   "training_strategy": {
@@ -170,21 +170,21 @@
       "configs/probe/probe_hpo.yaml",
       "scripts/build/build_test_fixture.py",
       "src/cnmineral/data/bulk_chemistry.py",
-      "src/cnmineral/eval/probe_hpo.py",
-      "src/cnmineral/eval/probe_report.py",
+      "src/cnmineral/eval/probe/hpo.py",
+      "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/eval/supergroup.py",
       "src/cnmineral/eval/umap_views.py",
       "src/cnmineral/training/__init__.py",
-      "src/cnmineral/training/loop.py",
-      "src/cnmineral/training/splits.py"
+      "src/cnmineral/training/splits.py",
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "early_stopping": [
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probes.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "grad_clip": [
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "masked_element_modeling": [
       "configs/pretrain/pretrain_hpo.yaml",
@@ -193,13 +193,13 @@
       "src/cnmineral/losses/pretrain_loss.py",
       "src/cnmineral/models/pretrain_head.py",
       "src/cnmineral/training/checkpoint.py",
-      "src/cnmineral/training/io.py",
-      "src/cnmineral/training/loop.py"
+      "src/cnmineral/training/reconstruction_mse.py",
+      "src/cnmineral/training/ssl_pretrain.py"
     ],
     "stratified_split": [
       "src/cnmineral/data/bulk_chemistry.py",
-      "src/cnmineral/training/loop.py",
-      "src/cnmineral/training/splits.py"
+      "src/cnmineral/training/splits.py",
+      "src/cnmineral/training/ssl_pretrain.py"
     ]
   }
 }
