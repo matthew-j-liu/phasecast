@@ -2093,3 +2093,64 @@ layout.
   SimCLR/MoCo/CLIP standardize on *linear* probes for exactly this
   reason.  Expand ONE dimension at a time (start with `hidden_dim`
   to [256, 512, 1024, 2048]) and resist doing both at once.
+
+## 2026-06-12 -- qap probe ceiling: widening hidden_dim to 2048 is within-noise
+
+**Q.** Does widening the qap_name MLP probe past `hidden_dim=1024`
+raise the latent-quality ceiling, or just measure classifier
+capacity?
+
+**Context.** The 06-11 sweep left the best railed on both
+`hidden_dim` (1024 of [256, 512, 1024]) and `n_hidden_layers` (2 of
+[1, 2]).  Ran a fresh 40-trial TPE study over `hidden_dim`
+[256, 512, 1024, 2048] with only that dimension widened --
+`n_hidden_layers` held at [1, 2] per the recorded methodology
+decision (an arbitrarily deep/wide probe stops measuring whether
+the latent is organized and starts measuring whether a big
+classifier can extract signal).  Same 20-epoch encoder
+(`epoch_best.pt`), same reproduced test split.  Separate study
+`probe_hpo_qap_wide` so the 3-choice and 4-choice spaces don't
+comingle in one TPE model; lands at `results/probe_hpo_wide/`.
+
+**Result.** Best 0.7824 at `hidden_dim=2048`, `n_hidden_layers=2`,
+vs the old 3-choice tuned 0.776 (+0.6pp).  LR baseline 0.708,
+unchanged.  TPE leaned on 2048 (20 of 40 trials) and the best does
+rail on the largest option again -- but the read is dominated by
+noise, not capacity: the best *1024* trial in this same sweep hit
+0.7791, only 0.0033 below the 2048 best and itself above the old
+0.776.  Top-5 mixed 2048 and 1024 (0.7824 / 0.7815 / 0.7791 /
+0.7790 / 0.7770), all inside the +/- 0.005 probe stochasticity band
+the 06-11 entry already cites.  So most of the "gain" over 0.776 is
+re-sampling the 1024 space with more trials, not 2048 capacity; the
+2048-over-1024 increment is within noise.
+
+**Considered.**
+
+A. Chase further -- add 4096, since the best still rails on the max.
+B. Stop -- accept ~0.78 as the qap probe ceiling at sane complexity.
+C. Now expand `n_hidden_layers` too.
+
+**Decision.** B.  A +0.6pp move for 2x probe width, with the 2048
+edge inside probe noise of 1024, is the diminishing-returns regime
+the methodology caveat warned about -- chasing 4096 would measure
+the classifier, not the latent.  `n_hidden_layers` stays unexpanded
+by the same logic: no evidence the latent needs more probe depth to
+read out.  The library-default 0.762 remains the headline for the
+v2 comparison (cell-c was probed at defaults too); the tuned number
+nudges 0.776 -> 0.782 but changes no conclusion.  Closes the
+`hidden_dim` open question; the `n_hidden_layers` one is retired on
+methodology grounds rather than tested.
+
+Housekeeping: reconciled the orphaned probe-HPO artifact tag.  The
+0.776 study's journal + results dir carried tag
+`pretrain_v3_seed0_epoch_best_20`, derived from the pre-rename
+checkpoint `epoch_best_20.pt`; that file is now `epoch_best.pt`, so
+the artifacts were renamed to the canonical
+`pretrain_v3_seed0_epoch_best` tag and the summary's resolved-path
+fields repointed (the `config` block kept as the sole record of the
+3-choice space).  Old 3-choice study now under
+`results/probe_hpo/`, new 4-choice under `results/probe_hpo_wide/`,
+both tagged by the same encoder.
+
+**Next.** Unchanged: Track A part 2 (element imputation, plan mode
+before code); Track B still gated on the FC corpus pilots.
