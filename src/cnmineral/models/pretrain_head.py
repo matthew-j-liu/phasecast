@@ -29,7 +29,7 @@ class PretrainHead(nn.Module):
         encoder's d_model.
     """
 
-    def __init__(self, d_model: int = 512) -> None:
+    def __init__(self, d_model: int) -> None:
         super().__init__()
         hidden = d_model // 2
         self.fc1 = nn.Linear(d_model, hidden)

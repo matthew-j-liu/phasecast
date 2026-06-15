@@ -82,8 +82,8 @@ def extract_latents(
         full dataset.
     batch_size
         Forward-pass batch size.  Larger reduces wall time but costs
-        device memory.  512 fits the d_model=512 encoder comfortably
-        on MPS.
+        device memory.  The 512 default fits the canonical encoder
+        comfortably on MPS.
     device
         Where to run the forward pass.  Output latents are returned on
         CPU regardless.

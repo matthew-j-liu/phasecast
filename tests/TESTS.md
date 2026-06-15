@@ -71,15 +71,16 @@ rename, or repurpose a test) updates this file in the same change.**
 11. `TestEmbeddingTable::test_padding_row_zero_after_init` -- the padding embedding row is all zeros after construction.
 12. `TestEmbeddingTable::test_padding_row_stays_zero_after_optimizer_step` -- one real AdamW step (with weight decay) leaves the padding row exactly zero, pinning the `padding_idx=0` contract.
 13. `test_odd_d_model_raises` -- odd `d_model` fails loudly at construction (the two FractionalEncoder halves must concatenate to d_model).
-14. `TestEncoderForward::test_output_shape` -- forward pass pools to [B, d_model].
-15. `TestEncoderForward::test_all_padding_does_not_nan` -- an all-padding row produces finite output (no divide-by-zero in masked-mean pool).
-16. `TestEncoderForward::test_padding_invariance` -- permuting populated-vs-padded slot positions leaves the pooled latent unchanged within tolerance.
-17. `TestSSLGradientFlow::test_encoder_receives_gradient` -- THE v2-bug regression test: after one SSL loss backward, every encoder parameter has non-zero gradient.
-18. `TestSSLGradientFlow::test_loss_is_finite` -- the masked-element MSE on a masked batch is finite.
-19. `TestMaskingConvention::test_masked_src_is_mask_token_id` -- masked positions carry src=MASK_TOKEN_ID and frac=0 (convention C).
-20. `TestMaskingConvention::test_mask_token_distinguishable_from_padding` -- MASK_TOKEN_ID appears at exactly the masked positions, never colliding with padding.
-21. `TestMaskingConvention::test_masking_preserves_target` -- `target_frac` equals the original (uncorrupted) frac.
-22. `TestMaskingConvention::test_only_populated_positions_get_masked` -- absent tokens (src=0) are never selected for masking.
+14. `test_shape_dims_required` -- `d_model`/`n_layers`/`n_heads` carry no defaults; omitting one raises TypeError rather than silently building a phantom model from a stale default.
+15. `TestEncoderForward::test_output_shape` -- forward pass pools to [B, d_model].
+16. `TestEncoderForward::test_all_padding_does_not_nan` -- an all-padding row produces finite output (no divide-by-zero in masked-mean pool).
+17. `TestEncoderForward::test_padding_invariance` -- permuting populated-vs-padded slot positions leaves the pooled latent unchanged within tolerance.
+18. `TestSSLGradientFlow::test_encoder_receives_gradient` -- THE v2-bug regression test: after one SSL loss backward, every encoder parameter has non-zero gradient.
+19. `TestSSLGradientFlow::test_loss_is_finite` -- the masked-element MSE on a masked batch is finite.
+20. `TestMaskingConvention::test_masked_src_is_mask_token_id` -- masked positions carry src=MASK_TOKEN_ID and frac=0 (convention C).
+21. `TestMaskingConvention::test_mask_token_distinguishable_from_padding` -- MASK_TOKEN_ID appears at exactly the masked positions, never colliding with padding.
+22. `TestMaskingConvention::test_masking_preserves_target` -- `target_frac` equals the original (uncorrupted) frac.
+23. `TestMaskingConvention::test_only_populated_positions_get_masked` -- absent tokens (src=0) are never selected for masking.
 
 ### test_splittional_encoder.py
 

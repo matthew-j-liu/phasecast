@@ -212,6 +212,15 @@ def test_odd_d_model_raises() -> None:
         Encoder(d_model=33, n_layers=1, n_heads=1)
 
 
+def test_shape_dims_required() -> None:
+    """d_model / n_layers / n_heads carry no defaults: the config is the
+    single source of truth for the architecture.  Omitting one must fail
+    loudly rather than silently build a phantom model from a stale default.
+    """
+    with pytest.raises(TypeError):
+        Encoder(d_model=64, n_heads=4)  # missing n_layers
+
+
 # ---------------------------------------------------------------------
 # Encoder shape + padding-mask semantics
 # ---------------------------------------------------------------------

@@ -37,7 +37,7 @@ class FractionalEncoder(nn.Module):
         Parameters
         ----------
         d_model : int
-            Model size, see paper, by default 512
+            Full per-token model dim (this encoder fills d_model // 2 of it).
         resolution : int
             Number of discretizations for the fractional prevalence encoding, by default 100
         log10 : bool

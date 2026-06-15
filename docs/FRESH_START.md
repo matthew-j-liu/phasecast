@@ -71,7 +71,7 @@ ELEMENT_EMBEDDING_ROWS = MASK_TOKEN_ID + 1  # 120: row 0 padding,
                                             # 1-118 mat2vec, 119 MASK
 
 class Encoder(nn.Module):
-    def __init__(self, d_model=512, N=4, heads=16, frac_resolution=5000):
+    def __init__(self, d_model, N, heads, frac_resolution=5000):
         # element embedding: mat2vec rows + learnable [MASK] row
         self.element_embedding   = nn.Embedding.from_pretrained(
             load_mat2vec_matrix(), freeze=False, padding_idx=0,
@@ -124,9 +124,9 @@ INPUTS (per sample)
 ENCODER (shared across all heads)
   element embedding (mat2vec)  -> per-token vector
   + frac projection             -> per-token vector
-  -> Transformer encoder (d_model=512, N=4, heads=16)
+  -> Transformer encoder (d_model / N / heads set per pretrain config, stamped in ckpt.config)
   -> masked-mean pool over non-padding tokens
-  -> latent h : [B, 512]
+  -> latent h : [B, d_model]
 
 HEADS (parallel, all read the same h)
   ModeHead    : h -> Dirichlet alpha over 18 phases       [B, 18]

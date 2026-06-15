@@ -110,7 +110,7 @@ class Encoder(nn.Module):
             the residual stream"         (== one nn.TransformerEncoderLayer)
                     |
                     v
-        TRANSFORMER ENCODER STACK       N=4 layers, residual stream
+        TRANSFORMER ENCODER STACK       N layers, residual stream
            "deep contextualization"     flows through
                                         (== nn.TransformerEncoder)
                     |
@@ -126,29 +126,32 @@ class Encoder(nn.Module):
     them so the SSL pretrain head can extract a prediction for the
     hidden frac value.
 
+    Concrete dims are set per run by the pretrain config and stamped
+    into the checkpoint; the shape-defining args carry no defaults so
+    the config stays the single source of truth.
+
     Parameters
     ----------
     d_model
-        Latent dim.  v1/v2 winning value was 512.  Must be even (the
-        two FractionalEncoders concatenate two `d_model // 2` halves).
+        Latent dim.  Must be even (the two FractionalEncoders
+        concatenate two `d_model // 2` halves).
     n_layers
-        Transformer encoder layers.  v1/v2: 4.
+        Number of transformer encoder layers.
     n_heads
-        Attention heads.  v1/v2: 16.
+        Attention heads.  Requires `d_model % n_heads == 0`.
     dropout
-        Dropout in attention/FFN.  v2 used 0.0 for SSL pretrain.
+        Dropout in the attention/FFN sub-blocks.
     frac_resolution
-        Discretization resolution for the FractionalEncoder bins.  v2
-        used 5000.
+        Discretization resolution for the FractionalEncoder bins.
     mat2vec_path
         Optional override for the mat2vec CSV path.
     """
 
     def __init__(
         self,
-        d_model: int = 512,
-        n_layers: int = 4,
-        n_heads: int = 16,
+        d_model: int,
+        n_layers: int,
+        n_heads: int,
         dropout: float = 0.0,
         frac_resolution: int = 5000,
         mat2vec_path: Path | str = MAT2VEC_PATH,
@@ -319,9 +322,8 @@ class Encoder(nn.Module):
         # gradients on self.element_embedding.weight (the table of values itself)
         elem_e = self.element_embedding(src) # [B, T, MAT2VEC_DIM] = [B, 22, 200]
 
-        # self.element_projection is nn.Linear(200, 512), meaning:
-        # 512*200 = 102,400 weights and 512 biases, for a total of 
-        # 102,912 parameters 
+        # self.element_projection is nn.Linear(MAT2VEC_DIM, d_model):
+        # MAT2VEC_DIM*d_model weights + d_model biases
         elem_e = self.element_projection(elem_e) # [B, T, d_model]
         elem_e = elem_e * self.emb_scaler # learnable rescale
 

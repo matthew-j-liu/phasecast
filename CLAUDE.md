@@ -378,9 +378,9 @@ INPUTS (per sample)
 
 ENCODER (shared across all heads, frozen after SSL pretrain)
   element embedding (mat2vec) + frac projection -> per-token vector
-  -> Transformer encoder (d_model=512, N=4, heads=16)
+  -> Transformer encoder (d_model / N / heads set per pretrain config, stamped in ckpt.config)
   -> masked-mean pool over non-padding tokens
-  -> latent h : [B, 512]
+  -> latent h : [B, d_model]
 
 HEADS (parallel, all read the same h)
   ModeHead    : h -> Dirichlet alpha over ~18 phases       [B, 18]

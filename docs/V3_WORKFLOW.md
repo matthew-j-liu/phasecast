@@ -307,7 +307,8 @@ In rough chronological order, decisions where you should NOT delegate
 to agentic work:
 
 1. **Encoder dim / depth / heads.** v1 won at d=512, N=4, heads=16.
-   Start there. Change only if HPO suggests it.
+   Start there. Change only if HPO suggests it.  (v3 HPO re-searched
+   the space and landed at d=256, N=4, heads=8.)
 2. **Mask probability for SSL.** v2 used 25%. Sweep {15, 25, 40} if
    pretraining is sensitive.
 3. **K_gmm for CondHead.** v1 won at K_gmm=3. Bigger gives more
