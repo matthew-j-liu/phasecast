@@ -12,13 +12,13 @@ head (encoder untouched), or a rebalanced re-pretrain?
 
 ## Method
 
-Score three predictors per element on the Gard test split, all in log space:
+A controlled pair of predictors per element on the Gard test split, both in log
+space -- only the input representation differs between them:
 
 - **1a** input-space XGBoost: predict each element from the *other measured
   elements*. The practical ceiling / specialist baseline.
 - **1b** XGBoost on the frozen latent `h`, with the target element masked before
   encoding (`src=MASK_TOKEN_ID, frac=0`) so `h` cannot leak the held-out element.
-- **1c** the current pretrain head, rescored in log space.
 
 **Gate** on 1b vs 1a over the 13 traces:
 
@@ -30,6 +30,12 @@ Tuning: light shared Optuna, two studies (one per feature set), objective = mean
 val-MSE over the 13 traces, `n_trials=40`; the single best param set is reused
 across all 22 final fits. XGBoost only. Read-only -- nothing here trains or
 mutates the canonical encoder.
+
+The current pretrain head's imputation (linear raw-frac MSE objective) is *not* a
+controlled arm here -- scored in log space it only restates its known objective
+mismatch. Its fair, linear-space numbers live in `results/imputation/`; the
+genuinely controlled third arm is the future log-trained read-out head (see the
+tracking issue), not the current head.
 
 ## Result
 

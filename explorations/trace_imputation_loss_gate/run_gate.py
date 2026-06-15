@@ -3,13 +3,14 @@ Trace-imputation loss-gate exploration: decides which layer to fix.
 
 The frozen pretrain head imputes majors well but collapses on traces (a
 loss-balance artifact, not an architecture limit -- see docs/JOURNAL.md
-2026-06-15).  This gate scores three predictors per element on the Gard test
-split in log space: 1a input-space XGBoost (predict each element from the other
-measured elements, the ceiling), 1b XGBoost on the frozen latent with the target
-masked before encoding (leakage-guarded), 1c the current pretrain head rescored
-in log space.  Gate on 1b vs 1a over the traces: 1b ~ 1a => Scenario A (cheap
-log-space read-out head, encoder untouched); 1b << 1a => Scenario B (rebalanced
-re-pretrain).  Read-only -- nothing here trains or mutates the encoder.
+2026-06-15).  This gate runs a controlled pair per element on the Gard test
+split, both scored in log space: 1a input-space XGBoost (predict each element
+from the other measured elements, the ceiling) and 1b XGBoost on the frozen
+latent with the target masked before encoding (leakage-guarded).  Only the
+representation differs between the two arms.  Gate on 1b vs 1a over the traces:
+1b ~ 1a => Scenario A (cheap log-space read-out head, encoder untouched);
+1b << 1a => Scenario B (rebalanced re-pretrain).  Read-only -- nothing here
+trains or mutates the encoder.
 
 Scoring/back-transform/plot helpers are reused from `cnmineral.eval.imputation`;
 the canonical verdict lands in docs/JOURNAL.md (and an ADR if the gate is B).
@@ -38,21 +39,15 @@ from xgboost import XGBRegressor
 from cnmineral.data.tokens import MAJORS, MASK_TOKEN_ID, VOCAB
 from cnmineral.eval.imputation import (
     _back_transform,
-    _impute_token,
     _plot_group,
     _regression_metrics,
 )
-from cnmineral.eval.latent import load_encoder_and_head_from_checkpoint
+from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.eval.supergroup import map_qap_array
 from cnmineral.models.encoder import Encoder
 from cnmineral.training import checkpoint_tag, create_dataset, pick_device, reserve_test
 
 RESULTS_ROOT = Path(__file__).resolve().parent / "results"
-
-# Floor for log10 of head predictions: the head output is unconstrained and can
-# be <= 0, which has no log.  Clipping to a tiny positive value keeps those rows
-# in the comparison as the deeply-negative-R2 they are, rather than dropping them.
-_HEAD_LOG_FLOOR = 1e-12
 
 _N_MAJORS = len(MAJORS)
 _TRACE_POSITIONS = list(range(_N_MAJORS, len(VOCAB)))
@@ -185,31 +180,30 @@ def _tune_shared(
     study = optuna.create_study(
         direction="minimize", sampler=optuna.samplers.TPESampler(seed=seed),
     )
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
     return study.best_params
 
 
 def _plot_r2_by_element(per_element: dict, tag: str, out_path: Path) -> None:
-    """Grouped bar of log-space R2 (1a / 1b / 1c), majors and traces split."""
+    """Grouped bar of log-space R2 (1a / 1b), majors and traces split."""
     syms = [s for s, _z in VOCAB if s in per_element]
     majors = [s for s in syms if per_element[s]["token_pos"] < _N_MAJORS]
     traces = [s for s in syms if per_element[s]["token_pos"] >= _N_MAJORS]
-    runs = [("run_1a", "1a input XGB"), ("run_1b", "1b latent XGB"), ("run_1c", "1c head")]
-    colors = {"run_1a": "#1b9e77", "run_1b": "#7570b3", "run_1c": "#d95f02"}
+    runs = [("run_1a", "1a input XGB"), ("run_1b", "1b latent XGB")]
+    colors = {"run_1a": "#1b9e77", "run_1b": "#7570b3"}
 
     fig, axes = plt.subplots(2, 1, figsize=(max(8, len(syms) * 0.5), 8))
     for ax, group, gtitle in ((axes[0], majors, "majors"), (axes[1], traces, "traces")):
         x = np.arange(len(group))
-        w = 0.27
+        w = 0.4
         for k, (run, label) in enumerate(runs):
             vals = [per_element[s][run]["r2"] for s in group]
-            ax.bar(x + (k - 1) * w, vals, w, label=label, color=colors[run])
-        ax.axhline(0.0, color="k", lw=0.6)
+            ax.bar(x + (k - 0.5) * w, vals, w, label=label, color=colors[run])
         ax.set_xticks(x)
         ax.set_xticklabels(group)
         ax.set_ylabel("log-space R2")
         ax.set_title(gtitle)
-        ax.set_ylim(bottom=min(-1.0, ax.get_ylim()[0]))
+        ax.set_ylim(0.0, 1.0)
     axes[0].legend(loc="lower right", fontsize=8)
     fig.suptitle(f"imputation diagnostic R2 (log space) -- {tag}")
     fig.tight_layout()
@@ -222,13 +216,16 @@ def run_imputation_diagnostic(
     *,
     device: torch.device | None = None,
     n_trials: int = 40,
-    study_subsample: int = 30000,
+    study_subsample: int | None = None,
     batch_size: int = 512,
 ) -> dict:
-    """Phase 1 gate: 1a input XGB / 1b latent XGB / 1c head, scored in log space.
+    """Phase 1 gate: 1a input XGB vs 1b latent XGB, scored in log space.
 
-    Writes per-element log-space metrics, the gate verdict, an R2 bar chart, and
-    trace parity grids to `results/<tag>/`; returns the metrics dict.
+    `study_subsample` caps the per-split rows used during Optuna tuning; `None`
+    (the default) tunes on all fit/val rows.  Final per-element fits always use
+    the full splits.  Writes per-element log-space metrics, the gate verdict, an
+    R2 bar chart, and trace parity grids to `results/<tag>/`; returns the
+    metrics dict.
     """
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     tag = checkpoint_tag(checkpoint_path)
@@ -239,9 +236,8 @@ def run_imputation_diagnostic(
     print(f"checkpoint: {checkpoint_path}")
     print(f"output:     {output_dir}")
 
-    encoder, head, ckpt = load_encoder_and_head_from_checkpoint(checkpoint_path)
+    encoder, ckpt = load_encoder_from_checkpoint(checkpoint_path)
     encoder.to(device)
-    head.to(device)
     seed = int(ckpt.config.get("seed", 0))
 
     dataset = create_dataset(ckpt.config)
@@ -263,9 +259,15 @@ def run_imputation_diagnostic(
     xlog_val = _log_feature_matrix(frac_val, pop_val)
     xlog_test = _log_feature_matrix(frac_test, pop_test)
 
-    rng = np.random.default_rng(seed)
-    sf = rng.choice(len(fit_idx), size=min(study_subsample, len(fit_idx)), replace=False)
-    sv = rng.choice(len(val_idx), size=min(study_subsample, len(val_idx)), replace=False)
+    if study_subsample is None:
+        sf = np.arange(len(fit_idx))
+        sv = np.arange(len(val_idx))
+    else:
+        rng = np.random.default_rng(seed)
+        sf = rng.choice(len(fit_idx), size=min(study_subsample, len(fit_idx)), replace=False)
+        sv = rng.choice(len(val_idx), size=min(study_subsample, len(val_idx)), replace=False)
+    print(f"tuning rows: fit={len(sf)} val={len(sv)}"
+          f"{' (all)' if study_subsample is None else f' (subsample={study_subsample})'}")
 
     print("tuning 1a (input-space) ...")
     tasks_1a = []
@@ -302,7 +304,6 @@ def run_imputation_diagnostic(
     per_element: dict[str, dict] = {}
     trace_panels_1a: list[dict] = []
     trace_panels_1b: list[dict] = []
-    head_clipped_total = 0
     for token_pos, (sym, _z) in enumerate(VOCAB):
         rows_fit = pop_fit[:, token_pos]
         rows_val = pop_val[:, token_pos]
@@ -334,16 +335,6 @@ def run_imputation_diagnostic(
         )
         m_1b = _regression_metrics(y_test, pred_1b)
 
-        _kept, true_frac_c, pred_frac_c = _impute_token(
-            encoder, head, dataset, test_idx, token_pos,
-            device=device, batch_size=batch_size,
-        )
-        clipped = int((pred_frac_c <= _HEAD_LOG_FLOOR).sum())
-        head_clipped_total += clipped
-        y_true_c = np.log10(true_frac_c)
-        pred_1c = np.log10(np.clip(pred_frac_c, _HEAD_LOG_FLOOR, None))
-        m_1c = _regression_metrics(y_true_c, pred_1c)
-
         _bt_true, label = _back_transform(token_pos, frac_test[rows_test, token_pos])
         per_element[sym] = {
             "token_pos": token_pos,
@@ -352,10 +343,9 @@ def run_imputation_diagnostic(
             "n_test": int(rows_test.sum()),
             "run_1a": m_1a,
             "run_1b": m_1b,
-            "run_1c": {**m_1c, "n_clipped": clipped},
         }
         print(f"  {sym:<3s} n={int(rows_test.sum()):<6d} "
-              f"R2 1a={m_1a['r2']:.3f} 1b={m_1b['r2']:.3f} 1c={m_1c['r2']:.3f}")
+              f"R2 1a={m_1a['r2']:.3f} 1b={m_1b['r2']:.3f}")
 
         if token_pos in _TRACE_POSITIONS:
             kept_ds = test_idx[rows_test]
@@ -387,7 +377,6 @@ def run_imputation_diagnostic(
         "checkpoint_epoch": ckpt.epoch,
         "n_test": int(len(test_idx)),
         "latent_dim": int(ckpt.config["d_model"]),
-        "head_clipped_total": head_clipped_total,
         "optuna": {"n_trials": n_trials, "best_1a": best_1a, "best_1b": best_1b},
         "per_element": per_element,
         "gate": gate,
@@ -443,8 +432,9 @@ def main() -> None:
         help="Optuna trials per shared study (one for 1a, one for 1b)",
     )
     parser.add_argument(
-        "--study-subsample", type=int, default=30000,
-        help="cap on trainval rows used during Optuna tuning (final fits use all)",
+        "--study-subsample", type=int, default=None,
+        help="if set, cap per-split rows used during Optuna tuning; "
+             "default tunes on all rows (final fits always use all)",
     )
     args = parser.parse_args()
     run_imputation_diagnostic(

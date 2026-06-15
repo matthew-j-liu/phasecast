@@ -62,8 +62,8 @@ def test_masked_encode_cannot_leak_target(synthetic_token_dataset) -> None:
 def test_run_diagnostic_end_to_end_on_fixture(
     tiny_pretrain_checkpoint: Path, tmp_path: Path, monkeypatch,
 ) -> None:
-    """`run_imputation_diagnostic` produces all three runs per element, a
-    populated gate block, and the metrics JSON + R2 chart."""
+    """`run_imputation_diagnostic` produces both controlled arms (1a/1b) per
+    element, a populated gate block, and the metrics JSON + R2 chart."""
     monkeypatch.setattr(run_gate, "RESULTS_ROOT", tmp_path / "results")
 
     metrics = run_imputation_diagnostic(
@@ -74,10 +74,9 @@ def test_run_diagnostic_end_to_end_on_fixture(
     per_element = metrics["per_element"]
     assert per_element and "Si" in per_element
     si = per_element["Si"]
-    for run in ("run_1a", "run_1b", "run_1c"):
+    for run in ("run_1a", "run_1b"):
         assert run in si
         assert np.isfinite(si[run]["r2"])
-    assert si["run_1c"]["n_clipped"] >= 0
     assert metrics["space"] == "log10"
     assert "verdict" in metrics["gate"]
 
