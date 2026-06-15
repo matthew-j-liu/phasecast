@@ -7,13 +7,17 @@ masking: probes see what the encoder produces from the unaltered input,
 mirroring how inference-time consumers (k-NN lookup, classifier heads)
 would call the encoder.
 
-Two entry points:
+Three entry points:
 
 - `extract_latents(encoder, dataset, ...)` for an in-memory encoder, used
   by tests and by the CLI after it has loaded the checkpoint.
-- `load_encoder_from_checkpoint(path)` rebuilds an `Encoder` from the
-  config stamped on a `cnmineral.training` checkpoint and applies the
-  state dict.  Returned in eval mode on CPU; the caller `.to(device)`s.
+- `load_encoder_and_head_from_checkpoint(path)` rebuilds both the `Encoder`
+  and the `PretrainHead` from a checkpoint's stamped config and applies the
+  state dicts.  Imputation needs the head at inference (it predicts masked
+  fracs), so it loads through this entry point.
+- `load_encoder_from_checkpoint(path)` is the head-less variant for probes
+  and UMAP, which only read pooled latents.  Both return in eval mode on
+  CPU; the caller `.to(device)`s.
 """
 
 from pathlib import Path
@@ -31,14 +35,14 @@ from cnmineral.training.checkpoint import Checkpoint
 _EXTRACT_BATCH_SIZE = 512
 
 
-def load_encoder_from_checkpoint(
+def load_encoder_and_head_from_checkpoint(
     checkpoint_path: str | Path,
-) -> tuple[Encoder, Checkpoint]:
-    """Rebuild an `Encoder` from a pretrain checkpoint's stamped config.
+) -> tuple[Encoder, PretrainHead, Checkpoint]:
+    """Rebuild the `Encoder` + `PretrainHead` from a checkpoint's config.
 
-    Returns the encoder (eval mode, CPU) plus the loaded `Checkpoint`
-    so the caller can pull `epoch`, `val_loss`, `config`, etc. via
-    attribute access for logging.
+    Returns both models (eval mode, CPU) plus the loaded `Checkpoint`
+    so the caller can pull `epoch`, `val_loss`, `config`, etc.  The head
+    is the SSL masked-frac predictor; imputation runs it at inference.
     """
     ckpt = Checkpoint.load(checkpoint_path)
     encoder = Encoder(
@@ -48,12 +52,18 @@ def load_encoder_from_checkpoint(
         dropout=ckpt.config.get("dropout", 0.0),
         frac_resolution=ckpt.config.get("frac_resolution", 5000),
     )
-    # We need a PretrainHead instance for Checkpoint.apply_to even
-    # though latent extraction never uses it.  Build a transient one
-    # at the right d_model and discard once weights are loaded.
     head = PretrainHead(d_model=ckpt.config["d_model"])
     ckpt.apply_to(encoder, head)
     encoder.eval()
+    head.eval()
+    return encoder, head, ckpt
+
+
+def load_encoder_from_checkpoint(
+    checkpoint_path: str | Path,
+) -> tuple[Encoder, Checkpoint]:
+    """Head-less variant for probes / UMAP, which only read pooled latents."""
+    encoder, _head, ckpt = load_encoder_and_head_from_checkpoint(checkpoint_path)
     return encoder, ckpt
 
 

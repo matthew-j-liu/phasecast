@@ -161,6 +161,15 @@ rename, or repurpose a test) updates this file in the same change.**
 3. `test_compare_probe_hpos_writes_report_and_yaml` -- `run_calibration` writes both calibration_report.md and calibrated_probe.yaml.
 4. `test_run_probe_hpo_zero_trials_returns_baseline_only` -- `n_trials=0` skips the sweep but still writes the LR baseline.
 
+### test_imputation.py
+
+1. `test_loader_returns_head_with_22_outputs` -- the head-returning loader yields a PretrainHead emitting one frac per token.
+2. `test_load_encoder_from_checkpoint_unchanged_pair` -- the head-less loader still returns (encoder, ckpt) and its encoder weights match the head-returning loader bit-exact.
+3. `test_impute_token_masks_target_and_keeps_populated_rows` -- the leave-one-out core masks exactly the target token (src=119, frac=0) and returns only originally-populated rows, mapped to dataset indices.
+4. `test_impute_token_empty_when_token_unpopulated` -- a token padded in every row yields no comparisons.
+5. `test_back_transform_inverts_normalization` -- majors invert to oxide wt%, Fe to cation wt%, traces to ppm, with the matching axis labels.
+6. `test_run_imputation_end_to_end_on_fixture` -- `run_imputation` reconstructs the test split, imputes every populated element, and writes the metrics JSON + major scatter grid.
+
 ### test_training_curves.py
 
 1. `test_plot_run_loss_returns_axes_with_two_lines` -- plotting a train+val monitor draws exactly two lines on the axes.
