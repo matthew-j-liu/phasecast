@@ -2154,3 +2154,163 @@ both tagged by the same encoder.
 
 **Next.** Unchanged: Track A part 2 (element imputation, plan mode
 before code); Track B still gated on the FC corpus pilots.
+
+## 2026-06-15 -- element imputation lands; trace failure is loss-balance not architecture; foundation-model framing + Phase 1 diagnostic
+
+**Q.** Why does the frozen encoder+head impute major elements well but
+fail completely on traces, and what does that failure tell us about how
+to choose a pretraining objective for a model whose whole point is to
+serve many downstream capabilities?
+
+**Context.** Element imputation (PRETRAIN_APPLICATIONS capability #1)
+landed: `src/cnmineral/eval/imputation.py` + `scripts/eval/impute_elements.py`.
+It runs the SSL `PretrainHead` at inference -- deterministic
+leave-one-element-out over the Gard test split reconstructed from
+`ckpt.config`, mask exactly element X (`src=119, frac=0`), predict it,
+compare to the withheld truth, back-transform to wt% (majors) / ppm
+(traces).  No new training; a standalone use of encoder+head.  Needed a
+head-returning checkpoint loader (`load_encoder_and_head_from_checkpoint`
+in `eval/latent.py`); the probe path discards the head, imputation needs
+it.
+
+Result on `pretrain_v3_seed0/epoch_best.pt`:
+- Majors impute well: R2 0.68-0.94 (Si 0.94 / 1.9 wt% MAE, Na/Ti
+  weakest ~0.68), uniform n=33371 (require_all_majors guarantees all
+  eight non-Cr majors present).  Cr drops out (slot padded under
+  include_cr2o3=False).
+- Traces fail: negative R2 across the board (Yb -2505, Th -1965),
+  predictions pinned to a ~1e-3 frac floor regardless of truth.  n
+  varies 11k-24k (trace coverage is patchier than majors).
+
+Diagnosed root cause, confirmed not a bug.  The SSL loss
+(`losses.pretrain_loss.masked_element_mse`) is raw-frac squared error
+pooled uniformly across masked positions.  Per-element contributions:
+Si frac ~0.25, 10% error squared ~6e-4; Yb frac ~3e-6, *100%* error
+squared ~9e-12 -- a ~1e7-1e8 ratio.  The optimum is to nail majors and
+emit a generic small constant at trace slots, which is exactly what
+happens (spot-check: Yb true frac 3e-6, predicted 9e-4).  The dual
+linear+log `FractionalEncoder` is INPUT-side resolution only (it lets
+the encoder *read* small fracs); it does not touch the loss, so traces
+remain effectively unsupervised.  The negative-R2 trace numbers are a
+broken-by-objective floor, not a fundamental ceiling.
+
+**Discussion (the framing this surfaced, recorded because it governs
+the next several experiments).**
+
+- *SSL is self-supervised, not supervised, despite the MSE.*  The
+  mechanics are identical to supervised regression -- target, loss,
+  backprop.  The distinction is the *source of the target*: the masked
+  frac is a piece of the input we hid from ourselves, not an external
+  annotation.  No labeler, no separate measurement; the same value is
+  input on one masking draw and target on another.  This is what lets
+  us pretrain on 474k raw Gard bulks with zero labels.  Contrast: the
+  supervised heads (ModeHead/CondHead) take genuinely external targets
+  (MAGEMin/PetThermoTools outputs).  SSL = "supervised learning where
+  the labels are free."
+
+- *The contribution is the latent representation, not any one task.*
+  One pretraining run yields a reusable encoder: impute any element
+  zero-shot, k-NN retrieval, OOD flagging, supergroup classification,
+  etc.  An XGBoost competitor must fix (inputs -> outputs) a priori and
+  is locked to that single task -- change the input set or the target
+  and you retrain a fresh model; there is no latent to reuse for the
+  other ten capabilities.  That is the generalist-vs-specialist trade:
+  the specialist wins on its one narrow task (especially right now,
+  where our traces are broken-by-objective and *anything* reasonable
+  beats them -- not a fair contest), the foundation model wins on
+  breadth and amortization.  The pitch is never "we beat XGBoost at
+  Yb"; it is "one latent serves many jobs, and is competitive where the
+  task benefits from learned structure."
+
+- *No task-neutral objective exists (No Free Lunch).*  Every
+  pretraining loss induces a latent geometry, which is a prior over
+  which downstream tasks are easy.  A foundation model is a bet on a
+  prior, not an escape from having one.  You cannot derive *the*
+  objective optimal across all capabilities; you pick the one whose
+  prior best matches the expected distribution of tasks.
+
+- *Head vs encoder objective are different questions.*  The head
+  objective should simply match its task -- for imputation, log/relative
+  error -- and it costs nothing to other capabilities because the head
+  is a thin, discardable adapter.  The actual mistake was reusing the
+  *pretrain* head as a task head; imputation today has no objective of
+  its own, it inherits the SSL loss.  The encoder objective is the
+  consequential, shared one.
+
+- *The current encoder objective is biased by accident, not design.*
+  Raw-frac MSE is major-dominated, which happens to align the latent
+  with major-element petrology -- rock type, QAPF/supergroup, the
+  differentiation manifold are all major-driven, which is why the
+  encoder hits 80.6% supergroup.  But that alignment came from the
+  *units* (frac magnitudes), not from a decision that majors matter
+  most for all future tasks.
+
+- *Rising tide vs tradeoff for raw-frac -> log reconstruction.*  In
+  general, rebalancing the encoder loss is a tradeoff (finite capacity,
+  NFL).  But severity depends on the marginal utility of loss weight,
+  and here it is wildly unequal.  Majors are easy and near-saturated:
+  high coverage, high SNR, low intrinsic dimension (igneous majors live
+  on a ~few-axis liquid-line-of-descent manifold) -- taking loss weight
+  away barely moves their error.  Traces are hard and starved: sparse,
+  noisy, higher intrinsic dimension (REE patterns, incompatible-element
+  ratios carry real petrogenesis/source information) -- adding weight
+  helps a lot.  Reallocating from a saturated-easy band to a
+  starved-hard band is close to Pareto-improving, and log space does
+  not destroy major information (majors are still perfectly predictable
+  in log units).  Predicted outcome of raw->log: traces up
+  substantially, majors roughly flat.  Knowable a priori: the
+  *direction*; that the major cost is *small* (low-dim major manifold =>
+  capacity headroom).  Not knowable without the run: the exact
+  magnitudes.
+
+The four objectives in play (current is one loss in two roles; the
+proposed fix differs by scenario):
+- Current (both scenarios): `L = mean_{i in M} (f_hat_i - f_i)^2`, raw
+  frac, uniform pooling.  Shaped the latent AND trained the head we
+  read.
+- Proposed, Scenario A (latent already has trace info): new read-out
+  head on frozen `h`, per-element, log target:
+  `L = mean_n (g_e(h_n) - log10(ppm_{e,n}))^2`.  Encoder untouched.
+- Proposed, Scenario B (latent is trace-blind): rebalanced *pretraining*
+  loss, head emits log-frac directly:
+  `L = mean_{i in M} (y_hat_i - log10(f_i))^2`, back-transform 10^y_hat
+  (also removes negative predictions).  Variants: per-token standardized
+  MSE, per-token weights.  Requires re-pretrain.
+
+**Considered.**
+
+A. Assume the latent has the trace info -- just fix the head loss
+   (cheap) and ship.
+B. Assume it does not -- re-pretrain with a rebalanced loss.
+C. Run a diagnostic gate first, then fix at the layer the data
+   indicates.
+
+**Decision.** C.  Phase 1 (cheap, read-only on the canonical checkpoint,
+no retraining): establish two reference points per element in log-ppm
+space on the same held-out test, all scored through the existing
+`imputation.py` harness (it scores any predictor, not just the head) --
+(1a) input-space XGBoost/ridge baseline predicting each element from the
+*other measured elements* (this is also the deferred specialist baseline
+and the practical ceiling), (1b) the same regressor on the frozen
+latents `h`, (1c) the current pretrain-head number for reference.  Gate
+on 1b vs 1a: 1b ~ 1a => Scenario A (latent has it; cheap head fix,
+encoder untouched, and 1b *is* the Scenario-A read-out); 1b << 1a =>
+Scenario B (latent blind; rebalanced re-pretrain).  Do not touch the
+canonical encoder until the gate says B; if B, the required eval is both
+the imputation re-score AND re-running the supergroup/qap probe suite to
+measure the rising-tide-vs-tradeoff prediction (traces up, majors flat).
+Even if the gate is A, defer any rebalanced encoder to whenever the
+*other* trace-dependent capabilities (source discrimination,
+OOD-on-traces) prove they need it -- imputation alone should not trigger
+a re-pretrain.
+
+Review fixes applied to the landed eval: dropped duplicate
+`_EXTRACT_BATCH_SIZE` / trivial `_N_MAJORS` constants, guarded the
+log-scale identity line + per-panel log toggle against unconstrained
+(possibly non-positive) head output.  Fe back-transforms to cation wt%
+(it is a FeO+Fe2O3 blend, no single-oxide inverse); flagged for the
+tutorial.
+
+**Next.** Phase 1 diagnostic in a fresh session; user supplies prior
+XGBoost reference codebases.  Don't pay for an encoder re-pretrain
+unless the gate lands on B.
