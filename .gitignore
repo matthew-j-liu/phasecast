@@ -1,8 +1,8 @@
 # Data: input corpora (large, re-downloadable) + optuna sweep state
 /data/
 
-# Run artifacts (regenerable)
-results/
+# Run artifacts (regenerable); anchored so committed explorations/<name>/results/ survive
+/results/
 
 # Models
 checkpoints/

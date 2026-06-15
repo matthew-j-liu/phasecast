@@ -8,11 +8,15 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ## Shared fixtures
 
-- `tests/conftest.py` -- sets `KMP_DUPLICATE_LIB_OK` before imports;
-  `pretrain_results_root` (autouse) redirects `run_single` artifacts
-  into tmp dirs; `corpus_subset_path` points at the checked-in
-  2000-row parquet fixture (`tests/fixtures/complete_subset.parquet`,
-  rebuilt by `scripts/build/build_test_fixture.py`).
+- `tests/conftest.py` -- sets `KMP_DUPLICATE_LIB_OK` and
+  `OMP_NUM_THREADS` before imports; `pretrain_results_root` (autouse)
+  redirects `run_single` artifacts into tmp dirs; `corpus_subset_path`
+  points at the checked-in 2000-row parquet fixture
+  (`tests/fixtures/complete_subset.parquet`, rebuilt by
+  `scripts/build/build_test_fixture.py`); `SyntheticTokenDataset` +
+  `synthetic_token_dataset` (tiny token datasets) and
+  `tiny_pretrain_checkpoint` (a real on-disk encoder+head checkpoint),
+  shared by the eval and explorations suites.
 - `tests/training/conftest.py` -- `_tiny_config()` (minimal config on
   the corpus fixture; `min_class_count=5` so both stratified splits
   survive) and `_write_yaml()`.
@@ -175,3 +179,11 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_plot_run_loss_returns_axes_with_two_lines` -- plotting a train+val monitor draws exactly two lines on the axes.
 2. `test_plot_run_loss_handles_train_only` -- a monitor without a val key still renders cleanly.
 3. `test_plot_run_loss_custom_ylabel` -- a custom ylabel lands on the axes.
+
+## explorations/
+
+### test_trace_imputation_loss_gate.py
+
+1. `test_log_feature_matrix_absent_is_nan` -- populated entries map to log10(frac) and absent entries become NaN (XGBoost native-missing input feature).
+2. `test_masked_encode_cannot_leak_target` -- masking token e makes the encoded latent independent of e's input value, the invariant that keeps the 1b latent baseline from reading the held-out element off `h`.
+3. `test_run_diagnostic_end_to_end_on_fixture` -- `run_imputation_diagnostic` produces all three runs (1a/1b/1c) per element, a populated gate block, and the metrics JSON + R2 chart.
