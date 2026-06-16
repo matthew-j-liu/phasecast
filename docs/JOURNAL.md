@@ -2374,3 +2374,50 @@ objective and split the gate's blindness-vs-ceiling reporting (#6).
 Open: set the downstream bar for trace imputation -- "useful" (read-out
 head suffices) vs "match the input ceiling on HREE" (would justify the
 rebalanced re-pretrain).
+
+## 2026-06-15 -- log-space imputation read-out head lands (the head-gap fix)
+
+**Q.** Build the cheap fix the gate pointed to: a head on the frozen
+encoder that imputes masked elements in log space, replacing the SSL
+head's linear-frac outputs that collapse on traces.
+
+**What landed.** A production read-out head, encoder untouched:
+- `LogImputationHead` (`models/imputation_head.py`) -- linear or
+  one-hidden-MLP read-out emitting per-element *standardized* `log10(frac)`;
+  de-standardization buffers (`target_mean`/`target_std`) live in
+  `state_dict` so they travel with the checkpoint and stay
+  encoder-version-agnostic.
+- `masked_element_log_mse` (`losses/pretrain_loss.py`) alongside the
+  linear-frac `masked_element_mse` (kept as the contrast).  Per-element
+  standardization is the head-level rebalance: it stops the majors from
+  dominating the shared head's gradient and pinning traces to a floor.
+- `train_imputation_head` (`training/imputation_head.py`) -- frozen
+  encoder (eval, `requires_grad_(False)`, encode under `no_grad`), head-only
+  optimizer; dataset/splits reconstructed from the *encoder* checkpoint's
+  config so train/val/test line up with the gate and probe suite.  Produces
+  `ImputationHeadCheckpoint` (head + buffers + a pointer back to the encoder
+  checkpoint; no encoder copy).
+- `run_imputation_logspace` (`eval/imputation_logspace.py`) -- log-space
+  leave-one-out scoring with the gate's two reference lines (input-element
+  XGBoost ceiling, frozen-latent XGBoost target) read from the gate JSON;
+  writes `results/imputation/<encoder_tag>/readout/`.
+
+**Why a separate head, not a re-pretrain.** Settled by the gate above: the
+frozen latent already carries the trace signal, so fixing imputation needs
+only the right objective on the existing latent.  Re-supervising a head
+post-hoc on a frozen encoder is the documented application-slot pattern
+(same family as ModeHead/CompHead/CondHead) -- not a new architecture.
+`PretrainHead` stays as SSL machinery; this head is the imputation
+application.  Concept written up in `docs/PRETRAIN_APPLICATIONS.md` #1.
+
+**Naming.** Avoided the gate's `1a`/`1b` code-names in code/output: metric
+keys `log_r2`/`log_mae`/`log_rmse`, reference keys `input_xgb_ceiling_r2`
+/ `frozen_latent_xgb_r2`; the eval prints the criterion + measured values
+(head recovers X% of the frozen-latent target, Y% of the input ceiling)
+with no pass/fail verdict -- this is the "before" baseline the optional
+re-pretrain (the rising-tide experiment) is measured against.
+
+**Next.** Run the head on the full corpus for both `hidden: null` (linear)
+and an MLP variant; confirm median trace `log_r2` rises from negative
+toward the ~0.84 frozen-latent target.  The linear-vs-MLP comparison tells
+us whether the shipped head can be linear (cheapest, best-calibrated).

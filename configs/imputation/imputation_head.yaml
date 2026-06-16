@@ -1,0 +1,22 @@
+# Log-space imputation head on a frozen SSL encoder.
+# Dataset + splits are reconstructed from the encoder checkpoint's config;
+# only the head trains here.
+
+encoder_checkpoint: checkpoints/pretrain_v3_seed0/epoch_best.pt
+
+# head architecture
+hidden: null          # null -> linear read-out; an int -> one GELU MLP layer
+standardize: true     # per-element log10(frac) center/scale in the loss
+
+# optimization
+epochs: 20
+batch_size: 256
+lr: 1.0e-3
+weight_decay: 0.0
+val_split: 0.20
+# mask_prob defaults to the encoder's pretrain value; uncomment to override
+# mask_prob: 0.23
+num_workers: 0
+
+head_checkpoint_dir: checkpoints/imputation_head_seed0
+head_checkpoint_filename: head_best.pt

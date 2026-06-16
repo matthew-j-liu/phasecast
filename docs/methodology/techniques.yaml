@@ -56,6 +56,11 @@ techniques:
     type: architecture
     patterns:
       - "PretrainHead"
+  - name: imputation_readout_head
+    type: architecture
+    patterns:
+      - "LogImputationHead"
+      - "predict_log_frac"
 
   # ---- initialization ----
   - name: mat2vec_embedding
@@ -112,6 +117,11 @@ techniques:
     patterns:
       - "clip_grad_norm_"
       - "max_norm=1.0"
+  - name: frozen_encoder_readout
+    type: training_strategy
+    patterns:
+      - "train_imputation_head"
+      - "ImputationHeadCheckpoint"
 
   # ---- optimization ----
   - name: adamw
@@ -140,6 +150,10 @@ techniques:
     patterns:
       - "nn.CrossEntropyLoss"
       - "CrossEntropyLoss("
+  - name: masked_element_log_mse
+    type: loss
+    patterns:
+      - "masked_element_log_mse"
 
   # ---- preprocessing ----
   - name: standard_scaler
@@ -156,6 +170,11 @@ techniques:
     patterns:
       - "OXIDE_TO_CATION_FACTOR"
       - "_resolve_iron"
+  - name: log_frac_standardization
+    type: preprocessing
+    patterns:
+      - "fit_standardization"
+      - "_log_frac_stats"
 
   # ---- hpo ----
   - name: optuna_tpe_sampler
@@ -212,6 +231,11 @@ techniques:
       - "qap_to_supergroup"
       - "map_qap_array"
       - "SUPERGROUPS"
+  - name: element_imputation
+    type: evaluation
+    patterns:
+      - "run_imputation"
+      - "_impute_token"
 
   # ---- data_loading ----
   - name: parquet_sidecar_cache

@@ -19,27 +19,64 @@ Living document; update as capabilities are built or evaluated.
 
 ## What the pretrain head + pooled latent already give you
 
-These need **no additional training**. The pretrained encoder and the
-discarded-but-recoverable pretrain head are sufficient.
+These run on the **frozen** encoder with no encoder retraining. k-NN (#3)
+and OOD (#4) need no training at all; element imputation (#1) and the anomaly
+flagging built on it (#2) add a small read-out head trained in minutes on the
+frozen latent (same cost class as the heads in the next section).
 
 ### 1. Element imputation from partial analyses
 
-The pretrain head was literally trained to predict missing element values
-from context. A user with majors only (or majors + a few traces) can get
-predicted values for the missing elements. Use cases:
+A user with majors only (or majors + a few traces) can get predicted values
+for the missing elements. Use cases:
 
 - Legacy / incomplete datasets where ICP-MS traces were never measured
 - Labs where major-element results arrive faster than trace
 - Cross-validation: predict each measured element from the others, compare
   to reported value, flag large discrepancies as possible analytical errors
 
-Implementation: keep `PretrainHead` accessible at inference (we currently
-treat it as scaffolding to discard); add an `impute(bulk_majors_partial) ->
-predicted_traces` entry point. The head returns one frac value per cation
-slot; mask out the known positions and return the predictions for the
-unknown ones.
+**Imputation runs through a read-out head, not the SSL `PretrainHead`.** A
+read-out head is the standard foundation-model pattern: freeze the encoder
+and train a small head on its pooled latent to read out one quantity (here,
+the masked element's value). It is *not a new architecture* -- it is the same
+application-slot pattern the v3 heads use (ModeHead / CompHead / CondHead /
+ClassHead all read the same frozen `h`). It shares `PretrainHead`'s small-MLP
+shape but differs in role:
 
-Effort: ~few hours of API design + a small CLI / notebook example.
+| | `PretrainHead` | imputation read-out head |
+|---|---|---|
+| trained | jointly with the encoder during SSL | alone, encoder frozen |
+| objective | linear-frac MSE (shapes the latent) | per-element standardized log-space MSE |
+| role | SSL machinery: drives the masked-element loss that shapes the encoder | downstream application head, re-supervised post-hoc |
+| lives in | the pretrain checkpoint | its own `ImputationHeadCheckpoint` |
+
+`PretrainHead` is not deleted -- it must exist to pretrain the encoder, and
+its imputation outputs were always a side effect. Those outputs are decent on
+majors but collapse on traces: linear-frac MSE is dominated by the majors, so
+trace predictions optimize to a near-constant and go negative in log-space
+R2. The trace-imputation gate (`explorations/trace_imputation_loss_gate/`,
+JOURNAL 2026-06-15) showed this is a *head-objective* problem, not encoder
+capacity -- XGBoost on the frozen masked latent reaches ~94% of the
+input-element XGBoost ceiling across the 13 traces. So the fix is a head with
+the right objective on the *existing* frozen latent, not a re-pretrain.
+
+Implementation (built):
+- `cnmineral.models.imputation_head.LogImputationHead` -- linear or
+  one-hidden-MLP read-out emitting per-element standardized `log10(frac)`,
+  with de-standardization buffers carried in `state_dict`.
+- `cnmineral.losses.pretrain_loss.masked_element_log_mse` -- the log-space
+  objective (contrast: `masked_element_mse` is the linear-frac SSL loss).
+- `cnmineral.training.imputation_head.train_imputation_head` -- trains the
+  head on a frozen encoder; dataset/splits reconstructed from the encoder
+  checkpoint's config. Config: `configs/imputation/imputation_head.yaml`.
+- `cnmineral.eval.imputation_logspace.run_imputation_logspace` -- log-space
+  leave-one-out scoring against the gate's two reference lines; writes
+  `results/imputation/<encoder_tag>/readout/`.
+
+The frozen-latent XGBoost number stays a *yardstick*, never a shipped model:
+the latent is a compression of the same inputs, so the head can at best
+approach it. Closing the remaining gap from that target to the input ceiling
+(worst on HREE) would need a stronger encoder -- the separate re-pretrain
+epic, not this head.
 
 ### 2. Per-element anomaly / measurement-error flagging
 

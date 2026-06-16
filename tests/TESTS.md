@@ -57,6 +57,9 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_unmasked_positions_carry_no_gradient` -- a wildly-wrong prediction at an unmasked position contributes zero gradient; masked positions contribute non-zero.
 3. `test_zero_masked_positions_returns_zero` -- an all-False mask yields loss 0 (not NaN) under every reduction.
 4. `test_validation_raises` -- shape mismatches, non-bool masks, and unknown reduction names raise instead of silently broadcasting.
+5. `test_log_mse_zero_when_no_mask` -- `masked_element_log_mse` returns 0 on an all-False mask, mirroring the linear-space contract.
+6. `test_log_mse_finite_with_zero_unmasked_targets` -- frac=0 at unmasked positions (log10 -> -inf) stays finite because the target is floored before the log and those positions are masked out.
+7. `test_log_mse_zero_on_exact_standardized_prediction` -- predicting the standardized-log target exactly gives loss 0, confirming the per-element standardization the head emits is what the loss expects.
 
 ## models/
 
@@ -91,6 +94,15 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_output_shape_is_half_d_model` -- output is [B, T, d_model // 2] (two encoders concatenate to d_model downstream).
 2. `test_extreme_fracs_stay_finite` (x2, parametrized over linear/log10) -- encodings stay finite at frac 0 / 1e-6 / 1 bin / 0.5 / 1.0; the log10 branch survives `log2(0) = -inf` only via its clamp chain.
 3. `test_deterministic_and_distinct_at_production_resolution` -- same input encodes identically twice, and 0.1 vs 0.2 land in different bins at resolution 5000.
+
+### test_imputation_head.py
+
+1. `test_linear_build_forward_shape` -- `hidden=None` builds a single linear read-out emitting one value per token.
+2. `test_mlp_build_forward_shape` -- an int `hidden` builds a GELU MLP with the same per-token output shape.
+3. `test_destandardize_roundtrip` -- `predict_log_frac` undoes the standardization (`out * std + mean`) and `predict_frac` exponentiates it.
+4. `test_fit_standardization_floors_std` -- a zero-std element is clamped to the std floor so the standardized target can't blow up.
+5. `test_fit_standardization_wrong_shape_raises` -- stats not shaped `[N_TOKENS]` raise rather than silently broadcasting.
+6. `test_buffers_serialize_and_reload` -- the standardization buffers are part of `state_dict` and reload exactly (they must travel with the checkpoint).
 
 ## training/
 
@@ -134,6 +146,12 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_checkpoint_tag_stable_and_filesystem_safe` -- `checkpoint_tag` derives a deterministic, sanitized `<parent>_<stem>` string.
 7. `test_evaluate_on_test_returns_finite` -- training a tiny model then calling `evaluate_on_test` on the held-out indices yields a finite float.
 
+### test_imputation_head_train.py
+
+1. `test_encoder_receives_no_gradient` -- `_head_forward_loss` freezes the encoder: backward leaves every encoder parameter grad-free while the head's parameters get gradients.
+2. `test_train_imputation_head_end_to_end` -- training on the tiny encoder checkpoint fills the monitor, fits the standardization buffers off the identity, and yields a head-only checkpoint that rebuilds a working head.
+3. `test_imputation_head_checkpoint_save_load` -- `ImputationHeadCheckpoint` survives a disk round-trip with its head_config, encoder reference, and buffers intact.
+
 ## eval/
 
 ### test_probes.py
@@ -173,6 +191,12 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_impute_token_empty_when_token_unpopulated` -- a token padded in every row yields no comparisons.
 5. `test_back_transform_inverts_normalization` -- majors invert to oxide wt%, Fe to cation wt%, traces to ppm, with the matching axis labels.
 6. `test_run_imputation_end_to_end_on_fixture` -- `run_imputation` reconstructs the test split, imputes every populated element, and writes the metrics JSON + major scatter grid.
+
+### test_imputation_logspace.py
+
+1. `test_run_logspace_end_to_end_on_fixture` -- `run_imputation_logspace` reconstructs the encoder's test split, scores every populated element in log space, and writes the metrics JSON + R2 chart under a `readout/` subdir.
+2. `test_load_gate_references_reads_run_1a_1b` -- the gate-reference loader maps the gate's run_1a / run_1b R2 onto the input-ceiling / frozen-latent reference keys.
+3. `test_load_gate_references_missing_returns_empty` -- a missing gate file yields empty refs so the eval still runs without reference lines.
 
 ### test_training_curves.py
 

@@ -39,6 +39,14 @@ from parallel workers at this suite size.
 5. If the change touches multiple responsibility areas and the
    coupling seems too tight, flag it for potential further
    review — don't fold a refactor into the current diff.
+6. **Keep the methodology index current.**  Any refactor or
+   addition that introduces, renames, or removes an ML technique
+   (a new loss, head, training strategy, eval, preprocessing step,
+   etc.) updates [docs/methodology/techniques.yaml](docs/methodology/techniques.yaml)
+   with distinctive symbol patterns and regenerates the index in
+   the same change: `conda run -n alignn_fix python
+   scripts/build/build_technique_index.py` (verify `zero hits:
+   none`).
 
 Before declaring a change done, read the diff as a reviewer would —
 fresh skepticism, not the author's confidence.
