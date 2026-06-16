@@ -103,9 +103,13 @@ def masked_element_log_mse(
 
     The head emits standardized `log10(frac)`; this builds the matching
     standardized-log target from `target_frac` and compares them at the
-    masked positions.  Standardizing per element (via the head's
-    `target_mean` / `target_std`) equalizes the majors' and traces'
-    contributions to the shared head's gradient.
+    masked positions.  The log space is what lifts the traces off the floor
+    that linear-frac MSE pins them to; per-element standardization (via the
+    head's `target_mean` / `target_std`) is a smaller refinement.  For a
+    linear head each output is an independent affine map, so standardization
+    barely changes R2 on its own -- it earns its place through the global
+    gradient clip, where it stops the high-variance majors from consuming the
+    clip budget and starving the low-variance heavy REE.
 
     Parameters
     ----------

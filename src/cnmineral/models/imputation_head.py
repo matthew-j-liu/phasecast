@@ -7,10 +7,13 @@ counterpart to `cnmineral.models.pretrain_head.PretrainHead`: same
 MLP shape, but `PretrainHead` is trained jointly with the encoder during
 SSL (linear-frac MSE, the objective that shapes the latent) while this head
 trains alone on the already-frozen encoder with a log-space, per-element
-standardized objective.  That objective is what fixes trace imputation:
+standardized objective.  The log space is what fixes trace imputation:
 linear-frac MSE is dominated by the majors and pins traces to a floor, so
 the jointly-trained head's trace predictions collapse in log space even
-though the latent retains the trace signal.
+though the latent retains the trace signal.  Per-element standardization is
+a secondary refinement -- it mainly rescues the lowest-signal heavy REE
+through the global gradient clip, so the `standardize` toggle changes little
+for a linear head.
 
 Outputs are in **standardized-log space** (per-element `log10(frac)`
 centered/scaled by training-split statistics carried in the `target_mean`

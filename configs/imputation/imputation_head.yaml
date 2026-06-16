@@ -5,7 +5,7 @@
 encoder_checkpoint: checkpoints/pretrain_v3_seed0/epoch_best.pt
 
 # head architecture
-hidden: null          # null -> linear read-out; an int -> one GELU MLP layer
+hidden: 256           # one GELU MLP layer (null -> linear read-out)
 standardize: true     # per-element log10(frac) center/scale in the loss
 
 # optimization

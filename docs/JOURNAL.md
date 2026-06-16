@@ -2350,8 +2350,10 @@ real signal the 256-d latent dropped relative to the raw inputs -- a
 lossy-but-high-fidelity compression, worst on heavy REE.  Hence: the
 imputation failure is the *head's objective* (linear raw-frac MSE), not
 encoder capacity; and a log-space read-out head on the frozen latent
-should recover most of the traces, bounded above by 1b (so still below
-the 1a input ceiling, especially on HREE).
+should recover most of the traces, approaching 1b (a strong nonlinear
+readout's reach on the latent, not a hard capacity ceiling -- a linear head
+can trail it on readout capacity; see the 2026-06-16 ablation) and staying
+below the 1a input ceiling, especially on HREE.
 
 **Decision.** Build the cheap fix first: a log-space read-out head on the
 frozen latent (issue #5).  Do NOT re-pretrain the encoder for imputation
@@ -2388,9 +2390,11 @@ head's linear-frac outputs that collapse on traces.
   `state_dict` so they travel with the checkpoint and stay
   encoder-version-agnostic.
 - `masked_element_log_mse` (`losses/pretrain_loss.py`) alongside the
-  linear-frac `masked_element_mse` (kept as the contrast).  Per-element
-  standardization is the head-level rebalance: it stops the majors from
-  dominating the shared head's gradient and pinning traces to a floor.
+  linear-frac `masked_element_mse` (kept as the contrast).  The log space is
+  the rebalance that lifts traces off the floor; per-element standardization
+  is a smaller refinement that mainly rescues the lowest-signal heavy REE via
+  the global gradient clip (it barely moves a linear head -- see the
+  2026-06-16 ablation).
 - `train_imputation_head` (`training/imputation_head.py`) -- frozen
   encoder (eval, `requires_grad_(False)`, encode under `no_grad`), head-only
   optimizer; dataset/splits reconstructed from the *encoder* checkpoint's
@@ -2417,7 +2421,65 @@ keys `log_r2`/`log_mae`/`log_rmse`, reference keys `input_xgb_ceiling_r2`
 with no pass/fail verdict -- this is the "before" baseline the optional
 re-pretrain (the rising-tide experiment) is measured against.
 
-**Next.** Run the head on the full corpus for both `hidden: null` (linear)
-and an MLP variant; confirm median trace `log_r2` rises from negative
-toward the ~0.84 frozen-latent target.  The linear-vs-MLP comparison tells
-us whether the shipped head can be linear (cheapest, best-calibrated).
+**Next.** Run the head on the full corpus, ablate standardize and
+linear-vs-MLP, and confirm median trace `log_r2` rises off the floor toward
+the frozen-latent target.  Results in the 2026-06-16 entry below.
+
+## 2026-06-16 -- imputation head full-corpus run: MLP default, and what standardization actually buys
+
+**Q.** Does the head close the head-gap on the full corpus, is the linear
+read-out enough, and is per-element standardization really "the rebalance"?
+
+**Setup.** Trained on `pretrain_v3_seed0/epoch_best.pt` (frozen), scored
+log-space leave-one-out on its Gard test split.  Yardsticks from the gate:
+frozen-latent XGBoost median trace R2 0.839, input-element ceiling 0.892.
+Harness + per-element JSON: `explorations/imputation_head_ablation/`.
+
+**Results** (median trace log-R2 / Yb, the worst trace / median major):
+
+| variant | median trace | Yb | median major |
+|---|---|---|---|
+| linear + standardize | 0.748 | 0.544 | 0.830 |
+| linear, no standardize | 0.743 | 0.439 | 0.813 |
+| MLP (hidden=256) + standardize | 0.792 | 0.623 | 0.866 |
+| linear + standardize, single-token mask eval | 0.757 | 0.555 | 0.840 |
+
+**Three conclusions, two of which corrected overstated framing:**
+
+1. **Log space does ~all the work; standardization is a narrow grad-clip
+   refinement, not "the rebalance."** Linear-no-standardize already hits
+   0.743 median; standardization adds +0.005 median.  Its real effect is
+   local -- it rescues the lowest-signal heavy REE (Yb +0.105, Y +0.071) and
+   little else.  Mechanism: for a linear head each output is an independent
+   affine map, so per-element target scaling is absorbed into the weights and
+   R2 is scale-invariant; the only coupling is the global
+   `clip_grad_norm_`, where un-standardized high-variance majors consume the
+   clip budget and starve the HREE.  Kept `standardize: true` (the HREE
+   rescue is free), but the loss/model docstrings now say "log space fixes
+   the collapse; standardization buys the bottom traces."  (MLP-without-
+   standardize not run; the HREE rescue is the linear-ablation finding.)
+
+2. **MLP is the shipped default, not linear.** MLP beats linear by +0.044
+   median (+0.08 on Yb) and lands at 0.792 = 94% of the frozen-latent
+   target -- the same 94% the gate advertised as recoverable.  The artifact
+   owner reaches for the default, and the default should be the head that
+   reaches the documented target.  `configs/imputation/imputation_head.yaml`
+   now ships `hidden: 256`.
+
+3. **The frozen-latent XGBoost number is a strong-readout reference, not the
+   head's hard ceiling.** It is a tuned gradient-boosted forest, so a linear
+   or one-layer head can trail it on readout capacity alone even when the
+   latent holds the signal -- which is exactly what the MLP closing most of
+   the linear gap shows.  Reworded the eval/model/PRETRAIN prose to stop
+   implying the head's ceiling is that forest; the per-element "% of target"
+   print was already fair and stays.
+
+**Minor.** The train(multi-mask)/eval(single-token LOO) mismatch barely
+matters: matching it lifts median only +0.009 -- not worth a code change.
+Fixed `_plot_logspace_r2`'s hard-coded `ylim(0, 1)` so a genuinely negative
+per-element R2 renders as a negative bar instead of clipping to the floor.
+
+**Net.** The head closes the head-gap (negative -> 0.79 median trace,
+majors 0.87); the MLP recovers ~94% of the frozen-latent target.  The
+residual to the input ceiling is the latent gap, the encoder's job -- the
+optional rebalanced re-pretrain (rising-tide experiment), not this head.

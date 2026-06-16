@@ -9,9 +9,12 @@ reports `log_r2` / `log_mae` / `log_rmse` against the withheld truth.
 
 The gate's two reference lines are drawn for context, never recomputed here:
 the input-element XGBoost ceiling (the best any predictor of these inputs can
-do) and the frozen-latent XGBoost target (the most the head can extract from
-this latent).  The head should approach the latter and stay under the former.
-Both are read from the gate's `diagnostic_metrics.json` if present.
+do) and the frozen-latent XGBoost target (a strong nonlinear readout's reach
+on this latent).  The latter is a reference, not a hard ceiling -- it is a
+tuned gradient-boosted forest, so a linear or one-layer head can trail it on
+readout capacity alone even when the latent holds the signal.  The head should
+approach it and stay under the input ceiling.  Both are read from the gate's
+`diagnostic_metrics.json` if present.
 
 Artifacts land under `results/imputation/<encoder_tag>/readout/`, beside (not
 over) the SSL head's `results/imputation/<encoder_tag>/` outputs.
@@ -132,8 +135,8 @@ def _plot_logspace_r2(
     fig, axes = plt.subplots(2, 1, figsize=(max(8, len(syms) * 0.5), 8))
     for ax, group, gtitle in ((axes[0], majors, "majors"), (axes[1], traces, "traces")):
         x = np.arange(len(group))
-        ax.bar(x, [per_element[s]["log_r2"] for s in group], 0.6,
-               color="#d95f02", label="head log-R2")
+        vals = [per_element[s]["log_r2"] for s in group]
+        ax.bar(x, vals, 0.6, color="#d95f02", label="head log-R2")
         ceil = [per_element[s].get("input_xgb_ceiling_r2") for s in group]
         latent = [per_element[s].get("frozen_latent_xgb_r2") for s in group]
         if any(v is not None for v in ceil):
@@ -146,7 +149,9 @@ def _plot_logspace_r2(
         ax.set_xticklabels(group)
         ax.set_ylabel("log-space R2")
         ax.set_title(gtitle)
-        ax.set_ylim(0.0, 1.0)
+        # drop the floor below 0 only when a bar is actually negative, so a
+        # failing element renders as a negative bar instead of clipping to 0.
+        ax.set_ylim(min(0.0, *vals) if vals else 0.0, 1.0)
     axes[0].legend(loc="lower right", fontsize=8)
     fig.suptitle(f"imputation head log-space R2 -- {tag}")
     fig.tight_layout()

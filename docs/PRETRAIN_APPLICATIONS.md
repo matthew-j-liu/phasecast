@@ -72,11 +72,14 @@ Implementation (built):
   leave-one-out scoring against the gate's two reference lines; writes
   `results/imputation/<encoder_tag>/readout/`.
 
-The frozen-latent XGBoost number stays a *yardstick*, never a shipped model:
-the latent is a compression of the same inputs, so the head can at best
-approach it. Closing the remaining gap from that target to the input ceiling
-(worst on HREE) would need a stronger encoder -- the separate re-pretrain
-epic, not this head.
+The frozen-latent XGBoost number stays a *yardstick*, never a shipped model.
+It is a tuned gradient-boosted forest, so it measures a strong nonlinear
+readout's reach on the latent, not a hard ceiling: a linear or one-layer head
+can trail it on readout capacity even when the latent holds the signal (the
+MLP head closes most of that gap; a linear head leaves more on the table).
+Closing the remaining gap from that target to the input ceiling (worst on
+HREE) is a different problem -- it would need a stronger encoder, the separate
+re-pretrain epic, not this head.
 
 ### 2. Per-element anomaly / measurement-error flagging
 
