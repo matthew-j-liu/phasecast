@@ -2314,3 +2314,63 @@ tutorial.
 **Next.** Phase 1 diagnostic in a fresh session; user supplies prior
 XGBoost reference codebases.  Don't pay for an encoder re-pretrain
 unless the gate lands on B.
+
+## 2026-06-15 -- trace-imputation gate result: latent carries the trace signal; fix the head, encoder untouched
+
+**Q.** Does the frozen encoder latent still carry trace-element
+information (so a cheap read-out head can recover imputation), or is the
+latent trace-blind (forcing a rebalanced re-pretrain)?
+
+**Setup.** Ran `explorations/trace_imputation_loss_gate/run_gate.py`
+(40 Optuna trials, no subsample) on `pretrain_v3_seed0/epoch_best.pt`
+(d_model 256, epoch 20, n_test 33,371).  Two controlled arms per element,
+both XGBoost scored in log10-frac space on the Gard test split, differing
+only in the feature set:
+- 1a input-XGB: predict each element from the *other measured elements*
+  (the practical ceiling / specialist baseline).
+- 1b latent-XGB: predict from the frozen latent with the target token
+  masked before encoding (leakage-guarded).
+The current pretrain head was dropped as an arm -- trained on linear
+raw-frac MSE, it is not comparable in log space; its fair linear-space
+numbers stay in `results/imputation/`.
+
+**Result.** Over the 13 traces, median log-space R2: 1a 0.892, 1b 0.839.
+1b reaches a median 94% of the 1a ceiling's R2 (per-trace 84-96%), and
+every trace recovers at 1b R2 0.72-0.90.  1a beats 1b on *every* trace --
+the gap is real, not noise: median 0.05, largest on the HREE (Yb -0.14,
+Y -0.11), smallest on Th/Rb/Ni/V (~0.04).  Majors: 1b within 0.01-0.04
+of 1a.
+
+**Reading the numbers (the gap is genuine -- recorded because it tempers
+the verdict).** The decision the gate makes is blind vs not-blind, not
+"1b == 1a."  A trace-blind latent would give 1b R2 ~ 0; instead 1b is
+strongly positive and tracks the ceiling closely, so the trace
+information clearly survives the encoder.  The persistent 1a-1b gap is
+real signal the 256-d latent dropped relative to the raw inputs -- a
+lossy-but-high-fidelity compression, worst on heavy REE.  Hence: the
+imputation failure is the *head's objective* (linear raw-frac MSE), not
+encoder capacity; and a log-space read-out head on the frozen latent
+should recover most of the traces, bounded above by 1b (so still below
+the 1a input ceiling, especially on HREE).
+
+**Decision.** Build the cheap fix first: a log-space read-out head on the
+frozen latent (issue #5).  Do NOT re-pretrain the encoder for imputation
+-- the latent is not blind; encoder loss unchanged, so no ADR.  The
+residual gap (esp. HREE) is the legitimate motivation for an *optional,
+later* rebalanced re-pretrain (the rising-tide experiment), paid for only
+if a downstream capability needs ceiling-level traces -- not forced by
+imputation alone.
+
+**Caveats.** Both Optuna studies landed on the same seeded startup trial
+(`best_1a == best_1b`), so the 40-trial search added little beyond random
+startup; 1b may be mildly under-tuned (true gap to 1a possibly smaller).
+The coded verdict ("A" if median 1b >= 0.8x median 1a) is an advisory
+heuristic that collapses two distinct questions -- "is the latent blind?"
+and "how close to the ceiling?" -- into one ratio; report them separately
+going forward (issue #6).
+
+**Next.** Read-out head (#5, unblocked).  Validate the traces-only tuning
+objective and split the gate's blindness-vs-ceiling reporting (#6).
+Open: set the downstream bar for trace imputation -- "useful" (read-out
+head suffices) vs "match the input ceiling on HREE" (would justify the
+rebalanced re-pretrain).

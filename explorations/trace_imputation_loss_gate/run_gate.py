@@ -8,12 +8,14 @@ split, both scored in log space: 1a input-space XGBoost (predict each element
 from the other measured elements, the ceiling) and 1b XGBoost on the frozen
 latent with the target masked before encoding (leakage-guarded).  Only the
 representation differs between the two arms.  Gate on 1b vs 1a over the traces:
-1b ~ 1a => Scenario A (cheap log-space read-out head, encoder untouched);
-1b << 1a => Scenario B (rebalanced re-pretrain).  Read-only -- nothing here
-trains or mutates the encoder.
+if 1b stays near the 1a ceiling the frozen latent carries the trace signal (fix
+= log-space read-out head on the frozen latent, encoder untouched); if 1b
+collapses far below 1a the latent is trace-blind (fix = trace-rebalanced
+re-pretrain).  Read-only -- nothing here trains or mutates the encoder.
 
 Scoring/back-transform/plot helpers are reused from `cnmineral.eval.imputation`;
-the canonical verdict lands in docs/JOURNAL.md (and an ADR if the gate is B).
+the canonical verdict lands in docs/JOURNAL.md (and an ADR if a re-pretrain is
+indicated).
 """
 
 import os
@@ -219,7 +221,7 @@ def run_imputation_diagnostic(
     study_subsample: int | None = None,
     batch_size: int = 512,
 ) -> dict:
-    """Phase 1 gate: 1a input XGB vs 1b latent XGB, scored in log space.
+    """Trace-imputation gate: 1a input XGB vs 1b latent XGB, scored in log space.
 
     `study_subsample` caps the per-split rows used during Optuna tuning; `None`
     (the default) tunes on all fit/val rows.  Final per-element fits always use
@@ -384,20 +386,35 @@ def run_imputation_diagnostic(
     metrics_path = output_dir / "diagnostic_metrics.json"
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2, default=str)
-    print(f"\ngate over {len(gate['per_trace'])} traces: "
-          f"median R2 1a={gate['median_r2_1a']:.3f} 1b={gate['median_r2_1b']:.3f} "
-          f"-> Scenario {gate['verdict']}")
+    med_a, med_b = gate["median_r2_1a"], gate["median_r2_1b"]
+    frac = med_b / med_a if med_a > 0 else float("nan")
+    print(f"\ntrace imputation gate -- {len(gate['per_trace'])} traces, log-space R2:")
+    print(f"  input-element XGBoost ceiling: median {med_a:.3f}")
+    print(f"  frozen-latent XGBoost: median {med_b:.3f} ({frac:.0%} of the ceiling)")
+    print("  criterion: the latent carries the trace signal if its median R2 is within")
+    print("    20% of the input ceiling (>= 0.80x); otherwise the latent is blind.")
+    if gate["verdict"] == "latent_carries_signal":
+        print("  conclusion: the frozen latent retains the trace signal (latent XGBoost near")
+        print("    the input ceiling). the imputation failure is the pretrain head's")
+        print("    linear-frac loss, not the encoder.")
+        print("  action: train a log-space read-out head on the frozen latent; do not")
+        print("    re-pretrain the encoder.")
+    else:
+        print("  conclusion: the frozen latent has lost the trace signal (latent XGBoost far")
+        print("    below the input ceiling). a read-out head cannot recover it.")
+        print("  action: re-pretrain the encoder with a trace-rebalanced loss.")
     print(f"metrics -> {metrics_path}")
     return metrics
 
 
 def _build_gate(per_element: dict) -> dict:
-    """Compare 1b vs 1a over the traces; advisory Scenario A/B call.
+    """Compare 1b vs 1a over the traces; advisory verdict a human confirms.
 
-    A => latent carries the trace info (median 1b R2 within ~20% of 1a, both
-    positive): a cheap log-space read-out head suffices.  B => latent
-    trace-blind: rebalanced re-pretrain.  The numbers are the decision; the
-    verdict is a heuristic summary a human confirms.
+    `latent_carries_signal` => the frozen latent encodes the traces (median 1b
+    R2 within ~20% of the 1a ceiling, ceiling positive): a log-space read-out
+    head on the frozen latent suffices, encoder untouched.  `latent_blind` =>
+    the latent has lost the trace signal: a trace-rebalanced re-pretrain is
+    needed.  The numbers are the decision; the verdict is a heuristic summary.
     """
     per_trace = {}
     r2_1a, r2_1b = [], []
@@ -410,7 +427,11 @@ def _build_gate(per_element: dict) -> dict:
         r2_1b.append(b)
     med_a = float(np.median(r2_1a)) if r2_1a else float("nan")
     med_b = float(np.median(r2_1b)) if r2_1b else float("nan")
-    verdict = "A" if (med_a > 0 and med_b >= 0.8 * med_a) else "B"
+    verdict = (
+        "latent_carries_signal"
+        if (med_a > 0 and med_b >= 0.8 * med_a)
+        else "latent_blind"
+    )
     return {
         "per_trace": per_trace,
         "mean_r2_1a": float(np.mean(r2_1a)) if r2_1a else float("nan"),

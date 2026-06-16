@@ -70,6 +70,22 @@ reader has to decode before they can guess what's covered.  If
 new content fits the scope of an existing file, merge it in;
 don't create a new file just to keep the diff visually tidy.
 
+**Don't leak internal planning code-names into code or
+user-facing output.**  Labels like `Phase 1`, `Scenario A/B`,
+`cell-c`, or `step 2b` are fine in planning docs, JOURNAL, issues,
+and conversation -- they organize the work.  But code, log lines,
+CLI output, metric keys, and docstrings must name the actual
+assumption and conclusion, not the code-name: a reader of the
+terminal output or the source must understand what was assumed and
+what was concluded without opening the planner or decoding a label.
+When output summarizes a decision, spell out the criterion, the
+measured values, and the resulting action -- not `-> Scenario A`
+but e.g. `latent keeps 94% of the input ceiling -> recover traces
+with a read-out head, no re-pretrain`.  Before committing decision
+terminology to code (verdict strings, metric keys, the
+assumption/conclusion wording), confirm the exact phrasing with the
+owner.
+
 **Reference code by symbol, not line number.**  Markdown links
 like `file.py#L112` rot — line numbers shift on every edit.  Use
 the function / class / variable name in the link text and let

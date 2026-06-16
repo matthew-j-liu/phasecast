@@ -78,7 +78,7 @@ def test_run_diagnostic_end_to_end_on_fixture(
         assert run in si
         assert np.isfinite(si[run]["r2"])
     assert metrics["space"] == "log10"
-    assert "verdict" in metrics["gate"]
+    assert metrics["gate"]["verdict"] in {"latent_carries_signal", "latent_blind"}
 
     out_dir = tmp_path / "results"
     tag_dir = next(out_dir.iterdir())
