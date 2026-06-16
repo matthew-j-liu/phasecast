@@ -39,13 +39,28 @@ tracking issue), not the current head.
 
 ## Result
 
-TODO -- run the gate and commit `results/<tag>/` (`diagnostic_metrics.json`,
-`r2_by_element.png`, trace parity grids).
+Full run (`--n-trials 40`, no subsample) on `pretrain_v3_seed0/epoch_best.pt`
+(d_model 256, epoch 20, n_test 33,371). **Verdict: Scenario A.**
+
+Over the 13 traces, median R2 **1a=0.892 vs 1b=0.839** (mean 0.899 vs 0.836) --
+1b tracks the input-space ceiling within ~0.05. The latent is far from
+trace-blind: XGBoost on the frozen masked latent recovers every trace at R2
+0.72-0.90. The 1b deficit is largest on the HREE (Yb -0.14, Y -0.11; then
+Nd/La ~-0.065) and smallest on Th/Rb/Ni/V (~-0.04). Majors: 1b within 0.01-0.04
+of 1a. Artifacts in `results/pretrain_v3_seed0_epoch_best/`.
+
+Caveat: both Optuna studies landed on the same seeded startup trial
+(`best_1a == best_1b`), so HP search added little beyond random startup in 40
+trials -- benign for the verdict (if anything 1b is mildly under-tuned). Tracked
+in issue #6.
 
 ## Decision
 
-TODO -- record the Scenario A/B verdict here and in docs/JOURNAL.md (and an ADR in
-docs/decisions/ if the gate lands on B / changes the loss).
+**Scenario A** -- the trace-imputation failure is the *head's* objective (linear
+raw-frac MSE), not encoder capacity. Fix = a cheap log-space read-out head on the
+frozen latent; **do not** re-pretrain the encoder for imputation. The encoder
+loss is unchanged, so no ADR. Read-out head tracked in issue #5; canonical
+verdict also in docs/JOURNAL.md 2026-06-15.
 
 ## Run
 
