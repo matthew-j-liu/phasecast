@@ -434,6 +434,6 @@
     "mean_r2_1b": 0.8359708007553248,
     "median_r2_1a": 0.8919814899870037,
     "median_r2_1b": 0.8390208160306479,
-    "verdict": "A"
+    "verdict": "latent_carries_signal"
   }
 }
