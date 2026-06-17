@@ -2483,3 +2483,49 @@ per-element R2 renders as a negative bar instead of clipping to the floor.
 majors 0.87); the MLP recovers ~94% of the frozen-latent target.  The
 residual to the input ceiling is the latent gap, the encoder's job -- the
 optional rebalanced re-pretrain (rising-tide experiment), not this head.
+
+## 2026-06-16 -- modal target: keep liq + fl in the corpus (do not renormalize to solids)
+
+**Q.** The cumulate FC modal target includes residual liquid (`liq`) and
+free fluid (`fl`).  Should the ModeHead target instead be solids-only --
+drop `liq`/`fl` and renormalize the minerals to 1?
+
+**Context (the two mass balances).** MAGEMin equilibrates a *closed* bulk:
+for every component, `bulk_j = sum_phases mass_p * X_{p,j}` (Gibbs
+minimization under element conservation).  The cumulate mode (all
+fractionated solids + residual liq + fl at `T_FC_end`) therefore
+mass-balances exactly to the bulk we fed it.  The model inherits that
+closure as a consistency check: ModeHead (Dirichlet on the simplex) x
+CompHead (per-phase composition) should reconstruct the *dry* input oxides,
+`sum_p mode_p * X_{p,j} ~= bulk_j` -- the same equation, now a training
+signal / the motivation for a future single endmember-wt% head.  H2O is the
+one component outside that dry sum (model never sees it; CondHead infers
+it).
+
+**Considered.** Solids-only renormalized would be *more comparable to
+observable mineralogy* (thin-section modes, the mineralML grain corpus we
+hold out for cross-modal validation) and might *raise the ModeHead per-path
+R2 ceiling* by removing `liq`, one of the most path-variable quantities.
+But it **breaks the closure to the input bulk**: the discarded residual melt
++ fluid are small in mass (`T_FC_end` is defined at residual liq < 5%, so
+~5-6% total) yet hold the *incompatible/volatile* budget disproportionately
+(excess SiO2, K2O, Na2O in the melt; H2O in the fluid), so the per-element
+reconstruction error is composition-skewed, not uniform.  It also discards
+the melt-fraction = degree-of-crystallinity signal and the free-water
+bookkeeping.
+
+**Decision.** **Keep `liq` + `fl` in the corpus modal target.**  They are
+small (~5-6% at `T_FC_end`), and keeping them preserves the exact
+closed-system mass-balance closure, which keeps model-building simpler --
+the `sum mode*comp = bulk` consistency check stays valid and the
+endmember-wt% head stays reachable.  Renormalizing to solids would trade
+that closure for marginal comparability gains and a skewed residual; not
+worth it at this stage.
+
+**Deferred (decoupled).** How the *user-facing* output is presented (e.g.
+reporting a solids-only mineral mode, since a petrologist reads minerals,
+not trapped melt/fluid) is a **presentation-layer** choice to revisit at
+productization.  It does not require changing the training corpus -- drop
+`liq`/`fl` and renormalize at display time if/when a user-facing surface
+wants it.  Corpus stays closed-system; the public view can be post-processed
+later.
