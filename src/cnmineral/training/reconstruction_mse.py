@@ -1,11 +1,14 @@
 """
-Masked-element reconstruction MSE on the held-out test split.
+Masked-element reconstruction loss on the held-out test split.
 
 `evaluate_on_test` is the final step of a training run: after
 `reserve_test` peels off the test indices and `run_pretraining`
 trains on the rest, the entry points (`run_single` / `run_hpo`)
 load the headline checkpoint and call this once to score the model
-on rows it structurally never saw.  Checkpoint persistence itself
+on rows it structurally never saw.  The caller passes the same
+`loss_fn` the run trained with (built by
+`cnmineral.training.pretrain_objective.make_loss_fn`), so the test
+number is in that objective's own space.  Checkpoint persistence
 lives in `cnmineral.training.checkpoint::Checkpoint`.
 """
 
@@ -14,6 +17,7 @@ from torch.utils.data import DataLoader, Dataset, Subset
 
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
+from cnmineral.training.pretrain_objective import LossFn
 
 
 def evaluate_on_test(
@@ -23,18 +27,19 @@ def evaluate_on_test(
     test_indices: list[int],
     config: dict,
     device: torch.device,
+    loss_fn: LossFn,
 ) -> float:
     """One-shot test-set evaluation on an already-trained, in-memory model.
 
     Builds a test loader from `test_indices` (the output of
     `reserve_test(dataset, config)["test"]`) and returns the mean
-    masked-element MSE.  Called from `run_single` and `run_hpo`
-    immediately after the headline checkpoint is loaded.
+    masked-element loss under `loss_fn`.  Called from `run_single` and
+    `run_hpo` immediately after the headline checkpoint is loaded.
 
     Returns
     -------
     float
-        Mean reconstruction MSE over the test subset.  Returns `nan`
+        Mean reconstruction loss over the test subset.  Returns `nan`
         if `test_indices` is empty (e.g. `test_split: 0` in config) --
         callers should translate that to `None` for downstream JSON.
     """
@@ -62,7 +67,7 @@ def evaluate_on_test(
     with torch.no_grad():
         for batch in test_loader:
             total += _forward_loss(
-                batch, encoder, head, mask_prob, device,
+                batch, encoder, head, mask_prob, device, loss_fn,
             ).item()
             n_batches += 1
     assert n_batches > 0, "no test batches processed"

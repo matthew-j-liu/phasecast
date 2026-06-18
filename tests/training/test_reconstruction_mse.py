@@ -22,6 +22,7 @@ from conftest import _tiny_config
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
 from cnmineral.training.checkpoint import _compact_curve
+from cnmineral.training.pretrain_objective import make_loss_fn
 from cnmineral.training import (
     Checkpoint,
     checkpoint_tag,
@@ -194,10 +195,11 @@ def test_evaluate_on_test_returns_finite() -> None:
     result = run_pretraining(
         dataset, splits["trainval"], config, device=torch.device("cpu"),
     )
+    loss_fn = make_loss_fn(config, result["loss_stats"])
     test_loss = evaluate_on_test(
         result["encoder"], result["head"],
         dataset, splits["test"], config,
-        device=torch.device("cpu"),
+        device=torch.device("cpu"), loss_fn=loss_fn,
     )
     assert isinstance(test_loss, float)
     assert torch.isfinite(torch.tensor(test_loss))

@@ -40,7 +40,7 @@ from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.losses.pretrain_loss import masked_element_log_mse
 from cnmineral.models.imputation_head import LogImputationHead
 from cnmineral.training import checkpoint_tag, create_dataset, pick_device, reserve_test
-from cnmineral.training.imputation_head import _log_frac_stats
+from cnmineral.training.pretrain_objective import log_frac_stats
 from cnmineral.training.splits import _qap_labels_for_indices
 
 RESULTS_ROOT = Path(__file__).resolve().parent / "results"
@@ -127,7 +127,7 @@ def run(encoder_ckpt: str, *, epochs: int, batch_size: int, lr: float) -> dict:
         trainval, test_size=0.20, random_state=seed,
         stratify=_qap_labels_for_indices(dataset, trainval),
     )
-    mean, std = _log_frac_stats(dataset, train_idx, batch_size=batch_size, num_workers=0)
+    mean, std = log_frac_stats(dataset, train_idx, batch_size=batch_size, num_workers=0)
     print(f"device={device} encoder={Path(encoder_ckpt).name} n_train={len(train_idx)} "
           f"n_test={len(test_idx)} mask_prob={mask_prob:.3f} epochs={epochs}")
 

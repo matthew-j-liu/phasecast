@@ -2,6 +2,10 @@
   "architecture": {
     "dropout": [
       "configs/pretrain/pretrain_hpo.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_std.yaml",
+      "configs/pretrain/pretrain_hpo_weighted.yaml",
+      "configs/pretrain/pretrain_logmse_std_seed1.yaml",
       "configs/pretrain/pretrain_production.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/latent.py",
@@ -60,6 +64,7 @@
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/pretrain_objective.py",
       "src/cnmineral/training/reconstruction_mse.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ]
@@ -103,6 +108,9 @@
   },
   "hpo": {
     "optuna_journal_storage": [
+      "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_std.yaml",
+      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "scripts/eval/plot_training.py",
       "src/cnmineral/eval/probe/hpo.py",
@@ -110,6 +118,9 @@
     ],
     "optuna_median_pruner": [
       "configs/pretrain/pretrain_hpo.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_std.yaml",
+      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
@@ -122,6 +133,9 @@
     ],
     "optuna_tpe_sampler": [
       "configs/pretrain/pretrain_hpo.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_std.yaml",
+      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py"
@@ -158,12 +172,17 @@
     "masked_element_log_mse": [
       "src/cnmineral/losses/pretrain_loss.py",
       "src/cnmineral/models/imputation_head.py",
-      "src/cnmineral/training/imputation_head.py"
+      "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/pretrain_objective.py"
     ],
     "masked_element_mse": [
       "src/cnmineral/data/tokens.py",
       "src/cnmineral/losses/pretrain_loss.py",
-      "src/cnmineral/training/ssl_pretrain.py"
+      "src/cnmineral/training/pretrain_objective.py"
+    ],
+    "masked_element_weighted_mse": [
+      "src/cnmineral/losses/pretrain_loss.py",
+      "src/cnmineral/training/pretrain_objective.py"
     ]
   },
   "optimization": {
@@ -191,7 +210,8 @@
     ],
     "log_frac_standardization": [
       "src/cnmineral/models/imputation_head.py",
-      "src/cnmineral/training/imputation_head.py"
+      "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/pretrain_objective.py"
     ],
     "oxide_to_cation_conversion": [
       "src/cnmineral/data/bulk_chemistry.py",
@@ -233,6 +253,10 @@
     "masked_element_modeling": [
       "configs/imputation/imputation_head.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
+      "configs/pretrain/pretrain_hpo_logmse_std.yaml",
+      "configs/pretrain/pretrain_hpo_weighted.yaml",
+      "configs/pretrain/pretrain_logmse_std_seed1.yaml",
       "configs/pretrain/pretrain_production.yaml",
       "src/cnmineral/data/tokens.py",
       "src/cnmineral/losses/pretrain_loss.py",
@@ -240,6 +264,7 @@
       "src/cnmineral/models/pretrain_head.py",
       "src/cnmineral/training/checkpoint.py",
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/pretrain_objective.py",
       "src/cnmineral/training/reconstruction_mse.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],

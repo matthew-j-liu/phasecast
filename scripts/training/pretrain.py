@@ -36,12 +36,12 @@ def main() -> None:
     else:
         result = run_single(args.config, device)
         test_str = (
-            f"{result['test_loss']:.4f}"
+            f"{result['test_loss']:.4e}"
             if result["test_loss"] is not None else "n/a"
         )
         print(
-            f"\nfinal: train={result['train_loss']:.4f} "
-            f"val={result['val_loss']:.4f} test={test_str}"
+            f"\nfinal: train={result['train_loss']:.4e} "
+            f"val={result['val_loss']:.4e} test={test_str}"
         )
 
 

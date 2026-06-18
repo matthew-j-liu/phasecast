@@ -1,19 +1,26 @@
-"""Tests for `cnmineral.losses.pretrain_loss.masked_element_mse`.
+"""Tests for the three `cnmineral.losses.pretrain_loss` objectives.
 
-Three contracts:
+Shared contracts, checked per loss:
 - Each reduction matches a hand-computed value on a small known case
   with uneven per-sample mask counts (where the reductions genuinely
   differ).
 - A batch with zero masked positions returns loss 0, not NaN.
 - Shape / dtype / reduction-name validation raises instead of
   silently broadcasting.
+Plus per-loss specifics: the log loss is finite under -inf unmasked
+targets and zero on an exact standardized prediction; the weighted loss
+reduces to plain MSE under unit weights.
 """
 
 import pytest
 import torch
 
 from cnmineral.data.tokens import N_TOKENS
-from cnmineral.losses.pretrain_loss import masked_element_log_mse, masked_element_mse
+from cnmineral.losses.pretrain_loss import (
+    masked_element_log_mse,
+    masked_element_mse,
+    masked_element_weighted_mse,
+)
 
 
 def _known_case() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -125,3 +132,69 @@ def test_log_mse_zero_on_exact_standardized_prediction() -> None:
         std_log_target, target, mask, target_mean=mean, target_std=std,
     )
     assert loss.item() == pytest.approx(0.0, abs=1e-10)
+
+
+def test_weighted_mse_reductions_match_hand_computed_values() -> None:
+    """Weights [2, 3, 1] scale the per-position SE before reduction: masked SEs
+    are 0.16*2 (sample 0) and 0.0*2 + 0.09*3 (sample 1).  sum = 0.59;
+    mean_per_masked_position = 0.59/3; mean_per_sample = (0.32 + 0.27/2)/2."""
+    predicted, target, mask = _known_case()
+    weights = torch.tensor([2.0, 3.0, 1.0])
+    assert masked_element_weighted_mse(
+        predicted, target, mask, token_weights=weights, reduction="sum",
+    ).item() == pytest.approx(0.59)
+    assert masked_element_weighted_mse(
+        predicted, target, mask, token_weights=weights,
+        reduction="mean_per_masked_position",
+    ).item() == pytest.approx(0.59 / 3)
+    assert masked_element_weighted_mse(
+        predicted, target, mask, token_weights=weights,
+        reduction="mean_per_sample",
+    ).item() == pytest.approx((0.32 + 0.135) / 2)
+
+
+def test_weighted_mse_unit_weights_match_plain_mse() -> None:
+    """Unit weights reduce the weighted loss to plain masked_element_mse --
+    pins that the weighting is the only added behavior."""
+    predicted = torch.rand(4, N_TOKENS)
+    target = torch.rand(4, N_TOKENS)
+    mask = torch.rand(4, N_TOKENS) < 0.4
+    weights = torch.ones(N_TOKENS)
+    for reduction in ("sum", "mean_per_masked_position", "mean_per_sample"):
+        plain = masked_element_mse(predicted, target, mask, reduction=reduction)
+        weighted = masked_element_weighted_mse(
+            predicted, target, mask, token_weights=weights, reduction=reduction,
+        )
+        assert weighted.item() == pytest.approx(plain.item()), reduction
+
+
+def test_weighted_mse_zero_when_no_mask() -> None:
+    """An all-False mask yields loss 0, mirroring the other objectives."""
+    predicted = torch.rand(4, N_TOKENS)
+    target = torch.rand(4, N_TOKENS)
+    mask = torch.zeros(4, N_TOKENS, dtype=torch.bool)
+    weights = torch.rand(N_TOKENS) + 0.1
+    for reduction in ("sum", "mean_per_masked_position", "mean_per_sample"):
+        loss = masked_element_weighted_mse(
+            predicted, target, mask, token_weights=weights, reduction=reduction,
+        )
+        assert loss.item() == 0.0, reduction
+
+
+def test_weighted_mse_validation_raises() -> None:
+    predicted = torch.rand(2, N_TOKENS)
+    target = torch.rand(2, N_TOKENS)
+    mask = torch.zeros(2, N_TOKENS, dtype=torch.bool)
+    weights = torch.ones(N_TOKENS)
+    with pytest.raises(ValueError, match="shape mismatch"):
+        masked_element_weighted_mse(
+            predicted, torch.rand(2, N_TOKENS - 1), mask, token_weights=weights,
+        )
+    with pytest.raises(TypeError, match="must be bool"):
+        masked_element_weighted_mse(
+            predicted, target, mask.float(), token_weights=weights,
+        )
+    with pytest.raises(ValueError, match="token_weights must be"):
+        masked_element_weighted_mse(
+            predicted, target, mask, token_weights=torch.ones(N_TOKENS - 1),
+        )

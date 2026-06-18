@@ -154,6 +154,11 @@ techniques:
     type: loss
     patterns:
       - "masked_element_log_mse"
+  - name: masked_element_weighted_mse
+    type: loss
+    patterns:
+      - "masked_element_weighted_mse"
+      - "inverse_variance_weights"
 
   # ---- preprocessing ----
   - name: standard_scaler
@@ -174,7 +179,7 @@ techniques:
     type: preprocessing
     patterns:
       - "fit_standardization"
-      - "_log_frac_stats"
+      - "log_frac_stats"
 
   # ---- hpo ----
   - name: optuna_tpe_sampler

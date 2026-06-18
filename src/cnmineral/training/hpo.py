@@ -33,6 +33,7 @@ from optuna.visualization.matplotlib import (
 
 from cnmineral.training.checkpoint import CheckpointStore
 from cnmineral.training.build_from_config import create_dataset, create_encoder_and_head
+from cnmineral.training.pretrain_objective import make_loss_fn
 from cnmineral.training.reconstruction_mse import evaluate_on_test
 from cnmineral.training.ssl_pretrain import run_pretraining, write_run_results
 from cnmineral.training.splits import reserve_test
@@ -182,7 +183,7 @@ def run_hpo(
         print(
             f"production run with best params: "
             f"epochs={production_config['epochs']} "
-            f"best_trial_value={best_trial_value:.4f}"
+            f"best_trial_value={best_trial_value:.4e}"
         )
         # Single CheckpointStore construction for the production run.
         # Filename keys are required whenever checkpoint_dir is set;
@@ -203,6 +204,12 @@ def run_hpo(
         final_train_loss = prod_result["train_loss"]
         final_val_loss = prod_result["val_loss"]
 
+        # Same objective the production run trained with, rebuilt from its
+        # train-split stats.
+        loss_fn = make_loss_fn(
+            production_config, prod_result["loss_stats"], device=device,
+        )
+
         # Compute test_loss against the BEST-VAL model -- same pattern
         # as run_single.
         if store is not None and store.best_exists():
@@ -212,12 +219,12 @@ def run_hpo(
             best_head.to(device)
             test_loss_raw = evaluate_on_test(
                 best_encoder, best_head,
-                dataset, splits["test"], production_config, device,
+                dataset, splits["test"], production_config, device, loss_fn,
             )
         else:
             test_loss_raw = evaluate_on_test(
                 prod_result["encoder"], prod_result["head"],
-                dataset, splits["test"], production_config, device,
+                dataset, splits["test"], production_config, device, loss_fn,
             )
         final_test_loss = (
             None if math.isnan(test_loss_raw) else test_loss_raw
@@ -289,13 +296,13 @@ def run_hpo(
         print(f"figure -> {fig_path}")
 
     if completed:
-        print(f"\nbest trial val:   {best_trial_value:.4f}")
+        print(f"\nbest trial val:   {best_trial_value:.4e}")
         print(f"best params:      {best_params}")
         test_str = (
-            f"{final_test_loss:.4f}"
+            f"{final_test_loss:.4e}"
             if final_test_loss is not None else "n/a"
         )
         print(
-            f"\nfinal production: train={final_train_loss:.4f} "
-            f"val={final_val_loss:.4f} test={test_str}"
+            f"\nfinal production: train={final_train_loss:.4e} "
+            f"val={final_val_loss:.4e} test={test_str}"
         )

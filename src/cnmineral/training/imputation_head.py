@@ -22,18 +22,17 @@ from time import time
 import torch
 import yaml
 from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Subset
 
-from cnmineral.data.tokens import N_TOKENS, mask_for_ssl
+from cnmineral.data.tokens import mask_for_ssl
 from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.losses.pretrain_loss import masked_element_log_mse
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.imputation_head import LogImputationHead
 from cnmineral.training.build_from_config import create_dataset
 from cnmineral.training.checkpoint import _git_sha
+from cnmineral.training.pretrain_objective import log_frac_stats
 from cnmineral.training.splits import _qap_labels_for_indices, reserve_test
-
-_LOG_FLOOR = 1e-12
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,36 +123,6 @@ class ImputationHeadCheckpoint:
         return head
 
 
-def _log_frac_stats(
-    dataset: Dataset, indices: list[int], *, batch_size: int, num_workers: int,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Per-element mean/std of `log10(frac)` over populated rows in `indices`.
-
-    Populated is `src != 0` (tokens convention C).  Elements absent from
-    every row keep the identity (mean 0, std 1).
-    """
-    loader = DataLoader(
-        Subset(dataset, list(indices)), batch_size=batch_size,
-        shuffle=False, num_workers=num_workers,
-    )
-    fracs, srcs = [], []
-    for batch in loader:
-        fracs.append(batch["frac"])
-        srcs.append(batch["src"])
-    frac = torch.cat(fracs, dim=0)
-    populated = torch.cat(srcs, dim=0) != 0
-    log_frac = torch.log10(frac.clamp_min(_LOG_FLOOR))
-
-    mean = torch.zeros(N_TOKENS)
-    std = torch.ones(N_TOKENS)
-    for j in range(N_TOKENS):
-        col = log_frac[populated[:, j], j]
-        if col.numel() > 0:
-            mean[j] = col.mean()
-            std[j] = col.std(unbiased=False) if col.numel() > 1 else 1.0
-    return mean, std
-
-
 def _head_forward_loss(
     batch: dict,
     encoder: Encoder,
@@ -220,7 +189,7 @@ def train_imputation_head(
         standardize=config.get("standardize", True),
     ).to(device)
     if head.standardize:
-        mean, std = _log_frac_stats(
+        mean, std = log_frac_stats(
             dataset, train_indices, batch_size=batch_size, num_workers=num_workers,
         )
         head.fit_standardization(mean, std)
