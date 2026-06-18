@@ -2529,3 +2529,73 @@ productization.  It does not require changing the training corpus -- drop
 `liq`/`fl` and renormalize at display time if/when a user-facing surface
 wants it.  Corpus stays closed-system; the public view can be post-processed
 later.
+
+
+## 2026-06-18 -- SSL re-pretrain objective: standardized log-space MSE beats linear-space MSE
+
+**Q.** Does re-pretraining the SSL encoder with a trace-aware loss raise the
+frozen latent's trace-imputation accuracy without lowering the major-driven
+classification probes, relative to the linear-space masked MSE the canonical
+encoder (`pretrain_v3_seed0`) trains with?
+
+**Context.** The canonical encoder trains with linear-space masked-element
+MSE, where per-element target magnitudes span ~1e7-1e8x (majors at wt%/100,
+traces at ppm/1e6), so trace residuals contribute almost nothing to the loss.
+The 2026-06-16 imputation-head ablation showed that log space, not the head
+architecture, is what makes the frozen latent's trace readout work.  This
+asks whether moving the encoder's own pretraining objective into a trace-aware
+space carries the same benefit into the latent itself.
+
+**Setup.** Three objectives, each Optuna-tuned (30 trials) over
+`{lr, weight_decay, dropout, mask_prob, batch_size}` at the pinned 256/4/8
+architecture, seed 0, so the objective is the only variable vs the canonical
+encoder: per-element standardized log-MSE (`log_mse`, `standardize: true`),
+plain log-MSE (`log_mse`, `standardize: false`), and inverse-variance-weighted
+linear-MSE (`weighted_mse`).  Configs:
+`configs/pretrain/pretrain_hpo_{logmse_std,logmse_plain,weighted}.yaml`.  Each
+candidate scored on two read-only instruments on the same Gard test split:
+the trace-imputation gate (frozen-latent XGBoost, target masked before
+encoding; `explorations/trace_imputation_loss_gate/`) and the classification
+probes (frozen-latent logreg + 1-hidden MLP on supergroup and qap_name;
+`scripts/eval/probe_encoder.py`, fixed protocol + 30-trial MLP HPO).
+
+**Results** (frozen-latent metrics; baseline = canonical linear-MSE encoder):
+
+| metric | baseline | std log-MSE | plain log-MSE | weighted lin-MSE |
+|---|---|---|---|---|
+| gate median trace log-R2 | 0.839 | 0.877 | 0.871 | 0.706 |
+| gate Yb log-R2 (worst trace) | 0.724 | 0.831 | 0.807 | 0.526 |
+| supergroup MLP probe | 0.806 | 0.821 | 0.812 | 0.549 |
+| qap MLP probe (fixed) | 0.762 | 0.769 | 0.758 | 0.514 |
+| qap MLP probe (HPO) | 0.776 | 0.790 | 0.781 | 0.609 |
+
+Standardized log-MSE improves every element in the gate (8/8 majors
++0.002..+0.032, all 13 traces, worst trace Yb +0.107) and all three probes;
+nothing regresses.  Plain log-MSE moves the same direction but is uniformly
+weaker.  Inverse-variance-weighted *linear* MSE degrades both instruments
+(trace median 0.706, supergroup MLP 0.549): equalizing per-element loss
+contribution by weight does not address a dynamic-range problem that lives in
+the residual magnitudes -- the optimization still chases the large-magnitude
+majors and learns a latent carrying less trace signal and less class
+structure than even the linear-MSE baseline.
+
+**Seeds.** The standardized-log winner was re-pretrained at seed 1 from the
+same HPs; both instruments replicate (gate median trace 0.873, Yb 0.841;
+supergroup MLP 0.820, qap MLP 0.771, qap HPO 0.788).  The 1a input-element
+ceiling is unchanged across encoders (median 0.892 vs 0.891), confirming the
+gate's reference arm is encoder-blind.
+
+**Decision.** SSL pretraining with a per-element standardized log-space
+masked-element MSE loss yields higher frozen-latent trace-imputation accuracy
+(median trace log-R2 0.877 vs 0.839, worst-trace Yb 0.831 vs 0.724) and higher
+classification-probe accuracy (supergroup MLP 0.821 vs 0.806, qap MLP 0.769 vs
+0.762) than the linear-space MSE loss, replicated across two seeds;
+inverse-variance-weighted linear-space MSE is worse on both.  We adopt the
+standardized log-space MSE objective as the canonical SSL encoder
+(`checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`), retiring the
+linear-MSE `pretrain_v3_seed0`.  Binding choice in ADR 007.
+
+**Next.** Downstream (corpus regen #9, supervised heads #10/#13, imputation
+read-out tune #8) loads the new canonical encoder.  The imputation head (#8)
+re-scores against the new frozen latent: its earlier frozen-latent yardstick
+(0.839 median trace log-R2) becomes 0.877.

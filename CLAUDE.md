@@ -301,7 +301,7 @@ framing.
 **The model's job is to learn a representation of rock chemistry,
 supervised through samples from the generator.**  The representation
 is the contribution.  Empirically: the v3 SSL-pretrained encoder
-reaches 80.6% supergroup MLP-probe accuracy on a held-out test
+reaches 82.1% supergroup MLP-probe accuracy on a held-out test
 split without ever seeing a supergroup label — pure structure
 learned from masked-element correlations across 474k real bulks
 (v2 cell-c was 76%).
@@ -375,10 +375,14 @@ crystallized architecture and value-prop in
 **Track A is closed** (2026-06-11): SSL encoder trained at the
 Optuna-tuned hyperparameters on Gard 2019 igneous bulks for 20
 epochs (a 40-epoch comparison showed no measurable downstream
-gain, so 20 is the canonical compute budget).  Canonical
-checkpoint: `checkpoints/pretrain_v3_seed0/epoch_best.pt`.  Probe
-accuracy beats v2 cell-c by ~4-5 points on both targets
-(supergroup MLP 0.806 vs 0.76; qap_name MLP 0.762 vs 0.72).  Next:
+gain, so 20 is the canonical compute budget).  The SSL objective is
+per-element standardized log-space masked MSE (ADR 007, 2026-06-18),
+which scores higher than the original linear-space MSE on both the
+trace-imputation gate and the classification probes.  Canonical
+checkpoint: `checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`
+(the linear-MSE `pretrain_v3_seed0` is retired to reference).  Probe
+accuracy beats v2 cell-c by ~5-6 points on both targets
+(supergroup MLP 0.821 vs 0.76; qap_name MLP 0.769 vs 0.72).  Next:
 **Track A part 2** (PRETRAIN_APPLICATIONS, unblocked, starting
 with element imputation) runs in parallel with **Track B** prep
 (still gated on FC corpus pilots in
