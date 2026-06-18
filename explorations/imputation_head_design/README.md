@@ -1,6 +1,6 @@
-# Read-out head design ablation
+# Imputation head design
 
-The trace-imputation gate (`../trace_imputation_loss_gate/`) settled *where* to
+The trace-imputation gate (`../trace_signal_in_latent/`) settled *where* to
 fix imputation: a head on the frozen latent, not a re-pretrain. This ablation
 settles *how* to build that head. It trains the shipped `LogImputationHead`
 four ways on the frozen `pretrain_v3_seed0` encoder and scores each
@@ -9,7 +9,7 @@ gate's yardsticks: frozen-latent XGBoost **0.839** and input-element XGBoost
 ceiling **0.892** (median over the 13 traces).
 
 ```
-conda run -n alignn_fix python explorations/imputation_head_ablation/run_ablation.py
+conda run -n alignn_fix python explorations/imputation_head_design/run_ablation.py
 ```
 
 Read-only on the encoder (frozen, eval, no grad). Writes

@@ -1,4 +1,4 @@
-# trace_imputation_loss_gate
+# trace_signal_in_latent
 
 ## Question
 
@@ -66,7 +66,7 @@ verdict also in docs/JOURNAL.md 2026-06-15.
 
 ```
 conda activate alignn_fix
-python -u explorations/trace_imputation_loss_gate/run_gate.py \
+python -u explorations/trace_signal_in_latent/run_gate.py \
   --checkpoint checkpoints/pretrain_v3_seed0/epoch_best.pt
 ```
 

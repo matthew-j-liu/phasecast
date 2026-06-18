@@ -2321,7 +2321,7 @@ unless the gate lands on B.
 information (so a cheap read-out head can recover imputation), or is the
 latent trace-blind (forcing a rebalanced re-pretrain)?
 
-**Setup.** Ran `explorations/trace_imputation_loss_gate/run_gate.py`
+**Setup.** Ran `explorations/trace_signal_in_latent/run_gate.py`
 (40 Optuna trials, no subsample) on `pretrain_v3_seed0/epoch_best.pt`
 (d_model 256, epoch 20, n_test 33,371).  Two controlled arms per element,
 both XGBoost scored in log10-frac space on the Gard test split, differing
@@ -2433,7 +2433,7 @@ read-out enough, and is per-element standardization really "the rebalance"?
 **Setup.** Trained on `pretrain_v3_seed0/epoch_best.pt` (frozen), scored
 log-space leave-one-out on its Gard test split.  Yardsticks from the gate:
 frozen-latent XGBoost median trace R2 0.839, input-element ceiling 0.892.
-Harness + per-element JSON: `explorations/imputation_head_ablation/`.
+Harness + per-element JSON: `explorations/imputation_head_design/`.
 
 **Results** (median trace log-R2 / Yb, the worst trace / median major):
 
@@ -2555,7 +2555,7 @@ linear-MSE (`weighted_mse`).  Configs:
 `configs/pretrain/pretrain_hpo_{logmse_std,logmse_plain,weighted}.yaml`.  Each
 candidate scored on two read-only instruments on the same Gard test split:
 the trace-imputation gate (frozen-latent XGBoost, target masked before
-encoding; `explorations/trace_imputation_loss_gate/`) and the classification
+encoding; `explorations/trace_signal_in_latent/`) and the classification
 probes (frozen-latent logreg + 1-hidden MLP on supergroup and qap_name;
 `scripts/eval/probe_encoder.py`, fixed protocol + 30-trial MLP HPO).
 

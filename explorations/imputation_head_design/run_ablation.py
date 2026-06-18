@@ -1,6 +1,6 @@
-"""Read-out head design ablation: capacity, standardization, masking scheme.
+"""Imputation head design: capacity, standardization, masking scheme.
 
-The trace-imputation gate (`explorations/trace_imputation_loss_gate/`) settled
+The trace-imputation gate (`explorations/trace_signal_in_latent/`) settled
 *where* to fix imputation (a head on the frozen latent, not a re-pretrain).
 This ablation settles *how* to build that head, by training the shipped
 `LogImputationHead` four ways on the frozen encoder and scoring each

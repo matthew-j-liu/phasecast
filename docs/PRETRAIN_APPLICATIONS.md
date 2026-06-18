@@ -53,7 +53,7 @@ shape but differs in role:
 its imputation outputs were always a side effect. Those outputs are decent on
 majors but collapse on traces: linear-frac MSE is dominated by the majors, so
 trace predictions optimize to a near-constant and go negative in log-space
-R2. The trace-imputation gate (`explorations/trace_imputation_loss_gate/`,
+R2. The trace-imputation gate (`explorations/trace_signal_in_latent/`,
 JOURNAL 2026-06-15) showed this is a *head-objective* problem, not encoder
 capacity -- XGBoost on the frozen masked latent reaches ~94% of the
 input-element XGBoost ceiling across the 13 traces. So the fix is a head with

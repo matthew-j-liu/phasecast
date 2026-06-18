@@ -1,4 +1,4 @@
-"""Tests for the trace-imputation loss-gate exploration (`run_gate`).
+"""Tests for the trace_signal_in_latent exploration (`run_gate`).
 
 Unit tests on the feature-construction and the masked-encode leakage guard
 (the invariant that makes 1b an honest baseline), plus an end-to-end smoke run
@@ -14,8 +14,8 @@ import torch
 
 from cnmineral.data.tokens import N_TOKENS
 from cnmineral.models.encoder import Encoder
-from explorations.trace_imputation_loss_gate import run_gate
-from explorations.trace_imputation_loss_gate.run_gate import (
+from explorations.trace_signal_in_latent import run_gate
+from explorations.trace_signal_in_latent.run_gate import (
     _encode_with_masked_token,
     _log_feature_matrix,
     run_imputation_diagnostic,

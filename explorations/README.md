@@ -44,4 +44,4 @@ tests/explorations/test_<name>.py   mirrored tripwire test
 
 | Exploration | Question |
 |---|---|
-| [trace_imputation_loss_gate](trace_imputation_loss_gate/README.md) | Why does the frozen encoder+head impute majors well but fail on traces, and which layer should be fixed? |
+| [trace_signal_in_latent](trace_signal_in_latent/README.md) | Why does the frozen encoder+head impute majors well but fail on traces, and which layer should be fixed? |

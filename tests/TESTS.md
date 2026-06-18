@@ -221,7 +221,7 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ## explorations/
 
-### test_trace_imputation_loss_gate.py
+### test_trace_signal_in_latent.py
 
 1. `test_log_feature_matrix_absent_is_nan` -- populated entries map to log10(frac) and absent entries become NaN (XGBoost native-missing input feature).
 2. `test_masked_encode_cannot_leak_target` -- masking token e makes the encoded latent independent of e's input value, the invariant that keeps the 1b latent baseline from reading the held-out element off `h`.

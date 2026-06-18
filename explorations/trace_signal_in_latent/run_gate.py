@@ -1,5 +1,6 @@
 """
-Trace-imputation loss-gate exploration: decides which layer to fix.
+Is the trace signal in the frozen latent? -- decides whether to fix the
+read-out head or re-pretrain the encoder.
 
 The frozen pretrain head imputes majors well but collapses on traces (a
 loss-balance artifact, not an architecture limit -- see docs/JOURNAL.md
