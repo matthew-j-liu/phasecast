@@ -1,33 +1,17 @@
-# v3 supervised model: the inverse mineralogy + conditions posterior
+# The supervised heads: inverse mineralogy + conditions posterior
 
-## What this model is (and is not)
-
-The model takes a **bulk rock chemistry alone** -- majors (anhydrous oxide
-wt%) plus optional traces (ppm), with no T/P/H2O -- and returns a
+The supervised heads read the frozen encoder latent `h` and emit a
 **calibrated, multimodal posterior** over (mineral assemblage, modal
-abundances, per-phase composition, formation conditions), where every
-posterior sample is internally **mass-balanced** to the input bulk.
+abundances, per-phase composition, formation conditions), where every posterior
+sample is internally **mass-balanced** to the input bulk. For the value
+proposition, the inverse-vs-forward framing, the four-axis differentiation, and
+the encoder/tokenization that produces `h`, see `encoder.md`; this doc owns the
+heads.
 
-It is *not* a MAGEMin emulator. MAGEMin is a forward map: give it (bulk,
-T, P, H2O) and it returns one assemblage. This model inverts that and
-integrates over the conditions the user does not know: give it a bulk, get
-back the *weighted set of assemblages + conditions consistent with it*. That
-integral over geologically plausible (P, H2O) is the thing MAGEMin does not
-natively compute, delivered at microsecond inference and validated against
-real grains.
-
-The four-axis differentiation (the contribution is covering all four at
-once, not any single one): bulk-only input, no spot analyses, multimodal
-output, hydrous+sedimentary phases.
-
-## Inputs and outputs
-
-Input: the 22-token cation+trace vector (9 majors + 13 traces, convention C).
-Missing elements are padding; there is no SSL masking at inference. T, P, H2O
-are never inputs -- they are CondHead targets.
-
-Output: a joint distribution the user reads two ways -- a flattened marginal
-table and a ranked set of complete scenarios (both defined below).
+Input is the 22-token cation+trace vector (no T/P/H2O -- those are CondHead
+targets; no SSL masking at inference). Output is a joint distribution the user
+reads two ways: a flattened marginal table and a ranked set of complete
+scenarios (both defined below).
 
 ## Architecture
 
@@ -243,10 +227,9 @@ so the reasoning is not re-litigated:
 - Presence is *not* hard-collapsed in the model. `p_i` is distributional
   output; the joint object is sampled; the hard vector is a presentation view.
 - Proper-scoring (joint NLL + calibration, stratified by rarity) is the
-  objective; rare-phase recall and FP-mass are guardrails. (The
-  distributional-eval principle lives in ADR 006; an earlier memo's "ADR 007"
-  citation is wrong -- there is no ADR 007 unless the distributional-eval move
-  is written up as one.)
+  objective; rare-phase recall and FP-mass are guardrails. The
+  distributional-eval principle lives in ADR 006, not in a separate ADR
+  (ADR 007 exists but covers the SSL pretrain objective, a different topic).
 
 ## Open items
 

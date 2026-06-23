@@ -1,11 +1,9 @@
-# v3 fresh-codebase workflow
+# v3 execution roadmap
 
 Practical execution plan for the v3 rewrite. Distinct from
-`docs/FRESH_START.md` (which crystallizes the architecture and value
+`docs/encoder.md` (which crystallizes the architecture and value
 proposition); this doc covers git layout, track division, gate tables,
 and the ownership split between you and agentic work.
-
-Written 2026-06-01 as the v2 -> v3 handoff.
 
 ## Git layout: new branch in this repo, not a fresh repo
 
@@ -19,7 +17,7 @@ Reasons to stay in this repo:
 - Memory files in `~/.claude/projects/-Users-mliu-git-clones-crabnet-mineral-v2/memory/`
   are keyed by repo path. New repo = orphaned memories = re-deriving
   what you already learned.
-- `docs/JOURNAL.md`, `docs/decisions/*.md`, `CLAUDE.md` are valuable
+- `docs/journal.md`, `docs/decisions/*.md`, `CLAUDE.md` are valuable
   historical context. You want them quietly accessible while you ignore
   them, not gone.
 - `git checkout main -- path/to/file` lets you pull v1+v2 code in
@@ -67,32 +65,38 @@ bulks) at the post-Optuna hyperparameters in
 `configs/pretrain/pretrain_production.yaml`.  Canonical budget is
 20 epochs (a 40-epoch comparison landed within stochastic noise:
 supergroup MLP +0.003, qap_name MLP -0.003 -- SSL loss kept
-descending but downstream metric did not).  Canonical checkpoint
-lives at `checkpoints/pretrain_v3_seed0/epoch_best.pt`.
+descending but downstream metric did not).
+
+The canonical SSL objective is **per-element standardized log-space
+masked MSE** (ADR 007, adopted 2026-06-18); it measures higher on
+every probe and the trace-imputation gate than the original
+linear-space MSE, which is retired to reference.  Canonical
+checkpoint lives at
+`checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`.
 
 Probe results on the 20-epoch encoder (`scripts/eval/probe_encoder.py`,
 library-default probe HPs; figures + JSON under
-`results/probe/pretrain_v3_seed0_epoch_best/`):
+`results/probe/pretrain_v3_logmse_std_seed0_epoch_best/`):
 
 | probe | test accuracy | v2 cell-c bar |
 |---|---|---|
-| supergroup MLP | 0.806 | 0.76 (+4.6) |
-| qap_name MLP   | 0.762 | 0.72 (+4.2) |
-| qap_name MLP (probe-HPO-tuned) | 0.776 | -- |
-| supergroup LR  | 0.737 | -- |
-| qap_name LR    | 0.708 | -- |
+| supergroup MLP | 0.821 | 0.76 (+6.1) |
+| qap_name MLP   | 0.769 | 0.72 (+4.9) |
+| qap_name MLP (probe-HPO-tuned) | 0.790 | -- |
+| supergroup LR  | 0.749 | -- |
+| qap_name LR    | 0.722 | -- |
 
 The tuned row is the same encoder probed at the
 probe-HPO best params (`results/probe_hpo/`); the
 library-default rows are the apples-to-apples comparison against
 v2 cell-c.
 
-k-NN qap purity at k=5/10/50: 0.582 / 0.555 / 0.494 against a
+k-NN qap purity at k=5/10/50: 0.582 / 0.554 / 0.487 against a
 random baseline of 0.100 -- the encoder organizes rock chemistry
 into qap-coherent neighborhoods without ever seeing a label.
 
 Stops here: the encoder is the durable contribution.  Two parallel
-follow-up tracks: **Track A part 2** (PRETRAIN_APPLICATIONS) and
+follow-up tracks: **Track A part 2** (`pretrain_applications.md`) and
 **Track B** (supervised mineralogy heads).  Track A part 2 is
 unblocked now; Track B is still gated on the FC corpus regen
 pilots in `~/.claude/plans/sunny-weaving-nebula.md`.
@@ -114,6 +118,12 @@ pilots in `~/.claude/plans/sunny-weaving-nebula.md`.
 Acceptance: per-phase R²_bulk improves over v2 cell-c on the hydrous
 phases (amp/bi/fl/mu/ne) that the corpus regen + CompHead were
 designed to help; CondHead calibration is honest.
+
+v2 cell-c baseline to beat: CondHead conditions T 14.8 °C MAE,
+P 1.73 kbar, H2O 0.51 wt%; the per-phase R²_bulk gains cell-c booked
+over v1 on the hydrous + foid-bearing phases were bi +0.18, ne +0.22,
+mu +0.23, amp +0.08 -- the same phases the v3 corpus regen + CompHead
+target.
 
 ### Track C: end-to-end fine-tune (optional, last)
 

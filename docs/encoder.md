@@ -1,11 +1,13 @@
-# Fresh-codebase implementation handoff
+# The encoder: foundation model, data, and value proposition
 
-A from-scratch reimplementation guide. Crystallizes the value proposition,
-architecture, training data, and what to carry forward from the v2 codebase.
+The canonical reference for the shared substrate: the value proposition, the
+SSL-pretrained encoder, the tokenization and data flow, the three corpora, the
+pretraining mechanic, and the single load-bearing code invariant. The encoder
+is the durable contribution; the supervised heads that read its latent are a
+separate concern.
 
-Living doc; written 2026-06-01 after a long debugging arc converged on a
-stable design. Companion to `MODEL.md` (current-state architecture reference)
-and `PRETRAIN_APPLICATIONS.md` (the SSL-encoder capability list).
+Companion to `heads.md` (the supervised heads + posterior) and
+`pretrain_applications.md` (the SSL-encoder capability list).
 
 ## Value proposition (the one-sentence pitch)
 
@@ -22,7 +24,7 @@ Three things this captures that "MAGEMin surrogate" doesn't:
    over mineralogy and conditions consistent with that bulk. That integral
    is what a petrologist computes mentally. MAGEMin doesn't.
 
-2. **Distribution not point estimate.** With Dirichlet ModeHead + GMM
+2. **Distribution not point estimate.** With a probabilistic ModeHead + GMM
    CondHead, the within-bulk variance across FC paths becomes the trained
    uncertainty, not noise to average out. The 100-path degeneracy
    visualization (see `data/diagnostics/degeneracy_viz/`) makes this
@@ -38,77 +40,33 @@ Three things this captures that "MAGEMin surrogate" doesn't:
    generator's biases. Heads are application slots; the encoder is the
    substrate.
 
-## Should you keep CrabNet (kingcrab.py) or roll your own?
+### Four-axis differentiation
 
-**Verdict: keep mat2vec, lift CrabNet's FractionalEncoder as a single
-self-contained module, write your own Encoder that composes them.**
+The contribution is covering all four axes simultaneously -- not any single
+one:
 
-What CrabNet gives, and how v3 uses each piece:
+| Tool | bulk-only input | no spot analyses | multimodal output | hydrous + sedimentary phases |
+|---|---|---|---|---|
+| MAGEMin | needs T,P | yes | one assemblage | yes |
+| mineralML | yes | needs spots/pixels | no | partial |
+| CIPW (pyrolite) | yes | yes | single answer | no |
+| **CrabNet-Mineral v3** | **yes** | **yes** | **yes** | **yes** |
 
-- **mat2vec embeddings** (a 200-dim chemistry-aware vector per element,
-  learned from a materials-science text corpus). Genuinely valuable; not
-  trivial to replicate. Keep the CSV at
-  `src/cnmineral/data/element_properties/mat2vec.csv`.
-- **FractionalEncoder** (sinusoidal lookup over discretized `frac`,
-  one linear and one log10 variant). Provides the trace-element
-  resolution a single linear projection would lose. Lift the class
-  verbatim into `src/cnmineral/models/fractional_encoder.py` with
-  attribution (it's ~70 lines, no external dependencies). Don't vendor
-  the rest of kingcrab.
-- **TransformerEncoder + padding convention.** **Drop this.** The
-  kingcrab padding convention (`frac > 0` means populated) collided
-  with our SSL mask token and cost a full day of debugging plus an
-  entire round of invalidated ablation results. Owning the padding
-  semantics matters.
+## Encoder composition
 
-What to write yourself (~1 day, ~70 lines):
+The encoder composes three pieces, implemented in `src/cnmineral/models/`:
 
-```python
-from cnmineral.data.tokens import MASK_TOKEN_ID
-from cnmineral.models.fractional_encoder import FractionalEncoder
-
-ELEMENT_EMBEDDING_ROWS = MASK_TOKEN_ID + 1  # 120: row 0 padding,
-                                            # 1-118 mat2vec, 119 MASK
-
-class Encoder(nn.Module):
-    def __init__(self, d_model, N, heads, frac_resolution=5000):
-        # element embedding: mat2vec rows + learnable [MASK] row
-        self.element_embedding   = nn.Embedding.from_pretrained(
-            load_mat2vec_matrix(), freeze=False, padding_idx=0,
-        )  # [ELEMENT_EMBEDDING_ROWS, 200]
-        # MASK row reinitialised as N(0, 0.02) for a non-degenerate start
-        self.element_projection  = nn.Linear(200, d_model)
-
-        # CrabNet's dual fractional encoders
-        self.frac_encoder_linear = FractionalEncoder(d_model, frac_resolution, log10=False)
-        self.frac_encoder_log    = FractionalEncoder(d_model, frac_resolution, log10=True)
-
-        # learnable rescaling per stream
-        self.emb_scaler     = nn.Parameter(torch.tensor([1.0]))
-        self.pos_scaler     = nn.Parameter(torch.tensor([1.0]))
-        self.pos_scaler_log = nn.Parameter(torch.tensor([1.0]))
-
-        layer = nn.TransformerEncoderLayer(d_model, heads, batch_first=True, norm_first=True)
-        self.transformer = nn.TransformerEncoder(layer, N)
-
-    def forward(self, src, frac):
-        # src:  [B, 22] long.  0 = padding; 1..118 = element; 119 = MASK.
-        # frac: [B, 22] float in [0, 1].  0 at padding/masked positions.
-        pad_mask = (src == 0)  # EXPLICIT, never derived from frac
-        elem  = self.element_projection(self.element_embedding(src)) * self.emb_scaler
-        lin_e = self.frac_encoder_linear(frac) * self.pos_scaler        # [B, 22, d/2]
-        log_e = self.frac_encoder_log(frac)    * self.pos_scaler_log    # [B, 22, d/2]
-        frac_e = torch.cat([lin_e, log_e], dim=-1)                      # [B, 22, d]
-        token = elem + frac_e
-        h_tokens = self.transformer(token, src_key_padding_mask=pad_mask)
-        keep = (~pad_mask).float().unsqueeze(-1)
-        return (h_tokens * keep).sum(1) / keep.sum(1).clamp(min=1.0)
-```
-
-That's the whole encoder. The padding mask is one explicit line we own;
-MASK_TOKEN_ID positions are NOT padding, so the encoder attends to them
-and the SSL loss demands their original `frac` back from context. See
-"The single most load-bearing code invariant" below for the longer story.
+- **mat2vec embeddings** -- a 200-dim chemistry-aware vector per element
+  (learned from a materials-science text corpus). CSV at
+  `src/cnmineral/data/element_properties/mat2vec.csv`. Row 0 is padding,
+  1-118 are elements, 119 is the learnable `[MASK]` row.
+- **dual FractionalEncoder** -- sinusoidal lookup over discretized `frac`, one
+  linear and one log10 variant, giving the trace-element resolution a single
+  linear projection would lose (lifted from CrabNet's kingcrab with
+  attribution).
+- **TransformerEncoder** with an explicit `src == 0` padding mask (NOT derived
+  from `frac` -- see the load-bearing invariant below) and masked-mean pooling
+  over non-padding tokens.
 
 ## Input / output / architecture sketch
 
@@ -127,20 +85,11 @@ ENCODER (shared across all heads)
   -> Transformer encoder (d_model / N / heads set per pretrain config, stamped in ckpt.config)
   -> masked-mean pool over non-padding tokens
   -> latent h : [B, d_model]
-
-HEADS (parallel, all read the same h)
-  ModeHead    : h -> Dirichlet alpha over 18 phases       [B, 18]
-  CompHead    : h -> per-phase composition                [B, 18, K]
-                K = 11 (oxide-wt%) OR per-phase endmembers (pilot 2b decides)
-  CondHead    : h -> GMM per axis (T, P, H2O)             [B, 3, K_gmm, 3]
-                last dim = (mean, sigma, weight) per component
-  ClassHead   : h -> supergroup logits (auxiliary)        [B, 9]
-  G_sys head  : h -> scalar G_sys regression (auxiliary)  [B, 1]
 ```
 
-ClassHead and G_sys head are auxiliary: they regularize the encoder by
-adding gradient signals along petrogenetically meaningful axes. They are
-not deployment outputs. Both can be turned off without changing inference.
+The parallel supervised heads all read the same pooled latent `h`; their
+parameterization (the hurdle ModeHead, CompHead, CondHead, the auxiliary
+ClassHead / G_sys heads) lives in `heads.md`.
 
 ## Where G_sys fits (and where it doesn't)
 
@@ -190,9 +139,9 @@ Three corpora, all generated upstream of the model:
    pilot tests in `~/.claude/plans/sunny-weaving-nebula.md`. Approximate
    shape: 22k bulks × 8 paths = 178k rows for the supervised loss.
 
-3. **Held-out evaluation corpora**: real-rock targets (mineralML grains
-   for CompHead evaluation; EDS maps if available) -- never used in
-   training, only for cross-modal validation.
+3. **Held-out evaluation corpora**: real-rock targets (mineralML grains at
+   `data/grains/mineralml.csv` for CompHead evaluation; EDS maps if available)
+   -- never used in training, only for cross-modal validation.
 
 Critical schema requirements for the v3 corpus regen, beyond what v1 has:
 
@@ -205,6 +154,24 @@ Critical schema requirements for the v3 corpus regen, beyond what v1 has:
   to use these as CompHead targets instead of oxide-wt%)
 - bulk_oxide_renormalized column for the mass-balance loss term
 
+### Strategy modules (corpus-gen priors)
+
+The corpus-gen pipeline encodes petrologic priors as toggle-able strategies,
+not hardcoded constants (`src/cnmineral/data/`). Mirror this pattern for any
+new prior:
+
+- `fe_redox.py` -- Fe3+/ΣFe ratio (Middlemost 1989 per-class defaults;
+  ClassRatioStrategy + ConstantRatioStrategy)
+- `tp_priors.py` -- (T, P) sampling (Putirka 2008 per-class ranges). The P axis
+  carries forward into FC's (P, H2O) sampling; T sampling is replaced by
+  per-bulk T_FC_end at which residual liq < 5%.
+- `h2o.py` -- H2O wt% (Wallace 2005 + Plank 2013 + Burnham 1979 per-class
+  ranges; ClassRangeH2OStrategy + ConstantH2OStrategy)
+
+Tier-1 (measured) -> use directly. Tier-2 (assumed) -> strategy applies. A
+provenance label is carried through the pipeline so evaluation can stratify by
+signal quality.
+
 ## Pretraining (the SSL mechanic)
 
 Masked-element modeling, pooled-latent decoder (Option H from the
@@ -212,45 +179,29 @@ v2 bug-fix). The convention that worked:
 
 ```
 For each batch:
-  pick 25% of populated tokens per sample, uniformly at random
-  zero BOTH src and frac at those positions (masked = padding, indistinguishable)
+  pick a tuned fraction of populated tokens per sample, uniformly at random
+    (mask_prob, Optuna-tuned, ~0.23 in the production config)
+  set src = MASK_TOKEN_ID (= 119) and frac = 0 at those positions
+    (distinguishable from padding by src; the encoder attends to them)
   pass the corrupted (src, frac) through the encoder
   decoder MLP on the pooled latent predicts frac for EVERY position
-  MSE loss only at originally-masked positions
+  loss only at originally-masked positions
 ```
+
+This is convention C (see the load-bearing invariant below): masked tokens
+are NOT padding, so the encoder must attend to them to predict their frac
+from context.
 
 Decoder shape: `d_model -> d_model//2 -> n_tokens=22`. Output is a vector
 of predicted frac values for all 22 positions; loss reads off the masked
 ones only. The non-masked predictions are unsupervised side outputs --
 they don't get a loss because they'd just be teaching the model to
-reproduce its own input.
+reproduce its own input.  The canonical objective is per-element
+standardized log-space MSE (ADR 007); linear-space MSE is the retired
+original.
 
 Class-balanced sampling by supergroup during SSL prevents basalt
 over-fitting (complete.csv is ~50% mafic-volcanic).
-
-## What to bring forward from the v2 codebase
-
-- `src/cnmineral/data/element_properties/mat2vec.csv` (the embedding matrix)
-- `src/cnmineral/data/fe_redox.py`, `tp_priors.py`, `h2o.py` (the strategy
-  modules for Fe3+/H2O/P sampling priors -- ADRs explain why these are
-  injectable, not hardcoded)
-- `scripts/production/_phase_map.py` PLUS the `_ALL_SHORT_TO_SHORT` mapping
-  added in `scripts/experiments/visualize_degeneracy.py` (you'll need both
-  when extracting per-phase composition from PTT)
-- `data/splits_v1.json` if reusing v1 split; rebuild if changing input
-  vocab or filter rules
-- `data/grains/mineralml.csv` (mineralML grain corpus) for held-out CompHead eval
-- ADRs 004, 005, 006 from `docs/decisions/` (label-design, corpus, model arch)
-
-## What to drop
-
-- `src/cnmineral/kingcrab.py` (write your own encoder; padding bug isn't
-  worth carrying)
-- The dual `mass%_<phase>` interpretation (fraction-vs-percent ambiguity
-  that bit the degeneracy viz). Standardize: all masses internal are
-  fractions in [0, 1] that sum to 1; convert to wt% only at display time
-- The per-mineral wt% representation as a hardcoded constant. Make the
-  phase vocabulary a YAML config, not a Python list
 
 ## What's deferred (do not pre-build)
 
@@ -263,21 +214,6 @@ prove their value:
 - fO2 sweep (currently class-conditional via fe_redox; sweeping is v3+)
 - TracePartitionHead (the 4th head from the trace-usage design taxonomy;
   separate corpus-gen requirement around Kd database lookups)
-
-## The minimal-shippable v3 spine
-
-If you want a tight scope for the first fresh-codebase pass:
-
-1. Encoder (your own thin transformer + mat2vec)
-2. ModeHead (Dirichlet over 18 phases)
-3. CompHead (oxide-wt%, simplest version; upgrade after pilot 2b)
-4. CondHead (GMM per axis)
-5. ClassHead (supergroup CE; auxiliary, cheap, latent-shaping)
-6. SSL pretraining via MEM with the Option H pooled-latent decoder
-7. Mass-balance soft loss (`λ * ||bulk - Σ M × C||²`)
-8. K=5 ensemble after the single-seed ablation passes
-
-Add later: G_sys head, TracePartitionHead, ALIGNN, polymorph head.
 
 ## The single most important code invariant
 

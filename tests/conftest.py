@@ -9,7 +9,7 @@ too late because the test collector pulls numpy in before any
 
 Background: macOS's PyTorch and PetThermoTools (via MAGEMin) both link
 against libomp.  Concurrent loading aborts with "OpenMP already
-initialized" unless this env var is set.  See ``docs/MODEL.md`` macOS
+initialized" unless this env var is set.  See ``CLAUDE.md`` macOS
 gotcha section.
 """
 

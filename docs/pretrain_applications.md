@@ -9,9 +9,10 @@ others -- capabilities the existing encoder already supports with no further
 training, or with tiny supervised heads on the pretrained latent.
 
 **v3 encoder is available.**  Canonical checkpoint at
-`checkpoints/pretrain_v3_seed0/epoch_best.pt`; hyperparameters in
+`checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt` (per-element
+standardized log-space masked MSE, ADR 007); hyperparameters in
 `configs/pretrain/pretrain_production.yaml`.  See
-`docs/V3_WORKFLOW.md` for current probe numbers and gate-close
+`docs/roadmap.md` for current probe numbers and gate-close
 status.  All capabilities in this doc target the v3 encoder;
 v2's encoder remains usable as a reference.
 
