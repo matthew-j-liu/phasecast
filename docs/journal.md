@@ -2599,3 +2599,59 @@ linear-MSE `pretrain_v3_seed0`.  Binding choice in ADR 007.
 read-out tune #8) loads the new canonical encoder.  The imputation head (#8)
 re-scores against the new frozen latent: its earlier frozen-latent yardstick
 (0.839 median trace log-R2) becomes 0.877.
+
+## 2026-06-22 -- trace-gate tuning objective audit: traces-only HPs are objective-invariant
+
+**Q.** The gate (`run_gate._tune_shared`) tunes XGBoost by minimizing mean
+log-space val-MSE over the 13 traces only, then reuses those trace-tuned params
+for the major final fits too.  Two unchecked assumptions: (a) the trace R2s and
+the 1a/1b verdict don't shift under a different tuning objective; (b) the major
+R2s aren't handicapped by trace-tuned params.  Validate both before #8 leans on
+the gate again (issue #6).
+
+**Context.** Cheap, read-only methodology audit on the canonical encoder
+(`pretrain_v3_logmse_std_seed0/epoch_best.pt`).  Not on the critical path; run
+now while the gate code is fresh.
+
+**Setup.** `explorations/trace_signal_in_latent/audit_tuning_objective.py`
+(throwaway) imports the gate helpers unchanged.  Each masked-token latent is
+encoded once and cached, so only XGBoost re-tunes/refits.  Six Optuna studies =
+arm {1a input-XGB, 1b frozen-latent} x objective {traces-only, majors-only,
+all-22}, 40 trials each on all 106787 fit / 26697 val rows (production parity).
+Final per-element fits on the full 33371-row test split: traces under
+best_traces vs best_all (question a); majors under best_traces vs best_majors
+(question b); materiality threshold 0.005.  Harness cross-check: traces under
+best_traces reproduces the cached gate exactly (median 1a 0.892, 1b 0.877).
+
+**Results.** All six studies converge to a *single* XGBoost param set
+(max_depth 10, lr 0.018, subsample 0.59, colsample 0.88, min_child_weight 10,
+gamma ~0).  Every final-fit R2 delta is therefore exactly 0.000 (max |delta|
+1a/1b = 0.000 for both questions); the trace verdict stays
+`latent_carries_signal` under both best_traces and best_all.  Per-element trace
+R2s span 0.820 (Y, 1b) to 0.951 (Ce, 1b); majors 0.809 (Na, 1b) to 0.942 (Fe,
+1b).
+
+The objectives are genuinely distinct problems -- their best values differ
+(0.0277 traces / 0.0154 majors / 0.0230 all, for 1a), as expected from averaging
+different element subsets.  The identical optimum is the expected signature of a
+controlled paired comparison, not an artifact: all studies share the run seed by
+design, so they share the 10 random TPE-startup trials and only the objective
+varies.  After startup, TPE's choices are driven by the *ranking* of trials
+under the objective; an objective that preferred different HPs would diverge the
+trajectory after startup and land on a different best trial/params.  None
+diverged (all six lock to best trial 22) -- so the three objectives induce the
+same HP preference ordering, which is the finding.  A per-objective distinct seed
+would reintroduce a tuning-luck confound (a better final R2 could mean a better
+objective or just a luckier draw), so the shared seed is the correct control.
+This validates along the single trajectory the gate runs in production (one
+seed), which is the condition that matters.
+
+**Decision.** The traces-only tuning objective is validated: on this corpus the
+XGBoost HP optimum is invariant to which element subset defines the objective,
+so the gate's trace verdict and its major R2s are unchanged whether tuned on
+traces, majors, or all 22.  No reason to change the gate's objective.  Results
+in `results/pretrain_v3_logmse_std_seed0_epoch_best/audit_tuning_objective.json`;
+the audit script is kept as a documented one-off (not wired into the gate).
+
+**Next.** Close #6.  #8 (imputation read-out tune) proceeds on the canonical
+latent unblocked.

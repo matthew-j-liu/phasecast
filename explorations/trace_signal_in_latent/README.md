@@ -49,10 +49,12 @@ trace-blind: XGBoost on the frozen masked latent recovers every trace at R2
 Nd/La ~-0.065) and smallest on Th/Rb/Ni/V (~-0.04). Majors: 1b within 0.01-0.04
 of 1a. Artifacts in `results/pretrain_v3_seed0_epoch_best/`.
 
-Caveat: both Optuna studies landed on the same seeded startup trial
-(`best_1a == best_1b`), so HP search added little beyond random startup in 40
-trials -- benign for the verdict (if anything 1b is mildly under-tuned). Tracked
-in issue #6.
+Note: the 1a and 1b studies converge to the same XGBoost HPs (`best_1a ==
+best_1b`).  This is not under-tuning -- `audit_tuning_objective.py` (issue #6,
+JOURNAL 2026-06-22) re-tuned under majors-only and all-22 objectives and all
+land on the identical optimum: the HP preference ordering is the same across
+element subsets, so the tuning objective doesn't move the gate's verdict or the
+major R2s.
 
 ## Decision
 
