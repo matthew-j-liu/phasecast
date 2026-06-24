@@ -2,7 +2,11 @@
 Train/val/test split logic.
 
 `reserve_test` is the outer 80/20 that peels off the test indices
-before any training touches the data, stratified by `qap_name`.
+before any training touches the data, stratified by `qap_name`.  It is
+the labeled-training door: it requires every row to carry a stratifiable
+`qap_name` and rejects a corpus with null labels.  No-label corpora
+(`require_qap_name=False`) are an inference-only path -- run the frozen
+encoder over all rows (`extract_latents`), don't split.
 
 The inner train/val 80/20 lives in `ssl_pretrain.py::run_pretraining` because
 it depends on per-trial config and runs many times during HPO.
@@ -37,18 +41,35 @@ def reserve_test(dataset: Dataset, config: dict) -> dict[str, list[int]]:
     dict[str, list[int]]
         `{"trainval": [int, ...], "test": [int, ...]}` indexing into
         `dataset`.
+
+    Raises
+    ------
+    ValueError
+        If any row's `qap_name` is None (a no-label corpus built with
+        `require_qap_name=False`).  Such corpora cannot be stratified and
+        belong on the inference path, not in `reserve_test`.
     """
     n = len(dataset)
     test_split = config.get("test_split", 0.20)
     seed = config.get("seed", 0)
+
+    # stratify: hand a class label of every row and sklearn will balance the split
+    stratify_labels = _qap_labels_for_indices(dataset, range(n))
+    n_null = sum(label is None for label in stratify_labels)
+    if n_null:
+        raise ValueError(
+            f"reserve_test needs stratifiable qap_name labels, but {n_null} of "
+            f"{n} rows are None. No-label corpora (require_qap_name=False) are an "
+            f"inference path: run the trained encoder over all indices "
+            f"(extract_latents), don't split. Build with require_qap_name=True to "
+            f"train."
+        )
 
     # test_split=0 short-circuit -- sklearn rejects test_size=0, and the
     # downstream evaluate_on_test handles an empty test_indices already.
     if test_split == 0:
         return {"trainval": list(range(n)), "test": []}
 
-    # stratify: hand a class label of every row and sklearn will balance the split 
-    stratify_labels = _qap_labels_for_indices(dataset, range(n))
     trainval_idx, test_idx = train_test_split(
         list(range(n)), test_size=test_split, random_state=seed,
         stratify=stratify_labels,

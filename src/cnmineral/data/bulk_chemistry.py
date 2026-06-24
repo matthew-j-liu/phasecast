@@ -187,7 +187,10 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
         If True (default), drop rows where `qap_name` is null.  Every
         surviving row carries a usable stratification label, which the
         downstream split logic relies on.  Set False to keep null-qap
-        rows; the `qap_names` attribute then contains None entries.
+        rows; the `qap_names` attribute then contains None entries.  A
+        False corpus is inference-only -- it cannot go through
+        `reserve_test` (which stratifies by `qap_name` and rejects null
+        labels); run the frozen encoder over all rows instead.
     min_class_count
         Drop rows whose `qap_name` class has fewer than this many
         samples in the filtered corpus.  Default 25 matches the

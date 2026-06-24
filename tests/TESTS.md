@@ -111,6 +111,7 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_reserve_test_split_sizes` -- `reserve_test` produces ceil(n * test_split) test rows, disjoint and covering all indices, identical across same-seed calls.
 2. `test_reserve_test_stratifies_when_qap_names_present` -- on the corpus fixture every qap class appears in both splits with a test ratio near test_split.
+3. `test_reserve_test_rejects_null_labels` -- a no-label corpus (None entries in qap_names) raises a clear `ValueError` pointing to the inference path, not a deep sklearn failure.
 
 ### test_ssl_pretrain.py
 

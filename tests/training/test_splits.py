@@ -1,13 +1,16 @@
 """Tests for `cnmineral.training.splits.reserve_test`.
 
-Two contracts:
+Three contracts:
 - Deterministic split sizes for a given seed.
 - Splits stratify proportionally by qap_names.
+- A no-label corpus (null qap_names) is rejected with a clear error,
+  not a deep sklearn failure.
 """
 
 import math
 from pathlib import Path
 
+import pytest
 from conftest import _tiny_config
 
 from cnmineral.training import create_dataset, reserve_test
@@ -70,3 +73,18 @@ def test_reserve_test_stratifies_when_qap_names_present(
     # train + test = full corpus, no overlap
     assert test_set.isdisjoint(trainval_set)
     assert len(test_set) + len(trainval_set) == len(dataset)
+
+
+def test_reserve_test_rejects_null_labels() -> None:
+    """A no-label corpus (require_qap_name=False -> None entries in
+    qap_names) cannot be stratified; reserve_test raises a clear error
+    pointing to the inference path, instead of failing deep in sklearn."""
+
+    class _NullLabelDataset:
+        qap_names = ["granite", None, "basalt", None, "diorite"]
+
+        def __len__(self) -> int:
+            return len(self.qap_names)
+
+    with pytest.raises(ValueError, match="stratifiable qap_name labels"):
+        reserve_test(_NullLabelDataset(), {"seed": 0, "test_split": 0.25})
