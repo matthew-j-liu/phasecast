@@ -130,13 +130,29 @@ def tok(s, x, y, w, h, sym, amt, color, masked=False):
     return shp
 
 
-def hbar(s, x, y, maxw, value, label, color, vmax=0.5):
+def hbar(s, x, y, maxw, value, label, color, vmax=0.5, ci=None, presence=None):
     bw = max(0.12, maxw * value / vmax)
     bar = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(y), Inches(bw), Inches(0.32))
     bar.fill.solid(); bar.fill.fore_color.rgb = _rgb(color)
     bar.line.fill.background(); bar.shadow.inherit = False
-    t = s.shapes.add_textbox(Inches(x + bw + 0.1), Inches(y - 0.05), Inches(4.2), Inches(0.4))
-    _text(t.text_frame, f"{label}  {value:.2f}", 12, INK, align=PP_ALIGN.LEFT)
+    # ci is the credible-interval half-width in value units: draw a whisker
+    # centered on the bar tip with end caps, so a bar reads as a posterior
+    # mean with spread rather than a point estimate.
+    if ci is not None:
+        cy = y + 0.16
+        half = maxw * ci / vmax
+        lo, hi = max(x + 0.02, x + bw - half), x + bw + half
+        line(s, lo, cy, hi, cy, color=INK, width=1.25)
+        line(s, lo, cy - 0.07, lo, cy + 0.07, color=INK, width=1.25)
+        line(s, hi, cy - 0.07, hi, cy + 0.07, color=INK, width=1.25)
+        x_text = hi + 0.1
+    else:
+        x_text = x + bw + 0.1
+    label_text = f"{label}  {value:.2f}"
+    if presence is not None:
+        label_text += f"   p(present) {presence:.2f}"
+    t = s.shapes.add_textbox(Inches(x_text), Inches(y - 0.05), Inches(4.6), Inches(0.4))
+    _text(t.text_frame, label_text, 12, INK, align=PP_ALIGN.LEFT)
 
 
 def gaussian(s, x, y, w, h, comps, color, label):
@@ -366,19 +382,29 @@ def s_outputs(prs):
     hglyph(s, 4.5, 3.75, r=0.72)
     flow_arrow(s, 5.35, 3.55, 0.5, 0.4)
     box(s, 6.0, 1.55, 6.9, 2.25, [""], GREEN)
-    caption(s, 6.2, 1.6, 6.5, "ModeHead -> modal mineralogy (Dirichlet)", 12, GREEN, align=PP_ALIGN.LEFT)
-    for i, (m, v) in enumerate([("plagioclase", 0.42), ("clinopyroxene", 0.28), ("olivine", 0.16),
-                                ("orthopyroxene", 0.08), ("oxides", 0.04)]):
-        hbar(s, 6.25, 2.05 + i * 0.34, 2.3, v, m, GREEN)
+    caption(s, 6.2, 1.6, 6.5, "ModeHead -> distribution over modal mineralogy (hurdle Dirichlet)",
+            12, GREEN, align=PP_ALIGN.LEFT)
+    mode_bars = [("plagioclase", 0.42, 0.05, None), ("clinopyroxene", 0.28, 0.04, None),
+                 ("amphibole", 0.16, 0.06, 0.41), ("orthopyroxene", 0.08, 0.03, None),
+                 ("magnetite", 0.04, 0.02, None)]
+    for i, (m, v, ci, p) in enumerate(mode_bars):
+        hbar(s, 6.25, 2.05 + i * 0.34, 2.3, v, m, GREEN, ci=ci, presence=p)
     box(s, 6.0, 4.0, 6.9, 2.55, [""], PURPLE)
-    caption(s, 6.2, 4.05, 6.5, "CondHead -> formation conditions (per-axis GMM)", 12, PURPLE, align=PP_ALIGN.LEFT)
-    gaussian(s, 6.35, 4.65, 1.9, 1.05, [(0.5, 0.16, 1.0)], BLUE, "T  1140 +/- 35 C")
-    gaussian(s, 8.5, 4.65, 1.9, 1.05, [(0.5, 0.18, 1.0)], TEAL, "P  4.8 +/- 1.9 kbar")
-    gaussian(s, 10.65, 4.65, 1.95, 1.05, [(0.32, 0.1, 1.0), (0.72, 0.12, 0.8)], ORANGE, "H2O  multimodal")
-    caption(s, 0.55, 6.75, 12.3, "values illustrative -- each head emits a distribution; "
-            "H2O drawn multimodal to show CondHead's GMM form.", 12, GRAYT, align=PP_ALIGN.LEFT)
-    notes(s, "Output FORM, not measured results (heads train in issue #10). ModeHead = Dirichlet "
-             "over minerals; CondHead = per-axis GMM (H2O multimodal). Numbers illustrative.")
+    caption(s, 6.2, 4.05, 6.5,
+            "CondHead -> formation conditions (per-axis GMM, if trained on a thermodynamic "
+            "phase-equilibrium solver like MAGEMin)", 12, PURPLE, align=PP_ALIGN.LEFT)
+    gaussian(s, 6.35, 4.85, 1.9, 1.05, [(0.5, 0.16, 1.0)], BLUE, "T  1140 +/- 35 C")
+    gaussian(s, 8.5, 4.85, 1.9, 1.05, [(0.5, 0.18, 1.0)], TEAL, "P  4.8 +/- 1.9 kbar")
+    gaussian(s, 10.65, 4.85, 1.95, 1.05, [(0.32, 0.1, 1.0), (0.72, 0.12, 0.8)], ORANGE, "H2O  multimodal")
+    caption(s, 0.55, 6.75, 12.3, "values illustrative -- every head emits a distribution: ModeHead "
+            "bars are posterior means with credible-interval whiskers and a per-phase presence "
+            "probability; H2O drawn multimodal to show CondHead's GMM form.", 12, GRAYT,
+            align=PP_ALIGN.LEFT)
+    notes(s, "Output FORM, not measured results (heads train in issue #10). ModeHead = hurdle "
+             "Dirichlet: per-phase presence Bernoulli x conditional Dirichlet over present-phase "
+             "modes; bars are posterior means + credible intervals, and intermediate presence "
+             "(amphibole ~0.4) IS the multimodal posterior, not noise. CondHead = per-axis GMM "
+             "(H2O multimodal). Numbers illustrative.")
 
 
 if __name__ == "__main__":
