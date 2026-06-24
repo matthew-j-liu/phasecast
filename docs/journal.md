@@ -2655,3 +2655,62 @@ the audit script is kept as a documented one-off (not wired into the gate).
 
 **Next.** Close #6.  #8 (imputation read-out tune) proceeds on the canonical
 latent unblocked.
+
+## 2026-06-24 -- imputation read-out head tuned + shipped (application #1)
+
+**Q.** Tune the log-space imputation read-out head on the frozen canonical
+encoder and ship it as production application #1, the first standalone use of
+the SSL latent.
+
+**Context.** The 2026-06-16 design ablation settled the head *family* (one-hidden
+GELU MLP, per-element log-standardized) at a single fixed HP point on the
+now-retired linear-MSE encoder; nobody had tuned the HPs, and the canonical
+encoder (`pretrain_v3_logmse_std_seed0`, ADR 007) is a different latent.  Its
+trace yardsticks (gate diagnostic): frozen-latent XGBoost median 0.877,
+input-element ceiling 0.892.
+
+**Setup.** Single-stage Optuna (TPE, JournalStorage), objective = median trace
+leave-one-out log-R2 on a held-out val split carved from trainval (test never
+touched in tuning).  Encoder frozen, head-only; per-trial val-loss early stopping
+with best-weight restore; no pruner (the objective is an end-of-trial LOO).
+Search: hidden, lr, weight_decay, dropout, mask_prob.  Untuned reference (the
+ablation's fixed config) scored on the same val split: 0.8247 traces / 0.8854
+majors.  Two sweeps: a 40-trial production sweep, then a 120-trial ceiling sweep
+with hidden extended to 4096 and the lr floor lowered.
+
+**Results.** Production sweep best (trial 34): val 0.8327 traces / 0.8948 majors
+at hidden=1024, lr=1.40e-4, wd=2.84e-7, dropout=0.066, mask_prob=0.217.  Ceiling
+sweep best: val 0.8426 at hidden=4096 (+0.010).  But hidden pegged at the search
+max in *both* sweeps and the optimization history plateaued (+0.001 over the last
+~80 trials), so ~0.842-0.845 is the one-hidden-layer MLP's ceiling on this latent
+(~96% of the GBT readout); the residual to 0.877 is a readout-class gap (single
+MLP layer vs gradient-boosted forest), not capacity the head should chase.
+Shipped the lean hidden=1024 head -- a 4x-smaller artifact (285k vs 1.1M params)
+for -1pp, parsimony over the marginal gain.
+
+Final head on the 33371-row test split: median trace log-R2 0.8363 (95% of the
+0.877 GBT yardstick, 94% of the 0.892 input ceiling), median major 0.8913 (no
+regression vs the 0.8854 untuned baseline).  Per trace:
+
+| trace | head | %GBT | trace | head | %GBT |
+|---|---|---|---|---|---|
+| Sr | 0.821 | 96% | Nb | 0.836 | 95% |
+| Zr | 0.809 | 95% | V  | 0.876 | 97% |
+| Ba | 0.812 | 96% | La | 0.924 | 98% |
+| Y  | 0.780 | 95% | Ce | 0.936 | 98% |
+| Rb | 0.883 | 97% | Nd | 0.930 | 98% |
+| Ni | 0.826 | 95% | Yb | 0.792 | 95% |
+| Th | 0.859 | 96% |    |       |     |
+
+The two lowest (Y 0.780, Yb 0.792) are the HREE -- the latent's information loss
+(#7's closed job), not the head's: the head tracks 95-98% of the GBT on every
+trace.
+
+**Decision.** Ship the hidden=1024 head as the production element-imputation
+head; application #1 is shipped.  `configs/imputation/imputation_head.yaml`
+regenerates it; the checkpoint + readout artifacts stay gitignored (regenerable,
+per repo convention).  No verdict -- this lands an artifact, not a finding.
+
+**Next.** Capability refresh on the locked encoder (imputation summary + latent
+UMAP), then tag the foundation-encoder-plus-applications stable point, then Track
+B corpus regeneration (#9).

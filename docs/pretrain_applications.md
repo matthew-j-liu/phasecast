@@ -60,6 +60,13 @@ capacity -- XGBoost on the frozen masked latent reaches ~94% of the
 input-element XGBoost ceiling across the 13 traces. So the fix is a head with
 the right objective on the *existing* frozen latent, not a re-pretrain.
 
+**Shipped.** The production head is Optuna-tuned (single-stage sweep, objective
+median trace log-R2 on a held-out val split) and reaches test median trace
+log-R2 0.836 = 95% of the 0.877 frozen-latent yardstick, with no major
+regression; per-trace 95-98% of the yardstick (JOURNAL 2026-06-24).
+`configs/imputation/imputation_head.yaml` regenerates it on the canonical
+encoder; the checkpoint + readout artifacts are gitignored (regenerable).
+
 Implementation (built):
 - `cnmineral.models.imputation_head.LogImputationHead` -- linear or
   one-hidden-MLP read-out emitting per-element standardized `log10(frac)`,
@@ -69,6 +76,8 @@ Implementation (built):
 - `cnmineral.training.imputation_head.train_imputation_head` -- trains the
   head on a frozen encoder; dataset/splits reconstructed from the encoder
   checkpoint's config. Config: `configs/imputation/imputation_head.yaml`.
+- `cnmineral.training.imputation_head_hpo.run_hpo` -- single-stage Optuna
+  sweep of the head HPs; config `configs/imputation/imputation_head_hpo.yaml`.
 - `cnmineral.eval.imputation_logspace.run_imputation_logspace` -- log-space
   leave-one-out scoring against the gate's two reference lines; writes
   `results/imputation/<encoder_tag>/readout/`.
@@ -243,7 +252,7 @@ prioritization roughly:
 | priority | capability | rationale |
 |---|---|---|
 | 1 | k-NN similarity (#3) | Most directly useful "find rocks like mine" UX; uses encoder + a precomputed cache; no training |
-| 1 | Element imputation (#1) | Solves a real lab pain point (fill in partial analyses); uses the pretrain head |
+| 1 | Element imputation (#1) | Solves a real lab pain point (fill in partial analyses); shipped, via a tuned read-out head on the frozen latent |
 | 1 | OOD flagging (#4) | Safety net; already built |
 | 2 | Tectonic-setting classification (#5) | Big interpretability win; trace-discriminator labels |
 | 2 | Petrogenetic-ratio regression with uncertainty (#7) | Interpretable, well-defined |
