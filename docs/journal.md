@@ -2714,3 +2714,53 @@ per repo convention).  No verdict -- this lands an artifact, not a finding.
 **Next.** Capability refresh on the locked encoder (imputation summary + latent
 UMAP), then tag the foundation-encoder-plus-applications stable point, then Track
 B corpus regeneration (#9).
+
+## 2026-06-24 -- close-out housekeeping: SSL decoder knobs settle on evidence, weighted_mse retired
+
+**Q.** Before tagging the foundation-encoder-plus-applications stable point, can
+the deferred SSL-decoder-knob investigation (#1) close, and on what grounds?
+
+**Context.** #1 deferred an ablation of two `PretrainHead` settings -- the hidden
+bottleneck (`d_model // 2`) and the output activation (`None` vs `sigmoid`) --
+with three triggers to revisit: SSL reconstruction MSE plateaus high vs v2,
+supergroup probe drops >2pts below v2 cell-c's 76.3%, or predicted frac lands
+outside [0,1] for >5% of masked positions.  The settings have since been baked
+into the constructor (no config knobs; `output_activation` does not exist as a
+parameter), and the encoder is locked (canonical = `pretrain_v3_logmse_std_seed0`).
+
+**Considered.** Re-running the ablation requires re-pretraining with alternate
+head settings, which would either be moot (we ship the existing encoder) or break
+the lock.  But the close does not rest on that:
+
+- **Output activation is moot under log-space, by correctness not cost.** The
+  canonical objective is standardized log-space MSE (ADR 007); the head output is
+  consumed as standardized `log10(frac)`, unbounded in R.  Sigmoid squashes to
+  (0,1) and is provably wrong for that target -- identity is the only correct
+  choice.  Trigger 3 ("frac outside [0,1]") is moot for the same reason: the head
+  no longer predicts raw frac.
+- **The probe trigger fired in the close direction.** The capability refresh on
+  the canonical encoder gives supergroup MLP probe test acc = 0.821, +5.8pp over
+  v2 cell-c's 0.763; trigger 2 asked to revisit on a regression, and there is
+  none.
+- **The hidden-width knob's predicted irrelevance is corroborated.** #1 expected
+  small deltas (decoder capacity incidental).  The #8 imputation-head HPO (same
+  MLP-on-latent shape) measured ~1pp per 4x width with a plateau -- capacity is
+  incidental on this latent, as predicted.
+- **Supporting:** the SSL decoder is a training-time scaffold, discarded at
+  inference; only the encoder ships, and it is the validated artifact.
+
+Doc-rot fixed in the same change: `PretrainHead`'s docstring still claimed "MSE
+pulls predictions toward frac in [0,1]" (pre-log-space); corrected in the
+docstring and `docs/encoder.md`, both now stating the fixed-scaffold rationale.
+
+Separately retired `weighted_mse` (inverse-variance-weighted linear MSE) as dead
+code: ADR 007 rejected it, its runtime artifacts were deleted, and the loss fn +
+objective branch + config + tests are gone.  The ADR and the 2026-06-18 entry
+keep the record of why.
+
+**Decision.** Closed #1 with no code change beyond the docstring/doc fixes; the
+refresh reconfirmed the supergroup probe at 0.821 >= 0.763 (the live re-check of
+trigger 2 cleared).  The fixed SSL decoder -- `d_model // 2` bottleneck, identity
+output, neither a hyperparameter -- is confirmed correct, not merely deferred.
+
+**Next.** The #4 splits-hardening fix, full pytest, tag, merge v3 -> main.

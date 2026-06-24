@@ -200,6 +200,14 @@ reproduce its own input.  The canonical objective is per-element
 standardized log-space MSE (ADR 007); linear-space MSE is the retired
 original.
 
+The decoder architecture is fixed, not tuned: the `d_model//2` bottleneck
+and the identity output are baked in, neither exposed as a hyperparameter.
+Identity output is the correct choice (not a deferred one) because the
+log-space target is unbounded in R, so a squashing activation would be
+wrong.  The head is a training-time scaffold -- it exists only to shape the
+encoder via the reconstruction gradient and is discarded at inference (only
+the encoder ships).
+
 Class-balanced sampling by supergroup during SSL prevents basalt
 over-fitting (complete.csv is ~50% mafic-volcanic).
 

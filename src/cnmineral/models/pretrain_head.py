@@ -18,9 +18,16 @@ class PretrainHead(nn.Module):
     Pooled-latent decoder over the 22-token vocabulary.
 
     Architecture: `d_model -> d_model // 2 -> N_TOKENS`, two linear
-    layers with a single GELU non-linearity between them.  Output is
-    identity (unconstrained); MSE pulls predictions toward `frac` in
-    [0, 1].
+    layers with a single GELU between them; identity output.  Under the
+    canonical standardized-log-space objective (ADR 007) the target is
+    standardized `log10(frac)`, which is unbounded in R -- a squashing
+    output activation would be wrong, so identity is the correct choice,
+    not a deferred one.
+
+    The `d_model // 2` bottleneck and the identity output are fixed, not
+    hyperparameters: this head is a training-time scaffold that exists
+    only to shape the encoder via the reconstruction gradient, and is
+    discarded at inference (only the encoder ships).
 
     Parameters
     ----------
