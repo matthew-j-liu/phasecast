@@ -65,7 +65,10 @@ bulks) at the post-Optuna hyperparameters in
 `configs/pretrain/pretrain_production.yaml`.  Canonical budget is
 20 epochs (a 40-epoch comparison landed within stochastic noise:
 supergroup MLP +0.003, qap_name MLP -0.003 -- SSL loss kept
-descending but downstream metric did not).
+descending but downstream metric did not).  That 40-epoch
+comparison was on the retired linear-space encoder, so it holds for
+the canonical log encoder only by analogy -- never tested at 40
+epochs directly (JOURNAL 2026-06-24, #15).
 
 The canonical SSL objective is **per-element standardized log-space
 masked MSE** (ADR 007, adopted 2026-06-18); it measures higher on
@@ -100,6 +103,16 @@ follow-up tracks: **Track A part 2** (`pretrain_applications.md`) and
 **Track B** (supervised mineralogy heads).  Track A part 2 is
 unblocked now; Track B is still gated on the FC corpus regen
 pilots in `~/.claude/plans/sunny-weaving-nebula.md`.
+
+A third thread, **Track A part 3** (epic #15, on the
+`encoder-representation` branch), pursues a *stronger* encoder via new
+SSL pretext objectives.  Motivation: the masked-element objective
+decodes rock type well (supervised probe 0.769) but does not arrange
+the latent so same-class rocks are neighbors (kNN purity 0.582) -- a
+representation-geometry gap, not an epoch-budget one (JOURNAL
+2026-06-24).  #15 targets it with pull-together (non-contrastive),
+forgery-detection (ELECTRA-style), and group-masking pretexts, judged
+on raw-latent probe + distance-weighted kNN rather than UMAP-2D.
 
 ### Track B: supervised mineralogy heads (~4-6 weeks)
 

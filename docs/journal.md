@@ -2764,3 +2764,53 @@ trigger 2 cleared).  The fixed SSL decoder -- `d_model // 2` bottleneck, identit
 output, neither a hyperparameter -- is confirmed correct, not merely deferred.
 
 **Next.** The #4 splits-hardening fix, full pytest, tag, merge v3 -> main.
+
+## 2026-06-24 -- encoder geometry audit: the 40-epoch result was the linear encoder; kNN ~0.58 is inherent geometry, not under-training
+
+**Q.** Auditing the canonical encoder's probe / UMAP / kNN before tagging: are the
+weak-looking UMAP separation and kNN purity (~0.58) a sign of under-training (too
+few epochs), or something else?
+
+**Context.**
+- Probe refresh on the canonical log encoder: supergroup MLP 0.821, qap MLP 0.769,
+  kNN qap purity 0.582 / 0.554 / 0.487 (k=5/10/50) vs 0.100 random.  Encoder val
+  loss best = epoch 20 of 20 (the last), still descending, constant LR (no
+  scheduler) -- which superficially looks under-trained.
+- Recalled a prior 20-vs-40-epoch experiment that found no gain.  Verified the
+  artifact: it was `checkpoints/pretrain_v3_seed0/epoch_best_40.pt` -- the
+  **linear-space** encoder (val_loss 5e-5, old HPs from trial #44), NOT the
+  canonical log encoder.  So "40 = 20" is only resolved-by-analogy for the
+  canonical log encoder; it has never been tested at 40 epochs directly.
+
+**Considered / findings.**
+1. The probe MLP-loss curves (24/28 epochs) are PROBE early-stopping (patience 5),
+   not encoder training -- a red herring for the encoder-epochs question.
+2. "Best = last epoch, SSL loss still descending" is the known pattern: the
+   2026-06-11 entry already established that SSL loss descends past 20 while the
+   downstream metric saturates well before.  SSL-loss descent does not imply
+   downstream gain.
+3. Decisive: kNN k=5 purity is ~0.582 across THREE encoders -- linear-20 (0.582),
+   linear-40 (0.585), log-20 (0.582).  Stability across both objective and epoch
+   count means ~0.58 is a data/geometry property, not a training-duration artifact.
+4. The real signal: a supervised MLP probe reads qap at 0.769 while raw-latent kNN
+   purity is 0.58 -- a ~19pp gap.  The class information IS in the latent (a
+   classifier extracts it) but the latent does not arrange same-class rocks as
+   neighbors.  This is the masked-LM "anisotropic embedding" symptom
+   (decode-but-don't-cluster), not under-training and not too-messy data.
+
+**Decision.** The weak unsupervised geometry is a representation-objective
+limitation, not an epoch-budget problem -- more epochs of the same masked-element
+objective will not move it (linear 20-vs-40 null + cross-encoder kNN stability).
+Improving it needs a different SSL pretext that shapes the embedding geometry;
+opened as epic #15 (P1-high).  Measurement discipline going forward: raw-latent
+probe + distance-weighted / supergroup kNN, NOT UMAP-2D aesthetics (UMAP is lossy,
+and rock chemistry is largely continuous, so discrete 2D separation is partly the
+wrong target).
+
+**Open caveat.** One 40-epoch run of the CANONICAL log encoder + reprobe would
+convert "resolved-by-analogy" into "directly verified" for ~20 min compute;
+deferred as low expected value given the cross-encoder stability, noted in #15.
+
+**Next.** Pursue #15 (stronger representations via new SSL pretext objectives --
+pull-together / forgery-detection / group-masking) on the `encoder-representation`
+branch.
