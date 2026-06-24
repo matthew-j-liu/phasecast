@@ -103,10 +103,11 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_linear_build_forward_shape` -- `hidden=None` builds a single linear read-out emitting one value per token.
 2. `test_mlp_build_forward_shape` -- an int `hidden` builds a GELU MLP with the same per-token output shape.
-3. `test_destandardize_roundtrip` -- `predict_log_frac` undoes the standardization (`out * std + mean`) and `predict_frac` exponentiates it.
-4. `test_fit_standardization_floors_std` -- a zero-std element is clamped to the std floor so the standardized target can't blow up.
-5. `test_fit_standardization_wrong_shape_raises` -- stats not shaped `[N_TOKENS]` raise rather than silently broadcasting.
-6. `test_buffers_serialize_and_reload` -- the standardization buffers are part of `state_dict` and reload exactly (they must travel with the checkpoint).
+3. `test_mlp_dropout_inserted_after_gelu` -- a nonzero `dropout` adds one `nn.Dropout` in the MLP path; the linear path ignores it.
+4. `test_destandardize_roundtrip` -- `predict_log_frac` undoes the standardization (`out * std + mean`) and `predict_frac` exponentiates it.
+5. `test_fit_standardization_floors_std` -- a zero-std element is clamped to the std floor so the standardized target can't blow up.
+6. `test_fit_standardization_wrong_shape_raises` -- stats not shaped `[N_TOKENS]` raise rather than silently broadcasting.
+7. `test_buffers_serialize_and_reload` -- the standardization buffers are part of `state_dict` and reload exactly (they must travel with the checkpoint).
 
 ## training/
 
@@ -165,7 +166,13 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_encoder_receives_no_gradient` -- `_head_forward_loss` freezes the encoder: backward leaves every encoder parameter grad-free while the head's parameters get gradients.
 2. `test_train_imputation_head_end_to_end` -- training on the tiny encoder checkpoint fills the monitor, fits the standardization buffers off the identity, and yields a head-only checkpoint that rebuilds a working head.
-3. `test_imputation_head_checkpoint_save_load` -- `ImputationHeadCheckpoint` survives a disk round-trip with its head_config, encoder reference, and buffers intact.
+3. `test_early_stop_returns_best_val_weights` -- with `early_stop_patience` set, the returned losses are the best-val epoch's (best-weight restore) and no more than `epochs` are recorded.
+4. `test_dropout_roundtrips_through_checkpoint` -- `dropout` is stamped into head_config and rebuilds via `build_head`; a pre-dropout checkpoint (key absent) rebuilds at the 0.0 default.
+5. `test_imputation_head_checkpoint_save_load` -- `ImputationHeadCheckpoint` survives a disk round-trip with its head_config, encoder reference, and buffers intact.
+
+### test_imputation_head_hpo.py
+
+1. `test_run_imputation_hpo_end_to_end` -- a 2-trial sweep against the tiny encoder produces a well-formed summary (best_params, finite best_value, baseline reference) plus a resumable journal and history figure; exercises split + per-trial head train + val LOO scoring.
 
 ## eval/
 

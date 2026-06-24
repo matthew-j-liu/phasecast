@@ -1,6 +1,7 @@
 {
   "architecture": {
     "dropout": [
+      "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
@@ -11,8 +12,10 @@
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/models/encoder.py",
+      "src/cnmineral/models/imputation_head.py",
       "src/cnmineral/training/build_from_config.py",
-      "src/cnmineral/training/checkpoint.py"
+      "src/cnmineral/training/checkpoint.py",
+      "src/cnmineral/training/imputation_head.py"
     ],
     "fractional_encoding": [
       "src/cnmineral/models/encoder.py",
@@ -108,13 +111,15 @@
   },
   "hpo": {
     "optuna_journal_storage": [
+      "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
       "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "scripts/eval/plot_training.py",
       "src/cnmineral/eval/probe/hpo.py",
-      "src/cnmineral/training/hpo.py"
+      "src/cnmineral/training/hpo.py",
+      "src/cnmineral/training/imputation_head_hpo.py"
     ],
     "optuna_median_pruner": [
       "configs/pretrain/pretrain_hpo.yaml",
@@ -129,16 +134,19 @@
     "optuna_study": [
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
-      "src/cnmineral/training/hpo.py"
+      "src/cnmineral/training/hpo.py",
+      "src/cnmineral/training/imputation_head_hpo.py"
     ],
     "optuna_tpe_sampler": [
+      "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
       "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
-      "src/cnmineral/training/hpo.py"
+      "src/cnmineral/training/hpo.py",
+      "src/cnmineral/training/imputation_head_hpo.py"
     ]
   },
   "initialization": {
@@ -150,7 +158,8 @@
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/training/checkpoint.py",
-      "src/cnmineral/training/imputation_head.py"
+      "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/imputation_head_hpo.py"
     ],
     "mask_token_learnable": [
       "src/cnmineral/data/tokens.py",
@@ -233,18 +242,24 @@
       "src/cnmineral/eval/supergroup.py",
       "src/cnmineral/eval/umap_views.py",
       "src/cnmineral/training/__init__.py",
+      "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/splits.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "early_stopping": [
+      "configs/imputation/imputation_head_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/imputation_head_hpo.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "frozen_encoder_readout": [
+      "scripts/eval/hpo_imputation_head.py",
       "scripts/eval/train_imputation_head.py",
       "src/cnmineral/eval/imputation_logspace.py",
-      "src/cnmineral/training/imputation_head.py"
+      "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/imputation_head_hpo.py"
     ],
     "grad_clip": [
       "src/cnmineral/training/imputation_head.py",
@@ -252,6 +267,7 @@
     ],
     "masked_element_modeling": [
       "configs/imputation/imputation_head.yaml",
+      "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",

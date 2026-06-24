@@ -49,15 +49,24 @@ class LogImputationHead(nn.Module):
     standardize
         Whether `fit_standardization` will populate the de-standardization
         buffers.  Recorded so the checkpoint can rebuild the same head.
+    dropout
+        Dropout after the GELU in the MLP path; ignored for the linear head.
+        `0.0` disables it.
     """
 
     def __init__(
-        self, d_model: int, *, hidden: int | None = None, standardize: bool = True,
+        self,
+        d_model: int,
+        *,
+        hidden: int | None = None,
+        standardize: bool = True,
+        dropout: float = 0.0,
     ) -> None:
         super().__init__()
         self.d_model = d_model
         self.hidden = hidden
         self.standardize = standardize
+        self.dropout = dropout
 
         if hidden is None:
             self.net = nn.Linear(d_model, N_TOKENS)
@@ -65,6 +74,7 @@ class LogImputationHead(nn.Module):
             self.net = nn.Sequential(
                 nn.Linear(d_model, hidden),
                 nn.GELU(),
+                nn.Dropout(dropout),
                 nn.Linear(hidden, N_TOKENS),
             )
 

@@ -28,6 +28,17 @@ def test_mlp_build_forward_shape() -> None:
     assert out.shape == (3, N_TOKENS)
 
 
+def test_mlp_dropout_inserted_after_gelu() -> None:
+    """A nonzero `dropout` adds an `nn.Dropout` in the MLP path; linear ignores it."""
+    mlp = LogImputationHead(d_model=8, hidden=4, dropout=0.3)
+    dropouts = [m for m in mlp.net if isinstance(m, torch.nn.Dropout)]
+    assert len(dropouts) == 1 and dropouts[0].p == 0.3
+    assert mlp.dropout == 0.3
+
+    linear = LogImputationHead(d_model=8, hidden=None, dropout=0.3)
+    assert isinstance(linear.net, torch.nn.Linear)  # dropout has no effect
+
+
 def test_destandardize_roundtrip() -> None:
     """`predict_log_frac` undoes the standardization; `predict_frac` exponentiates."""
     head = LogImputationHead(d_model=4, hidden=None)

@@ -159,6 +159,56 @@ def _plot_logspace_r2(
     plt.close(fig)
 
 
+def score_head_per_element(
+    encoder: Encoder,
+    head: LogImputationHead,
+    dataset,
+    indices: np.ndarray,
+    *,
+    device: torch.device | str,
+    batch_size: int,
+    with_panels: bool = False,
+) -> tuple[dict[str, dict], list[dict]]:
+    """Leave-one-out log-space score over every populated element on `indices`.
+
+    The scoring core shared by the production test eval (`with_panels=True`,
+    `indices=test`) and the head HPO objective (`with_panels=False`,
+    `indices=val`): for each vocabulary position it masks the target, frozen-
+    encodes, reads the head's de-standardized prediction, and records
+    `log_r2`/`log_mae`/`log_rmse`.  Returns `(per_element, trace_panels)`;
+    `trace_panels` is empty unless `with_panels` is set.  Gate reference lines
+    and printing are the caller's concern -- this stays a pure scorer.
+    """
+    per_element: dict[str, dict] = {}
+    trace_panels: list[dict] = []
+    for token_pos, (sym, _z) in enumerate(VOCAB):
+        kept, true_frac, pred_log = _impute_token_logspace(
+            encoder, head, dataset, indices, token_pos,
+            device=device, batch_size=batch_size,
+        )
+        if kept.size == 0:
+            continue
+        true_log = np.log10(np.clip(true_frac, _LOG_FLOOR, None))
+        m = _regression_metrics(true_log, pred_log)
+        per_element[sym] = {
+            "token_pos": token_pos,
+            "n": int(kept.size),
+            "unit": _back_transform(token_pos, true_frac[:1])[1],
+            "log_r2": m["r2"],
+            "log_mae": m["mae"],
+            "log_rmse": m["rmse"],
+        }
+        if with_panels and token_pos >= _N_MAJORS:
+            bt_true, label = _back_transform(token_pos, true_frac)
+            bt_pred, _ = _back_transform(token_pos, np.power(10.0, pred_log))
+            trace_panels.append({
+                "label": label, "n": int(kept.size), "true_bt": bt_true,
+                "pred_bt": bt_pred, "kept": kept,
+                "metrics_bt": {"mae": m["mae"], "r2": m["r2"]},
+            })
+    return per_element, trace_panels
+
+
 def run_imputation_logspace(
     head_checkpoint_path: Path,
     *,
@@ -193,39 +243,17 @@ def run_imputation_logspace(
     print(f"dataset n={len(dataset)} test={len(test_idx)} "
           f"gate_refs={'yes' if references else 'no'}")
 
-    per_element: dict[str, dict] = {}
-    trace_panels: list[dict] = []
-    for token_pos, (sym, _z) in enumerate(VOCAB):
-        kept, true_frac, pred_log = _impute_token_logspace(
-            encoder, head, dataset, test_idx, token_pos,
-            device=device, batch_size=batch_size,
-        )
-        if kept.size == 0:
-            continue
-        true_log = np.log10(np.clip(true_frac, _LOG_FLOOR, None))
-        m = _regression_metrics(true_log, pred_log)
-        rec = {
-            "token_pos": token_pos,
-            "n": int(kept.size),
-            "unit": _back_transform(token_pos, true_frac[:1])[1],
-            "log_r2": m["r2"],
-            "log_mae": m["mae"],
-            "log_rmse": m["rmse"],
-        }
+    per_element, trace_panels = score_head_per_element(
+        encoder, head, dataset, test_idx,
+        device=device, batch_size=batch_size, with_panels=True,
+    )
+    for sym, rec in per_element.items():
         ref = references.get(sym)
         if ref is not None:
             rec.update(ref)
-        per_element[sym] = rec
-
-        if token_pos >= _N_MAJORS:
-            bt_true, label = _back_transform(token_pos, true_frac)
-            bt_pred, _ = _back_transform(token_pos, np.power(10.0, pred_log))
-            trace_panels.append({
-                "label": label, "n": int(kept.size), "true_bt": bt_true,
-                "pred_bt": bt_pred, "supergroup": sg_all[kept],
-                "metrics_bt": {"mae": m["mae"], "r2": m["r2"]},
-            })
-        print(f"  {sym:<3s} n={kept.size:<6d} log_R2={m['r2']:.3f}")
+        print(f"  {sym:<3s} n={rec['n']:<6d} log_R2={rec['log_r2']:.3f}")
+    for panel in trace_panels:
+        panel["supergroup"] = sg_all[panel.pop("kept")]
 
     _plot_logspace_r2(per_element, tag, output_dir / "r2_by_element.png")
     if trace_panels:

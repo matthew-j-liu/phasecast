@@ -12,6 +12,8 @@ import torch
 from cnmineral.data.tokens import N_TOKENS
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.imputation_head import LogImputationHead
+import pytest
+
 from cnmineral.training.imputation_head import (
     ImputationHeadCheckpoint,
     _head_forward_loss,
@@ -73,6 +75,43 @@ def test_train_imputation_head_end_to_end(tiny_pretrain_checkpoint: Path) -> Non
     assert head.predict_frac(torch.zeros(2, head.d_model)).shape == (2, N_TOKENS)
 
 
+def test_early_stop_returns_best_val_weights(tiny_pretrain_checkpoint: Path) -> None:
+    """With `early_stop_patience` set, the returned losses are the best-val
+    epoch's (best-weight restore), and training records no more than `epochs`."""
+    config = {
+        "encoder_checkpoint": str(tiny_pretrain_checkpoint),
+        "hidden": 8,
+        "epochs": 4,
+        "batch_size": 32,
+        "lr": 1e-3,
+        "val_split": 0.25,
+        "early_stop_patience": 1,
+        "seed": 0,
+    }
+    ckpt = train_imputation_head(config, torch.device("cpu"))
+    assert len(ckpt.monitor["val"]) <= config["epochs"]
+    assert ckpt.val_loss == pytest.approx(min(ckpt.monitor["val"]))
+
+
+def test_dropout_roundtrips_through_checkpoint(tiny_pretrain_checkpoint: Path) -> None:
+    """`dropout` is stamped into head_config and rebuilds via build_head; a
+    pre-dropout checkpoint (key absent) still rebuilds at the 0.0 default."""
+    head = LogImputationHead(d_model=16, hidden=8, dropout=0.25)
+    ckpt = ImputationHeadCheckpoint.from_head(
+        head, str(tiny_pretrain_checkpoint), 0.1, 0.2, {"train": [0.1], "val": [0.2]},
+    )
+    assert ckpt.head_config["dropout"] == 0.25
+    assert ckpt.build_head().dropout == 0.25
+
+    legacy = ImputationHeadCheckpoint(
+        head_state=head.state_dict(),
+        head_config={"d_model": 16, "hidden": 8, "standardize": True},
+        encoder_checkpoint=str(tiny_pretrain_checkpoint),
+        train_loss=0.1, val_loss=0.2, monitor={"train": [0.1], "val": [0.2]},
+    )
+    assert legacy.build_head().dropout == 0.0
+
+
 def test_imputation_head_checkpoint_save_load(
     tiny_pretrain_checkpoint: Path, tmp_path: Path,
 ) -> None:
@@ -89,7 +128,9 @@ def test_imputation_head_checkpoint_save_load(
     ckpt.save(path)
 
     loaded = ImputationHeadCheckpoint.load(path)
-    assert loaded.head_config == {"d_model": 16, "hidden": 8, "standardize": True}
+    assert loaded.head_config == {
+        "d_model": 16, "hidden": 8, "standardize": True, "dropout": 0.0,
+    }
     assert loaded.encoder_checkpoint == str(tiny_pretrain_checkpoint)
     assert torch.equal(
         loaded.build_head().target_std, head.target_std,

@@ -71,6 +71,7 @@ class ImputationHeadCheckpoint:
                 "d_model": head.d_model,
                 "hidden": head.hidden,
                 "standardize": head.standardize,
+                "dropout": head.dropout,
             },
             encoder_checkpoint=str(encoder_checkpoint),
             train_loss=float(train_loss),
@@ -117,6 +118,7 @@ class ImputationHeadCheckpoint:
             d_model=self.head_config["d_model"],
             hidden=self.head_config["hidden"],
             standardize=self.head_config["standardize"],
+            dropout=self.head_config.get("dropout", 0.0),
         )
         head.load_state_dict(self.head_state)
         head.eval()
@@ -143,34 +145,15 @@ def _head_forward_loss(
     )
 
 
-def train_imputation_head(
-    config: dict, device: torch.device,
-) -> ImputationHeadCheckpoint:
-    """Train the log-space imputation head on the configured frozen encoder.
+def _train_val_split(
+    dataset, trainval: list[int], val_split: float, seed: int,
+) -> tuple[list[int], list[int]]:
+    """Stratified (by `qap_name`) inner split of the trainval indices.
 
-    Required config keys: `encoder_checkpoint`, `epochs`, `lr`, `batch_size`.
-    Optional: `hidden` (None -> linear), `standardize` (default True),
-    `mask_prob` (default: the encoder's pretrain `mask_prob`), `weight_decay`,
-    `val_split` (default 0.20), `num_workers`, `head_checkpoint_dir` +
-    `head_checkpoint_filename` (saves the checkpoint when both are set).
-    `seed` defaults to the encoder checkpoint's seed so the inner split
-    matches the rest of the pipeline.
+    Shared by the production trainer and the head HPO so both carve the same
+    val split from the same encoder's trainval -- the tuned numbers and the
+    shipped head are then scored on identical held-out rows.
     """
-    encoder_ckpt_path = config["encoder_checkpoint"]
-    encoder, enc_ckpt = load_encoder_from_checkpoint(encoder_ckpt_path)
-    encoder.to(device).eval()
-    for p in encoder.parameters():
-        p.requires_grad_(False)
-
-    seed = int(config.get("seed", enc_ckpt.config.get("seed", 0)))
-    torch.manual_seed(seed)
-    mask_prob = config.get("mask_prob", enc_ckpt.config["mask_prob"])
-    num_workers = config.get("num_workers", 0)
-    batch_size = config["batch_size"]
-
-    dataset = create_dataset(enc_ckpt.config)
-    trainval = reserve_test(dataset, enc_ckpt.config)["trainval"]
-    val_split = config.get("val_split", 0.20)
     if val_split <= 0:
         raise ValueError(f"val_split must be > 0; got {val_split}")
     train_indices, val_indices = train_test_split(
@@ -182,11 +165,40 @@ def train_imputation_head(
             f"train/val split produced empty subset: "
             f"trainval={len(trainval)}, val_split={val_split}"
         )
+    return train_indices, val_indices
+
+
+def train_head_on_split(
+    encoder: Encoder,
+    enc_config: dict,
+    dataset,
+    train_indices: list[int],
+    val_indices: list[int],
+    config: dict,
+    device: torch.device,
+    *,
+    verbose: bool = True,
+) -> tuple[LogImputationHead, dict[str, list[float]], float, float]:
+    """Train one head on a fixed train/val split; return it at its best val.
+
+    Builds the head from `config` (`hidden`, `standardize`, `dropout`), fits
+    standardization on `train_indices`, and trains up to `epochs` with val-loss
+    early stopping: the best-val weights are restored before returning, and an
+    `early_stop_patience` (when set) halts once val has not improved for that
+    many epochs.  Returns `(head, monitor, train_loss, val_loss)` where the two
+    losses are the best-val epoch's, not the last epoch's.  The encoder is
+    assumed already frozen + on `device`.
+    """
+    mask_prob = config.get("mask_prob", enc_config["mask_prob"])
+    num_workers = config.get("num_workers", 0)
+    batch_size = config["batch_size"]
+    patience = config.get("early_stop_patience")
 
     head = LogImputationHead(
-        d_model=enc_ckpt.config["d_model"],
+        d_model=enc_config["d_model"],
         hidden=config.get("hidden"),
         standardize=config.get("standardize", True),
+        dropout=config.get("dropout", 0.0),
     ).to(device)
     if head.standardize:
         mean, std = log_frac_stats(
@@ -208,16 +220,11 @@ def train_imputation_head(
         shuffle=False, num_workers=num_workers,
     )
 
-    print(
-        f"train_imputation_head: device={device} encoder={Path(encoder_ckpt_path).name} "
-        f"n_train={len(train_indices)} n_val={len(val_indices)} "
-        f"hidden={head.hidden} standardize={head.standardize} "
-        f"epochs={config['epochs']} batch_size={batch_size} lr={config['lr']} "
-        f"mask_prob={mask_prob}"
-    )
-
     monitor: dict[str, list[float]] = {"train": [], "val": []}
-    train_mean = val_mean = 0.0
+    best_val = float("inf")
+    best_train = float("nan")
+    best_state: dict | None = None
+    epochs_no_improve = 0
     for epoch in range(config["epochs"]):
         head.train()
         train_total, n_train = 0.0, 0
@@ -245,14 +252,73 @@ def train_imputation_head(
         assert n_val > 0, "no val batches processed"
         val_mean = val_total / n_val
         monitor["val"].append(val_mean)
-        print(
-            f"epoch {epoch + 1}/{config['epochs']} "
-            f"train={train_mean:.4f} val={val_mean:.4f} "
-            f"elapsed={(time() - epoch_start) * 1000:.0f}ms"
-        )
+        if verbose:
+            print(
+                f"epoch {epoch + 1}/{config['epochs']} "
+                f"train={train_mean:.4f} val={val_mean:.4f} "
+                f"elapsed={(time() - epoch_start) * 1000:.0f}ms"
+            )
+
+        if val_mean < best_val:
+            best_val, best_train = val_mean, train_mean
+            best_state = {k: v.clone() for k, v in head.state_dict().items()}
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            if patience is not None and epochs_no_improve >= patience:
+                if verbose:
+                    print(f"early stop at epoch {epoch + 1} (best val={best_val:.4f})")
+                break
+
+    if best_state is not None:
+        head.load_state_dict(best_state)
+    return head, monitor, best_train, best_val
+
+
+def train_imputation_head(
+    config: dict, device: torch.device,
+) -> ImputationHeadCheckpoint:
+    """Train the log-space imputation head on the configured frozen encoder.
+
+    Required config keys: `encoder_checkpoint`, `epochs`, `lr`, `batch_size`.
+    Optional: `hidden` (None -> linear), `standardize` (default True),
+    `dropout` (default 0.0, MLP only), `mask_prob` (default: the encoder's
+    pretrain `mask_prob`), `weight_decay`, `early_stop_patience` (None -> run
+    all epochs), `val_split` (default 0.20), `num_workers`,
+    `head_checkpoint_dir` + `head_checkpoint_filename` (saves the checkpoint
+    when both are set).  `seed` defaults to the encoder checkpoint's seed so
+    the inner split matches the rest of the pipeline.
+    """
+    encoder_ckpt_path = config["encoder_checkpoint"]
+    encoder, enc_ckpt = load_encoder_from_checkpoint(encoder_ckpt_path)
+    encoder.to(device).eval()
+    for p in encoder.parameters():
+        p.requires_grad_(False)
+
+    seed = int(config.get("seed", enc_ckpt.config.get("seed", 0)))
+    torch.manual_seed(seed)
+
+    dataset = create_dataset(enc_ckpt.config)
+    trainval = reserve_test(dataset, enc_ckpt.config)["trainval"]
+    train_indices, val_indices = _train_val_split(
+        dataset, trainval, config.get("val_split", 0.20), seed,
+    )
+
+    print(
+        f"train_imputation_head: device={device} encoder={Path(encoder_ckpt_path).name} "
+        f"n_train={len(train_indices)} n_val={len(val_indices)} "
+        f"hidden={config.get('hidden')} standardize={config.get('standardize', True)} "
+        f"dropout={config.get('dropout', 0.0)} epochs={config['epochs']} "
+        f"batch_size={config['batch_size']} lr={config['lr']} "
+        f"mask_prob={config.get('mask_prob', enc_ckpt.config['mask_prob'])}"
+    )
+
+    head, monitor, train_loss, val_loss = train_head_on_split(
+        encoder, enc_ckpt.config, dataset, train_indices, val_indices, config, device,
+    )
 
     ckpt = ImputationHeadCheckpoint.from_head(
-        head, str(encoder_ckpt_path), train_mean, val_mean, monitor,
+        head, str(encoder_ckpt_path), train_loss, val_loss, monitor,
     )
     if config.get("head_checkpoint_dir"):
         out_path = (
