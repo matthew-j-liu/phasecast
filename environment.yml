@@ -8,6 +8,8 @@ dependencies:
   - pandas
   - scipy
   - scikit-learn
+  - xgboost
+  - optuna
   - matplotlib
   - h5py
   - pyarrow
@@ -16,6 +18,7 @@ dependencies:
   - pytorch
   - pymatgen
   - jupyterlab
+  - pytest
   - pip
   - pip:
       - pyrolite

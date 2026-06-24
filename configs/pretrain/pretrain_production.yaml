@@ -1,0 +1,29 @@
+# Take the best hyperparameters found by Optuna trials and paste here
+batch_size: 32                      
+lr: 1.4708512167257399e-4                       
+mask_prob: 0.22994349809709916      
+weight_decay: 0.007669492144818994           
+dropout: 0.013193520455011092           
+d_model: 256      
+n_layers: 4                  
+n_heads: 8   
+
+# should match what was used in `probe_hpo.yaml`
+seed: 0 # update the checkpoint_dir with this as well! 
+epochs: 20
+test_split: 0.20
+val_split: 0.20
+
+num_workers: 0
+frac_resolution: 5000
+
+data_kwargs:
+  csv_path: data/bulks/gard2019.csv
+  rock_group: igneous
+  drop_zero_as_nan: true
+  require_all_majors: true
+  include_cr2o3: false
+
+checkpoint_dir: checkpoints/pretrain_v3_seed0 
+checkpoint_best_filename: epoch_best.pt
+checkpoint_last_filename: epoch_last.pt
