@@ -154,11 +154,6 @@ techniques:
     type: loss
     patterns:
       - "masked_element_log_mse"
-  - name: masked_element_weighted_mse
-    type: loss
-    patterns:
-      - "masked_element_weighted_mse"
-      - "inverse_variance_weights"
 
   # ---- preprocessing ----
   - name: standard_scaler

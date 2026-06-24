@@ -5,7 +5,7 @@ Eleven contracts:
 - One forward/backward/step actually updates the encoder.
 - A rebalanced (log-space) objective also updates the encoder in one step.
 - run_pretraining returns the expected result-dict keys.
-- Each loss objective (mse / log_mse / weighted_mse) runs end-to-end and
+- Each loss objective (mse / log_mse) runs end-to-end and
   returns matching-shaped loss_stats.
 - The monitor dict is shaped right both in-memory and on disk.
 - run_single returns finite test_loss + stamps the store's best.
@@ -422,7 +422,6 @@ def test_log_loss_one_step_updates_encoder() -> None:
         ({"type": "mse"}, "none"),
         ({"type": "log_mse", "standardize": True}, "log"),
         ({"type": "log_mse", "standardize": False}, "log"),
-        ({"type": "weighted_mse"}, "weighted"),
     ],
 )
 def test_run_pretraining_loss_variants(loss_cfg: dict, kind: str) -> None:
@@ -440,10 +439,7 @@ def test_run_pretraining_loss_variants(loss_cfg: dict, kind: str) -> None:
     stats = result["loss_stats"]
     if kind == "none":
         assert stats is None
-    elif kind == "log":
+    else:
         assert set(stats) == {"target_mean", "target_std"}
         assert stats["target_mean"].shape == (N_TOKENS,)
         assert stats["target_std"].shape == (N_TOKENS,)
-    else:
-        assert set(stats) == {"token_weights"}
-        assert stats["token_weights"].shape == (N_TOKENS,)

@@ -1,11 +1,11 @@
 {
   "architecture": {
     "dropout": [
+      "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
-      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/pretrain/pretrain_logmse_std_seed1.yaml",
       "configs/pretrain/pretrain_production.yaml",
       "configs/probe/probe_hpo.yaml",
@@ -114,7 +114,6 @@
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
-      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "scripts/eval/plot_training.py",
       "src/cnmineral/eval/probe/hpo.py",
@@ -125,7 +124,6 @@
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
-      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
@@ -142,7 +140,6 @@
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
-      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
@@ -186,10 +183,6 @@
     ],
     "masked_element_mse": [
       "src/cnmineral/data/tokens.py",
-      "src/cnmineral/losses/pretrain_loss.py",
-      "src/cnmineral/training/pretrain_objective.py"
-    ],
-    "masked_element_weighted_mse": [
       "src/cnmineral/losses/pretrain_loss.py",
       "src/cnmineral/training/pretrain_objective.py"
     ]
@@ -247,6 +240,7 @@
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "early_stopping": [
+      "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/primitives.py",
@@ -271,7 +265,6 @@
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
-      "configs/pretrain/pretrain_hpo_weighted.yaml",
       "configs/pretrain/pretrain_logmse_std_seed1.yaml",
       "configs/pretrain/pretrain_production.yaml",
       "src/cnmineral/data/tokens.py",

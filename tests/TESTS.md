@@ -60,10 +60,6 @@ rename, or repurpose a test) updates this file in the same change.**
 5. `test_log_mse_zero_when_no_mask` -- `masked_element_log_mse` returns 0 on an all-False mask, mirroring the linear-space contract.
 6. `test_log_mse_finite_with_zero_unmasked_targets` -- frac=0 at unmasked positions (log10 -> -inf) stays finite because the target is floored before the log and those positions are masked out.
 7. `test_log_mse_zero_on_exact_standardized_prediction` -- predicting the standardized-log target exactly gives loss 0, confirming the per-element standardization the head emits is what the loss expects.
-8. `test_weighted_mse_reductions_match_hand_computed_values` -- `masked_element_weighted_mse` scales each position's SE by its token weight before reduction; all three reductions match hand-computed values.
-9. `test_weighted_mse_unit_weights_match_plain_mse` -- unit weights reduce the weighted loss to plain `masked_element_mse` under every reduction (the weighting is the only added behavior).
-10. `test_weighted_mse_zero_when_no_mask` -- an all-False mask yields 0 under every reduction.
-11. `test_weighted_mse_validation_raises` -- shape mismatch, non-bool mask, and wrong `token_weights` length raise.
 
 ## models/
 
@@ -132,16 +128,15 @@ rename, or repurpose a test) updates this file in the same change.**
 12. `test_last_carries_test_loss_none_after_run_single` -- the last snapshot stays unstamped; only best carries the headline test_loss.
 13. `test_run_single_writes_to_configured_filenames` -- YAML-configured checkpoint filenames land on disk and the default names do not (two runs can share a dir safely).
 14. `test_log_loss_one_step_updates_encoder` -- a standardized log-space objective yields nonzero encoder gradients in one step (the rebalanced loss trains the encoder, the trace-supervision fix).
-15. `test_run_pretraining_loss_variants` -- each objective (mse / log_mse standardized + plain / weighted_mse) runs end-to-end and returns matching-shaped `loss_stats` (None / mean+std / token_weights).
+15. `test_run_pretraining_loss_variants` -- each objective (mse / log_mse standardized + plain) runs end-to-end and returns matching-shaped `loss_stats` (None / mean+std).
 
 ### test_pretrain_objective.py
 
 1. `test_log_frac_stats_hand_computed` -- per-element log10(frac) mean/std matches a hand case; absent elements keep the identity (mean 0, std 1).
-2. `test_inverse_variance_weights_upweights_low_variance` -- weights are positive, mean-1 normalized, and a low-variance (trace-like) element outweighs a high-variance (major-like) one.
-3. `test_compute_loss_stats_dispatch` -- returns None for mse (and absent loss key), log center/scale for log_mse (identity when standardize off), token weights for weighted_mse.
-4. `test_compute_loss_stats_unknown_type_raises` -- an unknown loss type raises rather than silently defaulting.
-5. `test_make_loss_fn_matches_underlying_losses` -- the built callable's value equals the underlying loss for mse / log_mse / weighted_mse on the same batch.
-6. `test_make_loss_fn_requires_stats_for_rebalanced` -- log_mse / weighted_mse with stats=None raise (the rebalanced objectives need their corpus stats).
+2. `test_compute_loss_stats_dispatch` -- returns None for mse (and absent loss key), log center/scale for log_mse (identity when standardize off).
+3. `test_compute_loss_stats_unknown_type_raises` -- an unknown loss type raises rather than silently defaulting.
+4. `test_make_loss_fn_matches_underlying_losses` -- the built callable's value equals the underlying loss for mse / log_mse on the same batch.
+5. `test_make_loss_fn_requires_stats_for_rebalanced` -- log_mse with stats=None raises (the rebalanced objective needs its corpus stats).
 
 ### test_hpo.py
 

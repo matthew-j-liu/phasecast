@@ -3,10 +3,8 @@
 Contracts:
 - `log_frac_stats` matches a hand-computed mean/std and keeps absent elements
   at the identity (mean 0, std 1).
-- `inverse_variance_weights` is positive, mean-1 normalized, and up-weights a
-  low-variance (trace-like) element over a high-variance (major-like) one.
 - `compute_loss_stats` dispatches: None for mse, log center/scale for log_mse
-  (identity when standardize off), token weights for weighted_mse.
+  (identity when standardize off).
 - `make_loss_fn` returns a callable whose value matches the underlying loss for
   each objective, and raises on missing stats / unknown type.
 """
@@ -18,11 +16,9 @@ from cnmineral.data.tokens import N_TOKENS
 from cnmineral.losses.pretrain_loss import (
     masked_element_log_mse,
     masked_element_mse,
-    masked_element_weighted_mse,
 )
 from cnmineral.training.pretrain_objective import (
     compute_loss_stats,
-    inverse_variance_weights,
     log_frac_stats,
     make_loss_fn,
 )
@@ -65,25 +61,6 @@ def test_log_frac_stats_hand_computed() -> None:
     assert std[1].item() == pytest.approx(1.0)
 
 
-def test_inverse_variance_weights_upweights_low_variance() -> None:
-    """A low-variance element gets a larger weight than a high-variance one;
-    weights are positive and normalized to mean 1."""
-    n = 2
-    src = torch.zeros(n, N_TOKENS, dtype=torch.long)
-    frac = torch.zeros(n, N_TOKENS, dtype=torch.float)
-    src[:, 0] = 14  # high-variance "major-like"
-    src[:, 1] = 38  # low-variance "trace-like"
-    frac[:, 0] = torch.tensor([0.1, 0.3])      # var 0.01
-    frac[:, 1] = torch.tensor([1.0e-6, 2.0e-6])  # var ~2.5e-13
-    weights = inverse_variance_weights(
-        _FracDataset(src, frac), [0, 1], batch_size=8, num_workers=0,
-    )
-    assert weights.shape == (N_TOKENS,)
-    assert (weights > 0).all()
-    assert weights.mean().item() == pytest.approx(1.0)
-    assert weights[1].item() > weights[0].item()
-
-
 def _batch(seed: int = 0) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     g = torch.Generator().manual_seed(seed)
     predicted = torch.rand(3, N_TOKENS, generator=g)
@@ -112,11 +89,6 @@ def test_compute_loss_stats_dispatch() -> None:
     assert torch.equal(plain_log["target_mean"], torch.zeros(N_TOKENS))
     assert torch.equal(plain_log["target_std"], torch.ones(N_TOKENS))
 
-    w_stats = compute_loss_stats(
-        {"loss": {"type": "weighted_mse"}}, ds, idx, batch_size=8, num_workers=0,
-    )
-    assert set(w_stats) == {"token_weights"}
-
 
 def test_compute_loss_stats_unknown_type_raises() -> None:
     ds = _single_element_dataset([0.1, 0.001])
@@ -144,18 +116,7 @@ def test_make_loss_fn_matches_underlying_losses() -> None:
         ).item()
     )
 
-    cfg_w = {"loss": {"type": "weighted_mse"}}
-    w_stats = compute_loss_stats(cfg_w, ds, idx, batch_size=8, num_workers=0)
-    w_fn = make_loss_fn(cfg_w, w_stats)
-    assert w_fn(predicted, target, mask).item() == pytest.approx(
-        masked_element_weighted_mse(
-            predicted, target, mask, token_weights=w_stats["token_weights"],
-        ).item()
-    )
-
 
 def test_make_loss_fn_requires_stats_for_rebalanced() -> None:
     with pytest.raises(ValueError, match="needs stats"):
         make_loss_fn({"loss": {"type": "log_mse"}}, None)
-    with pytest.raises(ValueError, match="needs stats"):
-        make_loss_fn({"loss": {"type": "weighted_mse"}}, None)
