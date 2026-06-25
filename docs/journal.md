@@ -2814,3 +2814,66 @@ deferred as low expected value given the cross-encoder stability, noted in #15.
 **Next.** Pursue #15 (stronger representations via new SSL pretext objectives --
 pull-together / forgery-detection / group-masking) on the `encoder-representation`
 branch.
+
+## 2026-06-25 -- input-kNN ceiling: qap is ~not kNN-separable from bulk chemistry; the latent is already at the data limit
+
+**Q.** Before building any new SSL pretext for #15, what is the prize? The
+canonical encoder reads qap at 0.769 (MLP probe) but raw-latent kNN qap purity is
+only 0.582 (k=5). Is that 0.58 a fixable representation gap, or a property of the
+data?
+
+**Context.** The 06-24 geometry audit established 0.58 is stable across encoders
+and epoch counts (not under-training) and read it as the masked-LM "anisotropic
+embedding" symptom -- a training-objective limitation a new pretext could fix.
+That read was untested against the one obvious baseline: how separable is qap by
+the raw chemistry *at all*. Some qap splits are textural (basalt vs gabbro are
+the same chemistry, differing only in cooling rate the encoder never sees), so
+there is an unknown ceiling below 1.0 that no encoder can pass.
+
+**Method.** Ran the identical kNN purity on the raw 22-element input instead of
+the latent (geometry analogue of the imputation raw-input XGBoost ceiling),
+reproducing the encoder's exact test split. Two raw representations (raw frac;
+per-element standardized log-frac), both metrics, qap + supergroup. Exploration:
+`explorations/input_knn_ceiling/` (committed result + repro). The latent number
+reproduced 0.582 exactly, confirming the split was rebuilt correctly.
+
+**Result (k=5, 33371-row test).**
+
+| label | latent (cos) | best raw-input | headroom |
+|---|---|---|---|
+| qap_name | 0.582 | 0.607 (raw frac) | +0.026 |
+| supergroup | 0.670 | 0.676 (raw frac) | +0.006 |
+
+Raw-input qap kNN tops out at ~0.61; the latent at 0.582 is ~96% of that. Two
+secondary findings: (1) the standardized-log space is *worse* (qap 0.527) -- equal
+element weighting dilutes qap, which is major-driven; raw-frac (major-dominated)
+is the better ceiling, and the latent's slight shortfall vs raw is the encoder
+weighting traces more (it was trained to reconstruct them). (2) The decode-vs-kNN
+gap (classifier 0.77 vs kNN 0.61) exists in the *raw input* too, so it is intrinsic
+to the task, not an anisotropy artifact the SSL objective introduced -- this
+partly overturns the 06-24 anisotropy attribution.
+
+**Considered.** A learned representation is NOT hard-bounded by a fixed-metric
+raw-input kNN -- metric learning routinely beats raw-feature distance (face
+embeddings vs pixels). But our encoder is reconstruction-trained, which *preserves*
+input geometry rather than reshaping it, so it sits at the input ceiling as
+expected. The only family that could exceed a fixed-metric input ceiling is
+contrastive / pull-together, and only if its positive pairs carry a target the raw
+chemistry lacks. For qap specifically there is no natural "same-qap" augmentation
+short of labels, so even pull-together is unlikely to break this particular ceiling.
+
+**Decision.** qap-kNN purity is a near-maxed data ceiling, not a representation
+gap. Reconstruction-family pretexts (group-masking, #3) are bounded near it --
+do not chase qap-kNN with them. The honest reframing of #15: the question is not
+"can a better pretext segregate qap" (chemistry caps that at ~0.61) but "is there
+a target worth injecting -- tectonic setting, FC trajectory -- where a
+metric-learning objective lets the latent exceed what raw chemistry alone
+supports." Tectonic setting is in `data/grains/mineralml.csv` only (per-grain,
+majors-only, dirty labels, eval-only policy), so it is not a quick win; the
+FC-trajectory target (Track B #9) is the clean non-derivable path. No production
+code changed; the diagnostic lives in `explorations/input_knn_ceiling/` and
+generalizes (point it at any future target to screen its raw-input ceiling first).
+
+**Next.** Take the input-kNN ceiling finding back to #15 to re-scope the epic away
+from qap-kNN; the FC-corpus half of Track B (#9) is independent of the encoder
+geometry and can proceed in parallel.
