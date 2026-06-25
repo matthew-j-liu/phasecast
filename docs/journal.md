@@ -2924,3 +2924,22 @@ before-number it would aim to raise. Backing exhibit + repro in
 
 **Next.** None required; this closes the anisotropy question the 06-24 audit and
 06-25 input-kNN entry left as inference.
+
+**Cross-cutting verdict (anisotropy + imputation + kNN-ceiling + probe).** Across
+four orthogonal probes the encoder reads as strong: it sits at ~95-96% of the
+raw-input ceiling on imputation (trace log-R2 0.836 / 0.877) and qap-kNN (0.582 /
+0.607), decodes qap at 0.769, and is geometrically healthy (mild first-order cone,
+no catastrophic collapse). The earlier worries -- smeared UMAP, low kNN -- are
+properties of the task (qap not kNN-separable; chemistry is a continuum), not
+encoder defects, and are NOT a blocker for proceeding to Track B (the heads, where
+the real remaining risk lives -- whether ~32 effective dims support a multimodal
+posterior). The one honest caveat: probe (0.77) > kNN (0.58) plus the variance
+concentration means the latent is strong as a *decodable* representation but its
+*geometry-native* uses (retrieval, clustering, distance-OOD) under-weight the
+low-variance directions where some signal lives. Three follow-ups spun out as
+issues #16 (post-hoc latent distance metric -- recover the probe-vs-kNN gap without
+re-pretraining; the probe is a learned metric in disguise), #17 (map top latent
+axes to named geochemical trends -- cheap positive validation of the
+petrogenetic-structure claim), #18 (OOD detection + transfer to real-rock corpora
+-- the foundation-model claim is untested out-of-distribution). #16 and #18 share
+the Mahalanobis/whitening machinery.
