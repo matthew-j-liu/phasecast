@@ -2877,3 +2877,50 @@ generalizes (point it at any future target to screen its raw-input ceiling first
 **Next.** Take the input-kNN ceiling finding back to #15 to re-scope the epic away
 from qap-kNN; the FC-corpus half of Track B (#9) is independent of the encoder
 geometry and can proceed in parallel.
+
+## 2026-06-25 -- latent anisotropy measured head-on: encoder removes the input cone, latent uses ~12.5% of its dim budget
+
+**Q.** `input_knn_ceiling` argued the weak cosine-kNN purity is "not an anisotropy
+artifact the SSL objective introduced," but only indirectly (the same gap exists
+in the raw input). What does the canonical latent's anisotropy actually measure,
+in both senses?
+
+**Context.** Anisotropy = departure from isotropy, and there are two independent
+ones, conflated in the prior journal prose. First-order (mean / cone): a shared
+dominant direction, seen by cosine, removed by centering. Second-order (shape):
+an elongated covariance ellipsoid, computed on centered data, summarized by
+effective rank. The existing `input_ceiling.json` already showed latent cosine-kNN
+>= euclidean-kNN, and euclidean is mean-invariant -- so first-order anisotropy was
+already implicated as *not* the kNN bottleneck, but nothing had been measured
+directly.
+
+**Result (33371-row test split, `pretrain_v3_logmse_std_seed0`).**
+
+| facet | latent | raw_frac | std_log | isotropic ref |
+|---|---|---|---|---|
+| first-order pair cosine | 0.259 | 0.938 | 0.022 | 0.000 |
+| ... centered | 0.003 | 0.013 | 0.021 | -0.000 |
+| second-order eff. rank / d | 32/256 (0.125) | 2.8/22 (0.126) | 9.1/22 (0.415) | 255/256 (0.996) |
+| top-10 var fraction | 0.653 | 1.000 | 0.886 | 0.046 |
+
+First-order: the encoder *removes* the compositional cone rather than adding one.
+Raw composition is almost degenerate (pair cosine 0.94 -- positive orthant); the
+latent's residual cone is ~4x milder (0.26) and vanishes under centering (0.003).
+Combined with cosine-kNN >= euclidean-kNN, this residual cone is demonstrably not
+the kNN bottleneck. The "not an artifact" claim now rests on a direct number.
+
+Second-order: this is where the latent is genuinely anisotropic but not collapsed.
+~32 of 256 directions carry the variance (top-10 hold 65%). Eff. rank 32 >> 1, so
+no catastrophic dimensional collapse, but far from isotropic (255/256). In
+fractional terms it concentrates about as tightly as `raw_frac` (0.125 vs 0.126);
+in absolute terms it spreads chemistry over more directions than either input.
+
+**Decision.** Recorded baseline, no action. The SSL objective de-anisotropizes the
+compositional input rather than introducing a pathological geometry; the residual
+first-order cone is harmless to kNN. If #15 ever pursues an anti-collapse
+(VICReg-style variance/covariance) objective, eff. rank 32/256 is the
+before-number it would aim to raise. Backing exhibit + repro in
+`explorations/latent_anisotropy/`.
+
+**Next.** None required; this closes the anisotropy question the 06-24 audit and
+06-25 input-kNN entry left as inference.

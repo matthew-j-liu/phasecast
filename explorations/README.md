@@ -46,3 +46,4 @@ tests/explorations/test_<name>.py   mirrored tripwire test
 |---|---|
 | [trace_signal_in_latent](trace_signal_in_latent/README.md) | Why does the frozen encoder+head impute majors well but fail on traces, and which layer should be fixed? |
 | [input_knn_ceiling](input_knn_ceiling/README.md) | How separable is qap_name by raw chemistry at all -- is the latent's weak kNN purity a data ceiling or a fixable representation gap? |
+| [latent_anisotropy](latent_anisotropy/README.md) | How anisotropic is the canonical latent, in both the mean/cone (first-order) and covariance-shape (second-order) senses? |
