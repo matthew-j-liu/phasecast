@@ -229,3 +229,8 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_log_feature_matrix_absent_is_nan` -- populated entries map to log10(frac) and absent entries become NaN (XGBoost native-missing input feature).
 2. `test_masked_encode_cannot_leak_target` -- masking token e makes the encoded latent independent of e's input value, the invariant that keeps the 1b latent baseline from reading the held-out element off `h`.
 3. `test_run_diagnostic_end_to_end_on_fixture` -- `run_imputation_diagnostic` produces both controlled arms (1a/1b) per element, a populated gate block, and the metrics JSON + R2 chart.
+
+### test_input_knn_ceiling.py
+
+1. `test_build_raw_representations_shapes_and_absent_fill` -- the raw-frac and std-log test matrices are `[n_test, N_TOKENS]` and finite, and absent elements are filled with the neutral standardized 0.
+2. `test_build_raw_representations_standardization_matches_train_stats` -- std-log on populated positions equals `(log10(frac) - mean) / std` from the train-split stats, and raw-frac is the unmodified frac.
