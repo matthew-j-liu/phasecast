@@ -240,6 +240,9 @@ GitHub auto-closes on merge.
   split, current track-status.
 - [docs/pretrain_applications.md](docs/pretrain_applications.md) — the 11
   SSL-encoder capabilities beyond mineralogy (imputation, k-NN, OOD, etc.).
+- [docs/scorecard.md](docs/scorecard.md) — living, provisional rubric for latent
+  representation strength; one anchored axis per eval, status candidate/
+  provisional/locked, re-scored each encoder cascade.
 - [docs/code_style.md](docs/code_style.md) — code conventions and schema
   discipline.
 - [docs/journal.md](docs/journal.md) — append-only chronological research log
