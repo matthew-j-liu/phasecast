@@ -16,9 +16,12 @@ without any disk writes -- HPO trials use this path; production
 runs pass a real store.  `run_pretraining` itself reads nothing
 from `config["checkpoint_dir"]`.
 
-`run_single` wraps `run_pretraining` for the single-config CLI path:
-load YAML, build dataset, split, train, evaluate on test, stamp
-test_loss onto the store's best checkpoint.
+`run_single` wraps `run_production` for the single-config CLI path:
+load YAML, build dataset, split, then hand off to `run_production`,
+which trains, evaluates on test, and stamps test_loss onto the store's
+best checkpoint.  `run_production` is the one place that reads
+`config["checkpoint_dir"]`; `run_hpo` reuses it for its post-sweep
+production run.
 
 `write_run_results` lands the per-run human-facing artifacts
 (`run_summary.json` + `loss_curve.png`) under `RESULTS_ROOT/<tag>/`;
@@ -364,33 +367,34 @@ def write_run_results(result: dict, store: CheckpointStore) -> Path:
     return results_dir
 
 
-def run_single(config_path: Path, device: torch.device) -> dict:
-    """Full single-run pipeline: split, train+val, test eval.
+def run_production(
+    dataset: Dataset,
+    splits: dict,
+    config: dict,
+    device: torch.device,
+) -> dict:
+    """Train -> checkpoint -> test-eval -> stamp for one already-built run.
 
-    Returns a dict with val_loss, train_loss, test_loss (None when
-    `test_split=0`).  Stamps test_loss + test_indices onto the
-    store's best checkpoint when `config["checkpoint_dir"]` is set,
-    and writes the headline numbers to
-    `RESULTS_ROOT/<run_tag>/run_summary.json`.
+    Owns the production sequence shared by `run_single` and `run_hpo`'s
+    post-sweep run: construct the `CheckpointStore` from
+    `config["checkpoint_dir"]`, train on `splits["trainval"]`, evaluate
+    the best-val model on test (falling back to the in-memory final-epoch
+    model when there's no store), coerce a NaN test loss to None, stamp it
+    onto the best checkpoint, and land the per-run artifacts.
+
+    The caller owns dataset/splits/config construction: `run_single`
+    reads the YAML and splits itself; `run_hpo` reuses its study-scope
+    dataset and assembles `config` from `best_params`.
 
     This is the only function in the codebase that reads
-    `config["checkpoint_dir"]`.  Every downstream consumer
-    (`run_pretraining`, `run_hpo`, tests) gets a `CheckpointStore`
-    passed in directly.
+    `config["checkpoint_dir"]`.  Every other consumer (`run_pretraining`,
+    the HPO trial objective, tests) gets a `CheckpointStore` passed in
+    directly.
+
+    Returns a dict with val_loss, train_loss, test_loss (None when
+    `test_split=0`).
     """
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-
-    # build the dataset once at the entry point; reserve_test,
-    # run_pretraining, and evaluate_on_test all index into this same
-    # instance instead of reconstructing per call.
-    dataset = create_dataset(config)
-    splits = reserve_test(dataset, config)
-    print(
-        f"split: trainval={len(splits['trainval'])} test={len(splits['test'])}"
-    )
-
-    # Construct the store once.  None when no checkpoint_dir in YAML.
+    # Construct the store once.  None when no checkpoint_dir in config.
     # When checkpoint_dir IS set, both filename keys are required --
     # a missing key raises KeyError immediately rather than silently
     # falling back to a default that would overwrite an earlier run.
@@ -448,3 +452,27 @@ def run_single(config_path: Path, device: torch.device) -> dict:
         "train_loss": result["train_loss"],
         "test_loss": test_loss,
     }
+
+
+def run_single(config_path: Path, device: torch.device) -> dict:
+    """Full single-run pipeline: split, train+val, test eval.
+
+    Returns a dict with val_loss, train_loss, test_loss (None when
+    `test_split=0`).  Reads the YAML and builds dataset/splits, then
+    delegates the store/train/eval/stamp sequence to `run_production`,
+    which stamps test_loss + test_indices onto the store's best
+    checkpoint and writes `RESULTS_ROOT/<run_tag>/run_summary.json`.
+    """
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+
+    # build the dataset once at the entry point; reserve_test,
+    # run_pretraining, and evaluate_on_test all index into this same
+    # instance instead of reconstructing per call.
+    dataset = create_dataset(config)
+    splits = reserve_test(dataset, config)
+    print(
+        f"split: trainval={len(splits['trainval'])} test={len(splits['test'])}"
+    )
+
+    return run_production(dataset, splits, config, device)

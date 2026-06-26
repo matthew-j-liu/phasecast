@@ -12,7 +12,6 @@ collide in `checkpoint_dir`.
 """
 
 import json
-import math
 import warnings
 from pathlib import Path
 
@@ -31,11 +30,8 @@ from optuna.visualization.matplotlib import (
     plot_optimization_history,
 )
 
-from cnmineral.training.checkpoint import CheckpointStore
-from cnmineral.training.build_from_config import create_dataset, create_encoder_and_head
-from cnmineral.training.pretrain_objective import make_loss_fn
-from cnmineral.training.reconstruction_mse import evaluate_on_test
-from cnmineral.training.ssl_pretrain import run_pretraining, write_run_results
+from cnmineral.training.build_from_config import create_dataset
+from cnmineral.training.ssl_pretrain import run_pretraining, run_production
 from cnmineral.training.splits import reserve_test
 
 
@@ -185,58 +181,10 @@ def run_hpo(
             f"epochs={production_config['epochs']} "
             f"best_trial_value={best_trial_value:.4e}"
         )
-        # Single CheckpointStore construction for the production run.
-        # Filename keys are required whenever checkpoint_dir is set;
-        # KeyError surfaces a partial config immediately rather than
-        # silently picking a default that overwrites a prior run.
-        store = (
-            CheckpointStore(
-                production_config["checkpoint_dir"],
-                best_filename=production_config["checkpoint_best_filename"],
-                last_filename=production_config["checkpoint_last_filename"],
-            )
-            if production_config.get("checkpoint_dir") else None
-        )
-        prod_result = run_pretraining(
-            dataset, splits["trainval"], production_config, device,
-            store=store,
-        )
-        final_train_loss = prod_result["train_loss"]
-        final_val_loss = prod_result["val_loss"]
-
-        # Same objective the production run trained with, rebuilt from its
-        # train-split stats.
-        loss_fn = make_loss_fn(
-            production_config, prod_result["loss_stats"], device=device,
-        )
-
-        # Compute test_loss against the BEST-VAL model -- same pattern
-        # as run_single.
-        if store is not None and store.best_exists():
-            best_encoder, best_head = create_encoder_and_head(production_config)
-            store.load_best().apply_to(best_encoder, best_head)
-            best_encoder.to(device)
-            best_head.to(device)
-            test_loss_raw = evaluate_on_test(
-                best_encoder, best_head,
-                dataset, splits["test"], production_config, device, loss_fn,
-            )
-        else:
-            test_loss_raw = evaluate_on_test(
-                prod_result["encoder"], prod_result["head"],
-                dataset, splits["test"], production_config, device, loss_fn,
-            )
-        final_test_loss = (
-            None if math.isnan(test_loss_raw) else test_loss_raw
-        )
-
-        # Stamp test_loss + test_indices onto the store's best, then
-        # land the same per-run artifacts a run_single would.
-        if store is not None and store.best_exists():
-            store.stamp_test_results_on_best(
-                final_test_loss, list(splits["test"]),
-            )
-            write_run_results(prod_result, store)
+        prod = run_production(dataset, splits, production_config, device)
+        final_train_loss = prod["train_loss"]
+        final_val_loss = prod["val_loss"]
+        final_test_loss = prod["test_loss"]
 
     summary = {
         "study_name": cfg["study_name"],
