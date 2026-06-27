@@ -1,7 +1,7 @@
 """Print a human-readable summary of one or more checkpoint files.
 
-    python scripts/eval/inspect_checkpoint.py checkpoints/pretrain_v3_seed0/epoch_best.pt
-    python scripts/eval/inspect_checkpoint.py checkpoints/pretrain_v3_seed0/*.pt
+    python scripts/view/inspect_checkpoint.py checkpoints/pretrain_v3_seed0/epoch_best.pt
+    python scripts/view/inspect_checkpoint.py checkpoints/pretrain_v3_seed0/*.pt
 
 Multiple paths print one summary block each, separated by blank
 lines -- so eyeballing two checkpoints side-by-side in a terminal

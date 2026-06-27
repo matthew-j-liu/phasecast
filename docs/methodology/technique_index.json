@@ -115,7 +115,7 @@
       "configs/pretrain/pretrain_hpo_logmse_plain.yaml",
       "configs/pretrain/pretrain_hpo_logmse_std.yaml",
       "configs/probe/probe_hpo.yaml",
-      "scripts/eval/plot_training.py",
+      "scripts/view/plot_training.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
       "src/cnmineral/training/imputation_head_hpo.py"
@@ -148,7 +148,7 @@
   },
   "initialization": {
     "checkpoint_load": [
-      "scripts/eval/plot_training.py",
+      "scripts/view/plot_training.py",
       "src/cnmineral/eval/imputation_logspace.py",
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/probe/hpo.py",

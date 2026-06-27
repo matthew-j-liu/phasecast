@@ -4,12 +4,12 @@ Plot loss curves from a checkpoint or Optuna study.
 Two modes, picked by which flag you pass:
 
   Single-run loss curve:
-      python scripts/eval/plot_training.py --checkpoint checkpoints/.../epoch_best.pt \\
+      python scripts/view/plot_training.py --checkpoint checkpoints/.../epoch_best.pt \\
           --out results/scratch/run_curve.png
 
   HPO study (optimization history + per-trial curves as a second
   `<out>_trials.png` file):
-      python scripts/eval/plot_training.py \\
+      python scripts/view/plot_training.py \\
           --study-storage data/optuna/journals/v3_pretrain_hpo_long.journal \\
           --study-name v3_pretrain_hpo_long \\
           --out results/scratch/study.png
