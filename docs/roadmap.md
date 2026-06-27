@@ -2,50 +2,8 @@
 
 Practical execution plan for the v3 rewrite. Distinct from
 `docs/encoder.md` (which crystallizes the architecture and value
-proposition); this doc covers git layout, track division, gate tables,
-and the ownership split between you and agentic work.
-
-## Git layout: new branch in this repo, not a fresh repo
-
-Reasons to stay in this repo:
-
-- `data/` contains ~1 GB of files (`bulks/gard2019.csv`,
-  `grains/mineralml.csv`, `optuna/` journals, diagnostics outputs,
-  and Track B's eventual `MAGEMin/` corpus).  All gitignored, all
-  already where you want them.  Migrating to a fresh repo means
-  symlinks or copies.
-- Memory files in `~/.claude/projects/-Users-mliu-git-clones-crabnet-mineral-v2/memory/`
-  are keyed by repo path. New repo = orphaned memories = re-deriving
-  what you already learned.
-- `docs/journal.md`, `docs/decisions/*.md`, `CLAUDE.md` are valuable
-  historical context. You want them quietly accessible while you ignore
-  them, not gone.
-- `git checkout main -- path/to/file` lets you pull v1+v2 code in
-  on-demand as a reference without polluting the v3 working tree.
-
-Concrete setup:
-
-```bash
-git checkout main
-git pull
-git checkout -b v3
-mkdir src_v3 scripts_v3 configs_v3
-git rm -r src/ scripts/ configs/ checkpoints/  # checkpoints is gitignored; rm just removes the empty dirs
-git tag v3-empty
-git commit -m "v3: start of fresh rewrite; v1+v2 code removed (available via git checkout main -- path)"
-```
-
-You can rename `src_v3 -> src` later. The v3 tree stays clean; v1+v2 is
-one git checkout away when you want it as reference.
-
-`CLAUDE.md` is gitignored per project convention so it doesn't carry to
-v3 automatically. Copy the still-relevant parts (project-in-one-paragraph,
-Position C framing, four-axis differentiation table) into a fresh
-v3-scoped `CLAUDE.md` once that branch's structure is clear.
-
-`data/diagnostics/latent_v2/` and `data/diagnostics/degeneracy_viz/`
-should stay on disk -- they're gitignored, won't move, and you'll want
-to reference them during track A's encoder validation.
+proposition); this doc covers track division, gate tables, and the
+ownership split between you and agentic work.
 
 ## Track division: foundation model A, then mineralogy heads B
 
@@ -218,74 +176,6 @@ boring stuff." A practical rule of thumb at the end.
 If a code chunk encodes a *decision*, you write it. If it encodes the
 *consequence* of an already-made decision, Claude writes it.
 
-## Agentic session pattern
-
-Instead of long sessions where Claude writes large chunks (lots of
-room to drift from intent), prefer short focused sessions with a
-bounded spec. Pattern:
-
-```
-"Port the unlabeled dataset class from v2 to v3 with these schema
- changes: [list]. Keep the igneous filter logic exactly as-is.
- Acceptance: length matches ~474k; supergroup counts are within 1%
- of the v2 numbers in memory file mineralml_grain_data.md."
-```
-
-```
-"Write the SSL training loop. Loss is MSE on masked positions.
- Decoder is d_model -> d_model//2 -> 22, on pooled latent (NOT
- per-token; see [[kingcrab_padding_convention]] for why). Mask 25%
- of populated tokens by zeroing BOTH src AND frac. Save checkpoint
- and a manifest each epoch. Acceptance: held-out reconstruction MSE
- drops monotonically over 8 epochs."
-```
-
-```
-"Add a smoke test: random batch through encoder + each head, assert
- all outputs have correct shape and at least one non-zero gradient
- on the encoder. Save as tests/test_smoke.py. Acceptance: the test
- passes on a CPU machine in under 10 seconds."
-```
-
-Each is bounded, verifiable, and doesn't require Claude to make
-design decisions you'd want to make. The encoder forward, the loss
-math, the head parameterizations -- type those yourself.
-
-## Suggested first-week sequence
-
-A concrete week-one to get unstuck on the blank-page problem.
-
-Day 1 (you): set up the branch, draft the package skeleton (top-level
-modules: `data/`, `models/`, `losses/`, `training/`, `eval/`), write
-the encoder forward (~50 lines), draft the SSL loss math on paper.
-
-Day 2 (claude): port mat2vec loader, element-properties CSV, the
-phase-mapping tables. Mechanical.
-
-Day 3 (you): write the encoder unit test; write the SSL pretrain
-script's `forward + loss + backward` core. Verify on a random batch
-that encoder grads are non-zero (the v2 sanity gate).
-
-Day 4 (claude): port the BulkChemistryDataset class from v2 with the
-schema changes you specify (e.g., supergroup label addition, trace
-column list, scale config).
-
-Day 5 (you): write the pretrain loop (epoch iteration, optimizer step,
-checkpoint save). Claude can do the logging plumbing.
-
-Day 6 (claude): port the UMAP + probe diagnostics from
-`scripts/09_visualize_latent.py` + the recoloring from
-`scripts/09b_latent_chem_axes_and_3d.py`. These are established
-patterns.
-
-Day 7 (you): kick off the SSL pretrain on the full 474k corpus
-(~16 min on MPS per v2 numbers). Verify the encoder reproduces v2
-cell-c probe numbers.
-
-End of week 1: Track A is roughly half done. Encoder works, SSL loop
-runs, first diagnostic plots land. Two more weeks of probe / OOD /
-mineralML-style figures get Track A across the gate.
-
 ## What survives from v2 unchanged
 
 The strategy modules and the corpus-gen orchestration are well-tested
@@ -351,13 +241,3 @@ to agentic work:
 
 Each of these is a coin flip you want to make consciously. Don't let
 an agentic session "default" you into one.
-
-## Memory hygiene during the rewrite
-
-The memory files in `~/.claude/projects/-Users-mliu-git-clones-crabnet-mineral-v2/memory/`
-will accumulate v3 facts. Keep using them. Worth a one-time pass at
-the start of v3 to mark stale v1/v2 facts (the kingcrab padding bug
-becomes "historical context"; the SSL findings become "validated
-prior result"). Do this in `MEMORY.md` by editing the one-line
-descriptions, not by deleting files -- the content is still useful
-context.

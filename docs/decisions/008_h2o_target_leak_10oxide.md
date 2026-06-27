@@ -1,4 +1,4 @@
-# Decision 007: drop h2o_tot from model inputs (H2O target leak)
+# Decision 008: drop h2o_tot from model inputs (H2O target leak)
 
 **Date:** 2026-05-22
 **Status:** Active

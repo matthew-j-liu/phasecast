@@ -249,7 +249,7 @@ GitHub auto-closes on merge.
   (Q / Context / Considered / Decision / Next); v0/v1/v2 history.
 - [docs/decisions/](docs/decisions/) — ADRs (001 scope, 002 rejected paths, 003
   H2O strategy, 004 PetThermoTools for FC, 005 production FC labels, 006 v1 model
-  architecture, 007 SSL pretrain objective).
+  architecture, 007 SSL pretrain objective, 008 H2O target leak).
 - [docs/methodology/](docs/methodology/) — technique index source +
   auto-generated index + design doc.
 - [tests/TESTS.md](tests/TESTS.md) — per-test inventory.

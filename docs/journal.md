@@ -1383,7 +1383,7 @@ property.**
 **h2o_tot leak contribution.** Honest amp per-path R² 0.216, leaked
 (11-oxide `base_v1_ensemble_h2oleak`) 0.342 (+0.13). The leaked `h2o_tot`
 varied per path so the leaked model could chase within-bulk spread; that
-0.13 is irreducible by honest means (ADR 007).
+0.13 is irreducible by honest means (ADR 008).
 
 **Per-class amp R² (honest).** Negative in the amp-rich classes: gabbro
 -1.70, quartz diorite -1.03, foid-bearing diorite -0.88,
