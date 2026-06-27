@@ -330,8 +330,27 @@ def train_imputation_head(
 
 
 def run_single(config_path: Path, device: torch.device) -> dict:
-    """Read a YAML config, train the head, return the headline losses."""
+    """Train the head, then score the saved checkpoint on the test split once.
+
+    Mirrors the encoder's single-run entry: one pass trains and reports its
+    held-out number.  Test scoring reads a saved checkpoint, so it runs only
+    when `head_checkpoint_dir` / `head_checkpoint_filename` are set; otherwise
+    the head still trains and the scorecard is skipped with a note.
+    """
     with open(config_path) as f:
         config = yaml.safe_load(f)
     ckpt = train_imputation_head(config, device)
-    return {"train_loss": ckpt.train_loss, "val_loss": ckpt.val_loss}
+    result = {"train_loss": ckpt.train_loss, "val_loss": ckpt.val_loss}
+
+    if not config.get("head_checkpoint_dir"):
+        print("no head_checkpoint_dir set -- skipping test scoring")
+        return result
+
+    # local import: cnmineral.eval.imputation_logspace imports back from this
+    # module (ImputationHeadCheckpoint), so a top-level import would cycle.
+    from cnmineral.eval.imputation_logspace import run_imputation_logspace
+
+    saved_path = Path(config["head_checkpoint_dir"]) / config["head_checkpoint_filename"]
+    metrics = run_imputation_logspace(saved_path, device=device)
+    result["trace_summary"] = metrics["trace_summary"]
+    return result

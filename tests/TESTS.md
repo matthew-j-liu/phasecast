@@ -165,6 +165,7 @@ rename, or repurpose a test) updates this file in the same change.**
 3. `test_early_stop_returns_best_val_weights` -- with `early_stop_patience` set, the returned losses are the best-val epoch's (best-weight restore) and no more than `epochs` are recorded.
 4. `test_dropout_roundtrips_through_checkpoint` -- `dropout` is stamped into head_config and rebuilds via `build_head`; a pre-dropout checkpoint (key absent) rebuilds at the 0.0 default.
 5. `test_imputation_head_checkpoint_save_load` -- `ImputationHeadCheckpoint` survives a disk round-trip with its head_config, encoder reference, and buffers intact.
+6. `test_run_single_trains_then_scores_test` -- the single entry trains, saves the head, and scores the test split in one pass: returns the train/val losses plus a `trace_summary` and writes the readout scorecard.
 
 ### test_imputation_head_hpo.py
 

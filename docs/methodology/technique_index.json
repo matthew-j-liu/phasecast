@@ -74,10 +74,10 @@
   },
   "evaluation": {
     "element_imputation": [
-      "scripts/eval/eval_imputation_head.py",
       "scripts/eval/impute_elements.py",
       "src/cnmineral/eval/imputation.py",
-      "src/cnmineral/eval/imputation_logspace.py"
+      "src/cnmineral/eval/imputation_logspace.py",
+      "src/cnmineral/training/imputation_head.py"
     ],
     "knn_label_purity": [
       "src/cnmineral/eval/probe/__init__.py",
@@ -249,8 +249,6 @@
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "frozen_encoder_readout": [
-      "scripts/eval/hpo_imputation_head.py",
-      "scripts/eval/train_imputation_head.py",
       "src/cnmineral/eval/imputation_logspace.py",
       "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/imputation_head_hpo.py"

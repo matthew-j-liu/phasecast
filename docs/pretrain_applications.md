@@ -73,14 +73,18 @@ Implementation (built):
   with de-standardization buffers carried in `state_dict`.
 - `cnmineral.losses.pretrain_loss.masked_element_log_mse` -- the log-space
   objective (contrast: `masked_element_mse` is the linear-frac SSL loss).
-- `cnmineral.training.imputation_head.train_imputation_head` -- trains the
-  head on a frozen encoder; dataset/splits reconstructed from the encoder
-  checkpoint's config. Config: `configs/imputation/imputation_head.yaml`.
+- `scripts/training/imputation_head.py` -- the single entry, mirroring
+  `pretrain.py`: a plain `--config` run trains the head on a frozen encoder
+  (`train_imputation_head`) then scores the test split once, writing the
+  log-space scorecard to `results/imputation/<encoder_tag>/readout/`; `--hpo`
+  runs the head sweep instead. Configs: `configs/imputation/imputation_head.yaml`
+  and `imputation_head_hpo.yaml`. Dataset/splits reconstruct from the encoder
+  checkpoint's config.
 - `cnmineral.training.imputation_head_hpo.run_hpo` -- single-stage Optuna
-  sweep of the head HPs; config `configs/imputation/imputation_head_hpo.yaml`.
+  sweep of the head HPs (the `--hpo` path).
 - `cnmineral.eval.imputation_logspace.run_imputation_logspace` -- log-space
-  leave-one-out scoring against the gate's two reference lines; writes
-  `results/imputation/<encoder_tag>/readout/`.
+  leave-one-out scoring against the gate's two reference lines; the scoring core
+  the single run calls after training.
 
 The frozen-latent XGBoost number stays a *yardstick*, never a shipped model.
 It is a tuned gradient-boosted forest, so it measures a strong nonlinear

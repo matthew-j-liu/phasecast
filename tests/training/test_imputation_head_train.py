@@ -8,8 +8,10 @@ round-trips an `ImputationHeadCheckpoint`.
 from pathlib import Path
 
 import torch
+import yaml
 
 from cnmineral.data.tokens import N_TOKENS
+from cnmineral.eval import imputation_logspace
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.imputation_head import LogImputationHead
 import pytest
@@ -17,6 +19,7 @@ import pytest
 from cnmineral.training.imputation_head import (
     ImputationHeadCheckpoint,
     _head_forward_loss,
+    run_single,
     train_imputation_head,
 )
 
@@ -135,3 +138,34 @@ def test_imputation_head_checkpoint_save_load(
     assert torch.equal(
         loaded.build_head().target_std, head.target_std,
     )
+
+
+def test_run_single_trains_then_scores_test(
+    tiny_pretrain_checkpoint: Path, tmp_path: Path, monkeypatch,
+) -> None:
+    """The single entry trains, saves the head, and scores the test split in one
+    pass: it returns the train/val losses plus a `trace_summary` and writes the
+    readout scorecard."""
+    monkeypatch.setattr(imputation_logspace, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(imputation_logspace, "GATE_RESULTS_ROOT", tmp_path / "gate")
+    config = {
+        "encoder_checkpoint": str(tiny_pretrain_checkpoint),
+        "hidden": 8,
+        "epochs": 1,
+        "batch_size": 32,
+        "lr": 1e-3,
+        "val_split": 0.25,
+        "seed": 0,
+        "head_checkpoint_dir": str(tmp_path / "head"),
+        "head_checkpoint_filename": "head_best.pt",
+    }
+    config_path = tmp_path / "imputation_head.yaml"
+    config_path.write_text(yaml.safe_dump(config))
+
+    result = run_single(config_path, torch.device("cpu"))
+
+    assert torch.isfinite(torch.tensor(result["val_loss"]))
+    assert "n_traces" in result["trace_summary"]
+    assert (tmp_path / "head" / "head_best.pt").exists()
+    readout_dir = next((tmp_path / "results" / "imputation").iterdir()) / "readout"
+    assert (readout_dir / "readout_logspace_metrics.json").exists()
