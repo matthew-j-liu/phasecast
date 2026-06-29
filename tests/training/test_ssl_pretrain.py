@@ -3,10 +3,9 @@
 
 Eleven contracts:
 - One forward/backward/step actually updates the encoder.
-- A rebalanced (log-space) objective also updates the encoder in one step.
+- The SSL log-space objective updates the encoder in one step.
 - run_pretraining returns the expected result-dict keys.
-- Each loss objective (mse / log_mse) runs end-to-end and
-  returns matching-shaped loss_stats.
+- The objective runs end-to-end and returns matching-shaped loss_stats.
 - The monitor dict is shaped right both in-memory and on disk.
 - run_single returns finite test_loss + stamps the store's best.
 - run_single writes a run_summary.json mirroring the stamped best.
@@ -26,7 +25,6 @@ from torch.utils.data import DataLoader
 from conftest import _tiny_config, _write_yaml
 
 from cnmineral.data.tokens import N_TOKENS, mask_for_ssl
-from cnmineral.losses.pretrain_loss import masked_element_mse
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
 from cnmineral.training import (
@@ -59,9 +57,10 @@ def test_one_step_runs() -> None:
     masked = mask_for_ssl(batch["src"], batch["frac"], mask_prob=0.5)
     h = encoder(masked.src_corrupted, masked.frac_corrupted)
     predicted = head(h)
-    loss = masked_element_mse(
-        predicted, masked.target_frac, masked.mask_positions,
-    )
+    # trivial differentiable masked MSE -- this test pins the train step
+    # mechanics, not the production objective (covered separately).
+    m = masked.mask_positions
+    loss = ((predicted - masked.target_frac) ** 2 * m).sum() / m.sum().clamp(min=1)
     assert torch.isfinite(loss), f"loss not finite: {loss.item()}"
 
     optimizer.zero_grad()
@@ -381,11 +380,10 @@ def test_log_loss_one_step_updates_encoder() -> None:
         list(encoder.parameters()) + list(head.parameters()), lr=3e-4,
     )
 
-    config = {"loss": {"type": "log_mse", "standardize": True}}
     stats = compute_loss_stats(
-        config, ds, list(range(len(ds))), batch_size=32, num_workers=0,
+        ds, list(range(len(ds))), batch_size=32, num_workers=0,
     )
-    loss_fn = make_loss_fn(config, stats)
+    loss_fn = make_loss_fn(stats)
 
     batch = next(iter(DataLoader(ds, batch_size=8, shuffle=False)))
     snapshot = {n: p.detach().clone() for n, p in encoder.named_parameters()}
@@ -394,16 +392,6 @@ def test_log_loss_one_step_updates_encoder() -> None:
     predicted = head(encoder(masked.src_corrupted, masked.frac_corrupted))
     loss = loss_fn(predicted, masked.target_frac, masked.mask_positions)
     assert torch.isfinite(loss), f"loss not finite: {loss.item()}"
-
-    # The log path must genuinely be taken, not a silent fallback to linear MSE:
-    # on the same predictions the two objectives differ.
-    mse_value = masked_element_mse(
-        predicted, masked.target_frac, masked.mask_positions,
-    )
-    assert not torch.isclose(loss, mse_value), (
-        "log-space loss equals plain MSE on the same batch -- the log objective "
-        "may have silently fallen back to linear-frac"
-    )
 
     optimizer.zero_grad()
     loss.backward()
@@ -416,18 +404,9 @@ def test_log_loss_one_step_updates_encoder() -> None:
     assert changed, "log-space loss left the encoder unchanged after one step"
 
 
-@pytest.mark.parametrize(
-    "loss_cfg, kind",
-    [
-        ({"type": "mse"}, "none"),
-        ({"type": "log_mse", "standardize": True}, "log"),
-        ({"type": "log_mse", "standardize": False}, "log"),
-    ],
-)
-def test_run_pretraining_loss_variants(loss_cfg: dict, kind: str) -> None:
-    """Each objective runs end-to-end and returns matching-shaped loss_stats."""
+def test_run_pretraining_returns_loss_stats() -> None:
+    """The objective runs end-to-end and returns matching-shaped loss_stats."""
     config = _tiny_config()
-    config["loss"] = loss_cfg
     dataset = create_dataset(config)
     splits = reserve_test(dataset, config)
     result = run_pretraining(
@@ -437,9 +416,6 @@ def test_run_pretraining_loss_variants(loss_cfg: dict, kind: str) -> None:
     assert torch.isfinite(torch.tensor(result["train_loss"]))
 
     stats = result["loss_stats"]
-    if kind == "none":
-        assert stats is None
-    else:
-        assert set(stats) == {"target_mean", "target_std"}
-        assert stats["target_mean"].shape == (N_TOKENS,)
-        assert stats["target_std"].shape == (N_TOKENS,)
+    assert set(stats) == {"target_mean", "target_std"}
+    assert stats["target_mean"].shape == (N_TOKENS,)
+    assert stats["target_std"].shape == (N_TOKENS,)

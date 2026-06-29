@@ -53,13 +53,9 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_pretrain_loss.py
 
-1. `test_reductions_match_hand_computed_values` -- each of the three reductions matches a hand-computed value on a small case with uneven per-sample mask counts (where the reductions genuinely differ).
-2. `test_unmasked_positions_carry_no_gradient` -- a wildly-wrong prediction at an unmasked position contributes zero gradient; masked positions contribute non-zero.
-3. `test_zero_masked_positions_returns_zero` -- an all-False mask yields loss 0 (not NaN) under every reduction.
-4. `test_validation_raises` -- shape mismatches, non-bool masks, and unknown reduction names raise instead of silently broadcasting.
-5. `test_log_mse_zero_when_no_mask` -- `masked_element_log_mse` returns 0 on an all-False mask, mirroring the linear-space contract.
-6. `test_log_mse_finite_with_zero_unmasked_targets` -- frac=0 at unmasked positions (log10 -> -inf) stays finite because the target is floored before the log and those positions are masked out.
-7. `test_log_mse_zero_on_exact_standardized_prediction` -- predicting the standardized-log target exactly gives loss 0, confirming the per-element standardization the head emits is what the loss expects.
+1. `test_log_mse_zero_when_no_mask` -- `masked_element_log_mse` returns 0 (not NaN) on an all-False mask.
+2. `test_log_mse_finite_with_zero_unmasked_targets` -- frac=0 at unmasked positions (log10 -> -inf) stays finite because the target is floored before the log and those positions are masked out.
+3. `test_log_mse_zero_on_exact_standardized_prediction` -- predicting the standardized-log target exactly gives loss 0, confirming the per-element standardization the head emits is what the loss expects.
 
 ## models/
 
@@ -128,16 +124,15 @@ rename, or repurpose a test) updates this file in the same change.**
 11. `test_run_single_stamps_test_results_on_store_best` -- after `run_single`, `store.load_best().test_loss` is populated and matches the returned value (the stamp travels through CheckpointStore).
 12. `test_last_carries_test_loss_none_after_run_single` -- the last snapshot stays unstamped; only best carries the headline test_loss.
 13. `test_run_single_writes_to_configured_filenames` -- YAML-configured checkpoint filenames land on disk and the default names do not (two runs can share a dir safely).
-14. `test_log_loss_one_step_updates_encoder` -- a standardized log-space objective yields nonzero encoder gradients in one step (the rebalanced loss trains the encoder, the trace-supervision fix).
-15. `test_run_pretraining_loss_variants` -- each objective (mse / log_mse standardized + plain) runs end-to-end and returns matching-shaped `loss_stats` (None / mean+std).
+14. `test_log_loss_one_step_updates_encoder` -- the standardized log-space objective yields nonzero encoder gradients in one step (the trace-supervision fix trains the encoder, not just the head).
+15. `test_run_pretraining_returns_loss_stats` -- the objective runs end-to-end and returns matching-shaped `loss_stats` (mean+std over the train split).
 
 ### test_pretrain_objective.py
 
 1. `test_log_frac_stats_hand_computed` -- per-element log10(frac) mean/std matches a hand case; absent elements keep the identity (mean 0, std 1).
-2. `test_compute_loss_stats_dispatch` -- returns None for mse (and absent loss key), log center/scale for log_mse (identity when standardize off).
-3. `test_compute_loss_stats_unknown_type_raises` -- an unknown loss type raises rather than silently defaulting.
-4. `test_make_loss_fn_matches_underlying_losses` -- the built callable's value equals the underlying loss for mse / log_mse on the same batch.
-5. `test_make_loss_fn_requires_stats_for_rebalanced` -- log_mse with stats=None raises (the rebalanced objective needs its corpus stats).
+2. `test_compute_loss_stats_returns_log_center_scale` -- `compute_loss_stats` returns the per-element log center/scale over the train split.
+3. `test_make_loss_fn_matches_underlying_loss` -- the built callable's value equals `masked_element_log_mse` on the same batch.
+4. `test_make_loss_fn_requires_stats` -- `make_loss_fn(None)` raises (the objective needs its corpus stats).
 
 ### test_hpo.py
 

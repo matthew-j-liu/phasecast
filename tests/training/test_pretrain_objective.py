@@ -1,22 +1,18 @@
-"""Tests for `cnmineral.training.pretrain_objective`: corpus stats + loss dispatch.
+"""Tests for `cnmineral.training.pretrain_objective`: corpus stats + loss builder.
 
 Contracts:
 - `log_frac_stats` matches a hand-computed mean/std and keeps absent elements
   at the identity (mean 0, std 1).
-- `compute_loss_stats` dispatches: None for mse, log center/scale for log_mse
-  (identity when standardize off).
-- `make_loss_fn` returns a callable whose value matches the underlying loss for
-  each objective, and raises on missing stats / unknown type.
+- `compute_loss_stats` returns the log center/scale over the train split.
+- `make_loss_fn` returns a callable whose value matches the underlying log loss,
+  and raises on missing stats.
 """
 
 import pytest
 import torch
 
 from cnmineral.data.tokens import N_TOKENS
-from cnmineral.losses.pretrain_loss import (
-    masked_element_log_mse,
-    masked_element_mse,
-)
+from cnmineral.losses.pretrain_loss import masked_element_log_mse
 from cnmineral.training.pretrain_objective import (
     compute_loss_stats,
     log_frac_stats,
@@ -69,46 +65,19 @@ def _batch(seed: int = 0) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     return predicted, target, mask
 
 
-def test_compute_loss_stats_dispatch() -> None:
+def test_compute_loss_stats_returns_log_center_scale() -> None:
     ds = _single_element_dataset([0.1, 0.001], token_pos=0)
-    idx = [0, 1]
-    assert compute_loss_stats({"loss": "mse"}, ds, idx, batch_size=8, num_workers=0) is None
-    # absent loss key defaults to mse
-    assert compute_loss_stats({}, ds, idx, batch_size=8, num_workers=0) is None
-
-    log_stats = compute_loss_stats(
-        {"loss": {"type": "log_mse"}}, ds, idx, batch_size=8, num_workers=0,
-    )
+    log_stats = compute_loss_stats(ds, [0, 1], batch_size=8, num_workers=0)
     assert set(log_stats) == {"target_mean", "target_std"}
     assert log_stats["target_mean"][0].item() == pytest.approx(-2.0)
 
-    plain_log = compute_loss_stats(
-        {"loss": {"type": "log_mse", "standardize": False}}, ds, idx,
-        batch_size=8, num_workers=0,
-    )
-    assert torch.equal(plain_log["target_mean"], torch.zeros(N_TOKENS))
-    assert torch.equal(plain_log["target_std"], torch.ones(N_TOKENS))
 
-
-def test_compute_loss_stats_unknown_type_raises() -> None:
-    ds = _single_element_dataset([0.1, 0.001])
-    with pytest.raises(ValueError, match="unknown loss type"):
-        compute_loss_stats({"loss": "bogus"}, ds, [0, 1], batch_size=8, num_workers=0)
-
-
-def test_make_loss_fn_matches_underlying_losses() -> None:
+def test_make_loss_fn_matches_underlying_loss() -> None:
     predicted, target, mask = _batch()
     ds = _single_element_dataset([0.1, 0.001], token_pos=0)
-    idx = [0, 1]
 
-    mse_fn = make_loss_fn({"loss": "mse"}, None)
-    assert mse_fn(predicted, target, mask).item() == pytest.approx(
-        masked_element_mse(predicted, target, mask).item()
-    )
-
-    cfg_log = {"loss": {"type": "log_mse"}}
-    log_stats = compute_loss_stats(cfg_log, ds, idx, batch_size=8, num_workers=0)
-    log_fn = make_loss_fn(cfg_log, log_stats)
+    log_stats = compute_loss_stats(ds, [0, 1], batch_size=8, num_workers=0)
+    log_fn = make_loss_fn(log_stats)
     assert log_fn(predicted, target, mask).item() == pytest.approx(
         masked_element_log_mse(
             predicted, target, mask,
@@ -117,6 +86,6 @@ def test_make_loss_fn_matches_underlying_losses() -> None:
     )
 
 
-def test_make_loss_fn_requires_stats_for_rebalanced() -> None:
+def test_make_loss_fn_requires_stats() -> None:
     with pytest.raises(ValueError, match="needs stats"):
-        make_loss_fn({"loss": {"type": "log_mse"}}, None)
+        make_loss_fn(None)

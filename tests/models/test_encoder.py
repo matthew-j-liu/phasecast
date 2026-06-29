@@ -21,7 +21,6 @@ from cnmineral.data.tokens import (
     assert_padding_convention,
     mask_for_ssl,
 )
-from cnmineral.losses.pretrain_loss import masked_element_mse
 from cnmineral.models.encoder import (
     ELEMENT_EMBEDDING_ROWS,
     MAT2VEC_DIM,
@@ -194,10 +193,9 @@ class TestEmbeddingTable:
         )
         src, frac = _make_batch(batch_size=8)
         masked = mask_for_ssl(src, frac, mask_prob=0.5)
-        loss = masked_element_mse(
-            head(encoder(masked.src_corrupted, masked.frac_corrupted)),
-            masked.target_frac, masked.mask_positions,
-        )
+        predicted = head(encoder(masked.src_corrupted, masked.frac_corrupted))
+        m = masked.mask_positions
+        loss = ((predicted - masked.target_frac) ** 2 * m).sum() / m.sum().clamp(min=1)
         loss.backward()
         optimizer.step()
         assert (encoder.element_embedding.weight[0] == 0).all(), (
@@ -290,9 +288,8 @@ class TestSSLGradientFlow:
 
         h = encoder(masked.src_corrupted, masked.frac_corrupted)
         predicted = head(h)
-        loss = masked_element_mse(
-            predicted, masked.target_frac, masked.mask_positions,
-        )
+        m = masked.mask_positions
+        loss = ((predicted - masked.target_frac) ** 2 * m).sum() / m.sum().clamp(min=1)
 
         assert loss.requires_grad, "loss must require grad to test gradient flow"
         loss.backward()
@@ -320,9 +317,8 @@ class TestSSLGradientFlow:
         masked = mask_for_ssl(src, frac, mask_prob=0.25)
         h = encoder(masked.src_corrupted, masked.frac_corrupted)
         predicted = head(h)
-        loss = masked_element_mse(
-            predicted, masked.target_frac, masked.mask_positions,
-        )
+        m = masked.mask_positions
+        loss = ((predicted - masked.target_frac) ** 2 * m).sum() / m.sum().clamp(min=1)
         assert torch.isfinite(loss).item(), f"loss not finite: {loss.item()}"
 
 

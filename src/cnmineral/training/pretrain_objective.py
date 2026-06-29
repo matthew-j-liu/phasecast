@@ -1,15 +1,15 @@
 """
-Pretrain loss selection + the corpus statistics each variant needs.
+The SSL objective builder + the corpus statistics it needs.
 
 `run_pretraining` calls `compute_loss_stats` once over its train split to
-derive whatever the configured objective needs (per-element log-frac
-center/scale for `log_mse`; `mse` needs nothing), then `make_loss_fn` to
-turn `config['loss']` + those stats into a single `(predicted, target_frac,
-mask_positions) -> loss` callable.  Keeping selection here leaves the
-training loop agnostic to which objective is running, and keeps the loss
-math in `cnmineral.losses.pretrain_loss` pure.  The stats are plain CPU
-tensors so the same dict rebuilds the identical loss for the held-out test
-eval (`make_loss_fn` moves them to the model's device).
+derive the per-element log-frac center/scale, then `make_loss_fn` to turn
+those stats into a single `(predicted, target_frac, mask_positions) -> loss`
+callable.  Keeping the builder here leaves the training loop and the held-out
+test eval agnostic to the objective -- they consume an opaque `loss_fn` -- and
+keeps the loss math in `cnmineral.losses.pretrain_loss` pure.  The objective is
+unconditional (ADR 007): per-element standardized log-space masked MSE.  The
+stats are plain CPU tensors so the same dict rebuilds the identical loss for
+the test eval (`make_loss_fn` moves them to the model's device).
 """
 
 from typing import Callable
@@ -18,30 +18,11 @@ import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 
 from cnmineral.data.tokens import N_TOKENS
-from cnmineral.losses.pretrain_loss import (
-    masked_element_log_mse,
-    masked_element_mse,
-)
+from cnmineral.losses.pretrain_loss import masked_element_log_mse
 
 _LOG_FLOOR = 1e-12
 
 LossFn = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
-
-
-def _loss_config(config: dict) -> dict:
-    """Normalize `config['loss']` to a dict with a `type` key.
-
-    Accepts an absent key (-> `mse`), a bare string (`loss: log_mse`), or a
-    dict (`loss: {type: log_mse, standardize: false}`).
-    """
-    spec = config.get("loss", "mse")
-    if isinstance(spec, str):
-        return {"type": spec}
-    if isinstance(spec, dict):
-        if "type" not in spec:
-            raise ValueError(f"loss config dict missing 'type': {spec!r}")
-        return spec
-    raise TypeError(f"loss config must be str or dict, got {type(spec).__name__}")
 
 
 def _materialize_frac(
@@ -85,69 +66,44 @@ def log_frac_stats(
 
 
 def compute_loss_stats(
-    config: dict,
     dataset: Dataset,
     train_indices: list[int],
     *,
     batch_size: int,
     num_workers: int,
-) -> dict | None:
-    """Corpus stats the configured objective needs, or None for plain `mse`.
+) -> dict:
+    """Corpus stats the SSL objective needs: per-element log-frac center/scale.
 
     Computed once over the train split; returned as CPU tensors so the same
     dict can rebuild the loss for the test eval.
     """
-    loss_cfg = _loss_config(config)
-    ltype = loss_cfg["type"]
-    if ltype == "mse":
-        return None
-    if ltype == "log_mse":
-        if loss_cfg.get("standardize", True):
-            mean, std = log_frac_stats(
-                dataset, train_indices,
-                batch_size=batch_size, num_workers=num_workers,
-            )
-        else:
-            mean, std = torch.zeros(N_TOKENS), torch.ones(N_TOKENS)
-        return {"target_mean": mean, "target_std": std}
-    raise ValueError(
-        f"unknown loss type {ltype!r}; expected mse | log_mse"
+    mean, std = log_frac_stats(
+        dataset, train_indices,
+        batch_size=batch_size, num_workers=num_workers,
     )
+    return {"target_mean": mean, "target_std": std}
 
 
 def make_loss_fn(
-    config: dict, stats: dict | None, *, device: torch.device | str | None = None,
+    stats: dict, *, device: torch.device | str | None = None,
 ) -> LossFn:
     """Build the `(predicted, target_frac, mask_positions) -> loss` callable.
 
-    `stats` is the output of `compute_loss_stats` for the same `config`.  When
-    `device` is set the stat tensors are moved once into the closure so the
-    per-batch call needs no device juggling.
+    `stats` is the output of `compute_loss_stats`.  When `device` is set the
+    stat tensors are moved once into the closure so the per-batch call needs no
+    device juggling.
     """
-    loss_cfg = _loss_config(config)
-    ltype = loss_cfg["type"]
+    if stats is None:
+        raise ValueError("make_loss_fn needs stats; got None")
+    target_mean = stats["target_mean"]
+    target_std = stats["target_std"]
+    if device is not None:
+        target_mean = target_mean.to(device)
+        target_std = target_std.to(device)
 
-    if ltype == "mse":
-        def loss_fn(predicted, target_frac, mask_positions):
-            return masked_element_mse(predicted, target_frac, mask_positions)
-        return loss_fn
-
-    if ltype == "log_mse":
-        if stats is None:
-            raise ValueError("log_mse needs stats; got None")
-        target_mean = stats["target_mean"]
-        target_std = stats["target_std"]
-        if device is not None:
-            target_mean = target_mean.to(device)
-            target_std = target_std.to(device)
-
-        def loss_fn(predicted, target_frac, mask_positions):
-            return masked_element_log_mse(
-                predicted, target_frac, mask_positions,
-                target_mean=target_mean, target_std=target_std,
-            )
-        return loss_fn
-
-    raise ValueError(
-        f"unknown loss type {ltype!r}; expected mse | log_mse"
-    )
+    def loss_fn(predicted, target_frac, mask_positions):
+        return masked_element_log_mse(
+            predicted, target_frac, mask_positions,
+            target_mean=target_mean, target_std=target_std,
+        )
+    return loss_fn

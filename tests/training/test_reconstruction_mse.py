@@ -195,7 +195,7 @@ def test_evaluate_on_test_returns_finite() -> None:
     result = run_pretraining(
         dataset, splits["trainval"], config, device=torch.device("cpu"),
     )
-    loss_fn = make_loss_fn(config, result["loss_stats"])
+    loss_fn = make_loss_fn(result["loss_stats"])
     test_loss = evaluate_on_test(
         result["encoder"], result["head"],
         dataset, splits["test"], config,

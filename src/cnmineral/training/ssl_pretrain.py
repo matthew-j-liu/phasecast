@@ -6,9 +6,9 @@ result dict out (val_loss, train_loss, encoder, head, monitor,
 final_epoch, best_epoch, best_val_loss, loss_stats).  It has no idea
 whether it's being called once or 50 times -- the only signal it gets
 is whether `trial` is None (single-run / production) or a real Optuna
-`Trial` (HPO sweep).  The objective is selected per `config['loss']`
-(`cnmineral.training.pretrain_objective`): the default linear-frac MSE,
-or a trace-rebalanced log-space / weighted variant.
+`Trial` (HPO sweep).  The objective is unconditional (ADR 007):
+per-element standardized log-space masked MSE, built by
+`cnmineral.training.pretrain_objective`.
 
 Checkpoint saves are dependency-injected via the `store` parameter
 (`CheckpointStore | None`).  Passing `store=None` runs the loop
@@ -75,12 +75,12 @@ def _forward_loss(
     device: torch.device,
     loss_fn: LossFn,
 ) -> torch.Tensor:
-    """One forward pass: mask -> encoder -> head -> the configured loss.
+    """One forward pass: mask -> encoder -> head -> the SSL loss.
 
     Shared by the train and val loops so the train pass is `forward +
     backward + step` and the val pass is `forward` (under no_grad).
-    `loss_fn` is built by `make_loss_fn` from `config['loss']`; for the
-    log-space objectives the head's outputs are read as standardized-log.
+    `loss_fn` is built by `make_loss_fn`; the head's outputs are read as
+    standardized-log against the standardized-log target.
     """
     src = batch["src"].to(device)
     frac = batch["frac"].to(device)
@@ -135,8 +135,8 @@ def run_pretraining(
     dict
         Keys: val_loss, train_loss, encoder, head, monitor,
         final_epoch, best_epoch, best_val_loss, loss_stats.
-        `loss_stats` is the corpus stats the objective used (None for
-        plain MSE) -- the caller rebuilds the same loss for the test eval.
+        `loss_stats` is the corpus log-frac center/scale the objective used
+        -- the caller rebuilds the same loss for the test eval.
     """
     seed = config.get("seed", 0)
     torch.manual_seed(seed)
@@ -188,19 +188,17 @@ def run_pretraining(
 
     mask_prob = config["mask_prob"]
 
-    # Select the objective from config['loss'] (default: linear-frac MSE).
-    # The rebalanced variants derive their per-element stats from the train
-    # split only, so val/test stay held out of the standardization.
+    # The objective derives its per-element stats from the train split only,
+    # so val/test stay held out of the standardization.
     loss_stats = compute_loss_stats(
-        config, dataset, train_indices,
+        dataset, train_indices,
         batch_size=config["batch_size"], num_workers=config.get("num_workers", 0),
     )
-    loss_fn = make_loss_fn(config, loss_stats, device=device)
-    loss_spec = config.get("loss", "mse")
-    loss_type = loss_spec if isinstance(loss_spec, str) else loss_spec.get("type")
+    loss_fn = make_loss_fn(loss_stats, device=device)
 
     print(
-        f"run_pretraining: device={device} loss={loss_type} "
+        f"run_pretraining: device={device} "
+        f"loss=masked-element standardized log-MSE "
         f"n_train={len(train_indices)} n_val={len(val_indices)} "
         f"epochs={config['epochs']} batch_size={config['batch_size']} "
         f"lr={config['lr']} mask_prob={mask_prob}"
@@ -213,7 +211,7 @@ def run_pretraining(
     #   1. cnmineral.data.tokens.mask_for_ssl: takes (src, frac) from the batch and returns a MaskedBatch
     #   2. cnmineral.models.encoder.Encoder: the `forward` method takes (src_corrupted, frac_corrupted) from the MaskedBatch and returns a `pooled_latent`
     #   3. cnmineral.models.pretrain_head.PretrainHead: the `forward` method takes the `pooled_latent` and returns `predicted` (one value for every position in the 22-token vocab)
-    # as for the loss, `loss_fn` is selected per `config['loss']` (cnmineral.training.pretrain_objective): it takes `predicted` at the `mask_positions` and compares to `target_frac` -- in linear-frac, standardized-log, or weighted-linear space.
+    # as for the loss, `loss_fn` is built by cnmineral.training.pretrain_objective: it takes `predicted` at the `mask_positions` and compares to `target_frac` in per-element standardized log-space (ADR 007).
 
     monitor: dict[str, list[float]] = {"train": [], "val": []}
     train_mean = 0.0
@@ -354,11 +352,10 @@ def write_run_results(result: dict, store: CheckpointStore) -> Path:
         json.dump(summary, f, indent=2)
     print(f"\nsummary -> {summary_path}")
 
-    loss_spec = best.config.get("loss", "mse")
-    loss_type = loss_spec if isinstance(loss_spec, str) else loss_spec.get("type")
     fig, ax = plt.subplots()
     plot_run_loss(
-        result["monitor"], ax=ax, title=tag, ylabel=f"masked-element loss ({loss_type})",
+        result["monitor"], ax=ax, title=tag,
+        ylabel="masked-element standardized log-MSE",
     )
     curve_path = results_dir / "loss_curve.png"
     fig.savefig(curve_path, dpi=300, bbox_inches="tight")
@@ -412,9 +409,9 @@ def run_production(
     )
 
     # Same objective as training, rebuilt from the train-split stats the run
-    # returned, so the test number is in the loss's own space (not comparable
-    # across loss types -- the headline lives in the probe + gate evals).
-    loss_fn = make_loss_fn(config, result["loss_stats"], device=device)
+    # returned, so the test number is in the loss's own space (the headline
+    # lives in the probe + gate evals, not this reconstruction loss).
+    loss_fn = make_loss_fn(result["loss_stats"], device=device)
 
     # Compute the headline test_loss against the BEST-VAL model when
     # the store has one on disk -- not the in-memory final-epoch

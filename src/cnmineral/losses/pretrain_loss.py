@@ -1,15 +1,16 @@
 """
-Masked-element MSE on the positions that were masked during the SSL
-corruption step.  The predicted `frac` for non-masked positions is
-ignored (no gradient through the loss)
+Masked-element loss on the positions that were masked during the SSL
+corruption step.  The predicted value for non-masked positions is ignored
+(no gradient through the loss).
 
-`masked_element_mse` is linear-frac space (the original SSL pretrain
-objective).  `masked_element_log_mse` is the per-element standardized
-log-space variant, which rebalances the loss so traces are not drowned by
-the ~1e7-1e8x-larger major fracs (which linear MSE leaves effectively
-unsupervised).  The SSL training loop selects between the two per
-`config['loss']`; `cnmineral.training.pretrain_objective` builds the
-matching loss and its corpus stats.
+`masked_element_log_mse` is the SSL pretrain objective: a per-element
+standardized log-space MSE.  The log space lifts the traces off the floor
+that a linear-frac MSE pins them to (major fracs are ~1e7-1e8x larger, so a
+linear loss leaves traces effectively unsupervised); per-element
+standardization is a smaller refinement that keeps the high-variance majors
+from consuming the global gradient-clip budget.  `target_mean` / `target_std`
+are the corpus log-frac center/scale built by
+`cnmineral.training.pretrain_objective`.
 """
 
 import torch
@@ -33,63 +34,6 @@ def _reduce_masked(
         per_sample_count = mask_positions.sum(dim=1).clamp(min=1).float()
         return (per_sample_sum / per_sample_count).mean()
     raise ValueError(f"unknown reduction: {reduction!r}")
-
-
-def masked_element_mse(
-    predicted_frac: torch.Tensor,
-    target_frac: torch.Tensor,
-    mask_positions: torch.Tensor,
-    reduction: str = "mean_per_masked_position",
-) -> torch.Tensor:
-    """
-    Mean-squared error between predicted and target frac at masked positions.
-
-    Parameters
-    ----------
-    predicted_frac
-        `[B, N_TOKENS]` predicted frac, output of
-        `cnmineral.models.pretrain_head.PretrainHead`.
-    target_frac
-        `[B, N_TOKENS]` original (pre-mask) frac, from
-        `cnmineral.data.tokens.MaskedBatch.target_frac`.
-    mask_positions
-        `[B, N_TOKENS]` boolean.  `True` where the position was
-        populated AND selected for masking.  Only these positions
-        contribute to the loss.
-    reduction
-        - `"mean_per_masked_position"` (default): sum of squared errors
-          divided by the total count of `True` in `mask_positions`.
-          Standard MEM convention; per-batch loss scale is invariant to
-          how many positions happened to be masked.
-        - `"sum"`: raw sum of squared errors over masked positions.
-        - `"mean_per_sample"`: per-sample mean over its masked positions,
-          then mean across the batch.  Penalises samples with few masks
-          equally to samples with many; rarely useful for MEM.
-
-    Returns
-    -------
-    loss
-        Scalar tensor.  If no positions are masked anywhere in the batch
-        the loss is `0` (with gradient `0`); the SSL training loop
-        should skip the optimizer step in that case rather than fail.
-    """
-    if predicted_frac.shape != target_frac.shape:
-        raise ValueError(
-            f"predicted/target shape mismatch: "
-            f"{predicted_frac.shape} vs {target_frac.shape}"
-        )
-    if mask_positions.shape != target_frac.shape:
-        raise ValueError(
-            f"mask_positions shape {mask_positions.shape} does not match "
-            f"target_frac shape {target_frac.shape}"
-        )
-    if mask_positions.dtype != torch.bool:
-        raise TypeError(
-            f"mask_positions must be bool, got {mask_positions.dtype}"
-        )
-
-    squared_error = (predicted_frac - target_frac) ** 2  # [B, N_TOKENS]
-    return _reduce_masked(squared_error, mask_positions, reduction)
 
 
 def masked_element_log_mse(
