@@ -8,13 +8,12 @@ leave-one-out in log space on the Gard test split (n=33,371), against the
 gate's yardsticks: frozen-latent XGBoost **0.839** and input-element XGBoost
 ceiling **0.892** (median over the 13 traces).
 
-```
-conda run -n alignn_fix python explorations/imputation_head_design/run_ablation.py
-```
-
-Read-only on the encoder (frozen, eval, no grad). Writes
-`results/<encoder_tag>/ablation_metrics.json`. 20 epochs/variant, seed 0;
-numbers below reproduce exactly across runs.
+The driving script (`run_ablation.py`) was removed when the log-space cleanup
+dropped the `standardize` toggle from `LogImputationHead` -- the L-raw
+(no-standardize) arm below can no longer be expressed against the current head.
+This is a frozen record; `results/<encoder_tag>/ablation_metrics.json` holds the
+numbers, and the script is recoverable from git history. 20 epochs/variant,
+seed 0; the numbers below reproduced exactly across runs.
 
 ## Variants
 
