@@ -62,8 +62,28 @@ objective is not trading major structure for trace recovery -- both move up.
 
 - `pretrain_v3_seed0` (linear MSE) is retired as canonical; it remains on disk
   as a reference artifact and as the baseline in the gate/probe result trees.
-- The configurable-loss infrastructure
+- ~~The configurable-loss infrastructure
   (`cnmineral.training.pretrain_objective`) stays: it is how this comparison
-  was run and how a future objective would be tested.
+  was run and how a future objective would be tested.~~ Superseded by the
+  amendment below.
 - The imputation read-out head re-scores against the new frozen latent; its
   earlier frozen-latent reference (0.839 median trace log-R2) becomes 0.877.
+
+## Amendment (2026-06-29)
+
+The configurable-loss infrastructure is removed. The linear-space objective
+(`masked_element_mse`), the rejected plain-log variant (`standardize: false`),
+and the `loss:` config token with its type-dispatch are deleted. The objective
+is now singular and unconditional: per-element standardized log-space masked
+MSE, defined in code and in this ADR rather than selected by config. The
+present-tense decoupling seam is kept -- the train loop and `evaluate_on_test`
+still consume an opaque `loss_fn` built by `make_loss_fn` -- but it builds the
+one objective with no menu.
+
+The original reason for keeping the linear code was reproducibility of the
+linear-vs-log comparison. That is preserved by the existing tag
+`v3-log-imputation` (commit `6ba9695`, 2026-06-24), which points at a
+pre-cleanup state containing both objectives and all linear configs:
+`git checkout v3-log-imputation` restores the full comparison harness. The
+seed-1 confirmation run is reproducible from `pretrain_production.yaml` with
+`seed: 1`.
