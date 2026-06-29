@@ -130,7 +130,7 @@ def mask_for_ssl(
     -----
     Per-sample mask count is stochastic; with `mask_prob=0.25` and 9
     populated majors a sample averages ~2 masked positions.  Loss
-    averaging in `cnmineral.losses.pretrain_loss.masked_element_mse`
+    averaging in `cnmineral.losses.pretrain_loss.masked_element_log_mse`
     handles the variability.
     """
 
