@@ -1,109 +1,63 @@
 """Tests for `cnmineral.eval.imputation`.
 
-Structural tests on the leave-one-out core + back-transform, plus an
-end-to-end `run_imputation` against the 2000-row corpus fixture.  The
-tiny-encoder predictions are not meaningful; the end-to-end test guards
-wiring, the test-split reconstruction, and artifact emission.
+An end-to-end log-space scoring run of a trained imputation head against the
+tiny encoder checkpoint (guards wiring, the test-split reconstruction, and
+artifact emission; the tiny head's numbers are not meaningful), the
+back-transform helper, plus the gate-reference loader's present / absent paths.
 """
 
+import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
-from torch import nn
 
 from cnmineral.data.bulk_chemistry import OXIDE_TO_CATION_FACTOR
-from cnmineral.data.tokens import MASK_TOKEN_ID, N_TOKENS
+from cnmineral.data.tokens import N_TOKENS
 from cnmineral.eval import imputation
 from cnmineral.eval.imputation import (
     _back_transform,
-    _impute_token,
+    _load_gate_references,
     run_imputation,
 )
-from cnmineral.eval.latent import (
-    load_encoder_and_head_from_checkpoint,
-    load_encoder_from_checkpoint,
-)
-from cnmineral.models.encoder import Encoder
-from cnmineral.models.pretrain_head import PretrainHead
+from cnmineral.models.imputation_head import LogImputationHead
+from cnmineral.training.imputation_head import ImputationHeadCheckpoint
 
 
-class _SpyEncoder(nn.Module):
-    """Records the (src, frac) it is called with; returns zero latents."""
-
-    def __init__(self, d_model: int) -> None:
-        super().__init__()
-        self.d_model = d_model
-        self.seen: list[tuple[torch.Tensor, torch.Tensor]] = []
-
-    def forward(self, *, src: torch.Tensor, frac: torch.Tensor) -> torch.Tensor:
-        self.seen.append((src.clone(), frac.clone()))
-        return torch.zeros(src.shape[0], self.d_model)
-
-
-class _ConstHead(nn.Module):
-    def forward(self, pooled: torch.Tensor) -> torch.Tensor:
-        return torch.zeros(pooled.shape[0], N_TOKENS)
-
-
-def test_loader_returns_head_with_22_outputs(tiny_pretrain_checkpoint: Path) -> None:
-    """The head-returning loader yields a PretrainHead emitting one frac per token."""
-    encoder, head, ckpt = load_encoder_and_head_from_checkpoint(tiny_pretrain_checkpoint)
-    assert isinstance(head, PretrainHead)
-    out = head(torch.zeros(3, ckpt.config["d_model"]))
-    assert out.shape == (3, N_TOKENS)
-
-
-def test_load_encoder_from_checkpoint_unchanged_pair(
-    tiny_pretrain_checkpoint: Path,
-) -> None:
-    """The head-less loader still returns (encoder, ckpt) after the refactor,
-    and its encoder weights match the head-returning loader's bit-exact."""
-    encoder_pair, ckpt = load_encoder_from_checkpoint(tiny_pretrain_checkpoint)
-    assert isinstance(encoder_pair, Encoder)
-    encoder_full, _head, _ckpt = load_encoder_and_head_from_checkpoint(tiny_pretrain_checkpoint)
-    for a, b in zip(encoder_pair.state_dict().values(),
-                    encoder_full.state_dict().values()):
-        assert torch.equal(a, b)
-
-
-def test_impute_token_masks_target_and_keeps_populated_rows(
-    synthetic_token_dataset,
-) -> None:
-    """`_impute_token` masks exactly the target token and returns only the rows
-    where that element was originally populated (mapped to dataset indices)."""
-    src = torch.zeros(4, N_TOKENS, dtype=torch.long)
-    frac = torch.zeros(4, N_TOKENS, dtype=torch.float32)
-    # token 0 populated in rows 0 and 2 only
-    src[[0, 2], 0] = 14
-    frac[[0, 2], 0] = 0.5
-    dataset = synthetic_token_dataset(src, frac)
-    indices = np.array([0, 1, 2, 3], dtype=np.int64)
-
-    encoder = _SpyEncoder(d_model=8)
-    head = _ConstHead()
-    kept, true, pred = _impute_token(
-        encoder, head, dataset, indices, 0, device="cpu", batch_size=2,
+def _make_head_checkpoint(encoder_ckpt: Path, dest: Path) -> Path:
+    head = LogImputationHead(d_model=16, hidden=8)
+    head.fit_standardization(
+        torch.full((N_TOKENS,), -2.0), torch.full((N_TOKENS,), 1.0),
     )
-    assert kept.tolist() == [0, 2]
-    assert true.tolist() == [0.5, 0.5]
-    assert pred.shape == (2,)
-    for seen_src, seen_frac in encoder.seen:
-        assert torch.all(seen_src[:, 0] == MASK_TOKEN_ID)
-        assert torch.all(seen_frac[:, 0] == 0.0)
+    ImputationHeadCheckpoint.from_head(
+        head, str(encoder_ckpt), 0.1, 0.2, {"train": [0.1], "val": [0.2]},
+    ).save(dest)
+    return dest
 
 
-def test_impute_token_empty_when_token_unpopulated(synthetic_token_dataset) -> None:
-    """A token padded in every row yields no comparisons."""
-    src = torch.zeros(3, N_TOKENS, dtype=torch.long)
-    frac = torch.zeros(3, N_TOKENS, dtype=torch.float32)
-    dataset = synthetic_token_dataset(src, frac)
-    kept, true, pred = _impute_token(
-        _SpyEncoder(4), _ConstHead(), dataset,
-        np.array([0, 1, 2]), 5, device="cpu", batch_size=2,
-    )
-    assert kept.size == 0 and true.size == 0 and pred.size == 0
+def test_run_logspace_end_to_end_on_fixture(
+    tiny_pretrain_checkpoint: Path, tmp_path: Path, monkeypatch,
+) -> None:
+    """`run_imputation` reconstructs the encoder's test split, scores every
+    populated element in log space, and writes the metrics JSON + plot under a
+    `readout/` subdir."""
+    monkeypatch.setattr(imputation, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(imputation, "GATE_RESULTS_ROOT", tmp_path / "gate")
+    head_ckpt = _make_head_checkpoint(tiny_pretrain_checkpoint, tmp_path / "head_best.pt")
+
+    metrics = run_imputation(head_ckpt, device=torch.device("cpu"))
+
+    per_element = metrics["per_element"]
+    assert per_element and "Si" in per_element
+    assert np.isfinite(per_element["Si"]["log_r2"])
+    assert metrics["space"] == "log10"
+    assert metrics["trace_summary"]["n_traces"] >= 0
+
+    out_dir = tmp_path / "results" / "imputation"
+    readout_dir = next(out_dir.iterdir()) / "readout"
+    assert (readout_dir / "readout_logspace_metrics.json").exists()
+    assert (readout_dir / "r2_by_element.png").exists()
 
 
 def test_back_transform_inverts_normalization() -> None:
@@ -120,24 +74,21 @@ def test_back_transform_inverts_normalization() -> None:
     assert sr_label == "Sr (ppm)"
 
 
-def test_run_imputation_end_to_end_on_fixture(
-    tiny_pretrain_checkpoint: Path, tmp_path: Path, monkeypatch,
-) -> None:
-    """`run_imputation` reconstructs the test split, imputes every populated
-    element, and emits the metrics JSON + a major scatter grid."""
-    monkeypatch.setattr(imputation, "RESULTS_ROOT", tmp_path / "results")
+def test_load_gate_references_reads_run_1a_1b(tmp_path: Path, monkeypatch) -> None:
+    """The loader maps the gate's run_1a / run_1b R2 to the reference keys."""
+    monkeypatch.setattr(imputation, "GATE_RESULTS_ROOT", tmp_path)
+    tag = "enc_epoch_best"
+    gate_dir = tmp_path / tag
+    gate_dir.mkdir()
+    payload = {"per_element": {"Sr": {"run_1a": {"r2": 0.9}, "run_1b": {"r2": 0.84}}}}
+    (gate_dir / "diagnostic_metrics.json").write_text(json.dumps(payload))
 
-    metrics = run_imputation(tiny_pretrain_checkpoint, device=torch.device("cpu"))
+    refs = _load_gate_references(tag)
+    assert refs["Sr"]["input_xgb_ceiling_r2"] == 0.9
+    assert refs["Sr"]["frozen_latent_xgb_r2"] == 0.84
 
-    per_element = metrics["per_element"]
-    assert per_element, "expected at least the majors imputed"
-    assert "Si" in per_element
-    si = per_element["Si"]
-    assert si["n"] > 0
-    assert np.isfinite(si["backtransformed"]["mae"])
-    assert np.isfinite(si["frac"]["rmse"])
 
-    out_dir = tmp_path / "results" / "imputation"
-    tag_dir = next(out_dir.iterdir())
-    assert (tag_dir / "imputation_metrics.json").exists()
-    assert (tag_dir / "scatter_majors.png").exists()
+def test_load_gate_references_missing_returns_empty(tmp_path: Path, monkeypatch) -> None:
+    """No gate file -> empty refs, so the eval still runs without reference lines."""
+    monkeypatch.setattr(imputation, "GATE_RESULTS_ROOT", tmp_path)
+    assert _load_gate_references("nonexistent_tag") == {}

@@ -11,7 +11,7 @@ import torch
 import yaml
 
 from cnmineral.data.tokens import N_TOKENS
-from cnmineral.eval import imputation_logspace
+from cnmineral.eval import imputation
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.imputation_head import LogImputationHead
 import pytest
@@ -55,7 +55,6 @@ def test_train_imputation_head_end_to_end(tiny_pretrain_checkpoint: Path) -> Non
     config = {
         "encoder_checkpoint": str(tiny_pretrain_checkpoint),
         "hidden": 8,
-        "standardize": True,
         "epochs": 1,
         "batch_size": 32,
         "lr": 1e-3,
@@ -98,7 +97,8 @@ def test_early_stop_returns_best_val_weights(tiny_pretrain_checkpoint: Path) -> 
 
 def test_dropout_roundtrips_through_checkpoint(tiny_pretrain_checkpoint: Path) -> None:
     """`dropout` is stamped into head_config and rebuilds via build_head; a
-    pre-dropout checkpoint (key absent) still rebuilds at the 0.0 default."""
+    pre-dropout checkpoint (dropout absent, a stale `standardize` key present)
+    still rebuilds at the 0.0 default with the stale key ignored."""
     head = LogImputationHead(d_model=16, hidden=8, dropout=0.25)
     ckpt = ImputationHeadCheckpoint.from_head(
         head, str(tiny_pretrain_checkpoint), 0.1, 0.2, {"train": [0.1], "val": [0.2]},
@@ -132,7 +132,7 @@ def test_imputation_head_checkpoint_save_load(
 
     loaded = ImputationHeadCheckpoint.load(path)
     assert loaded.head_config == {
-        "d_model": 16, "hidden": 8, "standardize": True, "dropout": 0.0,
+        "d_model": 16, "hidden": 8, "dropout": 0.0,
     }
     assert loaded.encoder_checkpoint == str(tiny_pretrain_checkpoint)
     assert torch.equal(
@@ -146,8 +146,8 @@ def test_run_single_trains_then_scores_test(
     """The single entry trains, saves the head, and scores the test split in one
     pass: it returns the train/val losses plus a `trace_summary` and writes the
     readout scorecard."""
-    monkeypatch.setattr(imputation_logspace, "RESULTS_ROOT", tmp_path / "results")
-    monkeypatch.setattr(imputation_logspace, "GATE_RESULTS_ROOT", tmp_path / "gate")
+    monkeypatch.setattr(imputation, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(imputation, "GATE_RESULTS_ROOT", tmp_path / "gate")
     config = {
         "encoder_checkpoint": str(tiny_pretrain_checkpoint),
         "hidden": 8,

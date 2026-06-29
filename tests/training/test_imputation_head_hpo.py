@@ -33,7 +33,6 @@ def _write_hpo_yaml(
         "n_startup_trials": 2,
         "score_batch_size": 256,
         "base": {
-            "standardize": True,
             "batch_size": 64,
             "val_split": 0.25,
             "seed": 0,

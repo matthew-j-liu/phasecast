@@ -3,17 +3,12 @@ Log-space imputation read-out head.
 
 A small head trained on the *frozen* SSL encoder's pooled latent `[B,
 d_model]` to impute masked element values.  It is the application-slot
-counterpart to `cnmineral.models.pretrain_head.PretrainHead`: same
-MLP shape, but `PretrainHead` is trained jointly with the encoder during
-SSL (linear-frac MSE, the objective that shapes the latent) while this head
-trains alone on the already-frozen encoder with a log-space, per-element
-standardized objective.  The log space is what fixes trace imputation:
-linear-frac MSE is dominated by the majors and pins traces to a floor, so
-the jointly-trained head's trace predictions collapse in log space even
-though the latent retains the trace signal.  Per-element standardization is
-a secondary refinement -- it mainly rescues the lowest-signal heavy REE
-through the global gradient clip, so the `standardize` toggle changes little
-for a linear head.
+counterpart to `cnmineral.models.pretrain_head.PretrainHead`: same MLP shape
+and the same per-element standardized log-space objective, but `PretrainHead`
+is trained jointly with the encoder during SSL (it shapes the latent) while
+this head trains alone on the already-frozen encoder.  Training the read-out
+separately lets it size its capacity (hidden width, dropout) to the imputation
+task without disturbing the latent the rest of the pipeline shares.
 
 Outputs are in **standardized-log space** (per-element `log10(frac)`
 centered/scaled by training-split statistics carried in the `target_mean`
@@ -34,10 +29,9 @@ class LogImputationHead(nn.Module):
     """Read-out head over the 22-token vocabulary in standardized-log space.
 
     Linear (`hidden=None`) or one-hidden-layer GELU MLP (`hidden=int`) from
-    the pooled latent to one value per vocabulary position.  `standardize`
-    toggles whether the head emits per-element standardized `log10(frac)`
-    (the buffers are fit before training) or raw `log10(frac)` (buffers stay
-    at the zero-mean / unit-std identity).
+    the pooled latent to one value per vocabulary position.  The head emits
+    per-element standardized `log10(frac)`; `fit_standardization` writes the
+    de-standardization buffers from the training split before training.
 
     Parameters
     ----------
@@ -46,9 +40,6 @@ class LogImputationHead(nn.Module):
     hidden
         Hidden width.  `None` builds a single linear layer; an int builds
         `d_model -> hidden -> N_TOKENS` with a GELU between.
-    standardize
-        Whether `fit_standardization` will populate the de-standardization
-        buffers.  Recorded so the checkpoint can rebuild the same head.
     dropout
         Dropout after the GELU in the MLP path; ignored for the linear head.
         `0.0` disables it.
@@ -59,13 +50,11 @@ class LogImputationHead(nn.Module):
         d_model: int,
         *,
         hidden: int | None = None,
-        standardize: bool = True,
         dropout: float = 0.0,
     ) -> None:
         super().__init__()
         self.d_model = d_model
         self.hidden = hidden
-        self.standardize = standardize
         self.dropout = dropout
 
         if hidden is None:

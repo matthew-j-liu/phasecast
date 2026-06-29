@@ -21,7 +21,6 @@ n_startup_trials: 8
 score_batch_size: 512
 
 base:
-  standardize: true
   batch_size: 256
   val_split: 0.20
   seed: 0

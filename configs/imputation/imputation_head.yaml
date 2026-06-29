@@ -8,7 +8,6 @@ encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
 # head architecture
 hidden: 1024          # one GELU MLP layer (null -> linear read-out)
 dropout: 0.0658
-standardize: true     # per-element log10(frac) center/scale in the loss
 
 # optimization
 epochs: 80            # ceiling; early stopping ends it sooner

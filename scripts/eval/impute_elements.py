@@ -1,9 +1,11 @@
-"""Impute held-out elements from a frozen encoder + pretrain head.
+"""Score a trained imputation head in log space over its encoder's test split.
 
-  python scripts/eval/impute_elements.py --checkpoint CKPT.pt
+  python scripts/eval/impute_elements.py --checkpoint HEAD_CKPT.pt
 
-The dataset and Gard test split are reconstructed from `ckpt.config`;
-artifacts land at `results/imputation/<checkpoint_tag>/`.
+`--checkpoint` is an `ImputationHeadCheckpoint` (head weights + the encoder it
+was trained against).  The encoder and Gard test split are reconstructed from
+the encoder checkpoint's config; artifacts land at
+`results/imputation/<encoder_tag>/readout/`.
 """
 
 import os
@@ -21,10 +23,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--checkpoint", type=Path, required=True,
-        help="encoder+head checkpoint produced by scripts/training/pretrain.py",
+        help="imputation head checkpoint produced by scripts/training/imputation_head.py",
     )
     args = parser.parse_args()
-    run_imputation(checkpoint_path=args.checkpoint.resolve())
+    run_imputation(args.checkpoint.resolve())
 
 
 if __name__ == "__main__":

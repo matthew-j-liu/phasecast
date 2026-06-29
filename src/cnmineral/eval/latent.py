@@ -13,8 +13,8 @@ Three entry points:
   by tests and by the CLI after it has loaded the checkpoint.
 - `load_encoder_and_head_from_checkpoint(path)` rebuilds both the `Encoder`
   and the `PretrainHead` from a checkpoint's stamped config and applies the
-  state dicts.  Imputation needs the head at inference (it predicts masked
-  fracs), so it loads through this entry point.
+  state dicts.  It is the implementation base for the head-less loader below;
+  callers that only need pooled latents go through that thinner entry point.
 - `load_encoder_from_checkpoint(path)` is the head-less variant for probes
   and UMAP, which only read pooled latents.  Both return in eval mode on
   CPU; the caller `.to(device)`s.
@@ -41,8 +41,9 @@ def load_encoder_and_head_from_checkpoint(
     """Rebuild the `Encoder` + `PretrainHead` from a checkpoint's config.
 
     Returns both models (eval mode, CPU) plus the loaded `Checkpoint`
-    so the caller can pull `epoch`, `val_loss`, `config`, etc.  The head
-    is the SSL masked-frac predictor; imputation runs it at inference.
+    so the caller can pull `epoch`, `val_loss`, `config`, etc.  The head is
+    the SSL masked-frac predictor; this is the implementation base for the
+    head-less `load_encoder_from_checkpoint`, which discards it.
     """
     ckpt = Checkpoint.load(checkpoint_path)
     encoder = Encoder(

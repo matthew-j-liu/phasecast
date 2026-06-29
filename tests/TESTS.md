@@ -199,18 +199,10 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_imputation.py
 
-1. `test_loader_returns_head_with_22_outputs` -- the head-returning loader yields a PretrainHead emitting one frac per token.
-2. `test_load_encoder_from_checkpoint_unchanged_pair` -- the head-less loader still returns (encoder, ckpt) and its encoder weights match the head-returning loader bit-exact.
-3. `test_impute_token_masks_target_and_keeps_populated_rows` -- the leave-one-out core masks exactly the target token (src=119, frac=0) and returns only originally-populated rows, mapped to dataset indices.
-4. `test_impute_token_empty_when_token_unpopulated` -- a token padded in every row yields no comparisons.
-5. `test_back_transform_inverts_normalization` -- majors invert to oxide wt%, Fe to cation wt%, traces to ppm, with the matching axis labels.
-6. `test_run_imputation_end_to_end_on_fixture` -- `run_imputation` reconstructs the test split, imputes every populated element, and writes the metrics JSON + major scatter grid.
-
-### test_imputation_logspace.py
-
-1. `test_run_logspace_end_to_end_on_fixture` -- `run_imputation_logspace` reconstructs the encoder's test split, scores every populated element in log space, and writes the metrics JSON + R2 chart under a `readout/` subdir.
-2. `test_load_gate_references_reads_run_1a_1b` -- the gate-reference loader maps the gate's run_1a / run_1b R2 onto the input-ceiling / frozen-latent reference keys.
-3. `test_load_gate_references_missing_returns_empty` -- a missing gate file yields empty refs so the eval still runs without reference lines.
+1. `test_run_logspace_end_to_end_on_fixture` -- `run_imputation` scores a trained head over the encoder's test split in log space, writing the metrics JSON + R2 chart under a `readout/` subdir.
+2. `test_back_transform_inverts_normalization` -- majors invert to oxide wt%, Fe to cation wt%, traces to ppm, with the matching axis labels.
+3. `test_load_gate_references_reads_run_1a_1b` -- the gate-reference loader maps the gate's run_1a / run_1b R2 onto the input-ceiling / frozen-latent reference keys.
+4. `test_load_gate_references_missing_returns_empty` -- a missing gate file yields empty refs so the eval still runs without reference lines.
 
 ### test_training_curves.py
 

@@ -70,7 +70,6 @@ class ImputationHeadCheckpoint:
             head_config={
                 "d_model": head.d_model,
                 "hidden": head.hidden,
-                "standardize": head.standardize,
                 "dropout": head.dropout,
             },
             encoder_checkpoint=str(encoder_checkpoint),
@@ -113,11 +112,14 @@ class ImputationHeadCheckpoint:
         )
 
     def build_head(self) -> LogImputationHead:
-        """Reconstruct the head (eval mode, CPU) with its weights + buffers."""
+        """Reconstruct the head (eval mode, CPU) with its weights + buffers.
+
+        A stale `standardize` key on an old checkpoint's `head_config` is
+        ignored -- the head is always standardized now.
+        """
         head = LogImputationHead(
             d_model=self.head_config["d_model"],
             hidden=self.head_config["hidden"],
-            standardize=self.head_config["standardize"],
             dropout=self.head_config.get("dropout", 0.0),
         )
         head.load_state_dict(self.head_state)
@@ -181,8 +183,8 @@ def train_head_on_split(
 ) -> tuple[LogImputationHead, dict[str, list[float]], float, float]:
     """Train one head on a fixed train/val split; return it at its best val.
 
-    Builds the head from `config` (`hidden`, `standardize`, `dropout`), fits
-    standardization on `train_indices`, and trains up to `epochs` with val-loss
+    Builds the head from `config` (`hidden`, `dropout`), fits standardization
+    on `train_indices`, and trains up to `epochs` with val-loss
     early stopping: the best-val weights are restored before returning, and an
     `early_stop_patience` (when set) halts once val has not improved for that
     many epochs.  Returns `(head, monitor, train_loss, val_loss)` where the two
@@ -197,14 +199,12 @@ def train_head_on_split(
     head = LogImputationHead(
         d_model=enc_config["d_model"],
         hidden=config.get("hidden"),
-        standardize=config.get("standardize", True),
         dropout=config.get("dropout", 0.0),
     ).to(device)
-    if head.standardize:
-        mean, std = log_frac_stats(
-            dataset, train_indices, batch_size=batch_size, num_workers=num_workers,
-        )
-        head.fit_standardization(mean, std)
+    mean, std = log_frac_stats(
+        dataset, train_indices, batch_size=batch_size, num_workers=num_workers,
+    )
+    head.fit_standardization(mean, std)
 
     optimizer = torch.optim.AdamW(
         head.parameters(), lr=config["lr"],
@@ -281,7 +281,7 @@ def train_imputation_head(
     """Train the log-space imputation head on the configured frozen encoder.
 
     Required config keys: `encoder_checkpoint`, `epochs`, `lr`, `batch_size`.
-    Optional: `hidden` (None -> linear), `standardize` (default True),
+    Optional: `hidden` (None -> linear),
     `dropout` (default 0.0, MLP only), `mask_prob` (default: the encoder's
     pretrain `mask_prob`), `weight_decay`, `early_stop_patience` (None -> run
     all epochs), `val_split` (default 0.20), `num_workers`,
@@ -307,7 +307,7 @@ def train_imputation_head(
     print(
         f"train_imputation_head: device={device} encoder={Path(encoder_ckpt_path).name} "
         f"n_train={len(train_indices)} n_val={len(val_indices)} "
-        f"hidden={config.get('hidden')} standardize={config.get('standardize', True)} "
+        f"hidden={config.get('hidden')} "
         f"dropout={config.get('dropout', 0.0)} epochs={config['epochs']} "
         f"batch_size={config['batch_size']} lr={config['lr']} "
         f"mask_prob={config.get('mask_prob', enc_ckpt.config['mask_prob'])}"
@@ -346,11 +346,11 @@ def run_single(config_path: Path, device: torch.device) -> dict:
         print("no head_checkpoint_dir set -- skipping test scoring")
         return result
 
-    # local import: cnmineral.eval.imputation_logspace imports back from this
-    # module (ImputationHeadCheckpoint), so a top-level import would cycle.
-    from cnmineral.eval.imputation_logspace import run_imputation_logspace
+    # local import: cnmineral.eval.imputation imports back from this module
+    # (ImputationHeadCheckpoint), so a top-level import would cycle.
+    from cnmineral.eval.imputation import run_imputation
 
     saved_path = Path(config["head_checkpoint_dir"]) / config["head_checkpoint_filename"]
-    metrics = run_imputation_logspace(saved_path, device=device)
+    metrics = run_imputation(saved_path, device=device)
     result["trace_summary"] = metrics["trace_summary"]
     return result

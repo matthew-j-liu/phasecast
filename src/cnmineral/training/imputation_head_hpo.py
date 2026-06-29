@@ -2,8 +2,8 @@
 
 Single-stage TPE sweep of the head and its optimization (encoder frozen,
 head-only) maximizing median trace leave-one-out log-R2 on a held-out val
-split -- the same instrument `cnmineral.eval.imputation_logspace` ships on,
-scored on val so the test split stays untouched until the final artifact.
+split -- the same instrument `cnmineral.eval.imputation` ships on, scored on
+val so the test split stays untouched until the final artifact.
 Mirrors the probe-HPO scaffolding (`JournalStorage`, `load_if_exists` resume,
 TPE sampler).  No pruner: the objective is an end-of-trial LOO computation with
 no cheap per-epoch analogue, and each head trains in seconds on the frozen
@@ -27,7 +27,7 @@ from optuna.storages import JournalStorage
 from optuna.storages.journal import JournalFileBackend
 from optuna.visualization.matplotlib import plot_optimization_history
 
-from cnmineral.eval.imputation_logspace import (
+from cnmineral.eval.imputation import (
     _N_MAJORS,
     _summarize,
     score_head_per_element,
@@ -65,7 +65,7 @@ def run_hpo(
     Expected config keys: `encoder_checkpoint`, `study_name`, `storage_path`
     (a `{encoder_tag}` template), `output_dir`, `sampler_seed`, `n_trials`,
     `n_startup_trials`, `base` (locked knobs incl. `batch_size`, `epochs`
-    ceiling, `early_stop_patience`, `val_split`, `standardize`, `seed`),
+    ceiling, `early_stop_patience`, `val_split`, `seed`),
     `search_space` (per-knob spec for `_sample_hyperparameter`).  Optional
     `score_batch_size` (val LOO scoring) and `baseline` (a fixed HP dict scored
     once for an untuned reference point).
