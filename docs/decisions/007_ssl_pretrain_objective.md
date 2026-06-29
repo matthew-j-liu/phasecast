@@ -13,7 +13,7 @@ encoder `pretrain_v3_seed0`.
 Canonical checkpoint: `checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`
 (architecture unchanged: d_model 256 / 4 layers / 8 heads; 20 epochs on Gard
 2019 igneous bulks). Optimization hyperparameters from the per-objective
-Optuna sweep (`configs/pretrain/pretrain_hpo_logmse_std.yaml`).
+Optuna sweep (`configs/pretrain/pretrain_hpo.yaml`).
 
 Downstream consumers (corpus regen, supervised heads, imputation read-out
 tune, all encoder-application probes) load this checkpoint.

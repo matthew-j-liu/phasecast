@@ -1,15 +1,23 @@
-# Take the best hyperparameters found by Optuna trials and paste here
-batch_size: 32                      
-lr: 1.4708512167257399e-4                       
-mask_prob: 0.22994349809709916      
-weight_decay: 0.007669492144818994           
-dropout: 0.013193520455011092           
-d_model: 256      
-n_layers: 4                  
-n_heads: 8   
+# Seed-0 canonical SSL encoder (ADR 007).
+#
+# Single production run at the seed-0 HPO winner's optimization HPs, verified
+# against the stamped config of
+# checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt.  The objective is
+# unconditional (per-element standardized log-space masked MSE), so there is
+# no loss: block.  Set seed: 1 to reproduce the cross-seed confirmation run --
+# update checkpoint_dir to match the seed.
 
-# should match what was used in `probe_hpo.yaml`
-seed: 0 # update the checkpoint_dir with this as well! 
+seed: 0
+
+batch_size: 32
+lr: 8.17949947521167e-05
+mask_prob: 0.28118910790805945
+weight_decay: 0.001976218934028009
+dropout: 0.058245828039608386
+d_model: 256
+n_layers: 4
+n_heads: 8
+
 epochs: 20
 test_split: 0.20
 val_split: 0.20
@@ -24,6 +32,6 @@ data_kwargs:
   require_all_majors: true
   include_cr2o3: false
 
-checkpoint_dir: checkpoints/pretrain_v3_seed0 
+checkpoint_dir: checkpoints/pretrain_v3_logmse_std_seed0
 checkpoint_best_filename: epoch_best.pt
 checkpoint_last_filename: epoch_last.pt
