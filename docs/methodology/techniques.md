@@ -42,7 +42,7 @@ for the paper, scaling-experiment cross-run join, etc.).
 |---|---|---|
 | `src/cnmineral/models/encoder.py` | `Encoder.__init__` | `mat2vec_embedding`, `transformer_encoder`, `fractional_encoding`, `masked_mean_pool`, `dropout` (if > 0) |
 | `src/cnmineral/data/tokens.py` | `mask_for_ssl` | `masked_element_modeling` (with `mask_prob`) |
-| `src/cnmineral/losses/pretrain_loss.py` | `masked_element_mse` | `masked_element_mse` (with reduction mode) |
+| `src/cnmineral/losses/pretrain_loss.py` | `masked_element_log_mse` | `masked_element_log_mse` (with reduction mode) |
 | `src/cnmineral/eval/probes.py` | `train_mlp_probe` | `mlp_probe`, `adamw`, conditionally `cosine_scheduler`, `label_smoothing`, `l2_normalize_inputs` |
 | `src/cnmineral/eval/probes.py` | `train_logreg_probe` | `logreg_probe`, `standard_scaler` |
 | `cnmineral.training` / `scripts/training/pretrain.py` | end of `run_single` or `run_hpo` | `optuna_tpe_sampler`, `optuna_median_pruner`, `optuna_journal_storage`, `stratified_split`, `grad_clip` (HPO-only entries gated) |
@@ -76,7 +76,7 @@ for the paper, scaling-experiment cross-run join, etc.).
     "fractional_encoding":     {"resolution": 5000, "linear_and_log": true},
     "masked_mean_pool":        {},
     "masked_element_modeling": {"strategy": "bert-style", "mask_prob": 0.25, "mask_token_id": 119},
-    "masked_element_mse":      {"reduction": "mean_per_masked_position"},
+    "masked_element_log_mse":  {"reduction": "mean_per_masked_position"},
     "adamw":                   {"lr": 3e-4, "weight_decay": 0.01},
     "grad_clip":               {"max_norm": 1.0},
     "stratified_split":        {"axis": "qap_name", "ratios": [0.64, 0.16, 0.20], "level": "bulk"}

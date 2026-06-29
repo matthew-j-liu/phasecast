@@ -140,11 +140,6 @@ techniques:
       - "label_smoothing"
 
   # ---- loss ----
-  - name: masked_element_mse
-    type: loss
-    patterns:
-      - "masked_element_mse"
-      - "mean_per_masked_position"
   - name: cross_entropy
     type: loss
     patterns:

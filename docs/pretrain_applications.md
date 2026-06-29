@@ -46,19 +46,22 @@ shape but differs in role:
 | | `PretrainHead` | imputation read-out head |
 |---|---|---|
 | trained | jointly with the encoder during SSL | alone, encoder frozen |
-| objective | linear-frac MSE (shapes the latent) | per-element standardized log-space MSE |
+| objective | per-element standardized log-space MSE (ADR 007) | the same objective; capacity (hidden width, dropout) tuned to imputation |
 | role | SSL machinery: drives the masked-element loss that shapes the encoder | downstream application head, re-supervised post-hoc |
 | lives in | the pretrain checkpoint | its own `ImputationHeadCheckpoint` |
 
 `PretrainHead` is not deleted -- it must exist to pretrain the encoder, and
-its imputation outputs were always a side effect. Those outputs are decent on
-majors but collapse on traces: linear-frac MSE is dominated by the majors, so
-trace predictions optimize to a near-constant and go negative in log-space
-R2. The trace-imputation gate (`explorations/trace_signal_in_latent/`,
-JOURNAL 2026-06-15) showed this is a *head-objective* problem, not encoder
-capacity -- XGBoost on the frozen masked latent reaches ~94% of the
-input-element XGBoost ceiling across the 13 traces. So the fix is a head with
-the right objective on the *existing* frozen latent, not a re-pretrain.
+its imputation outputs were always a side effect. Under the *original*
+linear-frac SSL objective those outputs were decent on majors but collapsed on
+traces: a linear-frac loss is dominated by the majors, so trace predictions
+optimized to a near-constant and went negative in log-space R2. The
+trace-imputation gate (`explorations/trace_signal_in_latent/`, JOURNAL
+2026-06-15) showed this is a *head-objective* problem, not encoder capacity --
+XGBoost on the frozen masked latent reaches ~94% of the input-element XGBoost
+ceiling across the 13 traces. So the fix is the right objective on the
+*existing* frozen latent, not a re-pretrain: the SSL objective itself moved to
+standardized log-space (ADR 007), and this separately-tuned read-out head reads
+the frozen latent at the imputation task's own capacity.
 
 **Shipped.** The production head is Optuna-tuned (single-stage sweep, objective
 median trace log-R2 on a held-out val split) and reaches test median trace
@@ -71,8 +74,8 @@ Implementation (built):
 - `cnmineral.models.imputation_head.LogImputationHead` -- linear or
   one-hidden-MLP read-out emitting per-element standardized `log10(frac)`,
   with de-standardization buffers carried in `state_dict`.
-- `cnmineral.losses.pretrain_loss.masked_element_log_mse` -- the log-space
-  objective (contrast: `masked_element_mse` is the linear-frac SSL loss).
+- `cnmineral.losses.pretrain_loss.masked_element_log_mse` -- the standardized
+  log-space objective, shared by the SSL pretrain and this read-out head.
 - `scripts/training/imputation_head.py` -- the single entry, mirroring
   `pretrain.py`: a plain `--config` run trains the head on a frozen encoder
   (`train_imputation_head`) then scores the test split once, writing the
@@ -82,9 +85,9 @@ Implementation (built):
   checkpoint's config.
 - `cnmineral.training.imputation_head_hpo.run_hpo` -- single-stage Optuna
   sweep of the head HPs (the `--hpo` path).
-- `cnmineral.eval.imputation_logspace.run_imputation_logspace` -- log-space
-  leave-one-out scoring against the gate's two reference lines; the scoring core
-  the single run calls after training.
+- `cnmineral.eval.imputation.run_imputation` -- log-space leave-one-out scoring
+  against the gate's two reference lines; the scoring core the single run calls
+  after training.
 
 The frozen-latent XGBoost number stays a *yardstick*, never a shipped model.
 It is a tuned gradient-boosted forest, so it measures a strong nonlinear

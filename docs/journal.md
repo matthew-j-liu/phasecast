@@ -2943,3 +2943,42 @@ axes to named geochemical trends -- cheap positive validation of the
 petrogenetic-structure claim), #18 (OOD detection + transfer to real-rock corpora
 -- the foundation-model claim is untested out-of-distribution). #16 and #18 share
 the Mahalanobis/whitening machinery.
+
+## 2026-06-29 -- commit to the log-space SSL objective: drop linear + the config-loss harness
+
+**Q.** ADR 007 made standardized log-space masked MSE the canonical SSL
+objective but kept the linear-space loss and the `loss:`-selectable machinery
+in place as a comparison harness. Should the codebase keep them?
+
+**Context.** The linear bits were retained only to re-run the linear-vs-log
+comparison someday. But the tagged history already preserves that: tag
+`v3-log-imputation` (commit `6ba9695`, 2026-06-24) points at a pre-cleanup state
+holding both objectives and all linear configs, so `git checkout
+v3-log-imputation` restores the full harness. Keeping dead code in the live tree
+to hedge a one-off reproduction is the smell. A one-item menu (`loss:` with a
+single value) also can't name its item losslessly -- `log_mse` hides the
+standardization, `std_log_mse` hides that it is per-element and masked -- so the
+honest move is to name the objective in full in code + ADR, not compress it into
+a config token.
+
+**Considered.** (1) Keep the harness as ADR 007 literally said. (2) Keep the
+seam but rename the token honestly. (3) Drop the token entirely, keep only the
+`make_loss_fn` builder seam (the present-tense decoupling the train loop and
+test eval rely on).
+
+**Decision.** Option 3. Deleted `masked_element_mse`, the rejected plain-log
+variant, `_loss_config`, and the `loss:` token + type-dispatch;
+`compute_loss_stats` / `make_loss_fn` lost their `config` param and build the one
+objective unconditionally. Standardization is unconditional everywhere -- the
+`standardize` toggle is gone from the SSL path and from `LogImputationHead`
+(`build_head` ignores a stale key on old checkpoints). Collapsed the misnamed
+`eval/imputation.py` (linear scaffold) + `eval/imputation_logspace.py` (log
+read-out) pair into one honest `eval/imputation.py` (`run_imputation`), and
+repointed `scripts/eval/impute_elements.py` at a trained head checkpoint. ADR
+007 amended to record the removal and cite the tag. `pretrain_production.yaml` is
+now the seed-0 canonical config (HPs verified against the canonical checkpoint's
+stamped config), no `loss:` block. The linear-architecture trap was avoided:
+`LogImputationHead(hidden=None)` and the `FractionalEncoder` linear path are
+untouched -- only linear-*space* magnitude weighting was deleted.
+
+**Next.** Track B heads (ModeHead / CompHead / CondHead).
