@@ -166,6 +166,43 @@ the phase list change, (c) where does liq-as-glass become unreliable (silicic
 near-solidus). This directly adjudicates ChatGPT vs Gemini on the endpoint using
 the `equilibrium_multimodality` raw output -- no new MAGEMin run.
 
+## Consolidated ledger + order of operations (the durable tracker)
+
+The corpus open items collapse into four tasks (from the earlier F1-F7 triage;
+this section supersedes that list):
+
+- **A -- Endpoint decision** (near-solidus vs eruptible-crystallinity ~50% melt).
+  Absorbs F6 (trace-phase / muscovite min-mode cutoff -- likely a near-solidus
+  artifact that shrinks if the endpoint moves) and F7 (cooling floor vs melt
+  threshold). Settled by the re-pick experiment above -- cheap, existing data.
+- **B -- Water redesign** (flat 0-8 box -> pressure-dependent-solubility-bounded,
+  deep pre-eruptive H2O). Absorbs F1 (Wallace/Plank per-class ranges as an input)
+  and F4 (re-measure multimodality magnitude after the fix).
+- **C -- Subset lock / productionize.** Absorbs F2 (reuse `bulk_chemistry`, persist
+  the volcanic-subset parquet), F3 (literature alkalinity boundary + QC windows),
+  F5 (foidite / silica-undersaturated non-convergence: exclude or route to the
+  alkaline database).
+- **D -- Real-data role + sourcing** (new). Validation-only vs. training the
+  mineralogy heads on real data; the requirements on a real set; PANGAEA / LEPR /
+  reconsidering the 484 MagmaDB experiments as a validation set. Constraint:
+  CondHead (conditions) can only be supervised by synthetic labels or experiments,
+  so real data can lighten/validate the mineralogy heads but not replace the
+  synthetic corpus.
+
+**Order of operations** (the real-data decision gates how much proxy polish is
+worth; the two Phase-0 items are cheap and high-information, and independent):
+
+- **Phase 0 (parallel, cheap):** D-scope -- does a usable real bulk+mineralogy
+  volcanic set exist? AND Task A -- endpoint re-pick on the existing cooling
+  ladders (no new MAGEMin run).
+- **Phase 1 (decide):** real-data role from the search; endpoint from the re-pick.
+- **Phase 2 (productionize, only after Phase 1):** Task B (water) + Task C (subset)
+  -> generate the corpus -> train heads -> validate against the real set.
+
+Do not start B or C until Phase 1 lands -- the endpoint and real-data answers
+change what "productionize" means. Tasks graduate to GitHub issues when work
+begins on them.
+
 ## Literature (from both reviews)
 
 - Rheological lock-up / eruptibility: Marsh (1981); Scaillet et al. (1998).
