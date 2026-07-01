@@ -223,6 +223,17 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_build_raw_representations_shapes_and_absent_fill` -- the raw-frac and std-log test matrices are `[n_test, N_TOKENS]` and finite, and absent elements are filled with the neutral standardized 0.
 2. `test_build_raw_representations_standardization_matches_train_stats` -- std-log on populated positions equals `(log10(frac) - mean) / std` from the train-split stats, and raw-frac is the unmodified frac.
 
+### test_magmadb_analogs.py
+
+1. `test_eight_majors_populated_cr_and_traces_padded` -- MagmaDB starting-bulk tokenization populates 8 major slots, padding Cr (production `include_cr2o3=False`) and all 13 traces.
+2. `test_si_frac_is_cation_wt_pct_over_100` -- the Si slot is oxide wt% times the cation factor over 100, matching the production gard conversion.
+3. `test_fe_blends_feo_and_fe2o3` -- the Fe slot blends FeO + Fe2O3 cation contributions like `_resolve_iron`.
+
+### test_condition_sampling.py
+
+1. `test_lhs_draws_inside_envelope_and_stratified` -- Latin-Hypercube `(P, H2O)` draws stay inside the declared proposal envelope and place exactly one point per stratum on each axis (unbiased coverage).
+2. `test_grid_cell_centered_inside_envelope` -- the product-grid helper returns cell-centered points strictly inside the envelope.
+
 ### test_latent_anisotropy.py
 
 1. `test_isotropic_reference_is_nearly_isotropic` -- an isotropic Gaussian scores effective-rank fraction near 1 and mean random-pair cosine near 0 (both anisotropy metrics read "isotropic").
