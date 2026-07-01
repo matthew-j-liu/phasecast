@@ -49,6 +49,16 @@ rename, or repurpose a test) updates this file in the same change.**
 22. `test_petrological_axes_returns_finite_values` -- SiO2 / Mg# / alkalis reconstructed from `frac` land in sane wt% ranges.
 23. `test_petrological_axes_indices_subset_shape` -- passing `indices` returns arrays sized to the subset.
 
+### test_magemin_oxides.py
+
+1. `test_split_fe_measured_tier_passes_values_through` -- both `feo` and `fe2o3` reported -> `measured` tier, values untouched.
+2. `test_split_fe_assumed_class_applies_ratio` -- only a `_tot` column -> `assumed_class`, split by the class Fe3+/SigmaFe ratio.
+3. `test_split_fe_derived_partial_from_measured_feo_plus_total` -- measured `feo` + a `_tot` -> `derived_partial`, remainder derived.
+4. `test_split_fe_no_iron_returns_zeros` -- no Fe column -> `no_iron` tier and zero FeO/Fe2O3.
+5. `test_bulk_to_magemin_injects_h2o_and_drops_mno_p2o5` -- H2O is the caller-injected value, MnO/P2O5 are dropped, missing Cr2O3 -> 0.
+6. `test_loi_normalize_is_exact_and_passes_strings` -- numeric oxides renormalize to exactly 100, non-numeric keys pass through.
+7. `test_class_ratio_lookup_and_default` -- Middlemost lookup returns the class value and falls back to `default` for unknown classes.
+
 ## losses/
 
 ### test_pretrain_loss.py
