@@ -50,6 +50,11 @@ cross-references. Issue #9 is the tracker; this doc is the detail.
     collapse.
   - **Latent-neighbor analogs:** shown to the user as transparent evidence, NOT
     reweighted (owner preference). Coarse OOD flag for unsupported scenarios.
+    MagmaDB assessment: honest only on the arc basalt-andesite slice (~29% of
+    igneous has a usable analog, ~8% felsic); k=5 neighbors often collapse to 1-2
+    distinct bulks (78 total) so present as "nearest 1-2 real bulks across a P-T
+    range," and filter near-liquidus glass-only experiments. See
+    `explorations/magmadb_analogs/`.
   - **User-supplied constraints** (observed assemblage, thermometry): strongest
     de-circularizer; issue #21.
 - Scenario weights are labeled "prior-weighted plausibility," never nature's
@@ -58,20 +63,27 @@ cross-references. Issue #9 is the tracker; this doc is the detail.
 
 ## Open items — Level 1 (gate a small-scale test, ~hundreds of bulks)
 
-1. **Conditions sampling** — Monte Carlo from a broad proposal `q` (coverage),
-   prior deferred to inference; `q`, sample count N, procedure, and an illustration
-   of the generated per-bulk data.
-   - owner: **MC agent** (done, integrate) · blocks: items 2-6 lock, extractor
+1. **Conditions sampling** — LOCKED (MC agent; see `explorations/condition_sampling/`). Per bulk,
+   draw N `(P, H2O)` by Latin-Hypercube/Sobol from a fixed broad proposal
+   `q = Uniform(P[0.5,12] kbar x H2O[0,8] wt%)`; apply NO prior at generation, store
+   `(P_i, H2O_i, q(C_i))` per row; defer every prior to inference via importance
+   weights `w = p(C)/q(C)` (change prior -> recompute targets -> retrain heads,
+   never re-run MAGEMin). P capped at 12 (volcanic scope; deep-arc out). Grid-density
+   artifact confirmed real (16x4 vs 4x16 grids disagree; MC matches a balanced grid).
+   · status: LOCKED · blocks: items 2-6 lock, extractor
 2. **Near-solidus rule** — liq ~1-2% target, per-class calibration floor, attrition
-   tag for bulks that never reach it (alkalic andesite held 20-33% melt at floor —
-   real tail). · owner: integrator+owner · status: open
+   tag for bulks that never reach it. MC agent confirmed the tail is real and
+   H2O-driven: 17% of bulk-6875's (wettest) draws never reached liq<2% above a
+   640 C floor. Consider extending the cooling ladder below 640 C for wet bulks
+   before tagging. · owner: integrator+owner · status: open
 3. **Subset + QC** — exact volcanic `qap_name` list, has-iron filter, oxide-sum
    sanity, optional Candioti-style 89% KDE OOD screen; komatiite/picrite flagged not
    filtered. · owner: integrator+owner · status: open
 4. **Extraction code** — productionize the prototype to emit the full label set.
-   Prototype `extract.jl` (modes + `Comp_wt` + `G_system`) and the recovered
-   `run_magemin.jl` + Project/Manifest live in `/tmp/mgm_sanity`; `/tmp` is
-   ephemeral, all recoverable from git `2fd5559^`. · owner: integrator · depends: 1
+   Durable prototype in `explorations/condition_sampling/` (`extract.jl` = item-4
+   seed, `gen_inputs.py` = LHS draws, `analyze.py` = reweighting/marginals). The
+   recovered `run_magemin.jl` + Project/Manifest are in `/tmp/mgm_sanity`
+   (ephemeral, recoverable from git `2fd5559^`). · owner: integrator · depends: 1
 5. **Phase vocabulary** — discover fresh from output + rare-phase policy (g, cd, ol
    appeared rarely in recon). · owner: integrator · status: open
 6. **Output schema** — parquet column layout. · owner: integrator · status: open
@@ -79,10 +91,22 @@ cross-references. Issue #9 is the tracker; this doc is the detail.
 ## Open items — Level 2 (gate the production launch)
 
 7. **Validate small-test corpus** — liq-fraction distribution, per-phase coverage,
-   emFrac stats confirm recon (amphibole ~2.3), mass-balance closure holds,
-   multimodality present. · depends: small test
-8. **Sample count finalized** — after the small test shows whether N resolves the
-   multimodal structure. · depends: 1, 7
+   emFrac stats confirm recon (amphibole ~2.3), mass-balance closure holds. AND the
+   now-PIVOTAL question: **is the assemblage posterior actually multimodal in phase
+   identity under equilibrium?** MC agent's N=1 test (bulk 6875) found amphibole on
+   every path, opx absent. This is genuine closed-system equilibrium behavior, NOT
+   an FC-approximation artifact: the system keeps its water so amphibole is stable
+   across (P,H2O); the heads.md amp-in/opx-in switch was an FC (open-system,
+   melt-drying) phenomenon. Surviving within-bulk variation is degree-of-melting +
+   fluid, not silicate identity. If this holds across the subset, the "multimodal
+   posterior over assemblages" headline shifts toward "degree-of-melting +
+   composition," OR reopens whether eq is the right generator for the desired
+   output. Caveat: N=1, alkalic/wet andesite (amph-prone).
+   · depends: small test · status: OPEN (headline risk)
+8. **Sample count finalized** — MC agent: run the small test at N=128/bulk (presence
+   SE ~0.043; ESS table in `explorations/condition_sampling/README.md`), finalize production N ~ 48-64 by
+   subsampling to the tolerated SE/ESS, paired with a class-informed proposal
+   density (ESS ~ N for typical priors; sharp-prior ESS ~ N/6). · depends: 1, 7
 9. **Compute + orchestration** — N bulks x N samples x near-solidus search; chunked
    orchestrator (adapt old pattern) with juliacall+MAGEMin leak workarounds
    (maxtasksperchild=1, GC between chunks). · status: open
@@ -91,10 +115,12 @@ cross-references. Issue #9 is the tracker; this doc is the detail.
 
 ## Parallel exploration (feeds the OUTPUT layer, not corpus-gen)
 
-- **MagmaDB assessment** (MagmaDB agent, done) — what real analogs-as-evidence +
-  coarse OOD flagging buy; go/no-go on a larger natural-sample thermobarometry
-  compilation. Output in `/tmp` (to be summarized + integrated). Does NOT block
-  regen.
+- **MagmaDB assessment** (MagmaDB agent, done) — verdict: use MagmaDB as-is for a
+  shown-not-reweighted analog panel + OOD flag on the arc basalt-andesite slice;
+  no-go/defer on a larger compilation (binding limit is distinct-composition
+  coverage, not row count, and payoff is unproven until Track B heads emit
+  scenarios). Feeds the output layer + #21, does NOT block regen. Full:
+  `explorations/magmadb_analogs/` (README + committed results).
 
 ## Critical path
 
@@ -108,4 +134,6 @@ output/inference layer (Sr/Y + latent-neighbor reweighting), not corpus-gen.
 - CLAUDE.md "Settled decisions"
 - issues: #9 (this corpus, tracker), #13 (inverse model), #21 (optional conditioning)
 - memory: comphead-parameterization-options (CompHead + emFrac recon stats)
+- agent explorations: `explorations/{condition_sampling,magmadb_analogs}/` (README
+  + committed results)
 - working MAGEMin runner: `/tmp/mgm_sanity` (recoverable from `2fd5559^`)
