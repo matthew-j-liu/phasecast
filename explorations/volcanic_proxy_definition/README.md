@@ -166,6 +166,16 @@ the phase list change, (c) where does liq-as-glass become unreliable (silicic
 near-solidus). This directly adjudicates ChatGPT vs Gemini on the endpoint using
 the `equilibrium_multimodality` raw output -- no new MAGEMin run.
 
+## Anchor: think about this problem as transfer learning
+
+Owner call 2026-07-01, alongside the mineralogy-first priority. The full
+framing lives in [docs/heads.md](../../docs/heads.md) ("The transfer-learning
+lens"): train where physics-rooted labels are simulable (equilibrium cargo of a
+stored melt), hypothesize transfer to the downstream task (real-rock
+mineralogy, label-poor), measure the hypothesis on a validation-only real set.
+Mineralogy is the transfer target; CondHead is a bonus rider, never a design
+driver.
+
 ## Consolidated ledger + order of operations (the durable tracker)
 
 The corpus open items collapse into four tasks (from the earlier F1-F7 triage;

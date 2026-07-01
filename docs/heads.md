@@ -13,6 +13,42 @@ targets; no SSL masking at inference). Output is a joint distribution the user
 reads two ways: a flattened marginal table and a ranked set of complete
 scenarios (both defined below).
 
+## The transfer-learning lens
+
+The lens for every corpus and head decision. We can simulate abundant,
+high-quality, physics-rooted labels at ONE point in the magmatic chain: the
+equilibrium crystal cargo a stored melt grows at sampled (P, H2O). The task we
+actually want sits further DOWN that chain -- the mineralogy a geologist
+measures on the erupted rock -- and its labels are scarce to nonexistent (no
+public bulk + modal-mineralogy compilation exists). So we train earlier in the
+chain, where labels are simulable, and hypothesize the heads still predict on
+real rocks. That hypothesis is the central bet, and it is measured, not
+assumed: validate against a small real set (the eruption benchmark:
+point-counted phenocryst modes + bulk chemistry from well-studied eruptions),
+kept validation-only -- fine-tuning on it would spend the only measurement of
+the gap we have.
+
+Two transfer layers with different risk profiles:
+
+- **Encoder: classic pretrain transfer.** SSL on real rock chemistry (gard), so
+  a user's input is in-distribution; nothing synthetic touches the
+  representation.
+- **Heads: sim-to-real / weak supervision.** Inputs are real chemistry in both
+  train and test; only the labels come from the proxy process. The whole
+  sim-to-real gap is confined to label semantics -- how well the reference
+  assemblage tracks the real rock's phenocryst cargo.
+
+Consequences to carry:
+
+- **Mineralogy is the transfer target**; conditions are the latent mechanism
+  that generates the label variance (CondHead a bonus rider, never a design
+  driver). Score design choices by mineralogy value.
+- The label proxy is cheap to revise (frozen encoder; heads retrain in days),
+  so v1 ships a defensible proxy, not a perfect one.
+- Upgrade path if a large real modal set ever materializes: fine-tune the
+  synthetic-trained heads on real modes; the architecture is already shaped
+  for it.
+
 ## Architecture
 
 A frozen SSL encoder produces a pooled latent `h`; parallel heads read `h`.
