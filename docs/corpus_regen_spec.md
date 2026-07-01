@@ -48,12 +48,10 @@ cross-references. Issue #9 is the tracker; this doc is the detail.
     but a regional/median proxy doing single-sample duty — composition-gated to
     intermediates, large single-sample sigma, so a soft directional nudge, not a
     collapse.
-  - **Latent-neighbor analogs:** shown to the user as transparent evidence, NOT
-    reweighted (owner preference). Coarse OOD flag for unsupported scenarios.
-    MagmaDB assessment: honest only on the arc basalt-andesite slice (~29% of
-    igneous has a usable analog, ~8% felsic); k=5 neighbors often collapse to 1-2
-    distinct bulks (78 total) so present as "nearest 1-2 real bulks across a P-T
-    range," and filter near-liquidus glass-only experiments. See
+  - **Latent-neighbor analogs (SHELVED):** the idea -- show real rocks with measured
+    conditions as transparent evidence + a coarse OOD flag -- was assessed against
+    MagmaDB and shelved: too sparse/narrow (78 distinct bulks, ~29% igneous coverage,
+    arc basalt-andesite only). Revisit only with a better reference set. See
     `explorations/magmadb_analogs/`.
   - **User-supplied constraints** (observed assemblage, thermometry): strongest
     de-circularizer; issue #21.
@@ -101,8 +99,13 @@ cross-references. Issue #9 is the tracker; this doc is the detail.
    fluid, not silicate identity. If this holds across the subset, the "multimodal
    posterior over assemblages" headline shifts toward "degree-of-melting +
    composition," OR reopens whether eq is the right generator for the desired
-   output. Caveat: N=1, alkalic/wet andesite (amph-prone).
-   · depends: small test · status: OPEN (headline risk)
+   output. Caveat: N=1, alkalic/wet andesite (amph-prone). Test design: run a
+   COMPOSITION-STRATIFIED subset (basalt->rhyolite, dry->wet, alk->subalk), classify
+   each bulk phase-identity-multimodal vs proportion/melt-fraction-only, report the
+   fraction and where it lives. At near-solidus the major framework (plag+px) is
+   ~stoichiometry-pinned, so multimodality shows in secondary phases (amph/bt/grt
+   in-out); 6875 sat deep in the amph field. Cheap pre-regen diagnostic with the
+   existing runner. · depends: small test · status: OPEN (headline risk)
 8. **Sample count finalized** — MC agent: run the small test at N=128/bulk (presence
    SE ~0.043; ESS table in `explorations/condition_sampling/README.md`), finalize production N ~ 48-64 by
    subsampling to the tolerated SE/ESS, paired with a class-informed proposal
@@ -115,18 +118,22 @@ cross-references. Issue #9 is the tracker; this doc is the detail.
 
 ## Parallel exploration (feeds the OUTPUT layer, not corpus-gen)
 
-- **MagmaDB assessment** (MagmaDB agent, done) — verdict: use MagmaDB as-is for a
-  shown-not-reweighted analog panel + OOD flag on the arc basalt-andesite slice;
-  no-go/defer on a larger compilation (binding limit is distinct-composition
-  coverage, not row count, and payoff is unproven until Track B heads emit
-  scenarios). Feeds the output layer + #21, does NOT block regen. Full:
-  `explorations/magmadb_analogs/` (README + committed results).
+- **MagmaDB assessment** (MagmaDB agent, done) — SHELVED: MagmaDB is too sparse/narrow
+  (78 distinct bulks, arc basalt-andesite only) to carry the analog panel; the
+  latent-neighbor-analogs output idea waits for a better reference set. Output-layer
+  only, never blocked regen. Full: `explorations/magmadb_analogs/`.
 
 ## Critical path
 
 MC agent (item 1) -> lock items 2-6 -> build extractor (item 4) -> small test
 (item 7) -> production (items 8-10). MagmaDB agent runs in parallel, feeds the
 output/inference layer (Sr/Y + latent-neighbor reweighting), not corpus-gen.
+
+## Deferred (post-volcanic-v1)
+
+- **Plutonic/cumulate branch (FC-of-parents)** — cumulates require FC of the parent
+  magma (equilibrium can't produce them faithfully); a real coverage gap the
+  volcanic-only corpus leaves. High roadmap priority, starts after v1 ships. Issue #22.
 
 ## Cross-references
 
