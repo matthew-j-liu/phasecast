@@ -152,7 +152,7 @@ def build():
     txt(s, 9.7, 4.55, 3.4, ["backpropagation:", "updates encoder weights"], 12, RED, PP_ALIGN.CENTER, bold=True)
 
     txt(s, 0.55, 6.75, 12.2, "mask one element's amount  ->  predict it from the rest  ->  "
-        "the error backpropagates and adjusts the encoder.  Repeat over 474k rocks.",
+        "the error backpropagates and adjusts the encoder.  Repeat over ~167k rocks.",
         13, INK, PP_ALIGN.LEFT)
 
     out = Path(__file__).resolve().parent / "encoder_revised.pptx"

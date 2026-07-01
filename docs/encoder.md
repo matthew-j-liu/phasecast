@@ -31,7 +31,7 @@ Three things this captures that "MAGEMin surrogate" doesn't:
    concrete: same bulk, different (P, H2O), modal abundance varies up to
    100% relative for hydrous phases. The right output is a distribution.
 
-3. **Foundation-model encoder.** SSL pretraining on 474k real bulks
+3. **Foundation-model encoder.** SSL pretraining on ~167k real bulks
    organizes the latent by petrogenetic structure WITHOUT MAGEMin labels.
    Empirically: ~80% supergroup MLP-probe accuracy with zero supervision
    (vs ~76% for v2 cell-c); strong k-NN neighborhood structure on
@@ -130,8 +130,12 @@ worth a section in the regen if it's cheap, but not blocking.
 
 Three corpora, all generated upstream of the model:
 
-1. **SSL pretrain corpus**: `data/bulks/gard2019.csv`, igneous-filtered to ~474k
-   bulks. Inputs only (no labels). Used for masked-element pretraining.
+1. **SSL pretrain corpus**: `data/bulks/gard2019.csv`, filtered to ~167k bulks
+   (igneous, all 9 majors reported including both FeO and Fe2O3, non-null
+   `qap_name` in a class of >=25; see `bulk_chemistry.py` for the walk).
+   Inputs only (no labels). Used for masked-element pretraining. An earlier
+   ~474k figure corresponded to a looser pre-Fe-convention filter (JOURNAL
+   2026-06-04).
 
 2. **Supervised corpus (v3)**: per-bulk × N FC paths with per-path
    (T_FC_end, P, H2O, modal_18, per-phase composition, supergroup label,

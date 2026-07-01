@@ -18,8 +18,8 @@ suggests headroom.
 
 ### Track A: foundation-model encoder (closed 2026-06-11)
 
-Wrapped up: SSL encoder pretrained on Gard 2019 (~474k igneous
-bulks) at the post-Optuna hyperparameters in
+Wrapped up: SSL encoder pretrained on Gard 2019 (~167k igneous
+bulks with clean majors) at the post-Optuna hyperparameters in
 `configs/pretrain/pretrain_production.yaml`.  Canonical budget is
 20 epochs (a 40-epoch comparison landed within stochastic noise:
 supergroup MLP +0.003, qap_name MLP -0.003 -- SSL loss kept

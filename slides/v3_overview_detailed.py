@@ -231,7 +231,7 @@ def b4_train(prs):
     _text(cap.text_frame, ["backpropagation:", "updates encoder weights"], 12, REDX, bold=True)
     notes(s, "Masked-element modelling: hide one element's amount, predict it from the rest, "
              "backprop the error into the encoder. Encoder is being TRAINED here (frozen is the "
-             "downstream state). Loss is log-space so traces get supervised. Repeat over 474k rocks.")
+             "downstream state). Loss is log-space so traces get supervised. Repeat over ~167k rocks.")
 
 
 def b5_heads(prs):

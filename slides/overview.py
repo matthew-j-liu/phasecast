@@ -210,7 +210,7 @@ def s_corpora(prs):
     s = new_slide(prs)
     header(s, "DATA", "Three corpora")
     box(s, 0.6, 2.0, 3.9, 2.6, ["SSL pretrain", "", ("data/bulks/gard2019.csv",),
-        ("~474k igneous bulks",), ("inputs only (no labels)",)], TEAL, size=14)
+        ("~167k igneous bulks",), ("inputs only (no labels)",)], TEAL, size=14)
     box(s, 4.7, 2.0, 3.9, 2.6, ["supervised", "", ("FC corpus (PetThermoTools)",),
         ("per-bulk x N paths",), ("modal, comp, T/P/H2O labels",)], GREEN, size=14)
     box(s, 8.8, 2.0, 3.9, 2.6, ["held-out eval", "", ("mineralML grains",),
@@ -336,7 +336,7 @@ def s_ssl(prs):
     cap = s.shapes.add_textbox(Inches(9.6), Inches(4.5), Inches(3.4), Inches(0.6))
     _text(cap.text_frame, ["backpropagation:", "updates encoder weights"], 12, REDX, bold=True)
     notes(s, "Masked-element modelling. Encoder is TRAINED here (frozen is the downstream state). "
-             "Loss is per-element standardized log-space MSE so traces get supervised. Over 474k rocks.")
+             "Loss is per-element standardized log-space MSE so traces get supervised. Over ~167k rocks.")
 
 
 def s_workflow(prs):

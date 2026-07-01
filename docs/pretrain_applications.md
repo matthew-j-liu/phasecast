@@ -2,7 +2,7 @@
 
 The SSL-pretrained encoder is a **rock-chemistry foundation model**, not
 just a feature extractor for the mineralogy task. Trained via masked-element
-modeling on 474k unlabeled igneous bulks from `data/bulks/gard2019.csv`, it
+modeling on ~167k unlabeled igneous bulks from `data/bulks/gard2019.csv`, it
 organizes rocks in a latent space that captures real geochemical
 structure. Mineralogy is one downstream application. This doc enumerates the
 others -- capabilities the existing encoder already supports with no further
