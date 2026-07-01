@@ -2982,3 +2982,78 @@ stamped config), no `loss:` block. The linear-architecture trap was avoided:
 untouched -- only linear-*space* magnitude weighting was deleted.
 
 **Next.** Track B heads (ModeHead / CompHead / CondHead).
+
+## 2026-06-30 -- Track B corpus scoping: equilibrium-on-volcanic, oxide labels, deferred-prior sampling
+
+**Q.** Reverse-engineering from the desired output (a mass-balanced posterior over
+mineralogy + endmembers + conditions per bulk): what do we generate with MAGEMin,
+what labels do we store, how do we sample conditions, and what makes any of it more
+than a fast forward MAGEMin emulator (Candioti 2026) or a from-scratch regressor?
+
+**Context.** The v3 rewrite deleted the FC pipeline (recoverable from `2fd5559^`).
+Recovered `run_magemin.jl` + its Project/Manifest to verify claims directly on real
+gard volcanic bulks (Julia 1.12.6, MAGEMin_C 2.1.9). Two sub-agents ran in parallel
+(condition sampling; MagmaDB analogs). The honest split that fell out: the *corpus*
+(many conditions per bulk) is what makes the multimodal inverse posterior exist and
+beats Candioti; the *latent* earns its keep only via things a from-scratch regressor
+can't do -- OOD/abstention, imputation of partial input, few-shot transfer to real
+labels, and grounding in real analogs. The scenario *format* is not itself
+constitutively latent, and saying so is more defensible than pretending otherwise.
+
+**Considered.** (1) FC vs equilibrium for the generator. (2) CompHead target:
+per-phase endmember mole fractions (heads.md Option B) vs per-phase oxide wt%. (3)
+Condition sampling: product grid vs Monte-Carlo-with-deferred-prior. (4) CondHead /
+scenario weights: are they real or circular? (5) MagmaDB as a real-analog panel. (6)
+Whether an FC leg leaves useful data on the table.
+
+**Decision.**
+- **Equilibrium, not FC, scoped to volcanic + has-iron bulks; cool to near-solidus
+  and read the equilibrium assemblage.** A volcanic rock crystallizes closed-system
+  in place, which *is* equilibrium; FC models open-system cumulate-shedding. This
+  amends ADR 004 (which chose FC on a mixed set for modal realism) for the volcanic
+  case -- the formal ADR amendment is still to be written. Single-point equilibrium
+  also returns modes + `SS_vec.emFrac_wt` + `G_system` natively, sidestepping the
+  MAGEMinCalc fork FC needs for per-step composition.
+- **CompHead target = per-phase oxide wt% (`Comp_wt`) for all phases**, not the
+  endmember vector. Recon on real volcanic bulks: `emFrac_wt` is a signed affine
+  combination (sums to 1 but components go negative); amphibole per-mineral
+  `sum|emFrac|` median 2.3, worst component -110%, so a Dirichlet/simplex head is
+  infeasible for the phase that matters most. `Comp_wt` is non-negative, mass-
+  balance-grade, free from the same call; mineral names come from stoichiometry
+  classifiers on oxide/apfu. `emFrac_wt` still stored as diagnostic; endmember heads
+  are an optional bonus on clean phases (fsp/ilm/ol/opx) via loss-masking. See
+  [[comphead-parameterization-options]].
+- **Conditions: Monte-Carlo, prior deferred to inference.** Sample (P,H2O) by Latin-
+  Hypercube from a broad proposal `q=Uniform(P[0.5,12]kbar x H2O[0,8])`, store
+  `(P,H2O,q)` per row, bake NO prior into the corpus; defer every prior to inference
+  via importance weights `w=p/q` (change prior -> recompute targets -> retrain heads,
+  no MAGEMin rerun). The grid-density artifact is real (P-dense vs H2O-dense grids
+  disagree; MC matches balanced). T is derived (near-solidus), not sampled. Fe split
+  class-conditional Middlemost, fO2 fixed.
+- **Scenario weights are "prior-weighted plausibility," not nature's probability.**
+  The circularity (weight = physics integrated against our condition prior) lives
+  only in the prior factor; the assemblage<->condition coupling is real physics. De-
+  circularize at inference by reweighting toward evidence-based priors -- Sr/Y +
+  La/Yb (volcanic-calibrated but soft, single-sample-noisy, composition-gated),
+  latent-neighbor analogs (shown as evidence, not reweighted), user-supplied
+  constraints (#21). The `p/q` reweight literally divides out the corpus prior.
+- **MagmaDB assessed and shelved.** Embeddable and coherent on the arc slice, but too
+  sparse/narrow (78 distinct bulks, ~29% igneous coverage, arc basalt-andesite only)
+  to carry the analog panel. Revisit only with a better reference set. Output-layer
+  only; never blocked corpus regen. (`explorations/magmadb_analogs/`.)
+
+**Standing risk (unresolved).** The equilibrium generator may NOT reproduce the
+heads.md phase-identity multimodality. MC test (N=1, wet andesite 6875): amphibole on
+every (P,H2O) path, opx absent -- closed-system keeps its water so the assemblage
+converges; the amp-in/opx-in switch was an FC (melt-drying) phenomenon. If this holds
+across compositions, the "top-K scenarios" headline shifts toward a "conditions +
+proportions + minor-phase-presence" posterior. A composition-stratified small test
+decides it (corpus_regen_spec.md item 7). See [[equilibrium-multimodality-risk]].
+
+**Next.** New agent owns items 2-6 (near-solidus rule, volcanic subset+QC, productionize
+the extractor, phase vocab, output schema) + the small composition-stratified test,
+per `docs/corpus_regen_spec.md`. Owner-confirm items: near-solidus liq threshold, the
+qap list, and the multimodality headline reframe. Deferred: plutonic/cumulate branch
+via FC-of-parents (#22, high priority, starts after volcanic v1) -- cumulates are the
+one real rock class equilibrium can't generate faithfully. Formal ADR 004 amendment
+still to be written.
