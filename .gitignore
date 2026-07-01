@@ -4,6 +4,9 @@
 # Run artifacts (regenerable); anchored so committed explorations/<name>/results/ survive
 /results/
 
+# Exploration scratch: large regenerable MAGEMin inputs/outputs (results/ stays tracked)
+explorations/*/work/
+
 # Models
 checkpoints/
 *.pt

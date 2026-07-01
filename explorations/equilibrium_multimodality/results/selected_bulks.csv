@@ -1,0 +1,37 @@
+sample_id,qap_name,series,sio2,total_alkali
+75602,foidite,alkaline,36.48,7.73
+169770,basanite,alkaline,39.03,6.45
+768613,tephrite,alkaline,42.1,3.2
+21498,phonolitic tephrite,alkaline,42.63,5.82
+24882,basanite,alkaline,46.9,4.5
+156267,phonolite,alkaline,47.18,13.06
+45862,tephritic phonolite,alkaline,47.9,10.5
+163797,phonolitic tephrite,alkaline,49.02,6.36
+887066,tephrite,alkaline,49.16,5.51
+119641,foid-bearing trachyte,alkaline,51.48,7.93
+32676,foid-bearing latite,alkaline,51.82,8.41
+149554,quartz trachyte,alkaline,52.75,8.8
+32126,trachyte,alkaline,53.97,9.89
+47668,phonolite,alkaline,54.93,15.16
+49065,latite,alkaline,55.36,8.01
+43842,latite,alkaline,63.3,12.25
+312980,basalt,subalkaline,47.09,4.28
+8434,basalt,subalkaline,48.5,4.55
+3740,basalt,subalkaline,49.52,6.2
+11697,basalt,subalkaline,50.29,4.34
+36340,basalt,subalkaline,50.96,5.03
+11237,andesite,subalkaline,52.38,5.64
+10376,andesite,subalkaline,53.3,2.79
+8148,andesite,subalkaline,54.4,5.02
+9020,andesite,subalkaline,55.76,4.83
+16251,andesite,subalkaline,57.52,5.55
+14283,andesite,subalkaline,59.67,5.57
+199044,dacite,subalkaline,60.73,4.02
+16655,dacite,subalkaline,63.95,5.45
+8628,dacite,subalkaline,66.77,5.7
+26280,rhyolite,subalkaline,69.0,7.6
+313214,quartz-rich rhyolite,subalkaline,69.7,1.12
+25062,dacite,subalkaline,70.25,7.36
+5895,rhyolite,subalkaline,72.2,7.12
+5905,rhyolite,subalkaline,74.4,7.51
+79750,rhyolite,subalkaline,76.45,8.62

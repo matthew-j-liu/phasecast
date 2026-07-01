@@ -1,7 +1,39 @@
 # Decision 004: Use PetThermoTools for fractional-crystallization experiments and (potential) production label generation
 
 **Date:** 2026-05-13
-**Status:** Resolved → Phase B (adopt PetThermoTools for production label generation)
+**Status:** Resolved → Phase B, **amended 2026-06-30 (production scoped to volcanic; equilibrium, not FC)**
+
+## Amendment 2026-06-30 — v1 production is volcanic + equilibrium; FC deferred to the plutonic branch
+
+The v1 corpus is scoped to the **volcanic + has-iron** subset of gard2019
+(`docs/corpus_regen_spec.md`). For that scope the production generator is
+**MAGEMin equilibrium cooled to near-solidus**, not fractional crystallization.
+This *scopes* the Phase-B decision below; it does not overturn the eq-vs-frac
+measurement.
+
+The eq-vs-frac experiment (Resolution below) measured how closely near-solidus
+equilibrium *reproduces FC endpoint labels* and found a large divergence
+(median L1 0.35). That result stands. What changes is the target physics, not
+the measurement. A volcanic rock crystallizes closed-system, in place: the melt
+keeps its components (water included) and the assemblage that forms **is** the
+equilibrium assemblage at its near-solidus conditions. FC models the
+open-system case -- crystals settle out and the residual melt evolves -- which
+is the plutonic/cumulate story. So for volcanic targets we are not approximating
+FC with equilibrium; equilibrium is the correct generator, and the eq-vs-FC
+divergence is the real difference between two petrogenetic regimes, not error.
+
+Consequences:
+- v1 production generator = the equilibrium near-solidus runner
+  (`magemin/run_magemin.jl`), sampling `(P, H2O)` with T derived at a
+  near-solidus liq threshold; `NearSolidusTPStrategy` stays unimplemented.
+- FC (and PetThermoTools as its driver -- the tooling choice below is unchanged)
+  moves to the deferred **plutonic/cumulate branch**, where it models FC of
+  parent magmas (issue #22). ADR 005's FC production recipe applies there, not
+  to the volcanic v1 corpus.
+
+Rationale, locked decisions, and the composition-stratified equilibrium test
+that validates the near-solidus assemblage behavior live in
+`docs/corpus_regen_spec.md` and `explorations/equilibrium_multimodality/`.
 
 ## Resolution
 

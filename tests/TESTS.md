@@ -244,6 +244,15 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_lhs_draws_inside_envelope_and_stratified` -- Latin-Hypercube `(P, H2O)` draws stay inside the declared proposal envelope and place exactly one point per stratum on each axis (unbiased coverage).
 2. `test_grid_cell_centered_inside_envelope` -- the product-grid helper returns cell-centered points strictly inside the envelope.
 
+### test_equilibrium_multimodality.py
+
+1. `test_lhs_conditions_inside_box_and_stratified` -- driver `(P, H2O)` draws stay inside the locked proposal box and are Latin-Hypercube-stratified on each axis.
+2. `test_endpoint_picks_highest_T_below_tau` -- the near-solidus pick returns the highest-T converged point below the liq threshold, and the pick moves with tau (1% vs 5%).
+3. `test_endpoint_attrition_when_never_below_tau` -- when no point crosses the threshold the pick falls to the coldest point and flags attrition.
+4. `test_endpoint_ignores_nonconverged_points` -- non-converged points are excluded before the endpoint search.
+5. `test_classifier_flags_amp_opx_identity_switch` -- an anti-correlated amp/opx cloud is classified phase-identity-multimodal with the amp<->opx switch set.
+6. `test_classifier_proportion_only_is_not_multimodal` -- a fixed identity set with only modal variation is NOT multimodal (amphibole present on every path is not a flip).
+
 ### test_latent_anisotropy.py
 
 1. `test_isotropic_reference_is_nearly_isotropic` -- an isotropic Gaussian scores effective-rank fraction near 1 and mean random-pair cosine near 0 (both anisotropy metrics read "isotropic").
