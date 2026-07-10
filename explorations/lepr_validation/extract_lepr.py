@@ -10,7 +10,7 @@ import os
 import pandas as pd
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LEPR_PATH = os.path.join(REPO_ROOT, "data", "ExPetDB_download_LEPR-2007-08-17.xlsx")
+LEPR_PATH = os.path.join(REPO_ROOT, "data", "experiments", "ExPetDB_download_LEPR-2007-08-17.xlsx")
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 
 OXIDES = ["SiO2", "TiO2", "Al2O3", "FeO", "Fe2O3", "MgO", "CaO", "Na2O", "K2O"]
