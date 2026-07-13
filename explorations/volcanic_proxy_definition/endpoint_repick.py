@@ -35,7 +35,9 @@ PRESENCE_EPS = 1e-3   # mode wt frac above which a phase counts as present (matc
 # Residual-melt targets from eruptible lava (Gemini) down to near-solidus (ChatGPT).
 # Rheological lock-up erupts at ~45-60 vol% crystals (Marsh 1981, Scaillet 1998),
 # i.e. ~40-55% melt; 1% is the multimodality exploration's near-solidus rule.
-MELT_LADDER = [0.50, 0.40, 0.30, 0.20, 0.10, 0.05, 0.01]
+# 0.70/0.60 added later: real phenocryst totals (du Bray ~10-30 vol%) put the
+# median storage state shallower than 50% crystals, so probe that side too.
+MELT_LADDER = [0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10, 0.05, 0.01]
 
 SILICATE_IDENTITY = ["amp", "opx", "bi", "g", "ol", "ne", "mu"]  # petrogenetic in/out switches
 INTERMEDIATE = (0.10, 0.90)  # presence-freq band that signals a within-bulk flip
