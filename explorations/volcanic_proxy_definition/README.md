@@ -1,6 +1,17 @@
 # volcanic_proxy_definition
 
-**Status: open design synthesis (no experiment run yet).** This is the foundational
+**Status: RESOLVED 2026-07-14 — decisions locked into
+`docs/corpus_regen_spec.md`, which supersedes this doc's proposals.** The
+endpoint is the phenocryst regime (stop cooling at residual melt < 30%; label
+rungs 60/50/40/30, single composition-independent rung picked by label-level
+pre-screen), labels are crystals-renormalized solids, water is
+solubility-bounded (N&L 2002 rhyolite curve capped at 8 wt%). The two
+experiments that settled it live here: `endpoint_repick.py` (does the amp/opx
+multimodality survive shallower endpoints? yes, across the whole 70-1% melt
+range) and `felsic_saturation.py` (do felsic diagnostics need a deeper stop?
+no — see below). The synthesis below is kept as the reasoning record.
+
+This is the foundational
 question under the whole Track B corpus: *what physical state should a MAGEMin
 simulation represent, so that it is a faithful, invertible proxy for the erupted
 volcanic rock a geologist actually measures?* Every corpus knob (pressure, water,
@@ -176,42 +187,64 @@ mineralogy, label-poor), measure the hypothesis on a validation-only real set.
 Mineralogy is the transfer target; CondHead is a bonus rider, never a design
 driver.
 
+## The two experiments (what resolved Task A)
+
+**`endpoint_repick.py`** — re-picks every stored draw's endpoint on a
+residual-melt ladder (70/60/50/40/30/20/10/5/1%). The amp<->opx switch holds at
+51-60% of bulks (64-73% of intermediates) at EVERY rung, so the multimodality
+headline constrains nothing about the endpoint. Near-solidus grows the phase
+list ~50% and carries a 10% wet-bulk attrition tail; the phenocryst regime has
+~zero attrition. Results: `results/endpoint_ladder_{summary,by_bulk}.csv`,
+`endpoint_ladder.png`.
+
+**`felsic_saturation.py`** — the composition-conditional-endpoint test. Tracks
+quartz, biotite, and K-dominant feldspar (sanidine proxy, K2O > Na2O in the fsp
+instances) presence at each rung, per SiO2 band, against real du Bray
+phenocryst presence (subalkaline sim bulks only, matching the arc suite).
+Verdict: composition-conditional endpoint REJECTED. Quartz saturates EARLY in
+felsic bulks (median first appearance at 75% melt remaining; 0.95 presence at
+the 50% rung vs 0.53 real), K-feldspar matches real at 50-60% melt (0.50 vs
+0.49), and real felsic lavas are the crystal-poorest — a deeper felsic stop
+moves away from the real rocks, not toward them. Near-solidus invents felsic
+phenocrysts in mafic bulks (quartz 61%, biotite 91%, vs 0% real) — the
+strongest quantitative argument for the phenocryst regime. The one tension:
+biotite under-shoots real arc frequencies at every phenocryst-regime rung and
+matches only near-solidus; it is water-hungry and the flat H2O box includes
+dry draws real wet-arc magmas don't sample, so biotite is the SENTINEL PHASE
+to re-check after the solubility-bounded water redesign. Results:
+`results/felsic_saturation_by_band.csv`, `felsic_saturation.png`.
+
+Both read the stored cooling ladders in `../equilibrium_multimodality/work/`
+(gitignored, regenerable via that exploration's `driver.py`).
+
 ## Consolidated ledger + order of operations (the durable tracker)
 
 The corpus open items collapse into four tasks (from the earlier F1-F7 triage;
-this section supersedes that list):
+this section supersedes that list). All four are now decided; statuses below,
+detail in `docs/corpus_regen_spec.md`:
 
-- **A -- Endpoint decision** (near-solidus vs eruptible-crystallinity ~50% melt).
-  Absorbs F6 (trace-phase / muscovite min-mode cutoff -- likely a near-solidus
-  artifact that shrinks if the endpoint moves) and F7 (cooling floor vs melt
-  threshold). Settled by the re-pick experiment above -- cheap, existing data.
-- **B -- Water redesign** (flat 0-8 box -> pressure-dependent-solubility-bounded,
-  deep pre-eruptive H2O). Absorbs F1 (Wallace/Plank per-class ranges as an input)
-  and F4 (re-measure multimodality magnitude after the fix).
-- **C -- Subset lock / productionize.** Absorbs F2 (reuse `bulk_chemistry`, persist
-  the volcanic-subset parquet), F3 (literature alkalinity boundary + QC windows),
-  F5 (foidite / silica-undersaturated non-convergence: exclude or route to the
-  alkaline database).
-- **D -- Real-data role + sourcing** (new). Validation-only vs. training the
-  mineralogy heads on real data; the requirements on a real set; PANGAEA / LEPR /
-  reconsidering the 484 MagmaDB experiments as a validation set. Constraint:
-  CondHead (conditions) can only be supervised by synthetic labels or experiments,
-  so real data can lighten/validate the mineralogy heads but not replace the
-  synthetic corpus.
+- **A -- Endpoint decision.** RESOLVED (2026-07-14): phenocryst regime,
+  crystals-renormalized labels, rungs 60/50/40/30 from one stored ladder,
+  single composition-independent rung picked by label-level pre-screen. F6
+  (min-mode cutoff) demoted: the muscovite artifact largely dies with the
+  endpoint move; start at 0.1 wt%, pre-screen at both 0.1 and 1. F7 (cooling
+  floor) mooted: stop at melt < 30%, ~zero attrition.
+- **B -- Water redesign.** DESIGN LOCKED: N&L 2002 rhyolite-curve solubility
+  bound capped at 8 wt% (melt-inclusion supply ceiling); Wallace/Plank ranges
+  (F1) migrate to the inference prior. F4 (re-measure multimodality magnitude)
+  is the regen agent's 36-bulk A/B, still to run.
+- **C -- Subset lock / productionize.** DECIDED: volcanic core 25 aphanitic
+  names, foidite excluded (F5), total-Fe sufficient with provenance tier, QC
+  flags weight bulks out of the stratified draw (F3); implementation with the
+  regen agent (F2).
+- **D -- Real-data role.** RESOLVED: validation-only. The benchmark is built
+  (`explorations/real_mineralogy/`, 730 samples) plus the experimental tier
+  (LEPR 2,368 + MagmaDB 510). Fine-tuning on it would spend the only
+  measurement of the sim-to-real gap.
 
-**Order of operations** (the real-data decision gates how much proxy polish is
-worth; the two Phase-0 items are cheap and high-information, and independent):
-
-- **Phase 0 (parallel, cheap):** D-scope -- does a usable real bulk+mineralogy
-  volcanic set exist? AND Task A -- endpoint re-pick on the existing cooling
-  ladders (no new MAGEMin run).
-- **Phase 1 (decide):** real-data role from the search; endpoint from the re-pick.
-- **Phase 2 (productionize, only after Phase 1):** Task B (water) + Task C (subset)
-  -> generate the corpus -> train heads -> validate against the real set.
-
-Do not start B or C until Phase 1 lands -- the endpoint and real-data answers
-change what "productionize" means. Tasks graduate to GitHub issues when work
-begins on them.
+Order of operations for what remains (regen agent): bounded sampler ->
+36-bulk water A/B -> pilot -> label-level pre-screen picks the rung ->
+production launch. Detail in the spec's "Remaining work."
 
 ## Literature (from both reviews)
 

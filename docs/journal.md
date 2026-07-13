@@ -3057,3 +3057,70 @@ qap list, and the multimodality headline reframe. Deferred: plutonic/cumulate br
 via FC-of-parents (#22, high priority, starts after volcanic v1) -- cumulates are the
 one real rock class equilibrium can't generate faithfully. Formal ADR 004 amendment
 still to be written.
+
+## 2026-07-14 -- endpoint + label granularity locked; corpus regen fully specced
+
+**Q.** Finalize the synthetic-label design for the Track B heads: where on the
+cooling ladder to read the assemblage, at what granularity, and everything else
+gating corpus regen -- so a generation agent can run without design questions.
+
+**Context.** The re-pick experiment had shown the amp/opx multimodality
+survives at 50% melt and that near-solidus carries artifacts (phase-list +40%,
+spurious muscovite, wet-attrition tail). The real-mineralogy EDA had shown
+quartz / alkali feldspar / biotite are felsic-restricted phenocrysts (0%
+occurrence in mafic rocks). The sharpest residual: do felsic bulks need a
+DEEPER crystallinity stop to saturate those late-looking diagnostic phases --
+i.e. a composition-conditional endpoint?
+
+**Considered.** (1) Single vs composition-conditional endpoint. (2) Lumped vs
+itemized groundmass. (3) Melt fraction as a secondary predicted diagnostic.
+(4) du Bray visual modes for magnitude scoring. (5) Water bound: VolatileCalc
+vs Moore 1998 vs an in-house envelope. (6) Scale: 10k vs 30k bulks vs
+two-tier. (7) Presence cutoff 0.1 vs 1 wt%.
+
+**Decision.** (Spec detail in `docs/corpus_regen_spec.md`; evidence in
+`explorations/volcanic_proxy_definition/felsic_saturation.py` + updated
+`endpoint_repick.py`, both re-reading the stored 143k-point ladders.)
+
+- **Composition-conditional endpoint REJECTED -- the hypothesis inverted.**
+  Quartz saturates EARLY in felsic bulks (median first appearance at 75% melt
+  remaining); at the 50%-melt rung, subalkaline felsic draws show quartz 0.95
+  and K-feldspar 0.50 vs real du Bray 0.53 / 0.49. Real felsic lavas are the
+  crystal-poorest (~10-30 vol% phenocrysts), so a deeper felsic stop moves
+  AWAY from the real reference state. Near-solidus invents felsic phenocrysts
+  in mafic bulks (quartz 61%, biotite 91%, K-fsp 5% vs 0/0/0 real) -- a
+  categorical sim-real failure no prior reweighting fixes, and the strongest
+  quantitative argument for the phenocryst regime. Biotite is the one
+  counter-pull (under-shoots real at every phenocryst-regime rung, matches
+  only near-solidus); it is water-hungry and confounded with the flat H2O box
+  -- the SENTINEL PHASE for the post-water-redesign re-measurement.
+- **Endpoint: stop at melt < 30%; label rungs 60/50/40/30 re-picked from one
+  ladder; single composition-independent rung picked by label-level pre-screen
+  (presence-per-band first, rank proportions second); heads trained on top
+  1-2 rungs only.** The amp/opx switch is endpoint-insensitive (51-60% of
+  bulks at every rung 70->1% melt), so multimodality constrains nothing here.
+- **Labels crystals-renormalized; melt-fraction head DROPPED as unbuildable:**
+  at a fixed melt-fraction endpoint the label is a constant (attrition 0.7%
+  at the 50 rung) -- nothing to learn. Consequence for heads work: training
+  teacher-forces the label melt fraction in the mass-balance closure; the
+  inference-time closure residual as an OOD signal degrades (open, heads-side).
+- **Water: N&L 2002 rhyolite-curve solubility bound capped at 8 wt%.** Owner
+  call: well-established literature over in-house envelopes. The extrapolation
+  objection dissolves -- the 8 cap (melt-inclusion supply ceiling, Wallace
+  2005 / Plank 2013) binds above ~4-5 kbar, exactly where VolatileCalc's
+  calibration ends, so the curve is never evaluated out of range. Accepted
+  gap: low-P alkaline melts dissolve somewhat more; documented, not patched.
+- **Scale two-tier: 10k bulks x 48 draws (production) + ~500 x 128 (val/test
+  precision tier).** Training tolerates noisy presence targets (SE 0.07);
+  calibration eval and the rung ablation need SE 0.04. ~13M MAGEMin points,
+  ~2 days accumulated laptop runtime, chunked + resumable (atomic per-chunk
+  parquet + manifest; resume = rerun, at most one chunk redone).
+- Subset: total-Fe sufficient (Middlemost split is imposed regardless) with
+  measured-Fe provenance tier; QC flags weight bulks out of the stratified
+  draw rather than hard-drop. Presence cutoff starts at 0.1 wt% (raw modes
+  stored; cutoff is a retrain, never a regen); pre-screen runs both cutoffs.
+
+**Next.** Regen agent: bounded sampler -> 36-bulk water A/B (isolate the water
+fix; watch biotite) -> ~300-bulk pilot -> pre-screen picks the rung ->
+production. heads.md still describes the liq/fl-bearing ModeHead vocabulary
+and worked example -- update when heads work starts, not a regen blocker.
