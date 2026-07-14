@@ -3225,3 +3225,28 @@ pre-screen ceiling is the head's fault).
 **Next.** Rung pick (owner leaning 50+30), production regen launch. The rung
 choice gates head training only -- all four rungs are stored per draw, so
 generation is rung-agnostic and can launch first.
+
+## 2026-07-14 -- rung pick: train on rungs 50 + 30
+
+**Q.** Which of the four stored rungs (60/50/40/30% residual melt) supply the
+training labels?
+
+**Context.** Pre-screen on the passed 500-bulk pilot: rung 50 wins both
+aggregate scores at both cutoffs (presence MAE 0.193/0.218, rank Spearman
+0.79); rungs 40/30 clearly worse in aggregate. But intermediate-band biotite
+(real 0.40 presence) is 0.07/0.15 at rungs 60/50 and reaches real only at 30,
+while quartz/K-feldspar overshoot grows monotonically with depth. The
+benchmark's mafic band rests on very few real samples, so the pick weighted
+the intermediate and felsic bands.
+
+**Decision (owner).** Two rungs: **50 + 30**. 50 as the primary label (best
+overall presence and proportion match); 30 specifically so biotite exists in
+the label distribution for intermediates -- training on 50 alone would make
+biotite in andesites unlearnable (zero positives). Both rungs come from the
+same stored ladders; this is a label-rebuild choice, not a generation choice.
+
+**Next.** Production launch (rung-agnostic, all four rungs stored): train tier
+10k x 48, then valtest 500 x 128. Heads-side consequence to carry: the model
+sees the same bulk at two label depths (e.g. amphibole median share 0.22 at
+rung 50 vs 0.32 at 30) -- accepted consciously; rung is implicit in the label
+distribution.

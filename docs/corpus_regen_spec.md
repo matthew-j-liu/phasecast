@@ -40,11 +40,11 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
 - **Endpoint: phenocryst regime, single and composition-independent.** Cool
   each draw until residual melt < 30 wt%, then stop (no near-solidus leg).
   Read the assemblage at four rungs — 60/50/40/30% residual melt — re-picked
-  from the same stored ladder, no extra MAGEMin cost. The final training rung
-  is chosen by a **label-level pre-screen** against the real benchmark
+  from the same stored ladder, no extra MAGEMin cost. The training rungs were
+  chosen by a **label-level pre-screen** against the real benchmark
   (per-SiO2-band presence match first, rank-level crystals-renormalized
-  proportions second, exact magnitudes only on the 13 point-counted samples);
-  heads are trained only on the top 1-2 rungs. A composition-conditional
+  proportions second, exact magnitudes only on the 13 point-counted samples):
+  **rungs 50 + 30**, picked 2026-07-14 (see "Remaining work" item 4). A composition-conditional
   endpoint (deeper stop for felsic) is REJECTED: measured on the stored
   ladders, quartz/K-feldspar saturate early in felsic bulks (present at the
   50%-melt rung at 0.95/0.50 vs real 0.53/0.49), real felsic lavas are the
@@ -165,9 +165,10 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
    draws). Pre-screen run at both cutoffs
    (`explorations/volcanic_proxy_definition/results/rung_prescreen_*.csv`):
    rung 50 best on aggregate presence MAE and rank Spearman at both cutoffs;
-   intermediate-band biotite still zero at 60/50 and matching real only at 30
-   — the foreshadowed two-rung (50 + 30) discussion is live. **Rung pick
-   pending (owner).**
+   intermediate-band biotite still zero at 60/50 and matching real only at 30.
+   **Rung pick made (owner, 2026-07-14): train on rungs 50 + 30** — 50 as the
+   primary (best aggregate match), 30 because it is the only rung where
+   intermediate biotite exists to be learned.
 5. **Production launch** — 10k x 48 + 500 x 128 tiers, chunked, pausable
    (rerun the same orchestrator command to resume; the train run resumes past
    the pilot's 5 chunks).
