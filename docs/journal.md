@@ -3167,3 +3167,26 @@ Evidence: `equilibrium_multimodality/results/water_ab_{switch,presence}.csv`.
 **Next.** Pilot (first 5 chunks, `--max-chunks 5`) -> health report -> rung
 pre-screen -> owner picks rung(s) -> production (10k x 48 train + 500 x 128
 val/test).
+
+## 2026-07-14 -- explorations/ cleanup before corpus EDA
+
+**Q.** Pre-EDA housekeeping: explorations/ had drifted from its own rules
+(index listed 3 of 10 dirs; a production script imported exploration code;
+one exploration had no README/test).
+
+**Decision.** (1) `build_subset` + `VOLCANIC_QAP`/`ALKALINE_QAP` +
+`total_fe_as_feo` promoted from `equilibrium_multimodality/selection.py` to
+`cnmineral.data.volcanic_subset` -- production corpus tables now import from
+src, and the exploration imports back the right way round (`selection.py`
+keeps only the stratified test-bulk picking). Fe2O3->FeO factor deduplicated
+against `magemin_oxides.FE2O3_TO_FEO_MASS`. Verified: 335,042 bulks, 25
+classes, unchanged. (2) `lepr_validation` brought to compliance: README
+(2,368 experiment pairs with measured (P, T); presence-only; no use decided
+yet -- complements, not duplicates, `real_mineralogy`), `__init__.py`,
+tripwire tests. (3) Index rewritten to cover all 10 explorations.
+`equilibrium_multimodality`'s 533 MB is the gitignored `work/` ladders that
+`volcanic_proxy_definition` re-reads -- kept. `imputation_head_design` is
+results+README by documented intent (code retired) -- kept as is.
+
+**Next.** Corpus EDA (health-report `--figures` + pre-screen plots), rung
+pick, production launch.

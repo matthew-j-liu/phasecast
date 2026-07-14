@@ -109,7 +109,9 @@ a user sees depends on `p(H2O)`. State this where the headline is sold.
   to ~550 C (or 500) for wet bulks, OR tag+accept attrition and drop those draws.
   Do NOT raise tau to hide it -- tau=5% barely helps (9.6% vs 10.4%).
 - **Item 3 (subset + QC).** Volcanic core = the 25 aphanitic QAPF names in
-  `selection.py::VOLCANIC_QAP`, ~335k bulks. **rock_origin tension (owner call):**
+  `cnmineral.data.volcanic_subset::VOLCANIC_QAP` (built here as
+  `selection.py::VOLCANIC_QAP`, promoted to `src/` when the corpus bulk tables
+  began importing it), ~335k bulks. **rock_origin tension (owner call):**
   `gabbro`/`norite`/`anorthosite`/`orthopyroxene gabbro` are majority-tagged
   `volcanic` in the full-CSV `rock_origin` despite plutonic names -- left OUT of
   the core here; recommend keeping them out (trust the aphanitic-name definition;

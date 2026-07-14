@@ -84,6 +84,14 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_loi_normalize_is_exact_and_passes_strings` -- numeric oxides renormalize to exactly 100, non-numeric keys pass through.
 7. `test_class_ratio_lookup_and_default` -- Middlemost lookup returns the class value and falls back to `default` for unknown classes.
 
+### test_volcanic_subset.py
+
+1. `test_measured_feo_and_fe2o3_take_precedence` -- measured FeO + Fe2O3 win over `_tot` columns in the total-Fe-as-FeO precedence.
+2. `test_single_measured_species_counts_alone` -- one measured Fe species alone yields its own FeO-equivalent contribution.
+3. `test_feo_tot_fallback_then_fe2o3_tot` -- with no measured species, `feo_tot` is used first, then `fe2o3_tot` converted.
+4. `test_no_iron_is_nan` -- no Fe column populated returns NaN, not 0.
+5. `test_qap_vocabulary_invariants` -- VOLCANIC_QAP holds exactly 25 distinct names and ALKALINE_QAP is a proper subset.
+
 ## losses/
 
 ### test_pretrain_loss.py
@@ -277,7 +285,14 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_classifier_flags_amp_opx_identity_switch` -- an anti-correlated amp/opx cloud is classified phase-identity-multimodal with the amp<->opx switch set.
 5. `test_classifier_proportion_only_is_not_multimodal` -- a fixed identity set with only modal variation is NOT multimodal (amphibole present on every path is not a flip).
 
-(The driver's former flat-box LHS test moved to `tests/data/test_condition_proposal.py` with the sampler itself.)
+(The driver's former flat-box LHS test moved to `tests/data/test_condition_proposal.py` with the sampler itself. The volcanic-core subset builder it once owned lives at `tests/data/test_volcanic_subset.py` since its promotion to `src/`.)
+
+### test_lepr_validation.py
+
+1. `test_coarse_map_and_drop_codes_disjoint` -- no LEPR phase code is both mapped to the coarse vocabulary and dropped.
+2. `test_parse_phases_splits_and_strips` -- comma-separated phase strings split and strip; NaN degrades to a harmless unmapped code.
+3. `test_dedup_experiments_drops_conflicting_keys` -- (Citation, Experiment) keys with conflicting T/P/Phases are dropped; exact duplicates collapse to one row.
+4. `test_dedup_bulk_flags_disagreeing_duplicates` -- duplicate bulks disagreeing by >0.01 wt% on any oxide are flagged `bulk_conflict`; within-tolerance duplicates are clean.
 
 ### test_latent_anisotropy.py
 

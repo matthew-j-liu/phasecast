@@ -14,16 +14,14 @@ Writes data/corpus/train_bulks.csv and data/corpus/valtest_bulks.csv.
 """
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
+from cnmineral.data.volcanic_subset import build_subset
 
-from explorations.equilibrium_multimodality.selection import build_subset
+REPO = Path(__file__).resolve().parents[2]
 
 FOIDITE_FAMILY = {"foidite", "phonolitic foidite", "tephritic foidite"}
 KEEP_COLS = ["sample_id", "qap_name", "series", "sio2", "fe_measured"]

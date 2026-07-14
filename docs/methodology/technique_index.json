@@ -56,7 +56,8 @@
       "scripts/build/build_test_fixture.py",
       "scripts/build/generate_mineralogy_corpus.py",
       "scripts/build/report_corpus_health.py",
-      "src/cnmineral/data/bulk_chemistry.py"
+      "src/cnmineral/data/bulk_chemistry.py",
+      "src/cnmineral/data/volcanic_subset.py"
     ],
     "torch_dataloader": [
       "src/cnmineral/eval/imputation.py",
@@ -219,6 +220,7 @@
       "src/cnmineral/data/bulk_chemistry.py",
       "src/cnmineral/data/fe_redox.py",
       "src/cnmineral/data/magemin_corpus.py",
+      "src/cnmineral/data/volcanic_subset.py",
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/eval/probe/scoring.py",
