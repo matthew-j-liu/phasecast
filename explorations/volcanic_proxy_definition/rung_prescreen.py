@@ -14,6 +14,11 @@ du Bray reports them unsplit):
      -- reported with the vol%-vs-wt% caveat, no density conversion here (the
      real-benchmark label adapter is a spec follow-up).
 
+Also writes the sim-vs-real comparison figures (presence bars, renormalized
+proportions, TAS of generated vs benchmark bulks) to results/ -- committed
+evidence for the rung decision. The corpus-statistics EDA plots live with
+`scripts/build/report_corpus_health.py --figures`.
+
 The owner picks the rung from the printed table; nothing is decided here.
 
     conda run -n alignn_fix python explorations/volcanic_proxy_definition/rung_prescreen.py \\
@@ -65,8 +70,10 @@ def load_sim(corpus):
     per_draw = cat.join(total).reset_index().merge(
         draws[["bulk", "draw", "sio2", "series", "qap_name"]], on=["bulk", "draw"])
     per_draw["band"] = pd.cut(per_draw.sio2, BANDS, labels=BAND_LABELS)
+    bulks = draws.drop_duplicates("bulk")[
+        ["bulk", "sio2", "series", "in_na2o", "in_k2o"]]
     return per_draw, other.reset_index().merge(
-        draws[["bulk", "draw", "sio2"]], on=["bulk", "draw"])
+        draws[["bulk", "draw", "sio2"]], on=["bulk", "draw"]), bulks
 
 
 def load_real():
@@ -100,7 +107,7 @@ def load_real():
           .groupby(["sample_id", "cat"]).abundance_pct.sum().unstack(fill_value=0.0)
           .reindex(columns=CATEGORIES, fill_value=0.0))
     pc = pc.div(pc.sum(axis=1), axis=0)
-    return presence, shares, pc
+    return presence, shares, pc, s
 
 
 def main():
@@ -108,12 +115,13 @@ def main():
     ap.add_argument("--corpus", required=True)
     args = ap.parse_args()
 
-    per_draw, other = load_sim(Path(args.corpus))
-    real_presence, real_shares, pc = load_real()
+    per_draw, other, sim_bulks = load_sim(Path(args.corpus))
+    real_presence, real_shares, pc, real_samples = load_real()
     sub = per_draw[per_draw.series == "subalkaline"]
     print(f"{len(per_draw):,} sim (draw, rung) labels over "
           f"{per_draw.bulk.nunique():,} bulks; {len(sub):,} subalkaline for scoring")
 
+    sim_shares = {}
     pick_rows = []
     for rung in sorted(sub.rung.unique(), reverse=True):
         g = sub[sub.rung == rung]
@@ -125,9 +133,9 @@ def main():
             row[f"presence_mae_{cut}"] = round(float(diff.mean().mean()), 4)
         shares = g[CATEGORIES].div(g.solid_tot, axis=0)
         shares["band"] = g.band.values
-        sim_s = shares.groupby("band", observed=True)[CATEGORIES].mean()
-        rho = [spearmanr(sim_s.loc[b], real_shares.loc[b]).statistic
-               for b in BAND_LABELS if b in sim_s.index]
+        sim_shares[rung] = shares.groupby("band", observed=True)[CATEGORIES].mean()
+        rho = [spearmanr(sim_shares[rung].loc[b], real_shares.loc[b]).statistic
+               for b in BAND_LABELS if b in sim_shares[rung].index]
         row["rank_spearman_mean"] = round(float(np.mean(rho)), 3)
         pick_rows.append(row)
     pick = pd.DataFrame(pick_rows)
@@ -174,6 +182,74 @@ def main():
     pick.to_csv(RESULTS / "rung_prescreen_pick.csv", index=False)
     detail.to_csv(RESULTS / "rung_prescreen_presence.csv", index=False)
     print(f"\nwrote results/rung_prescreen_pick.csv + rung_prescreen_presence.csv")
+
+    write_figures(detail, real_presence, sim_shares, real_shares, mag,
+                  sim_bulks, real_samples)
+
+
+def write_figures(detail, real_presence, sim_shares, real_shares, mag,
+                  sim_bulks, real_samples):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    rungs = sorted(detail.rung.unique(), reverse=True)
+    x = np.arange(len(CATEGORIES))
+    w = 0.8 / (len(rungs) + 1)
+
+    def grouped_bars(ax, real_row, sim_rows):
+        ax.bar(x - 0.4 + 0.5 * w, real_row, width=w, color="k", label="real")
+        for i, rung in enumerate(rungs):
+            ax.bar(x - 0.4 + (i + 1.5) * w, sim_rows[rung], width=w,
+                   label=f"rung {rung}")
+        ax.set_xticks(x, CATEGORIES)
+
+    def save(fig, name):
+        fig.tight_layout()
+        fig.savefig(RESULTS / name, dpi=150)
+        plt.close(fig)
+        print(f"wrote results/{name}")
+
+    fig, axes = plt.subplots(3, 1, figsize=(9, 10), sharex=True)
+    for ax, band in zip(axes, BAND_LABELS):
+        rows = {r: detail[(detail.band == band) & (detail.rung == r)]
+                [CATEGORIES].iloc[0] for r in rungs}
+        grouped_bars(ax, real_presence.loc[band], rows)
+        ax.set_ylabel("presence frequency")
+        ax.set_title(band)
+    axes[0].legend(ncols=len(rungs) + 1)
+    fig.suptitle("presence, real (du Bray) vs sim by rung, cutoff 0.1 wt%", y=0.995)
+    save(fig, "rung_prescreen_presence.png")
+
+    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
+    for ax, band in zip(axes.flat, BAND_LABELS):
+        grouped_bars(ax, real_shares.loc[band],
+                     {r: sim_shares[r].loc[band] for r in rungs})
+        ax.set_ylabel("mean crystals-renormalized share")
+        ax.set_title(band)
+    ax = axes.flat[3]
+    grouped_bars(ax, mag.real_pointcount_mean,
+                 {r: mag[f"sim_{r}"] for r in rungs})
+    ax.set_ylabel("mean share")
+    ax.set_title("13 point-counted dacites (real is vol%, unconverted)")
+    axes.flat[0].legend(ncols=2)
+    fig.suptitle("crystals-renormalized proportions, real vs sim by rung", y=0.995)
+    save(fig, "rung_prescreen_proportions.png")
+
+    fig, ax = plt.subplots(figsize=(7, 5.5))
+    alk = sim_bulks.in_na2o + sim_bulks.in_k2o
+    for series, color in [("subalkaline", "tab:blue"), ("alkaline", "tab:orange")]:
+        m = sim_bulks.series == series
+        ax.scatter(sim_bulks.sio2[m], alk[m], s=6, alpha=0.3, color=color,
+                   label=f"sim {series} (n={int(m.sum()):,})")
+    real = real_samples.dropna(subset=["sio2", "na2o", "k2o"])
+    ax.scatter(real.sio2, real.na2o + real.k2o, s=14, marker="x", color="k",
+               label=f"real benchmark (n={len(real)})")
+    ax.set_xlabel("SiO2 (wt%)")
+    ax.set_ylabel("Na2O + K2O (wt%)")
+    ax.set_title("total alkali vs silica: generated bulks vs real benchmark")
+    ax.legend(markerscale=2)
+    save(fig, "rung_prescreen_tas.png")
 
 
 if __name__ == "__main__":

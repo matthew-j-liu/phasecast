@@ -217,6 +217,7 @@
       "configs/probe/probe_hpo.yaml",
       "scripts/build/build_corpus_bulk_tables.py",
       "scripts/build/build_test_fixture.py",
+      "scripts/build/report_corpus_health.py",
       "src/cnmineral/data/bulk_chemistry.py",
       "src/cnmineral/data/fe_redox.py",
       "src/cnmineral/data/magemin_corpus.py",

@@ -4,9 +4,11 @@ Reads a generation output dir (chunk parquets + manifest) and reports what the
 spec's pilot validates: attrition per rung, convergence failures, mass-balance
 closure (mode sum and bulk reconstruction), per-phase coverage, and the label
 mode distributions. Read-only; prints tables and writes health_*.csv next to
-the chunks.
+the chunks. `--figures` additionally writes the corpus-statistics EDA plots to
+`<corpus>/figures/` (regenerable, gitignored; the sim-vs-real comparison plots
+live with the rung pre-screen in explorations/volcanic_proxy_definition/).
 
-    conda run -n alignn_fix python scripts/build/report_corpus_health.py --corpus data/corpus/train
+    conda run -n alignn_fix python scripts/build/report_corpus_health.py --corpus data/corpus/train --figures
 """
 
 import argparse
@@ -30,6 +32,10 @@ def load(corpus, name):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", required=True)
+    ap.add_argument("--figures", action="store_true",
+                    help="write EDA plots to <corpus>/figures/")
+    ap.add_argument("--bulks", help="full bulk table for the representativeness "
+                    "plot (default: <corpus>_bulks.csv next to the corpus dir)")
     args = ap.parse_args()
     corpus = Path(args.corpus)
 
@@ -93,6 +99,122 @@ def main():
 
     cov.to_csv(corpus / "health_phase_coverage.csv", index=False)
     print(f"\nwrote {corpus / 'health_phase_coverage.csv'}")
+
+    if args.figures:
+        bulks = Path(args.bulks) if args.bulks else \
+            corpus.parent / f"{corpus.name}_bulks.csv"
+        write_figures(draws, rungs, cov, corpus, bulks)
+
+
+def write_figures(draws, rungs, cov, corpus, bulks_path):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    from cnmineral.data.condition_proposal import w_max
+
+    out = corpus / "figures"
+    out.mkdir(exist_ok=True)
+
+    def save(fig, name):
+        fig.tight_layout()
+        fig.savefig(out / name, dpi=150)
+        plt.close(fig)
+        print(f"wrote {out / name}")
+
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))
+    over = draws.oversaturated.astype(bool)
+    ax.scatter(draws.P_kbar[~over], draws.H2O[~over], s=3, alpha=0.15,
+               color="tab:blue", label="draws")
+    ax.scatter(draws.P_kbar[over], draws.H2O[over], s=3, alpha=0.4,
+               color="crimson", label=f"oversaturated ({over.mean():.1%})")
+    p = np.linspace(draws.P_kbar.min(), draws.P_kbar.max(), 200)
+    ax.plot(p, [w_max(float(x)) for x in p], color="k", lw=1.2,
+            label="w_max(P) bound")
+    ax.set_xlabel("P (kbar)")
+    ax.set_ylabel("H2O (wt%)")
+    ax.set_title("sampled (P, H2O) coverage")
+    ax.legend(loc="lower right", markerscale=4)
+    ax2.hist(draws.T_stop.dropna(), bins=60, color="tab:gray")
+    ax2.set_xlabel("T_stop (C)")
+    ax2.set_ylabel("draws")
+    ax2.set_title("derived endpoint temperature")
+    save(fig, "conditions.png")
+
+    pres = cov.pivot(index="phase", columns="rung", values="presence_0.001")
+    pres = pres.loc[pres.max(axis=1).sort_values().index]
+    rung_order = sorted(pres.columns, reverse=True)
+    fig, ax = plt.subplots(figsize=(7.5, 0.3 * len(pres) + 1.5))
+    y = np.arange(len(pres))
+    h = 0.8 / len(rung_order)
+    for i, rung in enumerate(rung_order):
+        ax.barh(y - 0.4 + (i + 0.5) * h, pres[rung], height=h, label=f"rung {rung}")
+    ax.set_yticks(y, pres.index)
+    ax.set_xlabel("presence frequency (mode > 0.1 wt%)")
+    ax.legend(loc="lower right")
+    ax.set_title("per-phase coverage by rung")
+    save(fig, "phase_coverage.png")
+
+    solids = rungs[~rungs.phase.isin(["liq", "fl"])]
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey=True)
+    for ax, rung in zip(axes.flat, rung_order):
+        g = solids[solids.rung == rung]
+        top = g.phase.value_counts().head(12).index.tolist()
+        ax.boxplot([g.mode_wt[g.phase == ph].values for ph in top], showfliers=False)
+        ax.set_xticks(range(1, len(top) + 1), top, rotation=60)
+        ax.set_ylabel("mode (wt frac)")
+        ax.set_title(f"rung {rung}: mode distributions (12 commonest phases, when present)")
+    save(fig, "mode_distributions.png")
+
+    present = solids[solids.mode_wt > CUTOFFS[0]]
+    key = ["bulk", "draw", "rung"]
+    nph = present.groupby(key).size()
+    asm = present.groupby(key).phase.agg(lambda s: "|".join(sorted(s)))
+    nasm = asm.groupby(["bulk", "rung"]).nunique()
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(11, 4.2))
+    for rung in rung_order:
+        v = nph.xs(rung, level="rung")
+        ax.hist(v, bins=np.arange(0.5, v.max() + 1.5), histtype="step",
+                label=f"rung {rung}")
+        w = nasm.xs(rung, level="rung")
+        ax2.hist(w, bins=np.arange(0.5, w.max() + 1.5), histtype="step",
+                 label=f"rung {rung}")
+    n_draws = draws.groupby("bulk").draw.nunique().median()
+    ax.set_xlabel("solid phases per draw (mode > 0.1 wt%)")
+    ax.set_ylabel("draws")
+    ax.legend()
+    ax2.set_xlabel(f"distinct assemblages per bulk (~{n_draws:.0f} draws each)")
+    ax2.set_ylabel("bulks")
+    ax2.set_title("within-bulk spread: the multimodality the heads learn")
+    ax2.legend()
+    save(fig, "assemblage_spread.png")
+
+    if not bulks_path.exists():
+        print(f"no bulk table at {bulks_path}; skipping representativeness plot")
+        return
+    full = pd.read_csv(bulks_path)
+    got = draws.drop_duplicates("bulk")
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    freq = pd.DataFrame({
+        "table": full.qap_name.value_counts(normalize=True),
+        "generated": got.qap_name.value_counts(normalize=True),
+    }).fillna(0.0).sort_values("table")
+    y = np.arange(len(freq))
+    ax.barh(y + 0.2, freq["table"], height=0.4,
+            label=f"full table (n={len(full):,})")
+    ax.barh(y - 0.2, freq["generated"], height=0.4,
+            label=f"generated (n={len(got):,})")
+    ax.set_yticks(y, freq.index, fontsize=7)
+    ax.set_xlabel("class share")
+    ax.set_title("qap class mix: generated bulks vs full table")
+    ax.legend(loc="lower right")
+    ax2.hist([got.sio2, full.sio2], bins=40, density=True, histtype="step",
+             label=[f"generated (n={len(got):,})", f"full table (n={len(full):,})"])
+    ax2.set_xlabel("SiO2 (wt%)")
+    ax2.set_ylabel("density")
+    ax2.set_title("SiO2 mix")
+    ax2.legend()
+    save(fig, "representativeness.png")
 
 
 if __name__ == "__main__":
