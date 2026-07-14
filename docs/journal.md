@@ -3190,3 +3190,38 @@ results+README by documented intent (code retired) -- kept as is.
 
 **Next.** Corpus EDA (health-report `--figures` + pre-screen plots), rung
 pick, production launch.
+
+## 2026-07-14 -- real-benchmark fine-tuning stance: zero-shot first, benchmark stays eval-only
+
+**Q.** The pre-screen shows real label-level disagreement (presence MAE ~0.19,
+concentrated in biotite/quartz/amp). Should the heads be fine-tuned on the
+real volcanic benchmark to close it?
+
+**Context.** The harvest-time README said "never train on this," but that was
+never owner-ratified. The architecture explicitly supports re-supervising
+heads on real labels, so the question is legitimate.
+
+**Considered.** (1) Fine-tune on a benchmark split: costs power on an
+already-small instrument (730 samples, 13 with quantitative modes).
+(2) Fine-tune on LEPR instead: REJECTED -- structural mismatch. LEPR has no
+modal proportions (nothing for ModeHead's primary target), no melt fraction
+(experiments can't be placed on the rung axis, so labels would smear the
+endpoint definition), and its (P, T) means "imposed lab conditions," not
+"phenocryst-regime scenario conditions." Being equilibrium-at-known-conditions,
+LEPR is structurally closer to MAGEMin than to natural rocks -- its honest
+role is presence-level generator validation, not head supervision.
+(3) Zero-shot first: ship sim-trained heads, measure the sim-to-real gap on
+the intact benchmark, decide fine-tuning afterward with a number in hand.
+
+**Decision.** Option 3 (owner). The benchmark stays eval-only *until the
+zero-shot gap is measured*; the fine-tuning decision then reopens with "on
+what data" deliberately unresolved (benchmark split, or a future itemized-mode
+harvest, e.g. Rietveld XRD). The pre-screen's label-level agreement is the
+zero-shot ceiling and the attribution tool: head errors decompose into
+corpus-level gaps (pre-screen shows them), prior-level gaps (fixable by p/q
+reweighting at inference), and model-level gaps (only the part below the
+pre-screen ceiling is the head's fault).
+
+**Next.** Rung pick (owner leaning 50+30), production regen launch. The rung
+choice gates head training only -- all four rungs are stored per draw, so
+generation is rung-agnostic and can launch first.
