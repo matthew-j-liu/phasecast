@@ -17,8 +17,9 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 *.egg-info/
-build/
-dist/
+# anchored: unanchored build/ would swallow new files under scripts/build/
+/build/
+/dist/
 
 # OS
 .DS_Store
