@@ -49,6 +49,24 @@ additional axis, not a replacement. Evidence: `results/multimodality.png`,
 to proportion-only). The full handback below proposes the item-2..7 spec values;
 the owner integrates them into `docs/corpus_regen_spec.md`.
 
+## Water A/B (corpus_regen_spec "Water A/B")
+
+The results above were generated under the since-superseded flat proposal box
+(`q` uniform on the full P x H2O rectangle). `driver.py` now draws from the
+locked solubility-bounded proposal (`cnmineral.data.condition_proposal`,
+N&L 2002 rhyolite curve capped at 8 wt%) and writes to `work/bounded/`; the
+flat-box run stays at `work/` root as the A/B baseline. `water_ab.py` compares
+the two on the same bulks at the phenocryst-regime rungs: amp/opx switch
+magnitude, and quartz/biotite/K-feldspar presence vs the real du Bray
+frequencies (biotite is the sentinel -- it under-shoots everywhere under the
+flat box).
+
+```
+conda activate alignn_fix && export KMP_DUPLICATE_LIB_OK=TRUE
+python explorations/equilibrium_multimodality/driver.py --n 128   # ~25 min, writes work/bounded/
+python explorations/equilibrium_multimodality/water_ab.py         # A/B tables + results/water_ab_*.csv
+```
+
 ---
 
 ## Handback

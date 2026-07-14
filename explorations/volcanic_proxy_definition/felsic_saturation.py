@@ -35,10 +35,10 @@ BAND_LABELS = ["mafic", "intermediate", "felsic"]
 TRACKED = ["q", "bi", "kfsp"]
 
 
-def load_points():
-    meta = pd.read_csv(WORK / "meta.csv")
+def load_points(work=WORK):
+    meta = pd.read_csv(work / "meta.csv")
     rows = []
-    for f in sorted((WORK / "raw").glob("bulk_*.jsonl")):
+    for f in sorted((work / "raw").glob("bulk_*.jsonl")):
         for line in open(f):
             r = json.loads(line)
             liq = q = bi = 0.0

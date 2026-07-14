@@ -211,18 +211,111 @@ def s_corpora(prs):
     header(s, "DATA", "Three corpora")
     box(s, 0.6, 2.0, 3.9, 2.6, ["SSL pretrain", "", ("data/bulks/gard2019.csv",),
         ("~167k igneous bulks",), ("inputs only (no labels)",)], TEAL, size=14)
-    box(s, 4.7, 2.0, 3.9, 2.6, ["supervised", "", ("FC corpus (PetThermoTools)",),
-        ("per-bulk x N paths",), ("modal, comp, T/P/H2O labels",)], GREEN, size=14)
-    box(s, 8.8, 2.0, 3.9, 2.6, ["held-out eval", "", ("mineralML grains",),
-        ("~88k, never trained on",), ("cross-modal validation",)], PURPLE, size=14)
+    box(s, 4.7, 2.0, 3.9, 2.6, ["supervised", "", ("equilibrium corpus (MAGEMin)",),
+        ("volcanic bulks x 48 (P, H2O) draws",), ("phenocryst-regime labels",)], GREEN, size=14)
+    box(s, 8.8, 2.0, 3.9, 2.6, ["held-out eval", "", ("730 real volcanic modes",),
+        ("+ mineralML grains (~88k)",), ("never trained on",)], PURPLE, size=14)
     caption(s, 0.6, 4.9, 3.9, "trains the encoder", 12, TEAL)
-    caption(s, 4.7, 4.9, 3.9, "trains the heads", 12, GREEN)
+    caption(s, 4.7, 4.9, 3.9, "trains the heads (next two slides)", 12, GREEN)
     caption(s, 8.8, 4.9, 3.9, "evaluation only", 12, PURPLE)
     caption(s, 0.6, 5.7, 12.1, "inputs everywhere are the same 22-token cation+trace vector; "
             "the corpora differ in what supervision (if any) they attach.", 13, INK, align=PP_ALIGN.LEFT)
-    notes(s, "Three corpora. Pretrain (Gard) is inputs-only and trains the encoder; the FC "
-             "corpus carries MAGEMin-derived labels and trains the heads; mineralML grains are "
-             "held out for cross-modal eval.")
+    notes(s, "Three corpora. Pretrain (Gard) is inputs-only and trains the encoder; the "
+             "equilibrium corpus (MAGEMin cooling, phenocryst-regime endpoint -- generation "
+             "pipeline on the next slide) carries the labels that train the heads; the real "
+             "volcanic benchmark and mineralML grains are held out for validation.")
+
+
+def s_labelgen(prs):
+    s = new_slide(prs)
+    header(s, "DATA", "How the supervised labels are generated")
+    bx, bw, bh, by = [0.55, 3.15, 5.75, 8.35, 10.95], 2.35, 1.9, 1.55
+    steps = [
+        (["volcanic core", ("gard2019 -> 324k bulks",), ("stratified: 10k train",),
+          ("+ 500 val/test",)], TEAL, "build_corpus_bulk_tables.py"),
+        (["sample conditions", ("48 (P, H2O) draws/bulk",), ("solubility-bounded LHS",),
+          ("density q stored per row",)], BLUE, "cnmineral.data.condition_proposal"),
+        (["equilibrium cooling", ("MAGEMin, 1200 -> 600 C",), ("stop below 30% melt",),
+          ("chunked + resumable",)], PURPLE, "generate_mineralogy_corpus.py"),
+        (["corpus tables", ("draws / ladder / rungs",), ("full labels at",),
+          ("60/50/40/30% melt",)], ORANGE, "parquet + manifest per chunk"),
+        (["training labels", ("crystals-renormalized",), ("solids; presence + modes",),
+          ("rebuild, never a regen",)], GREEN, "training-time transform"),
+    ]
+    for i, (lines, color, script) in enumerate(steps):
+        box(s, bx[i], by, bw, bh, lines, color, size=12)
+        caption(s, bx[i] - 0.15, by + bh + 0.06, bw + 0.3, script, 10, GRAYT)
+        if i > 0:
+            pr = bx[i - 1] + bw
+            flow_arrow(s, pr + 0.04, by + bh / 2 - 0.18, bx[i] - pr - 0.08, 0.36)
+
+    # bounded (P, H2O) support: N&L 2002 rhyolite solubility (850 C, values from
+    # condition_proposal) capped at the 8 wt% melt-inclusion ceiling
+    px, pyb, pw, ph = 1.2, 6.7, 3.6, 1.75
+    bound = [(0.5, 2.60), (1.0, 3.88), (1.5, 4.93), (2.0, 5.92),
+             (2.5, 6.90), (3.0, 7.89), (3.05, 8.0), (12.0, 8.0)]
+    to_xy = lambda p, w: (px + (p - 0.5) / 11.5 * pw, pyb - w / 8.0 * ph)
+    frame = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(px), Inches(pyb - ph),
+                               Inches(pw), Inches(ph))
+    frame.fill.background(); frame.line.color.rgb = _rgb(GRAYL)
+    frame.line.width = Pt(1); frame.shadow.inherit = False
+    fb = s.shapes.build_freeform(Inches(px), Inches(pyb), scale=1.0)
+    pts = [to_xy(p, w) for p, w in bound] + [(px + pw, pyb)]
+    fb.add_line_segments([(Inches(a), Inches(b)) for a, b in pts], close=True)
+    shp = fb.convert_to_shape()
+    shp.fill.solid(); shp.fill.fore_color.rgb = _rgb(_lighten(BLUE, 0.72))
+    shp.line.color.rgb = _rgb(BLUE); shp.line.width = Pt(2); shp.shadow.inherit = False
+    caption(s, px - 0.2, pyb + 0.02, pw + 0.4, "P  0.5 -> 12 kbar", 10, GRAYT)
+    t = s.shapes.add_textbox(Inches(px - 0.62), Inches(pyb - ph - 0.05), Inches(0.6), Inches(0.4))
+    _text(t.text_frame, ["H2O", ("0-8",)], 10, GRAYT)
+    caption(s, px + 0.2, pyb - ph - 0.4, pw, "sampled (P, H2O) region", 11, BLUE)
+    caption(s, 5.4, 5.95, 7.4,
+            "water is bounded by what melt can dissolve at each pressure (Newman & "
+            "Lowenstern 2002 rhyolite curve, capped at 8 wt%) -- the old flat box "
+            "(whole rectangle) sampled impossible wet-shallow corners. q is the "
+            "sampling density; inference reweights scenarios by p/q, so the corpus "
+            "itself stays prior-agnostic.", 12, INK, align=PP_ALIGN.LEFT)
+    notes(s, "The Track B label factory, left to right: stratified volcanic bulk tables; "
+             "solubility-bounded Latin-Hypercube (P, H2O) draws with the proposal density "
+             "stored per row; chunked MAGEMin equilibrium cooling stopped below 30% residual "
+             "melt (fresh Julia worker per chunk, atomic parquet + manifest, rerun-to-resume); "
+             "three tables with full labels at the four candidate rungs; crystals-renormalized "
+             "training labels rebuilt at train time (presence cutoff is a rebuild, not a regen).")
+
+
+def s_regen_status(prs):
+    s = new_slide(prs)
+    header(s, "DATA", "Corpus regen: where we are")
+    steps = [
+        ("1. bounded sampler", ["landed + tested", ("condition_proposal",)], True, False),
+        ("2. orchestrator", ["landed + smoke-run", ("generate_mineralogy_corpus",)], True, False),
+        ("3. water A/B", ["switch holds;", ("biotite gap is",),
+                          ("prior-side, not coverage",)], True, False),
+        ("4. pilot + rung pick", ["first 5 train chunks", ("health report +",),
+                                  ("rung_prescreen.py -> owner",)], False, True),
+        ("5. production", ["10k x 48 + 500 x 128", ("~2 days, pausable",),
+                           ("rerun command = resume",)], False, False),
+    ]
+    bx, bw, bh, by = [0.55, 3.15, 5.75, 8.35, 10.95], 2.35, 2.1, 2.3
+    for i, (name, lines, landed, is_next) in enumerate(steps):
+        color = GREEN if landed else (ORANGE if is_next else GRAYT)
+        b = box(s, bx[i], by, bw, bh, [name, ""] + lines, color, lit=landed or is_next, size=12)
+        tag = "LANDED" if landed else ("NEXT" if is_next else "queued")
+        caption(s, bx[i], by - 0.42, bw, tag, 11, GREEN if landed else (ORANGE if is_next else GRAYT))
+        if i > 0:
+            pr = bx[i - 1] + bw
+            flow_arrow(s, pr + 0.04, by + bh / 2 - 0.18, bx[i] - pr - 0.08, 0.36,
+                       lit=landed or is_next)
+    caption(s, 0.55, 5.2, 12.2, "gates between stages: the A/B re-checks the amp/opx "
+            "multimodality magnitude and the biotite presence gap under bounded water; the "
+            "pilot pre-screen scores each rung against the real benchmark (presence per SiO2 "
+            "band, then rank of proportions) and the owner picks the training rung before "
+            "production launches.", 13, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.35, 12.2, "spec: docs/corpus_regen_spec.md (all design decisions locked "
+            "2026-07-14; what remains is measurement and generation).", 12, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Status strip for the corpus regen. Stages 1-2 are code, landed and tested. "
+             "Stage 3-5 are runs the owner executes in his own terminal; each has a decision "
+             "gate before the next. Update this slide as stages complete.")
 
 
 def s_architecture(prs):
@@ -347,14 +440,14 @@ def s_workflow(prs):
     flow_arrow(s, 4.1, 3.25, 0.7, 0.45)
     box(s, 5.0, 2.6, 3.0, 1.7, ["2. freeze", "encoder", ("weights fixed",)], PURPLE, size=14)
     flow_arrow(s, 8.1, 3.25, 0.7, 0.45)
-    box(s, 9.0, 2.6, 3.6, 1.7, ["3. train heads", "", ("FC corpus labels",),
+    box(s, 9.0, 2.6, 3.6, 1.7, ["3. train heads", "", ("equilibrium corpus labels",),
         ("encoder untouched",)], GREEN, size=14)
     caption(s, 0.7, 4.6, 11.9, "the encoder is the durable contribution: heads can be "
             "re-supervised against any label source without retraining it.", 13, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.7, 5.4, 11.9, "evaluation: frozen-latent probes + the held-out mineralML grains.",
             12, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "The three-stage training pipeline. Stage 1 is the SSL loop from the prior slide; "
-             "stage 2 freezes; stage 3 trains the heads on the labeled FC corpus.")
+             "stage 2 freezes; stage 3 trains the heads on the labeled equilibrium corpus.")
 
 
 def s_heads(prs):
@@ -410,7 +503,7 @@ def s_outputs(prs):
 if __name__ == "__main__":
     prs = make()
     s_title(prs)
-    s_corpora(prs); s_architecture(prs)
+    s_corpora(prs); s_labelgen(prs); s_regen_status(prs); s_architecture(prs)
     s_inputs(prs); s_embed(prs); s_encoder(prs)
     s_ssl(prs); s_workflow(prs)
     s_heads(prs); s_outputs(prs)

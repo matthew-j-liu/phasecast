@@ -75,8 +75,9 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   `qap_name` from the volcanic core, rare-class floors, ~480k rows per rung ~
   v2 corpus scale) + a **high-precision tier ~500 bulks x 128 draws** assigned
   to val/test (presence-frequency SE 0.04 vs 0.07 — the calibration/ablation
-  reference; training tolerates noise, measurement doesn't). A ~300-bulk
-  pilot gates production launch. ~13M MAGEMin points total, ~2 days
+  reference; training tolerates noise, measurement doesn't). A ~500-bulk
+  pilot (the first 5 chunks of the shuffled train table) gates production
+  launch. ~13M MAGEMin points total, ~2 days
   accumulated laptop runtime at the measured ~4-6k points/min.
 - **Subset + QC:** volcanic core = the 25 aphanitic QAPF names in
   `equilibrium_multimodality/selection.py::VOLCANIC_QAP` (~335k bulks);
@@ -142,23 +143,34 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
 
 ## Remaining work (implementation, no open decisions)
 
-1. **Bounded sampler** — implement `S(P)` (N&L rhyolite curve, 8 cap) + LHS
-   draws within the bounded region + closed-form `q` density per row.
-2. **Orchestrator + schema** — the chunked/resumable runner and the parquet
-   layout per the Storage shape above (`run_magemin.jl` + Project/Manifest are
-   durable in `explorations/equilibrium_multimodality/magemin/`).
-3. **Water A/B** — re-run the 36-bulk multimodality driver under the new `q`
-   (same bulks, N=128, ~25 min): a controlled before/after isolating the water
-   fix; re-check multimodality magnitude and the biotite presence gap
-   (biotite is the sentinel — under the flat box it under-shoots real arc
-   frequencies at every phenocryst-regime rung).
-4. **Pilot (~300 bulks, production config)** — validate label distributions,
-   per-phase coverage, mass-balance closure, attrition; then run the
-   **label-level pre-screen** (per-band presence vs the real benchmark, both
-   cutoffs) and pick the training rung(s).
-5. **Production launch** — 10k x 48 + 500 x 128 tiers, chunked, pausable.
+1. **Bounded sampler** — LANDED: `cnmineral.data.condition_proposal`
+   (VolatileCalc rhyolite pure-H2O port, 850 C curve; LHS warped by
+   `w_max(P)`; per-row closed-form `q`), tests in
+   `tests/data/test_condition_proposal.py`.
+2. **Orchestrator + schema** — LANDED:
+   `scripts/build/generate_mineralogy_corpus.py` (chunked, manifest-resumable,
+   fresh Julia process per call group) over `cnmineral.data.magemin_corpus`
+   (three-table draws/ladder/rungs layout per the Storage shape; note MAGEMin
+   outputs total-Fe-as-FeO + excess O, not Fe2O3). Bulk tables:
+   `scripts/build/build_corpus_bulk_tables.py`; health gate:
+   `scripts/build/report_corpus_health.py`.
+3. **Water A/B** — DONE (journal 2026-07-14, second entry): amp/opx switch
+   holds at every rung (0.57–0.60, intermediates unchanged); biotite did NOT
+   move — the gap is an inference-prior question (dry draws kept by design),
+   not corpus coverage. Results:
+   `explorations/equilibrium_multimodality/results/water_ab_*.csv`.
+4. **Pilot (~500 bulks, production config)** — pilot = the first 5 chunks of
+   the shuffled train table (`--max-chunks 5`); validate with the health
+   report, then run the **label-level pre-screen**
+   (`explorations/volcanic_proxy_definition/rung_prescreen.py`, per-band
+   presence vs the real benchmark at both cutoffs + rank-level proportions)
+   and pick the training rung(s). A/B foreshadowing: intermediate-band biotite
+   has zero positives at rungs 60/50 and matches real at 30, while quartz/kfsp
+   match best at 50–60 — a two-rung pick is plausible.
+5. **Production launch** — 10k x 48 + 500 x 128 tiers, chunked, pausable
+   (rerun the same orchestrator command to resume).
 
-Order matters: 1 -> 3 -> 4 -> 5, with 2 built alongside 1.
+Order matters: 3 -> 4 -> 5 (1 and 2 landed).
 
 ## Follow-ups owned outside regen
 

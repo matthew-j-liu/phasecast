@@ -9,17 +9,7 @@ leg needs a live backend and is exercised by the CLI run, not here.
 import numpy as np
 import pandas as pd
 
-from explorations.equilibrium_multimodality.driver import P_HI, P_LO, W_HI, W_LO, draw_conditions
 from explorations.equilibrium_multimodality.analyze import classify_bulk, pick_endpoints
-
-
-def test_lhs_conditions_inside_box_and_stratified():
-    P, W = draw_conditions(64, np.random.default_rng(0))
-    assert (P >= P_LO).all() and (P <= P_HI).all()
-    assert (W >= W_LO).all() and (W <= W_HI).all()
-    for v, lo, hi in [(P, P_LO, P_HI), (W, W_LO, W_HI)]:
-        bins = np.floor((v - lo) / (hi - lo) * 64).clip(0, 63)
-        assert len(np.unique(bins)) == 64   # one draw per stratum on each axis
 
 
 def _pts(rows):

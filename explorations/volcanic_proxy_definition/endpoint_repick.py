@@ -43,11 +43,11 @@ SILICATE_IDENTITY = ["amp", "opx", "bi", "g", "ol", "ne", "mu"]  # petrogenetic 
 INTERMEDIATE = (0.10, 0.90)  # presence-freq band that signals a within-bulk flip
 
 
-def load_points():
+def load_points(work=WORK):
     """One row per MAGEMin point: (bulk, draw, T), liq frac, phase modes, liq SiO2."""
-    meta = pd.read_csv(WORK / "meta.csv")
+    meta = pd.read_csv(work / "meta.csv")
     rows = []
-    for f in sorted((WORK / "raw").glob("bulk_*.jsonl")):
+    for f in sorted((work / "raw").glob("bulk_*.jsonl")):
         for line in open(f):
             r = json.loads(line)
             ph, liq_sio2 = {}, np.nan

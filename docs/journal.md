@@ -3124,3 +3124,46 @@ two-tier. (7) Presence cutoff 0.1 vs 1 wt%.
 fix; watch biotite) -> ~300-bulk pilot -> pre-screen picks the rung ->
 production. heads.md still describes the liq/fl-bearing ModeHead vocabulary
 and worked example -- update when heads work starts, not a regen blocker.
+
+## 2026-07-14 -- regen machinery landed; water A/B: switch holds, biotite gap is prior-side
+
+**Q.** Implement the locked regen spec (bounded sampler, chunked orchestrator,
+pilot/pre-screen tooling) and run the water A/B: does the amp/opx
+multimodality survive the solubility-bounded proposal, and does biotite move
+toward real arc frequencies?
+
+**Context.** All design locked earlier today (previous entry). Biotite was the
+sentinel: under the flat box it under-shot real presence at every
+phenocryst-regime rung.
+
+**Considered.** (1) Curve-fit the N&L figure vs port the model: ported the
+VolatileCalc pure-H2O rhyolite branch exactly (the figure is an output of the
+code, and `q` should be the model's value, not a digitization's); validated by
+round-trip through the third-party VolatileCalc implementation at 14 pressures
+(<0.05%), six values pinned as a regression test. (2) Adaptive per-T-step
+cooling vs one fixed-ladder batch per chunk: measured on the stored ladders,
+the ~29% of points below the 30%-melt stop cost about what ~31 extra Julia
+startups per chunk would -- a wash, so one batch per chunk and truncate at
+parse time. (3) `q` construction: uniform in P, uniform in H2O given P, so LHS
+stratification and the closed-form density hold exactly (q varies with P;
+inference divides by it).
+
+**Decision / result.** A/B on the same 36 bulks, N=128, paired seeds (P draws
+identical; only the 22.3% of draws below 3.05 kbar changed, mean H2O 4.1 ->
+2.8 wt%): the amp/opx switch holds at 0.57-0.60 of bulks at every rung in both
+arms (intermediates 0.636, unchanged) -- the heads.md headline is intact.
+Biotite did NOT move (+/-0.02 everywhere): the bound removes wet-shallow
+draws, but the gap comes from dry draws the prior-agnostic proposal keeps by
+design. Verdict: the biotite gap is an inference-prior question (Wallace/Plank
+via p/q, now well-defined -- q went from 1 unique value to 1030), not corpus
+coverage. Training-side wrinkle for the rung pick: intermediate-band biotite
+has ZERO positives at rungs 60/50, matches real exactly (0.40) at rung 30,
+while quartz/K-feldspar match best at 50-60 -- expect the pre-screen to argue
+for two training rungs. Owner enlarged the pilot from ~300 to ~500 bulks
+(first 5 chunks of the shuffled train table). MAGEMin output gotcha recorded
+in the corpus module: total Fe as FeO + excess O, no Fe2O3 column.
+Evidence: `equilibrium_multimodality/results/water_ab_{switch,presence}.csv`.
+
+**Next.** Pilot (first 5 chunks, `--max-chunks 5`) -> health report -> rung
+pre-screen -> owner picks rung(s) -> production (10k x 48 train + 500 x 128
+val/test).

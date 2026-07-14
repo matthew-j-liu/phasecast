@@ -1,0 +1,9 @@
+run,melt_target,n_bulks,frac_amp_opx_switch,frac_amp_opx_switch_intermediate,frac_identity_multimodal,mean_attrition
+flat,0.6,35,0.6,0.636,0.943,0.002
+flat,0.5,35,0.6,0.636,0.971,0.007
+flat,0.4,35,0.571,0.636,0.971,0.016
+flat,0.3,35,0.6,0.636,0.886,0.036
+bounded,0.6,35,0.571,0.636,0.943,0.002
+bounded,0.5,35,0.6,0.636,0.971,0.007
+bounded,0.4,35,0.571,0.636,0.943,0.015
+bounded,0.3,35,0.571,0.636,0.886,0.036
