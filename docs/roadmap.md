@@ -59,8 +59,10 @@ into qap-coherent neighborhoods without ever seeing a label.
 Stops here: the encoder is the durable contribution.  Two parallel
 follow-up tracks: **Track A part 2** (`pretrain_applications.md`) and
 **Track B** (supervised mineralogy heads).  Track A part 2 is
-unblocked now; Track B is still gated on the FC corpus regen
-pilots in `~/.claude/plans/sunny-weaving-nebula.md`.
+unblocked now; Track B is gated on the equilibrium corpus regen
+(`docs/corpus_regen_spec.md`; issue #9 tracks it).  The ~500-bulk
+pilot passed its health gate 2026-07-14; the training-rung pick and
+production launch are pending.
 
 A third thread, **Track A part 3** (epic #15, on the
 `encoder-representation` branch), pursues a *stronger* encoder via new
@@ -76,10 +78,10 @@ on raw-latent probe + distance-weighted kNN rather than UMAP-2D.
 
 | step | output | gate |
 |---|---|---|
-| port the v3 corpus regen + run pilots 1, 2, 2b, 3, 4 | `results/v3_pilot/` + an explicit CompHead parameterization decision | pilot decision gate passes (see `~/.claude/plans/sunny-weaving-nebula.md` section "Pilot decision gate") |
-| run the full v3 corpus regen | `data/MAGEMin/fc_corpus.parquet` (per-phase composition + optional G_sys) | 95%+ FC convergence; per-bulk audit clean |
+| pilot the equilibrium corpus regen (~500 bulks, done 2026-07-14) | pilot chunks in `data/corpus/train/` + health report + rung pre-screen | attrition/convergence/closure/coverage pass (they did); owner picks the training rung(s) |
+| run the production regen | `data/corpus/{train,valtest}/` (10k x 48 + 500 x 128 draws; modes, `Comp_wt`, `G_sys` per rung) | health report clean at scale |
 | build ModeHead (Dirichlet) | head module | predicted alpha positive; mean sums to 1 |
-| build CompHead (using pilot-2b parameterization) | head module | physically valid outputs (within stoichiometric bounds for endmember version; within oxide-sum constraints for oxide version) |
+| build CompHead (per-phase oxide wt% `Comp_wt`, resolved 2026-06-30) | head module | physically valid outputs (within oxide-sum constraints; endmember bonus heads loss-masked to clean phases) |
 | build CondHead (GMM per axis) | head module | NLL computable; sigmas positive; weights sum to 1 |
 | build optional ClassHead + G_sys head | head modules | each can be turned off without breaking joint loss |
 | write joint loss + mass-balance term | `losses.py` | each term has correct sign; backward works on a random batch; gradient flows to encoder |
@@ -154,8 +156,9 @@ boring stuff." A practical rule of thumb at the end.
 - **Test/smoke scripts.** "Encoder produces non-zero output", "head
   produces valid Dirichlet alpha", "loss gradient flows to all
   parameters". Important to have, mechanical to write.
-- **Corpus regen orchestration.** The chunked-parquet + retry-failed
-  pipeline. Largely lifted from `scripts/production/`.
+- **Corpus regen orchestration.** Landed:
+  `scripts/build/generate_mineralogy_corpus.py` (chunked, atomic
+  per-chunk parquet, manifest-resumable).
 
 ### Blurred middle (you understand, Claude types)
 
@@ -167,9 +170,9 @@ boring stuff." A practical rule of thumb at the end.
   wraps the train-eval loop into a callable.
 - **The cnmineral package skeleton.** You decide the module structure;
   Claude generates the empty files and the `__init__.py` exports.
-- **The corpus regen schema additions.** You decide what new columns
-  are persisted (per-phase composition, G_sys, etc.); Claude modifies
-  `02_generate_corpus.py`'s extraction logic.
+- **The corpus regen schema.** You decided the persisted columns
+  (`corpus_regen_spec.md` "Storage shape"); Claude implemented the
+  three-table layout in `cnmineral.data.magemin_corpus`.
 
 ### Practical rule of thumb
 
@@ -178,19 +181,17 @@ If a code chunk encodes a *decision*, you write it. If it encodes the
 
 ## What survives from v2 unchanged
 
-The strategy modules and the corpus-gen orchestration are well-tested
-and shouldn't be rewritten:
+What actually carried over, and what the volcanic pivot re-scoped:
 
-- `src/cnmineral/data/fe_redox.py`, `tp_priors.py`, `h2o.py` -- per-class
-  sampling priors as injectable strategies. The ADRs justifying these
-  (003, 004, 005) still apply.
-- `scripts/production/_phase_map.py` + the `_ALL_SHORT_TO_SHORT` table
-  from `scripts/experiments/visualize_degeneracy.py` -- the PTT
-  phase-name maps. Just copy.
-- `scripts/production/01_find_T_FC_end_per_bulk.py` and
-  `02_generate_corpus.py` -- the FC corpus pipeline with memory-leak
-  workarounds. Adapt the extraction to also persist per-phase
-  composition (~10 line addition) and optionally G_sys.
+- `src/cnmineral/data/fe_redox.py` -- ported, in production use (the
+  class-conditional Middlemost Fe split). v2's `tp_priors.py` / `h2o.py`
+  sampling strategies were NOT ported: ADR 003's per-class H2O ranges
+  migrated to the inference prior, and (P, H2O) sampling is the bounded
+  proposal in `cnmineral.data.condition_proposal`.
+- The v2 PTT phase-name maps (`_phase_map.py`, `_ALL_SHORT_TO_SHORT`)
+  and the FC pipeline (`01_find_T_FC_end_per_bulk.py`,
+  `02_generate_corpus.py`) are FC-side assets -- deferred with the
+  plutonic/cumulate branch (ADR 004 amendment, issue #22).
 - `data/splits_v1.json` if you keep the v1 split; rebuild if you
   change input vocab or filter rules. Bulk-level split is non-negotiable.
 
@@ -227,11 +228,14 @@ to agentic work:
 3. **K_gmm for CondHead.** v1 won at K_gmm=3. Bigger gives more
    multimodality, more parameters to fit.
 4. **CompHead parameterization (oxide-wt% vs endmember-fraction).**
-   Pilot 2b. Critical; see plan + `[[comphead_parameterization_options]]`.
-5. **lambda_balance for the mass-balance loss term.** Pilot 3.
-   Sweep 0 / 0.1 / 1.0 / 10.0.
-6. **Whether to add G_sys head.** Costs corpus regen rerun if not
-   persisted. Skip unless you can persist it in the same regen.
+   RESOLVED 2026-06-30: per-phase oxide wt% for all phases (endmember
+   recon on real bulks leaves the simplex); endmember bonus heads only
+   on clean phases, loss-masked. See `corpus_regen_spec.md`.
+5. **lambda_balance for the mass-balance loss term.**
+   Sweep 0 / 0.1 / 1.0 / 10.0 when the joint loss lands.
+6. **Whether to add G_sys head.** `G_sys` is persisted per rung in the
+   regen (spec "Storage shape"), so the head is now a free decision --
+   no corpus cost either way.
 7. **Whether to add ClassHead aux supervision.** Free; just adds a
    tiny MLP. Include in cell (e) ablation.
 8. **K (ensemble size).** v1 used K=5. Stay there unless inference

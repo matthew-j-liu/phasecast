@@ -80,7 +80,7 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   launch. ~13M MAGEMin points total, ~2 days
   accumulated laptop runtime at the measured ~4-6k points/min.
 - **Subset + QC:** volcanic core = the 25 aphanitic QAPF names in
-  `equilibrium_multimodality/selection.py::VOLCANIC_QAP` (~335k bulks);
+  `cnmineral.data.volcanic_subset::VOLCANIC_QAP` (~335k bulks);
   plutonic-named rock_origin superset stays OUT. Foidite family excluded (`ig`
   non-convergent). **has-iron = total Fe sufficient** (the locked Fe path
   imposes the class-conditional Middlemost split regardless); rows with
@@ -159,18 +159,20 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
    move — the gap is an inference-prior question (dry draws kept by design),
    not corpus coverage. Results:
    `explorations/equilibrium_multimodality/results/water_ab_*.csv`.
-4. **Pilot (~500 bulks, production config)** — pilot = the first 5 chunks of
-   the shuffled train table (`--max-chunks 5`); validate with the health
-   report, then run the **label-level pre-screen**
-   (`explorations/volcanic_proxy_definition/rung_prescreen.py`, per-band
-   presence vs the real benchmark at both cutoffs + rank-level proportions)
-   and pick the training rung(s). A/B foreshadowing: intermediate-band biotite
-   has zero positives at rungs 60/50 and matches real at 30, while quartz/kfsp
-   match best at 50–60 — a two-rung pick is plausible.
+4. **Pilot (~500 bulks, production config)** — RUN 2026-07-14, health gates
+   passed (attrition ≤1.4% per rung, fully-failed draws 0.8%, closure p95
+   3.5e-5 with the >1e-3 tail 0.1% and concentrated in tagged oversaturated
+   draws). Pre-screen run at both cutoffs
+   (`explorations/volcanic_proxy_definition/results/rung_prescreen_*.csv`):
+   rung 50 best on aggregate presence MAE and rank Spearman at both cutoffs;
+   intermediate-band biotite still zero at 60/50 and matching real only at 30
+   — the foreshadowed two-rung (50 + 30) discussion is live. **Rung pick
+   pending (owner).**
 5. **Production launch** — 10k x 48 + 500 x 128 tiers, chunked, pausable
-   (rerun the same orchestrator command to resume).
+   (rerun the same orchestrator command to resume; the train run resumes past
+   the pilot's 5 chunks).
 
-Order matters: 3 -> 4 -> 5 (1 and 2 landed).
+Only 5 remains (1-4 landed); it waits on the item-4 rung pick.
 
 ## Follow-ups owned outside regen
 
