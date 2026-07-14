@@ -54,6 +54,8 @@
   "data_loading": {
     "parquet_sidecar_cache": [
       "scripts/build/build_test_fixture.py",
+      "scripts/build/generate_mineralogy_corpus.py",
+      "scripts/build/report_corpus_health.py",
       "src/cnmineral/data/bulk_chemistry.py"
     ],
     "torch_dataloader": [
@@ -201,6 +203,10 @@
       "src/cnmineral/data/bulk_chemistry.py",
       "src/cnmineral/eval/imputation.py"
     ],
+    "solubility_bounded_lhs_proposal": [
+      "src/cnmineral/data/condition_proposal.py",
+      "src/cnmineral/data/magemin_corpus.py"
+    ],
     "standard_scaler": [
       "src/cnmineral/eval/probe/primitives.py"
     ]
@@ -208,8 +214,11 @@
   "training_strategy": {
     "bulk_level_qap_stratification": [
       "configs/probe/probe_hpo.yaml",
+      "scripts/build/build_corpus_bulk_tables.py",
       "scripts/build/build_test_fixture.py",
       "src/cnmineral/data/bulk_chemistry.py",
+      "src/cnmineral/data/fe_redox.py",
+      "src/cnmineral/data/magemin_corpus.py",
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/eval/probe/scoring.py",

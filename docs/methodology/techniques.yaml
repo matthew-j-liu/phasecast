@@ -170,6 +170,12 @@ techniques:
     patterns:
       - "fit_standardization"
       - "log_frac_stats"
+  - name: solubility_bounded_lhs_proposal
+    type: preprocessing
+    patterns:
+      - "nl_rhyolite_solubility"
+      - "draw_conditions"
+      - "q_density"
 
   # ---- hpo ----
   - name: optuna_tpe_sampler

@@ -49,6 +49,31 @@ rename, or repurpose a test) updates this file in the same change.**
 22. `test_petrological_axes_returns_finite_values` -- SiO2 / Mg# / alkalis reconstructed from `frac` land in sane wt% ranges.
 23. `test_petrological_axes_indices_subset_shape` -- passing `indices` returns arrays sized to the subset.
 
+### test_condition_proposal.py
+
+1. `test_standard_state_anchor` -- the ported N&L 2002 rhyolite solubility reproduces the model's own standard state (3.45 wt% at 799 bar / 850 C).
+2. `test_matches_reference_volatilecalc_across_live_range` -- pins `S(P)` at six pressures spanning the live range to values round-tripped through the third-party VolatileCalc implementation (transcription-error tripwire).
+3. `test_solubility_monotonic_in_pressure` -- `S(P)` increases with pressure below the cap crossover.
+4. `test_cap_binds_above_crossover` -- `w_max` equals the 8 wt% cap above ~3 kbar and sits below it at 2.5 kbar.
+5. `test_draws_inside_support` -- every LHS draw lands inside the bounded (P, H2O) region with positive density.
+6. `test_q_matches_closed_form` -- the returned per-row `q` equals `1 / ((P_HI - P_LO) * w_max(P))` and agrees with `q_density`.
+7. `test_q_zero_outside_support` -- `q_density` is 0 above the solubility bound, above the cap, and outside the P box.
+8. `test_lhs_stratifies_p_marginal` -- with n draws, every one of the n equal P strata contains exactly one draw.
+9. `test_importance_weights_recover_support_area` -- `E_q[1/q]` recovers the area of the bounded region, tying sampler and density together.
+10. `test_draws_deterministic_under_seed` -- same seed, same draws.
+
+### test_magemin_corpus.py
+
+1. `test_ladder_truncates_at_stop_melt` -- stored ladder points end at the first point below 30% residual melt (inclusive) and `T_stop` records it.
+2. `test_rung_pick_is_highest_T_below_target` -- each 60/50/40/30 rung label comes from the highest-T converged point below that melt fraction.
+3. `test_attrition_when_melt_never_drops` -- a draw that never reaches a rung gets that rung's attrition flag, no rung rows, and a full-floor ladder.
+4. `test_failed_points_skipped_and_counted` -- non-converged points are excluded from ladder/rung picking and counted in `n_failed`.
+5. `test_oversaturated_tag_from_hottest_point` -- free fluid at the hottest converged point sets the draw's `oversaturated` tag.
+6. `test_em_json_matches_duplicate_instances_in_order` -- endmember records attach to duplicate solution-phase instances in `out.ph` order; pure phases get null.
+7. `test_build_inputs_h2o_injection_sums_to_100` -- injected H2O + renormalized anhydrous majors sum to exactly 100 wt% on every input row.
+8. `test_build_inputs_q_and_bounds` -- the draws table carries the closed-form proposal density, respects the solubility bound, and copies bulk traces.
+9. `test_build_inputs_draws_stable_across_chunk_boundaries` -- per-bulk seeding makes a bulk's draws identical whether built alone or inside a larger table (resume-stable chunking).
+
 ### test_magemin_oxides.py
 
 1. `test_split_fe_measured_tier_passes_values_through` -- both `feo` and `fe2o3` reported -> `measured` tier, values untouched.
@@ -246,12 +271,13 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_equilibrium_multimodality.py
 
-1. `test_lhs_conditions_inside_box_and_stratified` -- driver `(P, H2O)` draws stay inside the locked proposal box and are Latin-Hypercube-stratified on each axis.
-2. `test_endpoint_picks_highest_T_below_tau` -- the near-solidus pick returns the highest-T converged point below the liq threshold, and the pick moves with tau (1% vs 5%).
-3. `test_endpoint_attrition_when_never_below_tau` -- when no point crosses the threshold the pick falls to the coldest point and flags attrition.
-4. `test_endpoint_ignores_nonconverged_points` -- non-converged points are excluded before the endpoint search.
-5. `test_classifier_flags_amp_opx_identity_switch` -- an anti-correlated amp/opx cloud is classified phase-identity-multimodal with the amp<->opx switch set.
-6. `test_classifier_proportion_only_is_not_multimodal` -- a fixed identity set with only modal variation is NOT multimodal (amphibole present on every path is not a flip).
+1. `test_endpoint_picks_highest_T_below_tau` -- the near-solidus pick returns the highest-T converged point below the liq threshold, and the pick moves with tau (1% vs 5%).
+2. `test_endpoint_attrition_when_never_below_tau` -- when no point crosses the threshold the pick falls to the coldest point and flags attrition.
+3. `test_endpoint_ignores_nonconverged_points` -- non-converged points are excluded before the endpoint search.
+4. `test_classifier_flags_amp_opx_identity_switch` -- an anti-correlated amp/opx cloud is classified phase-identity-multimodal with the amp<->opx switch set.
+5. `test_classifier_proportion_only_is_not_multimodal` -- a fixed identity set with only modal variation is NOT multimodal (amphibole present on every path is not a flip).
+
+(The driver's former flat-box LHS test moved to `tests/data/test_condition_proposal.py` with the sampler itself.)
 
 ### test_latent_anisotropy.py
 
