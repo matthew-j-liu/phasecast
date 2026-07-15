@@ -92,6 +92,15 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_no_iron_is_nan` -- no Fe column populated returns NaN, not 0.
 5. `test_qap_vocabulary_invariants` -- VOLCANIC_QAP holds exactly 25 distinct names and ALKALINE_QAP is a proper subset.
 
+## build/
+
+### test_generate_mineralogy_corpus.py
+
+1. `test_clean_group_runs_once` -- a call group whose Julia run succeeds is invoked exactly once, no bisection.
+2. `test_bisection_drops_whole_poison_draws` -- a crash bisects at draw boundaries and drops the poison draw wholesale, leaving all other draws in the merged output (row order preserved) and writing the crash stderr beside the input.
+3. `test_complete_output_salvaged_from_cleanup_crash` -- a nonzero exit with a complete output file (cleanup-phase crash) counts as success, no bisection.
+4. `test_crash_cap_aborts` -- more than CRASH_CAP dropped draws in one call group raises instead of silently dropping a systemic failure.
+
 ## losses/
 
 ### test_pretrain_loss.py

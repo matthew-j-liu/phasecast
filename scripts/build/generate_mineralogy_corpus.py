@@ -8,6 +8,17 @@ recorded in `manifest.jsonl`. Resume = rerun the same command: manifested
 chunks are skipped, unmanifested files are discarded, so at most the one
 in-flight chunk is redone.
 
+MAGEMin segfaults deterministically on rare pathological inputs (pseudocompound
+storage overflow), and the overflow corrupts the whole process heap, so bad
+points cluster within a draw and the process can die anywhere -- including
+during cleanup after all output was written (that case is salvaged by checking
+the output file instead of the exit code). A call group whose Julia process
+dies is therefore bisected at draw boundaries until the poison draw is
+isolated, then the whole draw is dropped; `parse_chunk` counts missing sids as
+failed points, so the drop lands in the existing n_failed / attrition
+accounting. Crash tracebacks go to `<input>.stderr` beside the failing CSV,
+not the console.
+
 The full fixed ladder (1200 -> 600 C) runs in one batch and the stored ladder
 is truncated at the 30%-melt stop while parsing: on the measured crossing
 distribution the ~29% of points below the stop cost about the same as the ~31
@@ -48,11 +59,55 @@ def read_manifest(out):
 
 
 def run_julia(input_csv, output_jsonl, database):
-    subprocess.run(
+    return subprocess.run(
         ["julia", f"--project={REPO / 'magemin'}", "-t", "auto", str(RUNNER),
          "--input", str(input_csv), "--output", str(output_jsonl),
          "--database", database, "--quiet"],
-        cwd=REPO, check=True)
+        cwd=REPO, stderr=subprocess.PIPE, text=True)
+
+
+CRASH_CAP = 48  # dropped draws per call group before we assume systemic failure
+
+
+def _complete_output(jsonl, n):
+    """A heap-corruption crash can kill Julia after all records were written."""
+    if not jsonl.exists():
+        return False
+    try:
+        with open(jsonl) as fh:
+            return sum(1 for line in fh if json.loads(line)) == n
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return False
+
+
+def run_group(inp, csv, jsonl, database, crashed):
+    """Run one call group, bisecting at draw boundaries around solver crashes."""
+    inp.to_csv(csv, index=False)
+    proc = run_julia(csv, jsonl, database)
+    if proc.returncode == 0 or _complete_output(jsonl, len(inp)):
+        return
+    csv.with_suffix(".stderr").write_text(proc.stderr or "")
+    n_draws = len(inp) // len(T_LADDER)
+    if n_draws <= 1:
+        crashed.append([int(s) for s in inp.sample_id])
+        r = inp.iloc[0]
+        print(f"  solver crash isolated, draw dropped ({len(inp)} points): "
+              f"P={r.P_kbar:.2f} kbar H2O={r.h2o_tot:.2f} wt%", flush=True)
+        if len(crashed) > CRASH_CAP:
+            raise RuntimeError(
+                f"{len(crashed)} dropped draws in one call group -- systemic, "
+                "not pathological inputs; investigate before resuming")
+        jsonl.write_text("")
+        return
+    print(f"  solver died on {n_draws} draws (exit {proc.returncode}); "
+          f"bisecting (stderr -> {csv.with_suffix('.stderr').name})", flush=True)
+    mid = (n_draws // 2) * len(T_LADDER)
+    for side, part in enumerate((inp.iloc[:mid], inp.iloc[mid:])):
+        run_group(part, csv.with_name(f"{csv.stem}.{side}.csv"),
+                  jsonl.with_name(f"{jsonl.stem}.{side}.jsonl"), database, crashed)
+    with open(jsonl, "w") as out:
+        for side in (0, 1):
+            out.write(jsonl.with_name(f"{jsonl.stem}.{side}.jsonl").read_text())
 
 
 def run_chunk(idx, bulks, majors, args, out):
@@ -64,11 +119,16 @@ def run_chunk(idx, bulks, majors, args, out):
     groups = [bulks.iloc[i:i + args.bulks_per_call]
               for i in range(0, len(bulks), args.bulks_per_call)]
     n_points = 0
+    crash_recs = []
     for gi, grp in enumerate(groups):
         inp, meta, draws = build_inputs(grp, majors, args.draws, args.seed)
         csv, jsonl = work / f"in_{gi}.csv", work / f"out_{gi}.jsonl"
-        inp.to_csv(csv, index=False)
-        run_julia(csv, jsonl, args.database)
+        crashed = []
+        run_group(inp, csv, jsonl, args.database, crashed)
+        if crashed:
+            m = meta.set_index("sid").loc[[s for d in crashed for s in d]]
+            crash_recs += [dict(bulk=int(b), draw=int(d), n_points=len(g))
+                           for (b, d), g in m.groupby(["bulk", "draw"])]
         ladder, rungs, stats = parse_chunk(jsonl, meta)
         parts["draws"].append(draws)
         parts["ladder"].append(ladder)
@@ -95,6 +155,7 @@ def run_chunk(idx, bulks, majors, args, out):
                n_points_run=n_points, n_ladder_rows=len(tables["ladder"]),
                n_rung_rows=len(tables["rungs"]),
                mean_failed_per_draw=round(float(draws.n_failed.mean()), 3),
+               solver_crashes=crash_recs,
                wall_s=round(time.time() - t0, 1))
     with open(out / "manifest.jsonl", "a") as fh:
         fh.write(json.dumps(rec) + "\n")

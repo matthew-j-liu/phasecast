@@ -111,7 +111,15 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   appended to a completion manifest; workers recycled per chunk (the juliacall
   leak mitigation and the checkpoint want the same boundary). Hard
   requirement: **resume = rerun the same command; at most one in-flight chunk
-  redone** (~20-30 min), so generation is freely pausable.
+  redone** (~20-30 min), so generation is freely pausable. **Solver-crash
+  containment** (added during production, 2026-07-14): MAGEMin segfaults
+  deterministically on rare pathological inputs and the overflow corrupts the
+  process heap, so a dead Julia call group is bisected at draw boundaries and
+  the isolated draw dropped wholesale (lands in ordinary n_failed/attrition
+  accounting; dropped draws recorded per chunk in the manifest as
+  `solver_crashes`); NaN-bearing records are serialized as failed rows instead
+  of killing the batch; a complete output file overrides a nonzero exit
+  (cleanup-phase crashes).
 - **Encoder/supervised split:** encoder pretrained on full igneous gard; heads
   supervised on the volcanic + has-iron subset (so OOD/abstention still works on a
   user's non-volcanic input).
@@ -169,11 +177,14 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
    **Rung pick made (owner, 2026-07-14): train on rungs 50 + 30** — 50 as the
    primary (best aggregate match), 30 because it is the only rung where
    intermediate biotite exists to be learned.
-5. **Production launch** — 10k x 48 + 500 x 128 tiers, chunked, pausable
-   (rerun the same orchestrator command to resume; the train run resumes past
-   the pilot's 5 chunks).
+5. **Production launch** — IN FLIGHT (launched 2026-07-14): 10k x 48 + 500 x
+   128 tiers, chunked, pausable (rerun the same orchestrator command to
+   resume). Train tier ~37/100 chunks as of 2026-07-15 morning; crash
+   containment added after one pathological bulk (976755, six draws dropped;
+   see Orchestration). After each tier: `report_corpus_health.py --corpus
+   <dir> --figures`.
 
-Only 5 remains (1-4 landed); it waits on the item-4 rung pick.
+Only 5 remains (1-4 landed).
 
 ## Follow-ups owned outside regen
 

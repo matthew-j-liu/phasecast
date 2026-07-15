@@ -118,18 +118,21 @@ function main()
     n_ok = 0
     open(args["output"], "w") do io
         for i in 1:N
-            local rec
+            local line
+            # serialization stays inside the try: JSON.jl refuses NaN (a
+            # non-converged G or comp), and one bad record must not kill the batch
             try
                 rec = extract_record(res[i], sid[i], P[i], T[i])
+                line = JSON.json(rec)
                 if get(rec, "status", -1) == 0
                     n_ok += 1
                 end
             catch
-                rec = Dict("sid" => sid[i], "P" => P[i], "T" => T[i],
-                           "status" => -1, "G" => NaN,
-                           "phases" => [], "ss" => [])
+                line = JSON.json(Dict("sid" => sid[i], "P" => P[i], "T" => T[i],
+                                      "status" => -1, "G" => nothing,
+                                      "phases" => [], "ss" => []))
             end
-            println(io, JSON.json(rec))
+            println(io, line)
         end
     end
     Finalize_MAGEMin(data)
