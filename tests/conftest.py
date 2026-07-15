@@ -31,6 +31,7 @@ import xgboost  # noqa: F401
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import torch
 from torch.utils.data import Dataset
@@ -97,6 +98,46 @@ class SyntheticTokenDataset(Dataset):
 def synthetic_token_dataset():
     """The `SyntheticTokenDataset` class, for building tiny token datasets."""
     return SyntheticTokenDataset
+
+
+# feldspar oxide mass fractions on either side of the solvus, for synthetic
+# rungs rows that must route deterministically (see feldspar_rule)
+PLAG_WT = {"wt_CaO": 0.6 * 56.0774, "wt_Na2O": 0.38 * 61.9789 / 2, "wt_K2O": 0.02 * 94.196 / 2}
+AFS_WT = {"wt_CaO": 0.02 * 56.0774, "wt_Na2O": 0.38 * 61.9789 / 2, "wt_K2O": 0.60 * 94.196 / 2}
+
+
+def write_synthetic_rungs(corpus_dir: Path, bulk_ids: list[int]) -> Path:
+    """Write one chunk_0000_rungs.parquet with two draws per bulk.
+
+    Draw 0 has rows at rungs 50 and 30 (mixed assemblage, one plag + one afs
+    feldspar instance at rung 50); draw 1 reaches only rung 50 (attrition).
+    Returns `corpus_dir`.
+    """
+    zero = {"wt_CaO": 0.0, "wt_Na2O": 0.0, "wt_K2O": 0.0}
+    rows = []
+    for bulk in bulk_ids:
+        rows += [
+            dict(bulk=bulk, draw=0, rung=50, phase="liq", instance=0, mode_wt=0.50, **zero),
+            dict(bulk=bulk, draw=0, rung=50, phase="fsp", instance=0, mode_wt=0.25, **PLAG_WT),
+            dict(bulk=bulk, draw=0, rung=50, phase="fsp", instance=1, mode_wt=0.05, **AFS_WT),
+            dict(bulk=bulk, draw=0, rung=50, phase="cpx", instance=0, mode_wt=0.15, **zero),
+            dict(bulk=bulk, draw=0, rung=50, phase="amp", instance=0, mode_wt=0.05, **zero),
+            dict(bulk=bulk, draw=0, rung=30, phase="liq", instance=0, mode_wt=0.30, **zero),
+            dict(bulk=bulk, draw=0, rung=30, phase="cpx", instance=0, mode_wt=0.40, **zero),
+            dict(bulk=bulk, draw=0, rung=30, phase="fsp", instance=0, mode_wt=0.20, **PLAG_WT),
+            dict(bulk=bulk, draw=0, rung=30, phase="q", instance=0, mode_wt=0.10, **zero),
+            dict(bulk=bulk, draw=1, rung=50, phase="liq", instance=0, mode_wt=0.50, **zero),
+            dict(bulk=bulk, draw=1, rung=50, phase="cpx", instance=0, mode_wt=0.50, **zero),
+        ]
+    corpus_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_parquet(corpus_dir / "chunk_0000_rungs.parquet")
+    return corpus_dir
+
+
+@pytest.fixture
+def synthetic_mineralogy_corpus():
+    """The `write_synthetic_rungs` builder, for tiny mineralogy-label corpora."""
+    return write_synthetic_rungs
 
 
 def _tiny_config(corpus_subset_path: Path) -> dict:

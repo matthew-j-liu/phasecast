@@ -1,0 +1,26 @@
+encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
+
+# labels (semantics stamped into the checkpoint; must match at re-eval)
+corpus_dir: data/corpus/train
+rungs: [50, 30]
+
+# head architecture
+hidden: null          # null -> d_model // 2 trunk
+dropout: 0.0
+alpha_eps: 1.0e-6
+
+# optimization
+magnitude_weight: 1.0
+epochs: 40
+early_stop_patience: 5
+batch_size: 1024
+lr: 1.0e-3
+weight_decay: 0.0
+seed: 0
+
+# val is the provisional hash-based bulk split carved from the train tier;
+# replace with the valtest tier split when data/corpus/valtest/ lands
+val_fraction: 0.20
+
+head_checkpoint_dir: checkpoints/mode_head_seed0
+head_checkpoint_filename: head_best.pt

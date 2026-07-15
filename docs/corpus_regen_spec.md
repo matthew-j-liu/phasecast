@@ -188,10 +188,9 @@ Only 5 remains (1-4 landed).
 
 ## Follow-ups owned outside regen
 
-- **heads.md alignment:** ModeHead vocabulary (currently "~18 phases including
-  liq, fl"), the mass-balance section, and the worked scenario example must be
-  updated to the crystals-renormalized label + teacher-forced closure when
-  heads work starts. Not a regen blocker.
+- **heads.md alignment:** LANDED 2026-07-15 with the ModeHead build (21-phase
+  vocabulary section, teacher-forced mass-balance prose, crystals-renormalized
+  scenario example; journal entry same date).
 - **Real-benchmark label adapter** (`data/real_mineralogy/` README "Model
   compatibility"): vol%->wt% densities, unsplit-phase rules, hand-sample view.
   Needed before scoring, not before generating.

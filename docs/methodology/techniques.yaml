@@ -61,6 +61,12 @@ techniques:
     patterns:
       - "LogImputationHead"
       - "predict_log_frac"
+  - name: hurdle_mode_head
+    type: architecture
+    patterns:
+      - "ModeHead("
+      - "presence_out"
+      - "alpha_out"
 
   # ---- initialization ----
   - name: mat2vec_embedding
@@ -122,6 +128,10 @@ techniques:
     patterns:
       - "train_imputation_head"
       - "ImputationHeadCheckpoint"
+  - name: hash_stable_bulk_split
+    type: training_strategy
+    patterns:
+      - "provisional_bulk_split"
 
   # ---- optimization ----
   - name: adamw
@@ -149,6 +159,11 @@ techniques:
     type: loss
     patterns:
       - "masked_element_log_mse"
+  - name: masked_dirichlet_nll
+    type: loss
+    patterns:
+      - "masked_dirichlet_nll"
+      - "mode_head_loss"
 
   # ---- preprocessing ----
   - name: standard_scaler
@@ -176,6 +191,17 @@ techniques:
       - "nl_rhyolite_solubility"
       - "draw_conditions"
       - "q_density"
+  - name: feldspar_stoichiometric_routing
+    type: preprocessing
+    patterns:
+      - "classify_feldspar"
+      - "anorthite_orthoclase"
+  - name: crystals_renormalized_labels
+    type: preprocessing
+    patterns:
+      - "load_mode_labels"
+      - "hurdle_targets"
+      - "PRESENCE_CUTOFF"
 
   # ---- hpo ----
   - name: optuna_tpe_sampler

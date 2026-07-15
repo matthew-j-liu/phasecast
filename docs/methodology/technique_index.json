@@ -1,6 +1,7 @@
 {
   "architecture": {
     "dropout": [
+      "configs/heads/mode_head.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
@@ -10,9 +11,11 @@
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
+      "src/cnmineral/models/mode_head.py",
       "src/cnmineral/training/build_from_config.py",
       "src/cnmineral/training/checkpoint.py",
-      "src/cnmineral/training/imputation_head.py"
+      "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/mode_head.py"
     ],
     "fractional_encoding": [
       "src/cnmineral/models/encoder.py",
@@ -21,7 +24,12 @@
     "gelu_activation": [
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
+      "src/cnmineral/models/mode_head.py",
       "src/cnmineral/models/pretrain_head.py"
+    ],
+    "hurdle_mode_head": [
+      "src/cnmineral/models/mode_head.py",
+      "src/cnmineral/training/mode_head.py"
     ],
     "imputation_readout_head": [
       "src/cnmineral/eval/imputation.py",
@@ -35,6 +43,7 @@
     "masked_mean_pool": [
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
+      "src/cnmineral/models/mode_head.py",
       "src/cnmineral/models/pretrain_head.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
@@ -57,6 +66,7 @@
       "scripts/build/generate_mineralogy_corpus.py",
       "scripts/build/report_corpus_health.py",
       "src/cnmineral/data/bulk_chemistry.py",
+      "src/cnmineral/data/mineralogy_labels.py",
       "src/cnmineral/data/volcanic_subset.py"
     ],
     "torch_dataloader": [
@@ -64,6 +74,7 @@
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/pretrain_objective.py",
       "src/cnmineral/training/reconstruction_mse.py",
       "src/cnmineral/training/ssl_pretrain.py"
@@ -146,7 +157,8 @@
       "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/training/checkpoint.py",
       "src/cnmineral/training/imputation_head.py",
-      "src/cnmineral/training/imputation_head_hpo.py"
+      "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/mode_head.py"
     ],
     "mask_token_learnable": [
       "src/cnmineral/data/tokens.py",
@@ -164,6 +176,10 @@
     "cross_entropy": [
       "src/cnmineral/eval/probe/primitives.py"
     ],
+    "masked_dirichlet_nll": [
+      "src/cnmineral/losses/mode_loss.py",
+      "src/cnmineral/training/mode_head.py"
+    ],
     "masked_element_log_mse": [
       "src/cnmineral/data/tokens.py",
       "src/cnmineral/losses/pretrain_loss.py",
@@ -176,6 +192,7 @@
     "adamw": [
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "cosine_scheduler": [
@@ -190,6 +207,15 @@
     ]
   },
   "preprocessing": {
+    "crystals_renormalized_labels": [
+      "src/cnmineral/data/mineralogy_dataset.py",
+      "src/cnmineral/data/mineralogy_labels.py",
+      "src/cnmineral/data/phase_vocab.py"
+    ],
+    "feldspar_stoichiometric_routing": [
+      "src/cnmineral/data/feldspar_rule.py",
+      "src/cnmineral/data/mineralogy_labels.py"
+    ],
     "l2_normalize_inputs": [
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/calibration.py",
@@ -221,6 +247,7 @@
       "src/cnmineral/data/bulk_chemistry.py",
       "src/cnmineral/data/fe_redox.py",
       "src/cnmineral/data/magemin_corpus.py",
+      "src/cnmineral/data/mineralogy_dataset.py",
       "src/cnmineral/data/volcanic_subset.py",
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/eval/probe/hpo.py",
@@ -233,12 +260,14 @@
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "early_stopping": [
+      "configs/heads/mode_head.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "frozen_encoder_readout": [
@@ -249,7 +278,12 @@
     ],
     "grad_clip": [
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/ssl_pretrain.py"
+    ],
+    "hash_stable_bulk_split": [
+      "src/cnmineral/data/mineralogy_dataset.py",
+      "src/cnmineral/training/mode_head.py"
     ],
     "masked_element_modeling": [
       "configs/imputation/imputation_head.yaml",

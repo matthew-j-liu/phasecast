@@ -55,10 +55,11 @@ A frozen SSL encoder produces a pooled latent `h`; parallel heads read `h`.
 All heads are probabilistic (NLL, never MSE), so the output is a distribution
 with honest uncertainty rather than a point estimate.
 
-- **ModeHead (hurdle / zero-inflated)** -- modal abundances over ~18 phases
-  (including liq, fl).
-- **CompHead** -- per-mineral composition for the ~16 minerals.
-- **CondHead** -- formation conditions (T, P, H2O).
+- **ModeHead (hurdle / zero-inflated)** -- modal abundances over the 21-phase
+  solid vocabulary (below).
+- **CompHead** -- per-phase oxide-wt% composition for the solid phases.
+- **CondHead** -- formation conditions (T, P, H2O), conditioned on the
+  assemblage support (below).
 - **G_sys head** -- auxiliary scalar (system Gibbs energy); staged in after
   CompHead.
 - **MeltHead** -- deferred; would predict silicate-melt composition and make
@@ -67,9 +68,45 @@ with honest uncertainty rather than a point estimate.
 The encoder is the durable contribution; the heads are application slots
 re-supervisable against any label source.
 
+## The label and its vocabulary
+
+The primary label is the **crystals-renormalized solid assemblage**: liq and
+fl are dropped from each corpus row and the solids renormalized to sum to 1,
+matching the granularity of real point-count data (itemized phenocrysts, one
+lumped groundmass bucket). Renormalization and the 0.1 wt% presence cutoff
+are training-time rebuilds from raw stored modes, never materialized.
+
+The vocabulary is **21 solid phases** (`cnmineral.data.phase_vocab`), derived
+from the MAGEMin corpus phase names by three rules (locked 2026-07-15 on a
+full-corpus coverage analysis):
+
+- **Feldspar split.** MAGEMin's single `fsp` solution model emits plagioclase
+  and alkali feldspar as anonymous instances (both coexist below the solvus
+  in 13-19% of feldspar-bearing draws). Instances are routed to `plag` /
+  `afs` by the vendored mineralML stoichiometric feldspar rule
+  (`cnmineral.data.feldspar_rule`: molar An/Or against the DHZ two-feldspar
+  boundary curves; inside-the-gap ternary compositions route by dominant
+  component). The split recovers the A/P ratio that defines the QAPF
+  classification and keeps CompHead targets off the miscibility gap.
+- **SiO2 polymorphs merged.** `trd`/`crst` fold into `q`: identical
+  chemistry (unlearnable from a chemistry-only input), ~2 in 10,000 draws,
+  but carrying ~half the crystal cargo when present -- merging keeps that
+  mass in the silica bucket where dropping would corrupt those rows'
+  renormalization. The Al2SiO5 polymorphs (`and`/`ky`/`sill`) stay separate:
+  each is comfortably learnable and the polymorph identity encodes pressure,
+  which the support-conditioned CondHead exploits.
+- **Learnability floor.** Phases under 0.1% presence at both training rungs
+  (`chl`, `fper`) are dropped; a presence head trained on tens of positives
+  in ~200k rows learns "never" and the magnitude slot never trains. `cor`
+  sits just above the floor and is kept.
+
+All other multi-instance phases (cpx/mu/spl, each <1% of their draws) sum
+instance modes; when CompHead lands, same-token instances get the
+mass-weighted mean composition (exactly the closure-consistent choice).
+
 ## ModeHead: the hurdle parameterization
 
-A single Dirichlet over the full 18-phase simplex cannot represent sparse
+A single Dirichlet over the full 21-phase simplex cannot represent sparse
 assemblages. Two reasons, the second deeper than the first:
 
 1. Its mean `alpha_i / sum(alpha)` is strictly positive for every phase, so
@@ -107,8 +144,8 @@ is the magnitude head's mean over a support, not a product of two guesses.
 
 ### The output is the joint distribution, not a hard set
 
-`p_i` is part of the distributional output, and for the path-sensitive rare
-phases (amp, fl, ne) the presence frequency lands intermediate (~0.3-0.7) --
+`p_i` is part of the distributional output, and for the path-sensitive
+phases (amp, opx, ne) the presence frequency lands intermediate (~0.3-0.7) --
 that is exactly the multimodal signal, and the multimodal posterior is the
 contribution. So the model keeps the **joint object** (presence Bernoullis x
 conditional Dirichlet); a calibrated modal posterior is obtained by
@@ -120,12 +157,24 @@ is a view, not the model.
 
 ## CompHead: per-mineral composition
 
-A per-phase Dirichlet over **endmember mole fractions** (no MSE; melt/fluid
-have no endmembers and are excluded). Endmember fractions x the fixed
-Green2025 stoichiometry matrix -> oxide wt% per phase, the form the
-mass-balance closure consumes. Conventional scalars (An#, Mg#, jadeite
-component) are projections of the endmember vector, derived not separately
-predicted.
+A per-phase Dirichlet over **oxide wt%** (`Comp_wt`, the 11 MAGEMin oxides;
+no MSE). The endmember-vector target was rejected on measurement -- MAGEMin
+endmember fractions on real volcanic bulks are signed affine combinations
+that leave the positive simplex (amphibole per-mineral endmember-sum median
+2.3, worst component -110%) -- so oxide wt% is the target for all phases,
+with endmember bonus heads on clean phases (fsp/ilm/ol/opx) loss-masked per
+instance. The Dirichlet (over a heteroscedastic per-oxide Gaussian, locked
+2026-07-15) buys valid compositions by construction: the mass-balance term
+and scenario sampling consume composition vectors directly, and an
+independent-Gaussian sample violating the sum is a parameterization artifact
+carrying no diagnostic value. Costs accepted: hard-zero oxides are
+eps-clipped and renormalized, and one shared concentration per phase blurs
+per-oxide error bars toward each other -- small in absolute terms because
+composition spreads are tight (below). Targets with two same-token instances
+use the mass-weighted mean oxide composition; the feldspar split at the
+vocabulary level keeps the plag/afs solvus pair out of that averaging.
+Conventional scalars (An#, Mg#) are projections of the oxide vector via
+stoichiometry, derived not separately predicted.
 
 Composition is **bulk-controlled**: it reads `h` only and is largely
 scenario-independent (empirically, per-phase composition CV is 10-30x tighter
@@ -139,7 +188,20 @@ per phase in the corpus pre-regen checks.
 
 - **CondHead** -- a GMM per axis for (T, P, H2O); the inverse-inference
   posterior, often multimodal (the deep-wet vs shallow-dry clusters). Linear
-  space, no log transform of T/P/H2O.
+  space, no log transform of T/P/H2O. **Conditioned on the assemblage
+  support** (locked 2026-07-15): the scenario view needs assemblage and
+  conditions coupled in joint samples, and independent heads assume a
+  conditional independence the corpus violates by design (the within-bulk
+  label variance is driven by the shared hidden (P, H2O) path -- marginals
+  don't remember which condition mode went with which support). The chain
+  rule fixes it without assumptions: p(support | h) from the presence
+  Bernoullis, then p(T, P, H2O | h, support) with the presence vector fed to
+  CondHead alongside `h` -- teacher-forced true mask at train,
+  ModeHead-sampled at inference, so every ancestral sample is a coherent
+  scenario. Known cost: mild exposure bias (inference-time supports are
+  predictions, not labels); mitigations if it measures as real are mask
+  noising at train or restricting scenario supports to corpus-observed
+  combinations. T/P/H2O remain supervision targets, never encoder inputs.
 - **G_sys head** -- single-Gaussian NLL, auxiliary; an encoder regularizer
   giving a second gradient, not a polymorph disambiguator. Added after
   CompHead so its marginal gradient value is measured, not assumed.
@@ -149,17 +211,22 @@ per phase in the corpus pre-regen checks.
 
 ## Mass-balance closure
 
-`B = sum_solid M * C(predicted) + M_liq * C_liq(corpus) + M_fl * C_fl(corpus)`
+`B = (1 - F_liq - F_fl) * sum_solid m * C(predicted)
+     + F_liq * C_liq(corpus) + F_fl * C_fl(corpus)`
 
-Predicted: all modal abundances M (ModeHead, including M_liq, M_fl); solid
-compositions C (CompHead via the Green matrix). Given: the bulk B (input); the
-liq/fl oxide compositions (corpus labels, not predicted -- pinning them keeps
-the term a genuine constraint on the predicted solids instead of a free
-error-sink, and avoids the ill-conditioned divide-by-small-M_liq of solving
-for the melt). This is a training-time constraint; at inference the
-**residual is itself a confidence / OOD signal** (a large mismatch means the
-heads disagree). Closure holds per posterior sample, not across the flattened
-marginal table.
+Predicted: the crystals-renormalized solid modes `m` (ModeHead) and solid
+oxide compositions `C` (CompHead). Teacher-forced from the corpus row: the
+melt/fluid fractions `F_liq`, `F_fl` and their oxide compositions, stored per
+rung row for exactly this (ModeHead no longer predicts liq/fl -- at a fixed
+melt-fraction endpoint the melt fraction is a constant with nothing to
+learn). Pinning the melt side keeps the term a genuine constraint on the
+predicted solids instead of a free error-sink, and avoids the
+ill-conditioned divide-by-small-M_liq of solving for the melt. This is a
+training-time constraint; closure holds per posterior sample, not across the
+flattened marginal table. **Open rethink:** the inference-time
+closure-residual-as-OOD-signal degrades now that the label melt fraction is
+teacher-forced -- at inference there is no corpus row to pin F_liq/C_liq, so
+the residual needs either a MeltHead or a different confidence signal.
 
 ## Outputs
 
@@ -173,39 +240,41 @@ ModeHead heads (presence column / magnitude column).
 ### View 2 -- top-K scenarios (the coherent answer)
 
 Closure holds only within a fixed support, so the faithful answer is the
-ranked set of scenarios. Draw K posterior samples, cluster by support /
-condition-mode, rank clusters by posterior weight, report the dominant few
-plus a tail line so nothing is silently dropped. Worked example, an andesite:
+ranked set of scenarios: draw a support from the presence Bernoullis,
+conditions from the support-conditioned CondHead, abundances from the
+conditional Dirichlet; cluster samples by support / condition-mode, rank
+clusters by posterior weight, report the dominant few plus a tail line so
+nothing is silently dropped. Modal numbers are crystals-renormalized (solids
+sum to 100; groundmass/melt is not part of the label) and T is a derived
+endpoint, not a sampled axis. Worked example, an andesite:
 
 ```
 Scenario A -- deep & wet (amphibole-bearing) . posterior weight 45%
-conditions   P 1.0-1.4 GPa   H2O 5-7 wt%   T 920-970 C
-assemblage (modal wt%, sums to 100):
-  plagioclase   38 +/- 4     An42 +/- 4
-  clinopyroxene 22 +/- 3     Mg# 75
-  amphibole     18 +/- 4     Mg-hornblende
-  magnetite      8 +/- 2
+conditions   P 1.0-1.4 GPa   H2O 5-7 wt%   T_end 920-970 C
+assemblage (crystals-renormalized wt%, sums to 100):
+  plagioclase   40 +/- 4     An42 +/- 4
+  clinopyroxene 23 +/- 3     Mg# 75
+  amphibole     19 +/- 4     Mg-hornblende
+  magnetite      9 +/- 2
   biotite        6 +/- 2     (hydrous phase, consistent with high H2O)
   ilmenite       3 +/- 1
-  residual melt  5 +/- 2
-mass balance:  sum(mode*comp) = input bulk   ok (within 1 wt%/oxide)
+mass balance:  (1-F_melt) * sum(mode*comp) + F_melt * melt = input bulk   ok
 
 Scenario B -- shallow & dry (orthopyroxene-bearing, no amphibole) . weight 35%
-conditions   P 0.3-0.6 GPa   H2O 1.5-3 wt%   T 960-1000 C
+conditions   P 0.3-0.6 GPa   H2O 1.5-3 wt%   T_end 960-1000 C
 assemblage:
-  plagioclase   45 +/- 4     An48 +/- 4   (more calcic, drier melt)
-  clinopyroxene 20 +/- 3     Mg# 72
-  orthopyroxene 15 +/- 3     Mg# 70       (replaces amphibole at low H2O)
-  magnetite      9 +/- 2
+  plagioclase   48 +/- 4     An48 +/- 4   (more calcic, drier melt)
+  clinopyroxene 22 +/- 3     Mg# 72
+  orthopyroxene 16 +/- 3     Mg# 70       (replaces amphibole at low H2O)
+  magnetite     10 +/- 2
   ilmenite       4 +/- 1
-  residual melt  7 +/- 2
 mass balance:  ok
 
 Scenario C -- intermediate (amph + opx coexisting) . weight 12%
-conditions   P 0.6-0.9 GPa   H2O 3-4.5 wt%   T 940-980 C
+conditions   P 0.6-0.9 GPa   H2O 3-4.5 wt%   T_end 940-980 C
 assemblage:
-  plagioclase 41   cpx 21   amphibole 10   orthopyroxene 8
-  magnetite 8   ilmenite 4   residual melt 8        (sums to 100)
+  plagioclase 45   cpx 23   amphibole 11   orthopyroxene 9
+  magnetite 8   ilmenite 4        (sums to 100)
 mass balance:  ok
 
 Scenario weights:  A 45% . B 35% . C 12% . tail 8%   (sum 100%)
@@ -269,11 +338,11 @@ so the reasoning is not re-litigated:
 
 ## Open items
 
-- **ModeHead sparsity build is gated on a smear measurement** -- fit a plain
-  Dirichlet ModeHead on the existing FC corpus, quantify misallocated mass and
-  buried sub-1% phases, and size the hurdle effort to the measured problem.
-  Post-hoc thresholding is a baseline to beat; sparsemax is rejected (conflicts
-  with the probabilistic-head mandate).
+- **Plain-Dirichlet baseline not yet measured.** The hurdle ModeHead was
+  built directly (locked at the Track B start rather than gated on a smear
+  measurement); a plain full-simplex Dirichlet remains the natural ablation
+  baseline when the eval framework lands. Sparsemax stays rejected
+  (conflicts with the probabilistic-head mandate).
 - **MeltHead** deferred (inference-time closure + melt output).
 - **Public-facing renormalization** (drop liq/fl for the hand-sample view) is
   a presentation-layer concern, volcanic-vs-plutonic aware.

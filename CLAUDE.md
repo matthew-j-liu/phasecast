@@ -193,6 +193,23 @@ don't re-open the question.
 - **Many-to-one training data is intentional.**  Different (P, H2O) FC paths per
   bulk → different assemblages → multimodal posterior; the within-bulk variance IS
   the signal CondHead/ModeHead learn, not noise to average out.
+- **ModeHead vocabulary locked: 21 solid phases** (2026-07-15,
+  `cnmineral.data.phase_vocab`). trd/crst merge into q (SiO2 polymorphs,
+  large mass when present); chl + fper dropped (<0.1% presence floor);
+  and/ky/sill + cor kept; fsp split into plag/afs via the vendored mineralML
+  feldspar rule (miscibility-gap compositions route by dominant component).
+  liq/fl are not vocabulary -- the label is the crystals-renormalized solid
+  assemblage. Other multi-instance phases sum modes.
+- **CondHead conditions on the presence support** (chain rule, locked
+  2026-07-15): teacher-forced true mask at train, ModeHead-sampled at
+  inference. Independent heads assume a conditional independence the corpus
+  violates by design; the scenario view requires the coupling. Don't feed the
+  support into the encoder -- it's a CondHead input only.
+- **CompHead is a per-phase Dirichlet over oxide wt%** (locked 2026-07-15;
+  eps-clipped targets). Per-oxide heteroscedastic Gaussians rejected: samples
+  that violate the simplex are parameterization artifacts, not diagnostics --
+  the OOD diagnostic lives in the cross-head closure residual, which survives
+  either choice.
 - **Bulk-level splits, not row-level.**  A bulk's FC paths share nearly identical
   inputs; all paths go to the same split or the model memorizes across train/val.
   64/16/20 stratified by `qap_name`; rare classes (<25 bulks) dropped.

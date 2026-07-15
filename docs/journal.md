@@ -3250,3 +3250,60 @@ same stored ladders; this is a label-rebuild choice, not a generation choice.
 sees the same bulk at two label depths (e.g. amphibole median share 0.22 at
 rung 50 vs 0.32 at 30) -- accepted consciously; rung is implicit in the label
 distribution.
+
+## 2026-07-15 -- Track B start: four head decisions locked, hurdle ModeHead lands end-to-end
+
+**Q.** Heads work starts on the ~45% partial corpus (owner directive:
+ModeHead only, end-to-end, before any other head). Four design questions had
+to be locked first: how the scenario view gets assemblage-conditions
+coupling, the phase vocabulary, instance handling, and the CompHead
+parameterization.
+
+**Context.** Full-corpus coverage analysis (44 chunks, ~210k draws per
+training rung) confirmed the pilot picture: 24 solid phases; chl/trd/crst/
+fper at ~1-2 in 10,000 draws (unlearnable); trd/crst are SiO2 polymorphs
+carrying a median ~half the crystal cargo when present; cor just above a
+0.1% floor at both rungs. MAGEMin's lumped `fsp` emits two coexisting
+feldspars (plag + alkali) in 13% (rung 50) / 19% (rung 30) of
+feldspar-bearing draws; cpx/mu/spl multi-instances all <1%. Also verified:
+the per-draw renormalized `in_*` oxides encode the sampled H2O through their
+common scale factor, so head inputs must come from the original gard bulk
+row (ADR 008 carry-over); relaxing `require_all_majors` recovers 4497/4500
+corpus bulks (3 stragglers dropped with a logged count, incl. poison bulk
+976755).
+
+**Considered.** Coupling: independent heads (assumes a conditional
+independence the corpus violates by design -- marginals forget which
+condition mode pairs with which support), chain-rule support-conditioning,
+shared discrete mixture (heavier redesign). Vocabulary: strict floor
+without merges (renormalizes trd/crst's large mass into wrong phases),
+keep-all-24 (dead output slots). Instances: lump feldspar for v1 (bakes the
+inside-the-solvus comp smear into 1-in-6 fsp draws and forfeits the
+QAPF-defining A/P ratio), full classifier vendoring (blocks on sub-1%
+phases that don't earn it). CompHead: heteroscedastic per-oxide Gaussian
+(exact error bars, but samples violate the simplex -- an uninformative
+artifact needing post-hoc repair wherever composition vectors are consumed).
+
+**Decision (owner).** (1) CondHead conditions on the presence support:
+p(support | h) x p(T,P,H2O | h, support), teacher-forced true mask at train,
+ModeHead-sampled at inference; mild exposure bias accepted. (2) Vocabulary
+21 solids: trd/crst -> q; chl + fper dropped; and/ky/sill + cor kept
+(polymorph identity encodes pressure for the support-conditioned CondHead);
+fsp split into plag/afs. (3) Feldspar routed by the vendored mineralML
+stoichiometric rule (DHZ boundaries; miscibility-gap compositions by
+dominant component); all other phases sum instance modes. (4) CompHead:
+per-phase Dirichlet over oxide wt%, eps-clipped targets.
+
+What landed (ModeHead end-to-end): `phase_vocab` + `feldspar_rule` (100%
+agreement with mineralML on all 17,776 non-gap chunk-0 feldspars) +
+`mineralogy_labels` + `mineralogy_dataset` (inputs via
+`BulkChemistryDataset(require_all_majors=False)`; hash-stable provisional
+bulk split, to be discarded when the valtest tier lands) + `ModeHead` +
+`mode_loss` (masked Dirichlet NLL verified against `torch.distributions`) +
+`training/mode_head.py` with explicit joint-hurdle-NLL eval and per-phase
+calibration table. All partial-corpus numbers are provisional scaffolding.
+
+**Next.** CompHead (Dirichlet over `Comp_wt`, plag/afs targets clean by
+construction), CondHead + support conditioning, mass-balance term (needs
+CompHead), joint loss composition. Open rethink carried: inference-time
+closure-residual-as-OOD degrades under teacher-forced melt fractions.

@@ -16,7 +16,11 @@ rename, or repurpose a test) updates this file in the same change.**
   `scripts/build/build_test_fixture.py`); `SyntheticTokenDataset` +
   `synthetic_token_dataset` (tiny token datasets) and
   `tiny_pretrain_checkpoint` (a real on-disk encoder+head checkpoint),
-  shared by the eval and explorations suites.
+  shared by the eval and explorations suites;
+  `synthetic_mineralogy_corpus` (the `write_synthetic_rungs` builder:
+  one rungs parquet with two draws per bulk, mixed assemblage, one
+  plag + one afs feldspar instance, and a rung-30 attrition case),
+  shared by the mineralogy-dataset and mode-head training suites.
 - `tests/training/conftest.py` -- `_tiny_config()` (minimal config on
   the corpus fixture; `min_class_count=5` so both stratified splits
   survive) and `_write_yaml()`.
@@ -62,6 +66,19 @@ rename, or repurpose a test) updates this file in the same change.**
 9. `test_importance_weights_recover_support_area` -- `E_q[1/q]` recovers the area of the bounded region, tying sampler and density together.
 10. `test_draws_deterministic_under_seed` -- same seed, same draws.
 
+### test_feldspar_rule.py
+
+1. `test_ternary_coordinates_roundtrip` -- oxide mass fractions constructed from a target (An, Or) recover exactly that ternary coordinate.
+2. `test_labradorite_is_plag` -- An60 classifies plagioclase.
+3. `test_albite_is_plag` -- near-pure albite falls on the plagioclase side of the DHZ boundary.
+4. `test_anorthite_is_plag` -- pure anorthite classifies plagioclase.
+5. `test_sanidine_is_afs` -- Or60 classifies alkali feldspar.
+6. `test_anorthoclase_is_afs` -- an Or20 anorthoclase composition routes to afs (mineralML puts anorthoclase under Alkali_Feldspar).
+7. `test_miscibility_gap_routes_by_dominant_component` -- inside-the-gap ternary compositions route plag when An >= Or and afs otherwise (the documented fallback).
+8. `test_degenerate_zero_alkalis_is_plag` -- an all-zero composition degrades to plag instead of erroring.
+9. `test_nan_treated_as_zero` -- NaN oxide inputs are treated as 0, not propagated.
+10. `test_vectorized_input` -- array inputs classify elementwise.
+
 ### test_magemin_corpus.py
 
 1. `test_ladder_truncates_at_stop_melt` -- stored ladder points end at the first point below 30% residual melt (inclusive) and `T_stop` records it.
@@ -84,6 +101,27 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_loi_normalize_is_exact_and_passes_strings` -- numeric oxides renormalize to exactly 100, non-numeric keys pass through.
 7. `test_class_ratio_lookup_and_default` -- Middlemost lookup returns the class value and falls back to `default` for unknown classes.
 
+### test_mineralogy_dataset.py
+
+1. `test_rows_and_target_shapes` -- one item per (bulk, draw, rung) label row with 21-phase presence/magnitude targets; present magnitudes sum to 1, absent are exactly 0.
+2. `test_input_tokens_match_bulk_chemistry` -- the item's src/frac equal the `BulkChemistryDataset` row for the same sample id (inputs come from the original bulk chemistry, never per-draw oxides).
+3. `test_unresolvable_bulk_dropped` -- a corpus bulk id absent from the chemistry table is dropped with a printed count, not an error.
+4. `test_provisional_split_disjoint_and_deterministic` -- the hash split partitions the ids, reproduces exactly, and lands near the requested fraction.
+5. `test_provisional_split_stable_under_corpus_growth` -- a bulk's train/val membership never changes when more bulks are added.
+6. `test_provisional_split_seed_changes_membership` -- a different seed reassigns membership.
+
+### test_mineralogy_labels.py
+
+1. `test_one_row_per_reached_rung` -- one label row per (bulk, draw, rung) actually present in the rungs table; columns follow `SOLID_PHASES` order.
+2. `test_crystals_renormalization_and_fsp_routing` -- liq is dropped, solids renormalize to 1, fsp instances route to plag/afs, and trd merges into q.
+3. `test_dropped_phase_mass_renormalizes_away` -- chl mass disappears and the surviving solids still sum to 1.
+4. `test_instances_sum` -- two instances of one phase sum into a single mode.
+5. `test_rung_filter` -- only requested rungs produce rows.
+6. `test_unknown_phase_raises` -- a phase outside the vocabulary raises instead of being silently dropped.
+7. `test_missing_corpus_raises` -- an empty corpus dir raises FileNotFoundError.
+8. `test_hurdle_targets_cutoff_and_renorm` -- sub-cutoff phases are marked absent and the present modes renormalize.
+9. `test_hurdle_targets_single_present` -- a single-phase row yields magnitude exactly 1 on that phase.
+
 ### test_volcanic_subset.py
 
 1. `test_measured_feo_and_fe2o3_take_precedence` -- measured FeO + Fe2O3 win over `_tot` columns in the total-Fe-as-FeO precedence.
@@ -102,6 +140,15 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_crash_cap_aborts` -- more than CRASH_CAP dropped draws in one call group raises instead of silently dropping a systemic failure.
 
 ## losses/
+
+### test_mode_loss.py
+
+1. `test_full_support_matches_torch_dirichlet` -- with an all-present mask the masked NLL equals `torch.distributions.Dirichlet` exactly.
+2. `test_subcomposition_matches_sliced_dirichlet` -- with random supports the masked NLL equals the Dirichlet built on the sliced (present-only) alphas and targets, row by row.
+3. `test_absent_phases_get_zero_gradient` -- alphas at masked-out phases receive exactly zero gradient; present phases receive nonzero.
+4. `test_single_phase_support_contributes_zero` -- a one-phase support is a degenerate point mass and contributes NLL 0.
+5. `test_mode_head_loss_composition` -- `total` is BCE + `magnitude_weight` x Dirichlet NLL, and both unweighted terms are returned for logging.
+6. `test_gradient_reaches_unfrozen_encoder` -- backprop through ModeHead reaches a live encoder's parameters (the Track C end-to-end readiness gate).
 
 ### test_pretrain_loss.py
 
@@ -152,6 +199,13 @@ rename, or repurpose a test) updates this file in the same change.**
 5. `test_fit_standardization_floors_std` -- a zero-std element is clamped to the std floor so the standardized target can't blow up.
 6. `test_fit_standardization_wrong_shape_raises` -- stats not shaped `[N_TOKENS]` raise rather than silently broadcasting.
 7. `test_buffers_serialize_and_reload` -- the standardization buffers are part of `state_dict` and reload exactly (they must travel with the checkpoint).
+
+### test_mode_head.py
+
+1. `test_output_shapes` -- forward returns presence logits and alphas, both `[B, N_PHASES]`.
+2. `test_alpha_strictly_positive` -- alphas respect the softplus + `alpha_eps` floor even on extreme inputs.
+3. `test_default_hidden_is_half_d_model` -- the trunk width defaults to `d_model // 2` and honors an explicit `hidden`.
+4. `test_gradients_flow_to_all_parameters` -- every head parameter receives gradient from a combined logits+alpha objective.
 
 ## training/
 
@@ -217,6 +271,10 @@ rename, or repurpose a test) updates this file in the same change.**
 ### test_imputation_head_hpo.py
 
 1. `test_run_imputation_hpo_end_to_end` -- a 2-trial sweep against the tiny encoder produces a well-formed summary (best_params, finite best_value, baseline reference) plus a resumable journal and history figure; exercises split + per-trial head train + val LOO scoring.
+
+### test_mode_head_train.py
+
+1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs on a synthetic mineralogy corpus + tiny frozen encoder: monitor tracks every term per epoch, label semantics (`rungs`, `presence_cutoff`) are stamped into the checkpoint, the saved file round-trips through `ModeHeadCheckpoint.load`, and `build_head` reconstructs a working head.
 
 ## eval/
 
