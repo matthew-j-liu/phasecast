@@ -133,7 +133,11 @@ def tok(s, x, y, w, h, sym, amt, color, masked=False):
 def hbar(s, x, y, maxw, value, label, color, vmax=0.5, ci=None, presence=None):
     bw = max(0.12, maxw * value / vmax)
     bar = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(y), Inches(bw), Inches(0.32))
-    bar.fill.solid(); bar.fill.fore_color.rgb = _rgb(color)
+    bar.fill.solid()
+    # fade the bar when the phase may genuinely be absent, so uncertain
+    # presence reads at a glance instead of only in the p number
+    faded = presence is not None and presence < 0.75
+    bar.fill.fore_color.rgb = _rgb(_lighten(color, 0.6) if faded else color)
     bar.line.fill.background(); bar.shadow.inherit = False
     # ci is the credible-interval half-width in value units: draw a whisker
     # centered on the bar tip with end caps, so a bar reads as a posterior
@@ -150,7 +154,7 @@ def hbar(s, x, y, maxw, value, label, color, vmax=0.5, ci=None, presence=None):
         x_text = x + bw + 0.1
     label_text = f"{label}  {value:.2f}"
     if presence is not None:
-        label_text += f"   p(present) {presence:.2f}"
+        label_text += f"  |  p {presence:.2f}"
     t = s.shapes.add_textbox(Inches(x_text), Inches(y - 0.05), Inches(4.6), Inches(0.4))
     _text(t.text_frame, label_text, 12, INK, align=PP_ALIGN.LEFT)
 
@@ -191,6 +195,40 @@ def pipeline(s, lit_through, hide_after=None):
         if i > 0:
             pr = PX[i - 1] + PW
             flow_arrow(s, pr + 0.05, cy - 0.2, PX[i] - pr - 0.1, 0.4, lit=(i <= lit_through))
+
+
+def s_scenarios(prs):
+    s = new_slide(prs)
+    header(s, "HEADS", "The coherent answer: ranked scenarios")
+    caption(s, 0.55, 1.15, 12.2, "the marginal table can't show WHICH minerals trade off; "
+            "scenarios can -- sample the posterior, cluster by assemblage, rank by weight",
+            13, GRAYT, align=PP_ALIGN.LEFT)
+    box(s, 0.7, 1.95, 5.9, 3.6, [
+        "Scenario A -- deep & wet . weight ~45%",
+        ("P 6-9 kbar   H2O 4-6 wt%   T ~950-990 C",), "",
+        ("phenocrysts (wt% of cargo, sums to 100):",),
+        ("plagioclase 44 +/- 4    clinopyroxene 26 +/- 3",),
+        ("amphibole 18 +/- 4      Fe-Ti oxides 12 +/- 2",)], GREEN, size=14)
+    box(s, 6.9, 1.95, 5.9, 3.6, [
+        "Scenario B -- shallow & dry . weight ~35%",
+        ("P 1-3 kbar   H2O 1-2.5 wt%   T ~1000-1040 C",), "",
+        ("phenocrysts (wt% of cargo, sums to 100):",),
+        ("plagioclase 48 +/- 4    clinopyroxene 24 +/- 3",),
+        ("orthopyroxene 16 +/- 3  Fe-Ti oxides 12 +/- 2",)], TEAL, size=14)
+    caption(s, 0.7, 5.7, 12.1, "+ intermediate scenario (amp + opx coexist, ~12%) + tail (~8%) -- "
+            "nothing silently dropped; weights are prior-weighted plausibility, reweightable",
+            12, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.7, 6.35, 12.1, "per-phase composition (An#, Mg#) is bulk-controlled -- one shared "
+            "band across scenarios, not re-predicted per scenario. Each scenario is a falsifiable "
+            "hypothesis: amphibole in thin section selects A, and with it A's conditions.",
+            12, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "View 2 from heads.md, modernized to the locked corpus design: crystals-renormalized "
+             "(no residual-melt row -- melt-fraction head dropped), composition shared across "
+             "scenarios (CompHead reads h only), no inference-time mass-balance checkmark (closure "
+             "is teacher-forced at training; the inference residual as OOD signal is an open "
+             "rethink). Marginal view = projection of these scenarios; scenarios are the primary "
+             "object. Open mechanism detail for #10/#13: coupling conditions to assemblage in a "
+             "sampled scenario requires joint sampling across heads. Numbers illustrative.")
 
 
 def s_title(prs):
@@ -428,8 +466,20 @@ def s_ssl(prs):
     a.fill.solid(); a.fill.fore_color.rgb = _rgb(REDX); a.line.fill.background(); a.shadow.inherit = False
     cap = s.shapes.add_textbox(Inches(9.6), Inches(4.5), Inches(3.4), Inches(0.6))
     _text(cap.text_frame, ["backpropagation:", "updates encoder weights"], 12, REDX, bold=True)
+    box(s, 1.6, 6.5, 4.6, 0.85,
+        ["zⱼ = (log₁₀ fⱼ − μⱼ) / σⱼ",
+         ("target: per-element z-scored log fraction; μⱼ, σⱼ from the train split only",)],
+        REDX, lit=False, size=15)
+    box(s, 6.9, 6.5, 4.6, 0.85,
+        ["L = 1/|M| Σⱼ∈M (ŷⱼ − zⱼ)²",
+         ("plain MSE between prediction ŷ and z, at the masked positions M only",)],
+        REDX, lit=False, size=15)
+    caption(s, 0.55, 6.55, 1.0, "the loss,\nexplicitly:", 11, REDX, align=PP_ALIGN.LEFT)
     notes(s, "Masked-element modelling. Encoder is TRAINED here (frozen is the downstream state). "
-             "Loss is per-element standardized log-space MSE so traces get supervised. Over ~167k rocks.")
+             "Loss is per-element standardized log-space MSE so traces get supervised (fracs span "
+             "~8 decades; linear MSE leaves traces unsupervised). mu/sigma are per-element log10-frac "
+             "stats from the train split (pretrain_objective.compute_loss_stats), stored as head "
+             "buffers. Over ~167k rocks.")
 
 
 def s_workflow(prs):
@@ -475,29 +525,38 @@ def s_outputs(prs):
     hglyph(s, 4.5, 3.75, r=0.72)
     flow_arrow(s, 5.35, 3.55, 0.5, 0.4)
     box(s, 6.0, 1.55, 6.9, 2.25, [""], GREEN)
-    caption(s, 6.2, 1.6, 6.5, "ModeHead -> distribution over modal mineralogy (hurdle Dirichlet)",
+    caption(s, 6.2, 1.6, 6.5, "ModeHead -> per phase: p(present) x amount-when-present "
+            "(hurdle Dirichlet; crystals renormalized to 1, groundmass/melt excluded)",
             12, GREEN, align=PP_ALIGN.LEFT)
-    mode_bars = [("plagioclase", 0.42, 0.05, None), ("clinopyroxene", 0.28, 0.04, None),
-                 ("amphibole", 0.16, 0.06, 0.41), ("orthopyroxene", 0.08, 0.03, None),
-                 ("magnetite", 0.04, 0.02, None)]
+    mode_bars = [("plagioclase", 0.45, 0.05, 1.00), ("clinopyroxene", 0.27, 0.04, 0.97),
+                 ("amphibole", 0.18, 0.06, 0.41), ("orthopyroxene", 0.10, 0.04, 0.63),
+                 ("magnetite", 0.04, 0.02, 0.95)]
     for i, (m, v, ci, p) in enumerate(mode_bars):
         hbar(s, 6.25, 2.05 + i * 0.34, 2.3, v, m, GREEN, ci=ci, presence=p)
     box(s, 6.0, 4.0, 6.9, 2.55, [""], PURPLE)
     caption(s, 6.2, 4.05, 6.5,
-            "CondHead -> formation conditions (per-axis GMM, if trained on a thermodynamic "
-            "phase-equilibrium solver like MAGEMin)", 12, PURPLE, align=PP_ALIGN.LEFT)
-    gaussian(s, 6.35, 4.85, 1.9, 1.05, [(0.5, 0.16, 1.0)], BLUE, "T  1140 +/- 35 C")
+            "CondHead -> storage conditions (per-axis GMM; P and H2O are sampled axes, "
+            "T is the derived phenocryst-window endpoint temperature)", 12, PURPLE,
+            align=PP_ALIGN.LEFT)
+    gaussian(s, 6.35, 4.85, 1.9, 1.05, [(0.5, 0.16, 1.0)], BLUE, "T  1010 +/- 40 C")
     gaussian(s, 8.5, 4.85, 1.9, 1.05, [(0.5, 0.18, 1.0)], TEAL, "P  4.8 +/- 1.9 kbar")
     gaussian(s, 10.65, 4.85, 1.95, 1.05, [(0.32, 0.1, 1.0), (0.72, 0.12, 0.8)], ORANGE, "H2O  multimodal")
-    caption(s, 0.55, 6.75, 12.3, "values illustrative -- every head emits a distribution: ModeHead "
-            "bars are posterior means with credible-interval whiskers and a per-phase presence "
-            "probability; H2O drawn multimodal to show CondHead's GMM form.", 12, GRAYT,
+    caption(s, 0.55, 6.75, 12.3, "values illustrative -- every phase carries both numbers; faded "
+            "bars = presence genuinely uncertain (here the amphibole/orthopyroxene either-or: "
+            "wet-deep grows amp, dry-shallow grows opx). This marginal view is a projection; the "
+            "primary output is the ranked-scenario view on the next slide.", 12, GRAYT,
             align=PP_ALIGN.LEFT)
     notes(s, "Output FORM, not measured results (heads train in issue #10). ModeHead = hurdle "
-             "Dirichlet: per-phase presence Bernoulli x conditional Dirichlet over present-phase "
-             "modes; bars are posterior means + credible intervals, and intermediate presence "
-             "(amphibole ~0.4) IS the multimodal posterior, not noise. CondHead = per-axis GMM "
-             "(H2O multimodal). Numbers illustrative.")
+             "Dirichlet over the crystals-renormalized solid assemblage (liq/fl dropped, solids "
+             "sum to 1 -- matches real itemized-phenocrysts + lumped-groundmass granularity). "
+             "EVERY phase gets a presence Bernoulli AND a conditional amount +/- CI; near-certain "
+             "phases just have p~1. Amp 0.41 / opx 0.63 anti-correlated is the flagship "
+             "multimodality (deep-wet-amp vs shallow-dry-opx), so their marginal amounts are "
+             "conditional on presence, not rock-wide means. CondHead = per-axis GMM; P and H2O "
+             "were sampled at generation, T is derived (cooling endpoint at the phenocryst "
+             "window), hence the lower illustrative T. Second read-out view: top-K scenarios; "
+             "weights labeled prior-weighted plausibility, reweightable p/q. Mass-balance "
+             "closure teacher-forces the label melt fraction at training. Numbers illustrative.")
 
 
 if __name__ == "__main__":
@@ -506,7 +565,7 @@ if __name__ == "__main__":
     s_corpora(prs); s_labelgen(prs); s_regen_status(prs); s_architecture(prs)
     s_inputs(prs); s_embed(prs); s_encoder(prs)
     s_ssl(prs); s_workflow(prs)
-    s_heads(prs); s_outputs(prs)
+    s_heads(prs); s_outputs(prs); s_scenarios(prs)
     out = Path(__file__).resolve().parent / "overview.pptx"
     prs.save(out)
     print(f"wrote {out}  ({len(prs.slides._sldIdLst)} slides)")
