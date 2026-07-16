@@ -259,6 +259,42 @@ def plot_reliability(
     return tables
 
 
+REGIME_PANELS = (
+    ("plag", "plagioclase"),
+    ("amp", "amphibole"),
+    ("g", "garnet"),
+    ("ne", "nepheline"),
+)
+
+
+def plot_reliability_subset(
+    p_rows: np.ndarray,
+    presence: np.ndarray,
+    out_path: Path,
+    panels: tuple = REGIME_PANELS,
+    n_bins: int = 10,
+) -> None:
+    """One reliability panel per behavior regime, 2x2 (slide-sized)."""
+    fig, axes = plt.subplots(2, 2, figsize=(9.0, 8.0))
+    for ax, (name, full_name) in zip(axes.flat, panels):
+        i = SOLID_PHASES.index(name)
+        t = reliability_table(p_rows[:, i], presence[:, i], n_bins)
+        centers = (np.arange(n_bins) + 0.5) / n_bins
+        twin = ax.twinx()
+        twin.bar(centers, t["count"], width=1 / n_bins, color="0.85", zorder=0)
+        twin.set_yticks([])
+        ax.plot([0, 1], [0, 1], "k--", lw=0.8, zorder=1)
+        ax.plot(t["mean_p"], t["freq"], "o-", color="#d95f02", ms=5, zorder=2)
+        ax.set_zorder(twin.get_zorder() + 1)
+        ax.patch.set_visible(False)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_title(f"{full_name}  ECE={t['ece']:.3f}", fontsize=12)
+        ax.set_xlabel("predicted p", fontsize=10)
+        ax.set_ylabel("empirical frequency", fontsize=10)
+    _finish(fig, "presence reliability: the four behavior regimes", out_path)
+
+
 def plot_pf_scatter(
     p_bulk: np.ndarray, f_bulk: np.ndarray, out_path: Path
 ) -> dict[str, np.ndarray]:
@@ -284,6 +320,40 @@ def plot_pf_scatter(
         ax.set_ylabel("predicted p", fontsize=8)
     _finish(fig, "presence p vs within-bulk frequency (one point per bulk)", out_path)
     return {"pf_r": r, "pf_mae": mae}
+
+
+PF_REGIME_PANELS = (
+    ("plag", "plagioclase"),
+    ("amp", "amphibole"),
+    ("spl", "spinel"),
+    ("g", "garnet"),
+)
+
+
+def plot_pf_subset(
+    p_bulk: np.ndarray,
+    f_bulk: np.ndarray,
+    out_path: Path,
+    panels: tuple = PF_REGIME_PANELS,
+) -> None:
+    """One p-vs-frequency panel per behavior regime, 2x2 (slide-sized)."""
+    fig, axes = plt.subplots(2, 2, figsize=(9.0, 8.0))
+    for ax, (name, full_name) in zip(axes.flat, panels):
+        i = SOLID_PHASES.index(name)
+        f, p = f_bulk[:, i], p_bulk[:, i]
+        ok = ~np.isnan(f)
+        f, p = f[ok], p[ok]
+        r = float(np.corrcoef(f, p)[0, 1]) if f.size and f.std() > 0 else float("nan")
+        mae = float(np.abs(p - f).mean()) if f.size else float("nan")
+        ax.scatter(f, p, s=8, alpha=0.35, edgecolors="none", color="#1b9e77")
+        ax.plot([0, 1], [0, 1], "k--", lw=0.8)
+        ax.set_xlim(-0.02, 1.02)
+        ax.set_ylim(-0.02, 1.02)
+        ax.set_title(f"{full_name}  r={r:.2f}  MAE={mae:.3f}", fontsize=12)
+        ax.set_xlabel("within-bulk frequency f", fontsize=10)
+        ax.set_ylabel("predicted p", fontsize=10)
+    _finish(fig, "presence p vs within-bulk frequency: the four behavior regimes",
+            out_path)
 
 
 def plot_magnitude_parity(
@@ -375,6 +445,46 @@ def plot_rung_frequency(
     if sc is not None:
         fig.colorbar(sc, ax=axes.ravel().tolist(), label="predicted p", shrink=0.5)
     fig.suptitle(f"presence frequency by rung, colored by p -- {PROVISIONAL}")
+    fig.savefig(out_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+RUNG_REGIME_PANELS = (
+    ("q", "quartz"),
+    ("opx", "orthopyroxene"),
+    ("cpx", "clinopyroxene"),
+    ("g", "garnet"),
+)
+
+
+def plot_rung_subset(
+    f50: np.ndarray,
+    f30: np.ndarray,
+    p_bulk: np.ndarray,
+    out_path: Path,
+    panels: tuple = RUNG_REGIME_PANELS,
+) -> None:
+    """One rung-comparison panel per behavior regime, 2x2 (slide-sized)."""
+    fig, axes = plt.subplots(2, 2, figsize=(9.5, 8.0), layout="constrained")
+    sc = None
+    for ax, (name, full_name) in zip(axes.flat, panels):
+        i = SOLID_PHASES.index(name)
+        ok = ~(np.isnan(f50[:, i]) | np.isnan(f30[:, i]))
+        d = f30[ok, i] - f50[ok, i]
+        sc = ax.scatter(
+            f50[ok, i], f30[ok, i], c=p_bulk[ok, i], s=10, alpha=0.55,
+            edgecolors="none", cmap="coolwarm", vmin=0, vmax=1,
+        )
+        ax.plot([0, 1], [0, 1], "k--", lw=0.8)
+        ax.set_xlim(-0.02, 1.02)
+        ax.set_ylim(-0.02, 1.02)
+        ax.set_title(f"{full_name}  mean(f30-f50)={d.mean():+.2f}", fontsize=12)
+        ax.set_xlabel("f at rung 50", fontsize=10)
+        ax.set_ylabel("f at rung 30", fontsize=10)
+    if sc is not None:
+        fig.colorbar(sc, ax=axes.ravel().tolist(), label="predicted p", shrink=0.6)
+    fig.suptitle("presence frequency by rung: the four behavior regimes -- "
+                 f"{PROVISIONAL}")
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
@@ -480,8 +590,12 @@ def run_mode_head_eval(
     f_rows = f_all[row_bulk]
 
     rel_tables = plot_reliability(p_rows, presence, output_dir / "reliability.png")
+    plot_reliability_subset(p_rows, presence, output_dir / "reliability_subset.png")
     pf = plot_pf_scatter(
         p_bulk[val_bulks], f_all[val_bulks], output_dir / "p_vs_frequency.png"
+    )
+    plot_pf_subset(
+        p_bulk[val_bulks], f_all[val_bulks], output_dir / "p_vs_frequency_subset.png"
     )
     cm_true = conditional_mean(alpha_rows, presence)
     parity = plot_magnitude_parity(
@@ -494,6 +608,10 @@ def run_mode_head_eval(
     plot_rung_frequency(
         f50[val_bulks], f30[val_bulks], p_bulk[val_bulks],
         output_dir / "rung_frequency.png",
+    )
+    plot_rung_subset(
+        f50[val_bulks], f30[val_bulks], p_bulk[val_bulks],
+        output_dir / "rung_frequency_subset.png",
     )
     masses = fp_fn_mass(p_rows, alpha_rows, presence, magnitude)
     plot_mass_guardrails(
