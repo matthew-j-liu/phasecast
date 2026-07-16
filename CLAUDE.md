@@ -63,7 +63,12 @@ tracebacks beats any speed win from parallel workers at this suite size.
    make an existing slide *wrong* (a new/changed model component, loss, training
    stage, tokenization, data corpus, or how the pieces compose) — update and
    regenerate [slides/overview.py](slides/overview.py) in the same change
-   (`conda run -n alignn_fix python slides/overview.py`).
+   (`conda run -n alignn_fix python slides/overview.py`).  A **new ML
+   component** (head, encoder variant) additionally gets the standard
+   two-slide report — anatomy (`head_anatomy_slide` template) + eval-semantics
+   (worked example) — covering the 8-item checklist in the
+   `slides/overview.py` docstring; param counts pulled from the checkpoint,
+   never estimated.
 
 Before declaring a change done, read the diff as a reviewer would — fresh
 skepticism, not the author's confidence.
@@ -212,7 +217,10 @@ don't re-open the question.
   either choice.
 - **Bulk-level splits, not row-level.**  A bulk's FC paths share nearly identical
   inputs; all paths go to the same split or the model memorizes across train/val.
-  64/16/20 stratified by `qap_name`; rare classes (<25 bulks) dropped.
+  64/16/20 stratified by `qap_name`; rare classes (<25 bulks) dropped.  Two-tier
+  mapping (locked 2026-07-16): all 10k train-tier bulks train; the 500 valtest
+  bulks divide 16:20 into ~222 val (early stopping, tuning, interrogation
+  figures) / ~278 test (sealed until final numbers).
 - **qap_name locked as stratification axis** (IUGS Streckeisen QAPF; 70 values,
   83% non-null in `data/bulks/gard2019.csv`).
 - **Hand-written stoichiometric rules kept** (from mineralML): training-time

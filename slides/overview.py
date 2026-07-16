@@ -6,6 +6,25 @@ and inference, and how they compose. It deliberately excludes positioning,
 comparisons to other work, and value framing (the owner layers that on
 separately). Grows and retires sections as the architecture does.
 
+Every ML component (each head; encoder changes) gets a standard two-slide
+report: an anatomy slide (`head_anatomy_slide` template) and a per-head
+eval-semantics slide (bespoke layout, worked example). Together they must
+cover the 8-item checklist:
+
+  1. interface -- input/output tensors, where it sits, and what one training
+     example is (row semantics)
+  2. architecture diagram -- layers, widths, activations, branches
+  3. parameters -- exact per-block counts + total, share of the frozen encoder
+  4. objective -- explicit formula per term, what each term's minimum means,
+     masking / teacher-forcing semantics, composition weights
+  5. hyperparameters -- every config dial with current value, plus what is
+     fixed in code (activation, optimizer, clipping)
+  6. ground truth -- label construction, split, and what a prediction means
+     against it
+  7. headline eval -- metric, what good looks like, artifact pointer,
+     provisional/final flag
+  8. known limits -- 2-3 bullets, pointers to heads.md / ADRs for rationale
+
     conda run -n alignn_fix python slides/overview.py
 """
 
@@ -264,6 +283,30 @@ def s_corpora(prs):
              "volcanic benchmark and mineralML grains are held out for validation.")
 
 
+def phw_region(s, px, pyb, pw, ph):
+    """Bounded (P, H2O) sampling region, drawn with its baseline at `pyb`.
+
+    N&L 2002 rhyolite solubility (850 C, values from condition_proposal)
+    capped at the 8 wt% melt-inclusion ceiling.
+    """
+    bound = [(0.5, 2.60), (1.0, 3.88), (1.5, 4.93), (2.0, 5.92),
+             (2.5, 6.90), (3.0, 7.89), (3.05, 8.0), (12.0, 8.0)]
+    to_xy = lambda p, w: (px + (p - 0.5) / 11.5 * pw, pyb - w / 8.0 * ph)
+    frame = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(px), Inches(pyb - ph),
+                               Inches(pw), Inches(ph))
+    frame.fill.background(); frame.line.color.rgb = _rgb(GRAYL)
+    frame.line.width = Pt(1); frame.shadow.inherit = False
+    fb = s.shapes.build_freeform(Inches(px), Inches(pyb), scale=1.0)
+    pts = [to_xy(p, w) for p, w in bound] + [(px + pw, pyb)]
+    fb.add_line_segments([(Inches(a), Inches(b)) for a, b in pts], close=True)
+    shp = fb.convert_to_shape()
+    shp.fill.solid(); shp.fill.fore_color.rgb = _rgb(_lighten(BLUE, 0.72))
+    shp.line.color.rgb = _rgb(BLUE); shp.line.width = Pt(2); shp.shadow.inherit = False
+    caption(s, px - 0.2, pyb + 0.02, pw + 0.4, "P  0.5 -> 12 kbar", 10, GRAYT)
+    t = s.shapes.add_textbox(Inches(px - 0.62), Inches(pyb - ph - 0.05), Inches(0.6), Inches(0.4))
+    _text(t.text_frame, ["H2O", ("0-8",)], 10, GRAYT)
+
+
 def s_labelgen(prs):
     s = new_slide(prs)
     header(s, "DATA", "How the supervised labels are generated")
@@ -287,26 +330,8 @@ def s_labelgen(prs):
             pr = bx[i - 1] + bw
             flow_arrow(s, pr + 0.04, by + bh / 2 - 0.18, bx[i] - pr - 0.08, 0.36)
 
-    # bounded (P, H2O) support: N&L 2002 rhyolite solubility (850 C, values from
-    # condition_proposal) capped at the 8 wt% melt-inclusion ceiling
-    px, pyb, pw, ph = 1.2, 6.7, 3.6, 1.75
-    bound = [(0.5, 2.60), (1.0, 3.88), (1.5, 4.93), (2.0, 5.92),
-             (2.5, 6.90), (3.0, 7.89), (3.05, 8.0), (12.0, 8.0)]
-    to_xy = lambda p, w: (px + (p - 0.5) / 11.5 * pw, pyb - w / 8.0 * ph)
-    frame = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(px), Inches(pyb - ph),
-                               Inches(pw), Inches(ph))
-    frame.fill.background(); frame.line.color.rgb = _rgb(GRAYL)
-    frame.line.width = Pt(1); frame.shadow.inherit = False
-    fb = s.shapes.build_freeform(Inches(px), Inches(pyb), scale=1.0)
-    pts = [to_xy(p, w) for p, w in bound] + [(px + pw, pyb)]
-    fb.add_line_segments([(Inches(a), Inches(b)) for a, b in pts], close=True)
-    shp = fb.convert_to_shape()
-    shp.fill.solid(); shp.fill.fore_color.rgb = _rgb(_lighten(BLUE, 0.72))
-    shp.line.color.rgb = _rgb(BLUE); shp.line.width = Pt(2); shp.shadow.inherit = False
-    caption(s, px - 0.2, pyb + 0.02, pw + 0.4, "P  0.5 -> 12 kbar", 10, GRAYT)
-    t = s.shapes.add_textbox(Inches(px - 0.62), Inches(pyb - ph - 0.05), Inches(0.6), Inches(0.4))
-    _text(t.text_frame, ["H2O", ("0-8",)], 10, GRAYT)
-    caption(s, px + 0.2, pyb - ph - 0.4, pw, "sampled (P, H2O) region", 11, BLUE)
+    phw_region(s, 1.2, 6.7, 3.6, 1.75)
+    caption(s, 1.4, 6.7 - 1.75 - 0.4, 3.6, "sampled (P, H2O) region", 11, BLUE)
     caption(s, 5.4, 5.95, 7.4,
             "water is bounded by what melt can dissolve at each pressure (Newman & "
             "Lowenstern 2002 rhyolite curve, capped at 8 wt%) -- the old flat box "
@@ -319,6 +344,61 @@ def s_labelgen(prs):
              "melt (fresh Julia worker per chunk, atomic parquet + manifest, rerun-to-resume); "
              "three tables with full labels at the four candidate rungs; crystals-renormalized "
              "training labels rebuilt at train time (presence cutoff is a rebuild, not a regen).")
+
+
+def s_one_to_many(prs):
+    s = new_slide(prs)
+    header(s, "DATA", "One rock, 96 labels: the one-to-many mapping")
+    caption(s, 0.4, 1.3, 2.5, "ONE input rock", 11, BLUE, align=PP_ALIGN.LEFT)
+    caption(s, 3.5, 1.3, 2.4, "48 sampled (P, H2O) paths", 11, PURPLE, align=PP_ALIGN.LEFT)
+    caption(s, 6.2, 1.3, 1.6, "x 2 rungs", 11, ORANGE, align=PP_ALIGN.LEFT)
+    caption(s, 8.3, 1.3, 4.45, "96 training labels (solid wt%, crystals-renormalized)",
+            11, GREEN, align=PP_ALIGN.LEFT)
+    box(s, 0.55, 3.3, 2.0, 1.1, ["one gard2019 rock",
+        ("SiO2 58 . Al2O3 17 . MgO 3.5 ...",)], BLUE, size=12)
+    draws = [
+        (1.6, ["(P₁, H₂O₁)", ("9 kbar . 5.5 wt% -- deep, wet",)]),
+        (3.2, ["(P₂, H₂O₂)", ("2 kbar . 1.5 wt% -- shallow, dry",)]),
+        (5.3, ["(P₄₈, H₂O₄₈)", ("5 kbar . 3 wt% -- intermediate",)]),
+    ]
+    labels = [
+        "plag 44 . cpx 26 . amp 19 . ox 11",
+        "plag 40 . cpx 25 . amp 24 . ox 11",
+        "plag 49 . cpx 26 . opx 14 . ox 11   (no amp)",
+        "plag 46 . cpx 25 . opx 18 . ox 11   (no amp)",
+        "plag 45 . cpx 24 . amp 10 . opx 10 . ox 11",
+        "plag 43 . cpx 23 . amp 12 . opx 11 . ox 11",
+    ]
+    k = 0
+    for dy, dlines in draws:
+        c = dy + 0.4
+        line(s, 2.55, 3.85, 3.6, c, GRAYT, 1.4)
+        box(s, 3.6, dy, 2.1, 0.8, dlines, PURPLE, size=11)
+        for rc in (c - 0.4, c + 0.4):
+            line(s, 5.7, c, 6.3, rc, GRAYT, 1.2)
+            box(s, 6.3, rc - 0.25, 1.35, 0.5,
+                ["50% melt" if rc < c else "30% melt"], ORANGE, size=10)
+            line(s, 7.65, rc, 8.3, rc, GRAYT, 1.2)
+            box(s, 8.3, rc - 0.25, 4.45, 0.5, [labels[k]], GREEN, size=10)
+            k += 1
+    for x, w in ((3.6, 2.1), (6.3, 1.35), (8.3, 4.45)):
+        caption(s, x, 4.3, w, ". . .", 14, GRAYT)
+    caption(s, 0.55, 5.05, 3.2, "each path drawn from the bounded (P, H2O) region:",
+            10, GRAYT, align=PP_ALIGN.LEFT)
+    phw_region(s, 0.95, 6.85, 2.4, 1.3)
+    caption(s, 3.7, 6.35, 9.1, "why this shape matters for the presence head: it only ever "
+            "sees the left box, so all 96 rows share one input and it emits ONE p per mineral "
+            "against 96 different truths -- amp grows on the wet-deep paths, opx on the "
+            "dry-shallow. BCE's optimum is the fraction of paths growing the mineral, so an "
+            "intermediate p is the multimodal signal, not indecision.",
+            11, INK, align=PP_ALIGN.LEFT)
+    notes(s, "The one-to-many mapping that everything downstream leans on: one gard bulk -> "
+             "48 solubility-bounded (P, H2O) draws -> each read out at two melt-fraction "
+             "rungs (50/30) -> 96 label rows sharing one input vector. Assemblage numbers "
+             "illustrative; amp-vs-opx flips with wetness/depth (the flagship multimodality). "
+             "This is the visual justification for fractional presence targets (within-bulk "
+             "frequency), the bulk-level split rule, and the per-bulk latent cache in "
+             "training. Same-bulk-at-both-rungs is intentional (rungs LOCKED 50+30).")
 
 
 def s_regen_status(prs):
@@ -511,9 +591,178 @@ def s_heads(prs):
         box(s, 9.7, y, 3.1, 0.9, [name, (role,)], GREEN, size=13)
         line(s, 8.98, 3.78, 9.7, y + 0.45, GREEN, 1.5)
     caption(s, 0.55, 5.6, 8.5, "encoder now frozen; each head is a small network reading the "
-            "same h (outputs on the next slide)", 12, INK)
+            "same h (anatomy on the next slide, outputs after)", 12, INK)
     notes(s, "Structural view: which heads exist and that they all read the same frozen h. "
-             "Outputs are drawn on the next slide.")
+             "Head internals on the next slide; outputs after.")
+
+
+def head_anatomy_slide(prs, *, title, intro, input_note, trunk, branches,
+                       params_line, dials_line, loss_boxes, notes_text):
+    """Standard anatomy slide for one head (checklist items 1-5).
+
+    `trunk` = (lines, color); `branches` = list of {box, out, color} rendered
+    top to bottom (2 or 3 supported); `loss_boxes` = list of (lines, color)
+    strips along the bottom.
+    """
+    s = new_slide(prs)
+    header(s, "HEADS", title)
+    caption(s, 0.55, 1.15, 12.2, intro, 13, GRAYT, align=PP_ALIGN.LEFT)
+    hglyph(s, 1.6, 3.85, r=0.75)
+    caption(s, 0.5, 4.85, 2.2, input_note, 10, GRAYT)
+    flow_arrow(s, 2.5, 3.65, 0.5, 0.4)
+    box(s, 3.1, 3.05, 2.9, 1.6, trunk[0], trunk[1], size=13)
+    n = len(branches)
+    bh = 1.55 if n == 2 else 1.15
+    step = (5.75 - 2.0 - bh) / (n - 1)
+    for i, br in enumerate(branches):
+        y = 2.0 + i * step
+        line(s, 6.0, 3.85, 6.75, y + bh / 2, GRAYT, 1.5)
+        box(s, 6.75, y, 3.3, bh, br["box"], br["color"], size=13)
+        flow_arrow(s, 10.15, y + bh / 2 - 0.18, 0.4, 0.35)
+        box(s, 10.65, y + 0.05, 2.25, bh - 0.1, br["out"], br["color"], lit=False, size=12)
+    caption(s, 0.55, 5.85, 12.2, params_line, 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.2, 12.2, dials_line, 10, GRAYT, align=PP_ALIGN.LEFT)
+    k = len(loss_boxes)
+    w = (10.9 - 0.3 * (k - 1)) / k
+    for i, (lines_, color) in enumerate(loss_boxes):
+        box(s, 1.6 + i * (w + 0.3), 6.6, w, 0.85, lines_, color, lit=False,
+            size=14 if k <= 2 else 12)
+    caption(s, 0.5, 6.65, 1.05, "the loss,\nexplicitly:", 11, REDX, align=PP_ALIGN.LEFT)
+    notes(s, notes_text)
+    return s
+
+
+def s_mode_head_anatomy(prs):
+    head_anatomy_slide(
+        prs,
+        title="Inside ModeHead: a small MLP on the frozen h",
+        intro="ModeHead, the first head trained end-to-end -- two clean factors of "
+              "the hurdle likelihood P(modal) = P(present) x P(modal | present)",
+        input_note="from the frozen encoder (3.23M params, not trained here)",
+        trunk=(["shared trunk", ("Linear 256 -> 128",), ("GELU + dropout",),
+                ("32,896 params",)], PURPLE),
+        branches=[
+            {"box": ["presence branch", ("Linear 128 -> 21, sigmoid",),
+                     ("p_i = P(phase i present)",), ("2,709 params",)],
+             "out": ["21 Bernoullis", ("which minerals",), ("BCE loss",)],
+             "color": GREEN},
+            {"box": ["magnitude branch", ("Linear 128 -> 21, softplus",),
+                     ("alpha_i, Dirichlet concentration",), ("2,709 params",)],
+             "out": ["cond. Dirichlet", ("how much of each,",),
+                     ("on the present set (NLL)",)],
+             "color": ORANGE},
+        ],
+        params_line="38,314 trainable params (trunk 32,896 + 2 x 2,709) -- ~1.2% of the "
+                    "frozen encoder; retrains in under a minute, so the label proxy stays "
+                    "cheap to revise.",
+        dials_line="dials (configs/heads/mode_head.yaml): hidden 128 . dropout 0.0 . "
+                   "magnitude_weight 1.0 . alpha_eps 1e-6 . lr 1e-3 . weight_decay 0 . "
+                   "batch 1024 . epochs 40 / patience 5 -- fixed in code: GELU, AdamW, "
+                   "grad-clip 1.0",
+        loss_boxes=[
+            (["L_presence = −Σᵢ [ yᵢ ln pᵢ + (1−yᵢ) ln(1−pᵢ) ]",
+              ("BCE, all 21 phases x every row; minimized when "
+               "p = the rock's true presence frequency",)], GREEN),
+            (["L_magnitude = −log Dir(mₛ | αₛ)",
+              ("Dirichlet NLL scored only on the present set S -- "
+               "absent phases belong to the Bernoullis",)], ORANGE),
+            (["L = L_presence + λ_mag · L_magnitude",
+              ("trained jointly: one backward pass; each branch gets only its "
+               "own term's gradient, the shared trunk gets the SUM of both -- "
+               "∇L(trunk) = ∇L_pres + λ_mag ∇L_mag",)], PURPLE),
+        ],
+        notes_text="Anatomy of the trained ModeHead (checkpoints/mode_head_seed0): shared trunk "
+             "Linear(256->128)+GELU+dropout, then two parallel linear branches -- presence "
+             "logits (sigmoid -> per-phase Bernoulli, BCE) and concentrations (softplus + eps "
+             "-> conditional Dirichlet, masked NLL on the true support). Param counts are "
+             "exact for hidden=d_model//2. Loss boxes mirror the SSL slide: BCE is a proper "
+             "scoring rule (per-rock minimum = within-bulk presence frequency, which is why "
+             "intermediate p is signal); the Dirichlet NLL is masked to the label's present "
+             "set (sub-composition property keeps it a proper density); λ_mag is the "
+             "loss-weighting coefficient (config key magnitude_weight, 1.0 currently) -- "
+             "λ chosen over w to avoid clashing with layer weights and to match the coming "
+             "λ_balance / λ_comp family. 'Trained jointly' is literal chain-rule math: L is "
+             "one scalar, so one backward pass and one AdamW step update all params at once. "
+             "Each branch's weights appear in only its own term (the other term's gradient "
+             "is exactly zero there); the trunk appears in both, so its gradient is the sum "
+             "-- λ_mag is the exchange rate between the two error signals shaping the shared "
+             "features. NOT alternating epochs, NOT separate optimizers, NOT staged "
+             "pretraining of one branch. The hurdle split exists because one full-simplex "
+             "Dirichlet cannot be simultaneously confident about absences and honest about "
+             "present-phase spread (shared concentration). CompHead/CondHead follow the same "
+             "small-MLP-emitting-distribution-parameters pattern; counts land when they're "
+             "built.")
+
+
+def s_mode_head_reliability(prs):
+    s = new_slide(prs)
+    header(s, "HEADS", "Is 70% honest? One bin of the reliability check")
+    caption(s, 0.55, 1.15, 12.2, "the presence head's headline eval: pool every prediction "
+            "near a probability, then ask how often the mineral was really there",
+            13, GRAYT, align=PP_ALIGN.LEFT)
+    rocks = [("rock A (andesite)", "p_cpx = 0.71", "96 rows: cpx in 70"),
+             ("rock B (bas. andesite)", "p_cpx = 0.74", "96 rows: cpx in 61"),
+             ("rock C (andesite)", "p_cpx = 0.77", "96 rows: cpx in 74")]
+    caption(s, 0.55, 1.75, 2.9, "22-token chemistry -> one p per rock", 11, BLUE)
+    caption(s, 4.05, 1.75, 3.2, "truth: rows where cpx > 0.1 wt% of the solids", 11, GREEN)
+    for i, (name, pred, truth) in enumerate(rocks):
+        y = 2.1 + i * 1.05
+        box(s, 0.55, y, 2.9, 0.85, [name, (pred,)], BLUE, size=12)
+        flow_arrow(s, 3.55, y + 0.25, 0.4, 0.35)
+        box(s, 4.05, y, 3.2, 0.85, [truth], GREEN, size=12)
+        line(s, 7.25, y + 0.42, 7.85, 3.7, GRAYT, 1.5)
+    box(s, 7.85, 2.75, 2.6, 1.9, ["predictions binned:", ("p in [0.70, 0.80): 3 predictions,",),
+        ("x 96 labels each = 288 pairs",), ("mean p = 0.740  .  actually",),
+        ("present: 205 / 288 = 0.712",)], ORANGE, size=13)
+    px, py, pw, ph = 10.8, 1.95, 2.3, 2.3
+    frame = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(px), Inches(py), Inches(pw), Inches(ph))
+    frame.fill.background(); frame.line.color.rgb = _rgb(GRAYL)
+    frame.line.width = Pt(1); frame.shadow.inherit = False
+    line(s, px, py + ph, px + pw, py, GRAYT, 1.2)
+    dot = s.shapes.add_shape(MSO_SHAPE.OVAL, Inches(px + 0.740 * pw - 0.09),
+                             Inches(py + (1 - 0.712) * ph - 0.09), Inches(0.18), Inches(0.18))
+    dot.fill.solid(); dot.fill.fore_color.rgb = _rgb(ORANGE)
+    dot.line.fill.background(); dot.shadow.inherit = False
+    ghost = s.shapes.add_shape(MSO_SHAPE.OVAL, Inches(px + 0.740 * pw - 0.08),
+                               Inches(py + (1 - 0.469) * ph - 0.08), Inches(0.16), Inches(0.16))
+    ghost.fill.solid(); ghost.fill.fore_color.rgb = _rgb(GRAYL)
+    ghost.line.fill.background(); ghost.shadow.inherit = False
+    line(s, 8.95, 4.65, px + 0.740 * pw, py + (1 - 0.712) * ph + 0.12, ORANGE, 1.5)
+    caption(s, px - 0.3, py + ph + 0.05, pw + 0.6, "predicted p ->", 10, GRAYT)
+    caption(s, px - 0.3, py - 0.45, pw + 0.6, "on the diagonal = calibrated", 11, ORANGE)
+    caption(s, px - 0.3, py + ph + 0.42, pw + 0.6,
+            "gray dot: overconfident (if truth were 135/288)", 9, GRAYT)
+    caption(s, 0.55, 5.15, 12.2, '"actually present" is the pooled hit rate over the rows whose '
+            "prediction landed in the bin -- never a corpus-wide rate, never one rock alone. "
+            "Per-rock misses can cancel inside a bin (B deserved 0.64); the p-vs-frequency "
+            "scatter is the stricter per-rock test, and the head is scored on both.",
+            11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 5.9, 12.2, "3 rocks shown; the real figure pools the validation rocks "
+            "only -- currently ~930 rocks x 96 rows = 86,617 (p, truth) pairs per mineral "
+            "panel, partitioned across the 10 bins (the gray bars). Training rocks are "
+            "excluded because a head that memorized them would grade itself calibrated. And "
+            "since all 96 rows of a rock share one prediction, a panel holds only ~930 "
+            "distinct p values, each stamped 96x -- the effective sample size is rocks, not "
+            "rows, which is why every number stays provisional until the valtest tier "
+            "(500 rocks x 128 draws) lands.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.95, 12.2, "BCE's per-rock minimum is the true fraction, so an honest "
+            "head lands on the diagonal by construction. current limits (provisional): garnet "
+            "presence under-predicted even at f > 0.9; amphibole magnitude spread too narrow. "
+            "full report: results/mode_head/<tag>/", 10, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Worked example for the reliability diagram in results/mode_head/<tag>/"
+             "reliability.png. Numbers illustrative but to scale: three rocks predicted in "
+             "[0.70, 0.80) -- a real bin edge of the 10 equal-width bins the code uses -- "
+             "contribute 3 predictions x 96 labels = 288 (p, truth) pairs -- 3 predictions, "
+             "not 288; each rock's single p is scored against its 96 labels. "
+             "x = count-weighted mean p (0.740), "
+             "y = pooled fraction of pairs with cpx present (205/288 = 0.712). ECE on the "
+             "real panels is the count-weighted |x - y| over 10 such bins. The gray ghost "
+             "dot shows the overconfident failure mode. Real population: val split of the "
+             "provisional bulk-level hash split (~20% of 4,670 corpus rocks at 47/100 "
+             "chunks); the '~930 rocks / 86,617 rows' line is a current snapshot and grows "
+             "with the corpus -- update it on regen. Pair with figure 2 (p vs within-bulk "
+             "frequency): reliability is aggregate honesty, the scatter is per-rock "
+             "sharpness; a base-rate predictor passes the first and fails the second.")
 
 
 def s_outputs(prs):
@@ -562,10 +811,12 @@ def s_outputs(prs):
 if __name__ == "__main__":
     prs = make()
     s_title(prs)
-    s_corpora(prs); s_labelgen(prs); s_regen_status(prs); s_architecture(prs)
+    s_corpora(prs); s_labelgen(prs); s_one_to_many(prs); s_regen_status(prs)
+    s_architecture(prs)
     s_inputs(prs); s_embed(prs); s_encoder(prs)
     s_ssl(prs); s_workflow(prs)
-    s_heads(prs); s_outputs(prs); s_scenarios(prs)
+    s_heads(prs); s_mode_head_anatomy(prs); s_mode_head_reliability(prs)
+    s_outputs(prs); s_scenarios(prs)
     out = Path(__file__).resolve().parent / "overview.pptx"
     prs.save(out)
     print(f"wrote {out}  ({len(prs.slides._sldIdLst)} slides)")
