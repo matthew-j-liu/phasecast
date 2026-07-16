@@ -765,6 +765,64 @@ def s_mode_head_reliability(prs):
              "sharpness; a base-rate predictor passes the first and fails the second.")
 
 
+def s_mode_head_dirichlet(prs):
+    s = new_slide(prs)
+    header(s, "HEADS", "If it's there, how much? One row through the Dirichlet")
+    caption(s, 0.55, 1.15, 12.2, "the magnitude branch's eval: slice the predicted "
+            "concentrations to the row's true support, compare means to truth, and ask "
+            "whether the claimed spread is honest (PIT)", 13, GRAYT, align=PP_ALIGN.LEFT)
+    box(s, 0.55, 2.1, 3.0, 2.0, ["one row's truth",
+        ("bulk X . draw 17 . rung 50",),
+        ("present: plag cpx amp ilm",),
+        ("modes: .44  .26  .19  .11",),
+        ("(crystals-renormalized, sum 1)",)], GREEN, size=12)
+    flow_arrow(s, 3.65, 2.9, 0.4, 0.35)
+    box(s, 4.15, 2.1, 3.0, 2.0, ["head output for bulk X",
+        ("alpha, sliced to the true support:",),
+        ("plag 12.0    cpx 7.0",),
+        ("amp 4.5      ilm 1.5",),
+        ("alpha0 = sum = 25 (confidence)",)], ORANGE, size=12)
+    flow_arrow(s, 7.25, 2.9, 0.4, 0.35)
+    box(s, 7.75, 2.1, 3.0, 2.0, ["predicted mean +/- spread",
+        ("plag 0.48 +/- 0.10   (true .44)",),
+        ("cpx 0.28 +/- 0.09   (true .26)",),
+        ("amp 0.18 +/- 0.08   (true .19)",),
+        ("ilm 0.06 +/- 0.05   (true .11)",)], PURPLE, size=12)
+    gx, gy, gw, gh = 11.05, 3.6, 2.0, 1.15
+    gaussian(s, gx, gy - gh, gw, gh, [(0.48, 0.10, 1.0)], PURPLE,
+             "plag marginal: Beta(12, 13)")
+    tx = gx + 0.44 * gw
+    line(s, tx, gy, tx, gy - gh - 0.15, GREEN, 2.0)
+    caption(s, gx - 0.25, gy - gh - 0.55, gw + 0.5, "truth 0.44 -> PIT 0.34", 10, GREEN)
+    caption(s, 0.55, 4.55, 12.2, "each present phase's marginal is a Beta distribution; "
+            "PIT = where the truth lands inside it (its CDF value). Over many rows a flat "
+            "PIT histogram means the spread is honest; a U means overconfident (truth keeps "
+            "escaping the claimed range), a hump means underconfident.",
+            11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 5.35, 12.2, "the support is teacher-forced: training and this eval "
+            "slice alpha to the row's TRUE present set (absent phases contribute nothing -- "
+            "they belong to the Bernoullis; the sub-composition of a Dirichlet is itself a "
+            "Dirichlet, so the sliced score is a proper density). At inference the support "
+            "is sampled from the presence branch instead.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.3, 12.2, "population: only truly-present (row, phase) pairs are "
+            "scored -- ~68k pairs for plag down to ~200 for corundum; single-phase rows are "
+            "excluded (nothing to size). current limits (provisional): amphibole U-shaped "
+            "PIT (spread too narrow; truth plausibly bimodal across paths), oxide "
+            "accessories humped (too wide), plag under-sized. full report: "
+            "results/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
+            10, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "
+             "branch's reliability worked example. Numbers illustrative but to scale: "
+             "alpha sliced to the true 4-phase support gives Dirichlet means "
+             "alpha_i/alpha0 and Beta marginals Beta(alpha_i, alpha0 - alpha_i); plag "
+             "Beta(12,13) has mean 0.48, sd ~0.10, and truth 0.44 lands at CDF 0.34. "
+             "alpha0 is the single shared confidence knob per row -- the reason per-phase "
+             "spreads can't be tuned independently (see alpha_concentration.png). PIT "
+             "histograms are the magnitude analog of reliability diagrams; parity plots "
+             "are the point-estimate view. Scored by masked Dirichlet NLL (anatomy "
+             "slide's L_magnitude).")
+
+
 def s_outputs(prs):
     s = new_slide(prs)
     header(s, "HEADS", "What the heads emit (distributions, not point estimates)")
@@ -816,6 +874,7 @@ if __name__ == "__main__":
     s_inputs(prs); s_embed(prs); s_encoder(prs)
     s_ssl(prs); s_workflow(prs)
     s_heads(prs); s_mode_head_anatomy(prs); s_mode_head_reliability(prs)
+    s_mode_head_dirichlet(prs)
     s_outputs(prs); s_scenarios(prs)
     out = Path(__file__).resolve().parent / "overview.pptx"
     prs.save(out)

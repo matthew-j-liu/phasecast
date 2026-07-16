@@ -165,6 +165,19 @@ from `frac > 0`, which collided with any masking that zeroed `frac` and silently
 zeroed encoder gradients at masked positions.  Own this explicitly; don't rely on
 a vendored padding heuristic.  Full story in [docs/encoder.md](docs/encoder.md).
 
+## Terminology (locked 2026-07-16)
+
+- **bulk** — one gard2019 composition; the MAGEMin input; the unit of
+  splitting.  "Rock" is its informal synonym in slides/prose, never the name
+  for an output.
+- **draw** — one sampled (P, H2O) path = one MAGEMin cooling run (48/bulk
+  train, 128/bulk valtest).
+- **rung** — the melt-fraction depth a draw is read out at (50/30).
+- **row** — one (bulk, draw, rung): the atomic training example / label.
+- **assemblage** — a row's mineral content (phases + modes).
+- **scenario** — RESERVED for the model's posterior clusters at inference
+  (heads.md View 2); never a corpus row.
+
 ## Settled decisions (don't re-litigate)
 
 If you find yourself recommending a change, address the rationale specifically —
