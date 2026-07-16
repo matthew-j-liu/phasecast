@@ -86,6 +86,13 @@
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/training/imputation_head.py"
     ],
+    "fp_mass_guardrail": [
+      "src/cnmineral/eval/mode_head.py"
+    ],
+    "joint_hurdle_nll_eval": [
+      "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/training/mode_head.py"
+    ],
     "knn_label_purity": [
       "src/cnmineral/eval/probe/__init__.py",
       "src/cnmineral/eval/probe/primitives.py",
@@ -102,6 +109,12 @@
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/eval/probe/scoring.py"
+    ],
+    "pit_magnitude_calibration": [
+      "src/cnmineral/eval/mode_head.py"
+    ],
+    "presence_reliability_ece": [
+      "src/cnmineral/eval/mode_head.py"
     ],
     "supergroup_collapse": [
       "src/cnmineral/eval/imputation.py",
@@ -152,6 +165,7 @@
       "scripts/view/plot_training.py",
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/eval/latent.py",
+      "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/eval/probe/scoring.py",
@@ -177,6 +191,7 @@
       "src/cnmineral/eval/probe/primitives.py"
     ],
     "masked_dirichlet_nll": [
+      "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/losses/mode_loss.py",
       "src/cnmineral/training/mode_head.py"
     ],
@@ -250,6 +265,7 @@
       "src/cnmineral/data/mineralogy_dataset.py",
       "src/cnmineral/data/volcanic_subset.py",
       "src/cnmineral/eval/imputation.py",
+      "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/eval/supergroup.py",

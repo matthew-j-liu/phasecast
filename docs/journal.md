@@ -3307,3 +3307,52 @@ calibration table. All partial-corpus numbers are provisional scaffolding.
 construction), CondHead + support conditioning, mass-balance term (needs
 CompHead), joint loss composition. Open rethink carried: inference-time
 closure-residual-as-OOD degrades under teacher-forced melt fractions.
+
+## 2026-07-16 -- ModeHead interrogation harness + first read; head reporting system; split mapping locked
+
+**Q.** What does the smoke ModeHead actually do (presence calibration, the
+multimodal-signal claim, magnitude honesty, guardrail mass), and how should
+every future head be reported so orientation doesn't restart each session?
+
+**Context.** Handoff step 1: interrogate before iterating. 47/100 chunks,
+4,670 resolvable bulks, provisional hash split (~930 val bulks, 86.6k val
+rows). Owner spent a long review session interrogating the semantics
+(prediction-vs-label counting, BCE mechanics, bin definitions) -- those
+answers were folded into the deck as they were settled.
+
+**Considered.** Notebook vs eval-module for the interrogation (hybrid
+module+notebook proposed; owner chose module + thin script per repo
+conventions). Per-head vs per-metric-family eval slides (owner: per head,
+maximum detail).
+
+**Decision.** Landed `cnmineral/eval/mode_head.py` + `scripts/eval/mode_head.py`
+(+10 tests): reliability/ECE, p-vs-within-bulk-f, stratified joint hurdle NLL,
+magnitude parity, Beta-marginal PIT, alpha concentration, FP/FN *mass*, banded
+recall, rung-50-vs-30; artifacts to `results/mode_head/<tag>/`. First read
+(all provisional): presence side healthy -- ECE <= 0.033 every phase, p tracks
+each bulk's presence frequency (amp r 0.93; the multimodal claim measured,
+not assumed). Magnitude side is the weak half -- amp conditional MAE 0.14
+with U-shaped PIT (overconfident; truth plausibly bimodal across paths),
+oxide accessories humped (underconfident), plag systematically under-sized.
+Garnet presence near-blind (recall 0 even at within-bulk f > 0.9). FP-mass
+mean 0.15 (half amphibole) is substantially the intrinsic cost of collapsing
+a multimodal posterior to one hard support, not pure head error. Joint NLL is
+not comparable across support sizes (Dirichlet density scaling) -- rung strata
+differences are mostly bookkeeping. Deck: standard two-slide-per-head report
+locked (8-item checklist in `slides/overview.py` docstring, rule added to
+CLAUDE.md), plus a one-rock-96-labels fan-out slide and a reliability
+worked-example slide; loss weight renamed lambda_mag on slides (config key
+stays `magnitude_weight`). Split mapping locked (owner): all 10k train-tier
+bulks train; the 500 valtest bulks divide 16:20 -> ~222 val / ~278 test,
+stratified by qap_name (CLAUDE.md settled decisions updated).
+
+**Next.** Step-2 iteration scouting (retrains ~1 min): hidden-width sweep +
+no-trunk linear baseline + magnitude_weight; plain-Dirichlet ablation
+baseline (heads.md open item). Candidate design change if the amp PIT U-shape
+survives tuning: support-conditioned magnitude branch (mirrors the locked
+CondHead pattern; owner sign-off required). Candidate concerns named, none
+triaged (owner's ledger): (a) FP-mass-at-0.5 conflates head error with
+hard-view cost; (b) amp conditional bimodality vs a single per-bulk Dirichlet;
+(c) NLL support-size comparability caveat on strata; (d) eval imports
+`_bulk_latents`/`_row_split_indices` privately from the training module;
+(e) split seed/val_fraction not stamped in `ModeHeadCheckpoint`.

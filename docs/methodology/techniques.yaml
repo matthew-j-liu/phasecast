@@ -263,6 +263,25 @@ techniques:
     patterns:
       - "run_imputation"
       - "_impute_token"
+  - name: joint_hurdle_nll_eval
+    type: evaluation
+    patterns:
+      - "hurdle_nll_rows"
+      - "joint_nll"
+  - name: presence_reliability_ece
+    type: evaluation
+    patterns:
+      - "reliability_table"
+      - "within_bulk_frequency"
+  - name: pit_magnitude_calibration
+    type: evaluation
+    patterns:
+      - "beta_pit"
+  - name: fp_mass_guardrail
+    type: evaluation
+    patterns:
+      - "fp_fn_mass"
+      - "fp_mass"
 
   # ---- data_loading ----
   - name: parquet_sidecar_cache
