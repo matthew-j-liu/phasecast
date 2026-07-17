@@ -3416,3 +3416,66 @@ valtest lands), then alpha_concentration and mass_guardrails; then plan-mode
 design of the ModeHead-only Optuna scouting sweep (#25). Decision gate for the bimodality fix: stratify amp PIT by
 support -- U-shape dissolving within fixed supports means support-conditioning
 suffices, persisting means mixture components.
+
+## 2026-07-17 -- Amphibole bimodality measured in the corpus: support-conditioning first, mixture second
+
+**Q.** Is the within-bulk amphibole bimodality real in the conditional
+(given-presence) proportion labels, and where do the humps live -- across
+supports, across rungs, or within a fixed (support, rung) cell? The answer
+picks the fix: support-conditioning can only dissolve humps that separate by
+support; within-cell humps need explicit mixture components.
+
+**Context.** Owner review of the Optuna scouting-sweep framing killed its
+three questions: the no-trunk linear baseline is decision-free (no outcome
+changes what we build next), hurdle-vs-plain-Dirichlet is deferred to
+whatever tuning round exists later, and tuning-vs-structural for amphibole
+was already answered by construction (many-to-one corpus is a settled
+decision; the 51% amp<->opx switch confirmed it empirically 2026-06-30).
+Order of operations locked this session: PIT-by-support diagnostic + this
+data exam now -> valtest tier lands (4/5 chunks done) -> split swap +
+figure/caption refresh -> CompHead/CondHead build (plan mode) -> joint
+tuning per ADR 006 -> amphibole fix ladder measured against that baseline.
+Rationale for heads-first: CondHead's locked chain-rule design builds the
+support-conditioning machinery anyway, its GMM builds the mixture plumbing,
+and the mass-balance term gives the fix ladder the right baseline to beat.
+Owner ordered a direct corpus examination of the bimodality claim.
+
+**Considered.** Three bimodality statistics. Split-based Ashman D from exact
+1-D 2-means: rejected after exemplar review -- the optimal split gives D
+~2.6 for a pure Gaussian, ~3.5 for a uniform, and 6.0 for a near-degenerate
+point mass, so "98% bimodal at D>2" was measuring spread shape, not humps.
+Silverman-bandwidth KDE mode counting: rejected in the opposite direction --
+at n~68, sd~0.18 the bandwidth is ~0.08, which merges humps closer than
+~0.16 and reported only 2% bimodal. Adopted: per-bulk 1-vs-2 component
+Gaussian mixture picked by BIC, called bimodal only if both weights >= 0.15,
+hump separation >= 0.05 proportion units, and separation >= 2x within-hump
+spread. 2,000-bulk sample of the 7,480 train-tier bulks with >= 30
+amp-present rows.
+
+**Decision.** The bimodality is real and large: 45% of sampled bulks are
+bimodal in conditional amp proportion (68% among amp-rich bulks, mean >
+0.5); median hump separation 0.35. Where the humps live: support identity
+explains a median 81% of within-bulk conditional amp variance (null
+inflation for that group count is ~0.2), support x rung 86%, rung alone 11%;
+conditioning on the (support, rung) cell drops typical residual spread from
+~0.19 to ~0.07. But 34% of testable bimodal bulks remain bimodal within
+their dominant support (27% within the dominant support x rung cell) --
+bimodality a support-conditioned single Dirichlet cannot represent, sitting
+where amp is abundant. Caveats: within-support tests only possible where the
+dominant support has >= 20 rows (329/906 bimodal bulks; biased toward
+support-concentrated bulks), and small cells underpower the mixture test, so
+the irreducible rates are likelier under- than over-estimates. All numbers
+provisional-tier. Consistent with the parity finding that teacher-forced
+support leaks path information (amp r 0.68 > bulk-only ceiling ~0.59).
+**Recorded expectation: a combination of fixes will be necessary, staged
+one at a time -- support-conditioned magnitude branch first (it addresses
+the ~80% of variance the support carries, and reuses CondHead machinery),
+mixture-of-Dirichlets added only after support-conditioning's improvement
+is measured in isolation, so each change's contribution is interrogated
+separately.** Analysis scripts were scratch (not repo artifacts); method and
+numbers recorded here and in #25.
+
+**Next.** PIT-by-support diagnostic + per-bulk overlay on the current
+checkpoint (eval-harness code, plan mode first); valtest lands -> delete
+`provisional_bulk_split`, refresh figures and deck captions; then
+CompHead/CondHead plan mode.
