@@ -12,12 +12,14 @@ MAGEMin segfaults deterministically on rare pathological inputs (pseudocompound
 storage overflow), and the overflow corrupts the whole process heap, so bad
 points cluster within a draw and the process can die anywhere -- including
 during cleanup after all output was written (that case is salvaged by checking
-the output file instead of the exit code). A call group whose Julia process
-dies is therefore bisected at draw boundaries until the poison draw is
-isolated, then the whole draw is dropped; `parse_chunk` counts missing sids as
-failed points, so the drop lands in the existing n_failed / attrition
-accounting. Crash tracebacks go to `<input>.stderr` beside the failing CSV,
-not the console.
+the output file instead of the exit code). The same overflow can instead spin
+forever in the fsp pseudocompound loop ("MAXIMUM STORAGE SPACE FOR PC IS
+REACHED") rather than crash, so each Julia call gets a size-scaled timeout and
+a timed-out call is treated exactly like a crash. Either way the call group is
+bisected at draw boundaries until the poison draw is isolated, then the whole
+draw is dropped; `parse_chunk` counts missing sids as failed points, so the
+drop lands in the existing n_failed / attrition accounting. Crash tracebacks
+go to `<input>.stderr` beside the failing CSV, not the console.
 
 The full fixed ladder (1200 -> 600 C) runs in one batch and the stored ladder
 is truncated at the 30%-melt stop while parsing: on the measured crossing
@@ -58,12 +60,18 @@ def read_manifest(out):
     return {rec["chunk"]: rec for rec in map(json.loads, open(path))}
 
 
-def run_julia(input_csv, output_jsonl, database):
-    return subprocess.run(
-        ["julia", f"--project={REPO / 'magemin'}", "-t", "auto", str(RUNNER),
-         "--input", str(input_csv), "--output", str(output_jsonl),
-         "--database", database, "--quiet"],
-        cwd=REPO, stderr=subprocess.PIPE, text=True)
+def run_julia(input_csv, output_jsonl, database, timeout):
+    cmd = ["julia", f"--project={REPO / 'magemin'}", "-t", "auto", str(RUNNER),
+           "--input", str(input_csv), "--output", str(output_jsonl),
+           "--database", database, "--quiet"]
+    try:
+        return subprocess.run(cmd, cwd=REPO, stderr=subprocess.PIPE, text=True,
+                              timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+        return subprocess.CompletedProcess(
+            cmd, returncode=-1,
+            stderr=f"killed: no output after {timeout:.0f}s (solver hang)\n{stderr}")
 
 
 CRASH_CAP = 48  # dropped draws per call group before we assume systemic failure
@@ -83,7 +91,9 @@ def _complete_output(jsonl, n):
 def run_group(inp, csv, jsonl, database, crashed):
     """Run one call group, bisecting at draw boundaries around solver crashes."""
     inp.to_csv(csv, index=False)
-    proc = run_julia(csv, jsonl, database)
+    # healthy throughput is ~8 ms/point; 30 ms/point is ~4x headroom, the
+    # 300 s floor covers Julia startup on the small bisection leaves
+    proc = run_julia(csv, jsonl, database, timeout=300 + 0.03 * len(inp))
     if proc.returncode == 0 or _complete_output(jsonl, len(inp)):
         return
     csv.with_suffix(".stderr").write_text(proc.stderr or "")
