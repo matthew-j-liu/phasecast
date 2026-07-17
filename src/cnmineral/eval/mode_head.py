@@ -86,6 +86,73 @@ def within_bulk_frequency(
     return f, n_rows
 
 
+def within_bulk_conditional_sigma(
+    magnitude: np.ndarray, presence: np.ndarray, row_bulk_idx: np.ndarray
+) -> np.ndarray:
+    """Pooled within-bulk std of the conditional magnitude, per phase.
+
+    For each phase, the std of `magnitude` around its own bulk's mean over
+    truly-present rows: the vertical parity scatter a bulk-level predictor
+    cannot remove (path variation, not model error). NaN for phases with no
+    present rows.
+    """
+    n_bulks = int(row_bulk_idx.max()) + 1 if row_bulk_idx.size else 0
+    out = np.full(magnitude.shape[1], np.nan)
+    for i in range(magnitude.shape[1]):
+        m = presence[:, i] > 0
+        if not m.any():
+            continue
+        t, b = magnitude[m, i], row_bulk_idx[m]
+        cnt = np.bincount(b, minlength=n_bulks).astype(np.float64)
+        mean = np.divide(
+            np.bincount(b, weights=t, minlength=n_bulks), cnt,
+            out=np.zeros(n_bulks), where=cnt > 0,
+        )
+        out[i] = float((t - mean[b]).std())
+    return out
+
+
+def within_bulk_sigma_profile(
+    magnitude: np.ndarray,
+    presence: np.ndarray,
+    row_bulk_idx: np.ndarray,
+    n_bins: int = 5,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Within-bulk sd of conditional magnitude, binned by the bulk's mean level.
+
+    Same deviations as `within_bulk_conditional_sigma`, but pooled inside
+    `n_bins` quantile bins of the bulk's own mean magnitude. Returns
+    `(levels, sigmas)`, each [P, n_bins] (NaN for empty bins): the
+    magnitude-dependent parity-band width -- bounded fractions scatter more
+    at mid levels than near 0 or 1, so a flat band overstates the floor at
+    low magnitudes.
+    """
+    n_bulks = int(row_bulk_idx.max()) + 1 if row_bulk_idx.size else 0
+    n_phases = magnitude.shape[1]
+    levels = np.full((n_phases, n_bins), np.nan)
+    sigmas = np.full((n_phases, n_bins), np.nan)
+    for i in range(n_phases):
+        m = presence[:, i] > 0
+        if not m.any():
+            continue
+        t, b = magnitude[m, i], row_bulk_idx[m]
+        cnt = np.bincount(b, minlength=n_bulks).astype(np.float64)
+        mean = np.divide(
+            np.bincount(b, weights=t, minlength=n_bulks), cnt,
+            out=np.zeros(n_bulks), where=cnt > 0,
+        )
+        lvl = mean[b]
+        dev = t - lvl
+        edges = np.quantile(lvl, np.linspace(0, 1, n_bins + 1))
+        idx = np.clip(np.digitize(lvl, edges[1:-1]), 0, n_bins - 1)
+        for k in range(n_bins):
+            mk = idx == k
+            if mk.sum() > 1:
+                levels[i, k] = float(lvl[mk].mean())
+                sigmas[i, k] = float(dev[mk].std())
+    return levels, sigmas
+
+
 def hurdle_nll_rows(
     logits: torch.Tensor,
     alpha: torch.Tensor,
@@ -356,10 +423,28 @@ def plot_pf_subset(
             out_path)
 
 
+def _parity_band(ax, levels: np.ndarray, sigmas: np.ndarray) -> None:
+    ok = np.isfinite(levels) & np.isfinite(sigmas)
+    if not ok.any():
+        return
+    x = np.linspace(0, 1, 101)
+    s = np.interp(x, levels[ok], sigmas[ok])
+    ax.fill_between(x, x - s, x + s, color="#ff6b6b", alpha=0.3, lw=0, zorder=2)
+
+
 def plot_magnitude_parity(
-    cond_mean: np.ndarray, magnitude: np.ndarray, presence: np.ndarray, out_path: Path
+    cond_mean: np.ndarray,
+    magnitude: np.ndarray,
+    presence: np.ndarray,
+    band: tuple[np.ndarray, np.ndarray],
+    out_path: Path,
 ) -> dict[str, np.ndarray]:
-    """True vs predicted conditional magnitude on truly-present rows."""
+    """True vs predicted conditional magnitude on truly-present rows.
+
+    Band around the diagonal is +/-1 within-bulk sd at that magnitude level
+    (`band` from `within_bulk_sigma_profile`): the scatter a bulk-level
+    predictor cannot remove.
+    """
     fig, axes = _phase_grid()
     mae = np.full(len(SOLID_PHASES), np.nan)
     r = np.full(len(SOLID_PHASES), np.nan)
@@ -371,25 +456,26 @@ def plot_magnitude_parity(
             if true.std() > 0 and pred.std() > 0:
                 r[i] = float(np.corrcoef(true, pred)[0, 1])
         if true.size > 5000:
-            ax.hexbin(true, pred, gridsize=40, cmap="viridis", bins="log",
+            ax.hexbin(pred, true, gridsize=40, cmap="viridis", bins="log",
                       extent=(0, 1, 0, 1))
         else:
-            ax.scatter(true, pred, s=5, alpha=0.3, edgecolors="none",
+            ax.scatter(pred, true, s=5, alpha=0.3, edgecolors="none",
                        color="#7570b3")
+        _parity_band(ax, band[0][i], band[1][i])
         ax.plot([0, 1], [0, 1], "w--" if true.size > 5000 else "k--", lw=0.8)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.set_title(f"{name}  MAE={mae[i]:.3f} r={r[i]:.2f} n={true.size}",
                      fontsize=9)
-        ax.set_xlabel("true magnitude", fontsize=8)
-        ax.set_ylabel("predicted cond. mean", fontsize=8)
-    _finish(fig, "conditional magnitude parity (true support)", out_path)
+        ax.set_xlabel("predicted cond. mean", fontsize=8)
+        ax.set_ylabel("true magnitude", fontsize=8)
+    _finish(fig, "conditional magnitude parity (true support; band = +/-1 "
+            "within-bulk sd at that magnitude level)", out_path)
     return {"magnitude_mae": mae, "magnitude_r": r}
 
 
 PARITY_REGIME_PANELS = (
     ("afs", "alkali feldspar"),
-    ("plag", "plagioclase"),
     ("amp", "amphibole"),
     ("spl", "spinel"),
 )
@@ -399,30 +485,32 @@ def plot_magnitude_parity_subset(
     cond_mean: np.ndarray,
     magnitude: np.ndarray,
     presence: np.ndarray,
+    sigma_wb: np.ndarray,
+    band: tuple[np.ndarray, np.ndarray],
     out_path: Path,
     panels: tuple = PARITY_REGIME_PANELS,
 ) -> None:
-    """One magnitude-parity panel per behavior regime, 2x2 (slide-sized)."""
-    fig, axes = plt.subplots(2, 2, figsize=(9.0, 8.0))
-    for ax, (name, full_name) in zip(axes.flat, panels):
+    """One magnitude-parity panel per behavior regime (slide-sized)."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 4.4))
+    for ax, (name, full_name) in zip(np.atleast_1d(axes), panels):
         i = SOLID_PHASES.index(name)
         m = presence[:, i] > 0
         true, pred = magnitude[m, i], cond_mean[m, i]
         mae = float(np.abs(pred - true).mean())
-        bias = float((pred - true).mean())
         r = (float(np.corrcoef(true, pred)[0, 1])
              if true.std() > 0 and pred.std() > 0 else float("nan"))
-        ax.hexbin(true, pred, gridsize=40, cmap="viridis", bins="log",
+        ax.hexbin(pred, true, gridsize=40, cmap="viridis", bins="log",
                   extent=(0, 1, 0, 1))
+        _parity_band(ax, band[0][i], band[1][i])
         ax.plot([0, 1], [0, 1], "w--", lw=0.8)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        ax.set_title(f"{full_name}  MAE={mae:.3f}  r={r:.2f}  bias={bias:+.3f}",
-                     fontsize=12)
-        ax.set_xlabel("true magnitude", fontsize=10)
-        ax.set_ylabel("predicted cond. mean", fontsize=10)
-    _finish(fig, "conditional magnitude parity: the four behavior regimes",
-            out_path)
+        ax.set_title(f"{full_name}  MAE={mae:.3f}  r={r:.2f}  "
+                     f"wb-sd={sigma_wb[i]:.2f}", fontsize=12)
+        ax.set_xlabel("predicted cond. mean", fontsize=10)
+        ax.set_ylabel("true magnitude", fontsize=10)
+    _finish(fig, "conditional magnitude parity: behavior regimes "
+            "(band = +/-1 within-bulk sd at that magnitude level)", out_path)
 
 
 def plot_pit(pit: np.ndarray, out_path: Path, n_bins: int = 20) -> None:
@@ -439,6 +527,38 @@ def plot_pit(pit: np.ndarray, out_path: Path, n_bins: int = 20) -> None:
         ax.set_title(f"{name}  n={vals.size}", fontsize=9)
         ax.set_xlabel("PIT", fontsize=8)
     _finish(fig, "magnitude PIT (flat=calibrated, U=overconfident)", out_path)
+
+
+PIT_REGIME_PANELS = (
+    ("q", "quartz"),
+    ("amp", "amphibole"),
+    ("ru", "rutile"),
+)
+
+
+def plot_pit_subset(
+    pit: np.ndarray,
+    out_path: Path,
+    panels: tuple = PIT_REGIME_PANELS,
+    n_bins: int = 20,
+) -> None:
+    """One PIT panel per behavior regime (slide-sized)."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 4.4))
+    for ax, (name, full_name) in zip(np.atleast_1d(axes), panels):
+        i = SOLID_PHASES.index(name)
+        v = pit[:, i]
+        v = v[~np.isnan(v)]
+        tails = float(((v < 0.05) | (v > 0.95)).mean())
+        ax.hist(v, bins=n_bins, range=(0, 1), density=True,
+                color="#d95f02", alpha=0.8)
+        ax.axhline(1.0, color="k", ls="--", lw=0.8)
+        ax.set_xlim(0, 1)
+        ax.set_title(f"{full_name}  mean={v.mean():.2f}  tails={tails:.2f}",
+                     fontsize=12)
+        ax.set_xlabel("PIT", fontsize=10)
+        ax.set_ylabel("density", fontsize=10)
+    _finish(fig, "magnitude PIT: behavior regimes "
+            "(flat = honest spread; tails expected 0.10)", out_path)
 
 
 def plot_alpha_concentration(
@@ -636,14 +756,18 @@ def run_mode_head_eval(
         p_bulk[val_bulks], f_all[val_bulks], output_dir / "p_vs_frequency_subset.png"
     )
     cm_true = conditional_mean(alpha_rows, presence)
+    sigma_wb = within_bulk_conditional_sigma(magnitude, presence, row_bulk)
+    band = within_bulk_sigma_profile(magnitude, presence, row_bulk)
     parity = plot_magnitude_parity(
-        cm_true, magnitude, presence, output_dir / "magnitude_parity.png"
+        cm_true, magnitude, presence, band, output_dir / "magnitude_parity.png"
     )
     plot_magnitude_parity_subset(
-        cm_true, magnitude, presence, output_dir / "magnitude_parity_subset.png"
+        cm_true, magnitude, presence, sigma_wb, band,
+        output_dir / "magnitude_parity_subset.png",
     )
     pit = beta_pit(alpha_rows, presence, magnitude)
     plot_pit(pit, output_dir / "magnitude_pit.png")
+    plot_pit_subset(pit, output_dir / "magnitude_pit_subset.png")
     alpha0 = (alpha_rows * presence).sum(-1)
     plot_alpha_concentration(alpha0, support_size, output_dir / "alpha_concentration.png")
     plot_rung_frequency(
@@ -677,6 +801,7 @@ def run_mode_head_eval(
             "bernoulli_nll": float(bce_phase[i]),
             "magnitude_mae": float(parity["magnitude_mae"][i]),
             "magnitude_r": float(parity["magnitude_r"][i]),
+            "within_bulk_sd": float(sigma_wb[i]),
             "recall": float(scores["recall"][i]),
             "precision": float(scores["precision"][i]),
             "fp_mass_mean": float(masses["fp_mass_per_phase"][:, i].mean()),

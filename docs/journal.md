@@ -3374,11 +3374,25 @@ vs mixture-of-Dirichlets vs condition-on-conditions chain vs flows/diffusion
 (last rejected: forfeits closed-form NLL/PIT and the microsecond-inference
 pitch for a 21-dim problem).
 
-**Decision.** `plot_magnitude_parity_subset` added to the harness (regimes:
-alkali feldspar = healthy r 0.89; plagioclase = tracks but systematically
-under-sized; amphibole = regression-to-the-middle of a two-humped truth,
-pred std 0.13 vs true std 0.23; spinel = MAE-flattered accessory, bias ~80%
-of median magnitude). Plag under-sizing challenged by owner and re-verified
+**Decision.** `plot_magnitude_parity_subset` added to the harness -- THREE
+regimes (owner relaxed the 2x2 protocol to "up to four, only as many as the
+figure defends"): alkali feldspar = healthy (r 0.89); amphibole =
+regression-to-the-middle of a two-humped truth (pred std 0.13 vs true 0.23);
+spinel = MAE-flattered accessory (bias ~80% of median magnitude).
+Plagioclase dropped: on parity it is the same regime as afs -- its small
+systematic under-sizing is invisible in a hexbin and belongs to the PIT
+figure. Both parity plots now shade +/-1 within-bulk sd around the diagonal, with
+the width binned by magnitude level (`within_bulk_sigma_profile`; owner
+observed a flat band overstates the floor at low magnitudes -- confirmed,
+afs sd 0.058 at level ~0.1 vs 0.165 at ~0.66; the pooled scalar
+`within_bulk_conditional_sigma` stays as the `within_bulk_sd` per-phase
+metric and subset-title stat): the vertical scatter a bulk-level predictor
+cannot remove. Amp's pooled band is 0.19 (81% of its total sd is
+within-bulk); notably amp's measured r 0.68
+EXCEEDS the bulk-mean-predictor ceiling (~0.59) because the teacher-forced
+true support leaks path information into the sliced mean -- direct evidence
+the support carries magnitude signal, strengthening the support-conditioned
+branch candidate (#25). Plag under-sizing challenged by owner and re-verified
 the valid way -- binned by *prediction* (truth exceeds prediction in 9/10
 deciles, +0.041 top decile; 75% of bulks negative; median bias -0.028) --
 after retracting the truth-binned visual argument (regression-to-the-mean
@@ -3395,8 +3409,10 @@ round, support-conditioned branch as sign-off-gated candidate) and #26 (P2:
 full-simplex-mean vs Bernoulli consistency probe; absent-phase alphas get
 zero gradient, so it measures trunk leakage, not correctness).
 
-**Next.** PIT figure walkthrough (subset still to add), alpha_concentration,
-mass_guardrails; then plan-mode design of the ModeHead-only Optuna scouting
-sweep (#25). Decision gate for the bimodality fix: stratify amp PIT by
+**Next.** Finish the PIT walkthrough (subset landed: quartz flat / amp
+U-with-tilt / rutile hump; note the full-tier head flattened plag's PIT --
+the "piled at 1" example migrated to afs, deck caption needs a pass once
+valtest lands), then alpha_concentration and mass_guardrails; then plan-mode
+design of the ModeHead-only Optuna scouting sweep (#25). Decision gate for the bimodality fix: stratify amp PIT by
 support -- U-shape dissolving within fixed supports means support-conditioning
 suffices, persisting means mixture components.

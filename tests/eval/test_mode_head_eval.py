@@ -13,7 +13,9 @@ from cnmineral.eval.mode_head import (
     recall_by_band,
     reliability_table,
     stratified_mean,
+    within_bulk_conditional_sigma,
     within_bulk_frequency,
+    within_bulk_sigma_profile,
 )
 
 
@@ -43,6 +45,31 @@ def test_within_bulk_frequency():
     assert np.allclose(f[2], [0.0, 0.5])
     assert np.isnan(f[1]).all()
     assert n_rows.tolist() == [2, 0, 2]
+
+
+def test_within_bulk_conditional_sigma():
+    magnitude = np.array(
+        [[0.2, 0.5, 0.0], [0.4, 0.5, 0.0], [0.6, 0.0, 0.0], [0.6, 0.0, 0.0]]
+    )
+    presence = np.array(
+        [[1, 1, 0], [1, 1, 0], [1, 0, 0], [1, 0, 0]], dtype=float
+    )
+    row_bulk = np.array([0, 0, 1, 1])
+    s = within_bulk_conditional_sigma(magnitude, presence, row_bulk)
+    assert np.isclose(s[0], np.sqrt(0.005))
+    assert np.isclose(s[1], 0.0)
+    assert np.isnan(s[2])
+
+
+def test_within_bulk_sigma_profile():
+    magnitude = np.array([[0.1], [0.1], [0.5], [0.9]])
+    presence = np.ones((4, 1))
+    row_bulk = np.array([0, 0, 1, 1])
+    levels, sigmas = within_bulk_sigma_profile(
+        magnitude, presence, row_bulk, n_bins=2
+    )
+    assert np.allclose(levels[0], [0.1, 0.7])
+    assert np.allclose(sigmas[0], [0.0, 0.2])
 
 
 def test_conditional_mean():

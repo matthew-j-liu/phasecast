@@ -319,13 +319,15 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_reliability_table_hand_case` -- fixed-width bins land counts/mean-p/empirical-frequency where a 4-point hand case says, and ECE equals the count-weighted |p - freq|.
 2. `test_reliability_table_edge_probabilities_bin` -- p=0.0 and p=1.0 fall into the first and last bins instead of overflowing.
 3. `test_within_bulk_frequency` -- per-bulk presence frequency over that bulk's rows; a bulk contributing no rows yields NaN, not zero.
-4. `test_conditional_mean` -- Dirichlet mean restricted to a mask renormalizes over it; an empty mask returns all zeros instead of dividing by zero.
-5. `test_beta_pit_matches_scipy_and_masks_degenerates` -- PIT values equal `scipy.stats.beta.cdf` under the Beta marginal of the support Dirichlet; absent phases and single-phase supports are NaN.
-6. `test_fp_fn_mass_hand_case` -- FP-mass is the predicted-support conditional mean on truly-absent phases and FN-mass the true mass below threshold, per a hand-computed 3-phase row.
-7. `test_presence_scores_nan_when_undefined` -- per-phase recall/precision at 0.5, NaN for never-present / never-predicted phases.
-8. `test_recall_by_band_separates_intermediate_frequencies` -- recall stratified by the bulk's own presence-frequency band splits the intermediate (path-sensitive) misses from the high-frequency hits.
-9. `test_hurdle_nll_rows_matches_reference_assembly` -- per-row joint hurdle NLL equals summed Bernoulli log-likelihood plus `torch.distributions.Dirichlet` NLL on the sliced support, and the per-phase BCE decomposition sums back to the Bernoulli term.
-10. `test_stratified_mean` -- values grouped by label report the right per-group mean and count.
+4. `test_within_bulk_conditional_sigma` -- pooled within-bulk std of conditional magnitude per phase (the parity-band summary width) matches a hand case; a never-present phase yields NaN.
+5. `test_within_bulk_sigma_profile` -- the level-binned band profile puts a low-scatter bulk and a high-scatter bulk in separate quantile bins with their own sd.
+6. `test_conditional_mean` -- Dirichlet mean restricted to a mask renormalizes over it; an empty mask returns all zeros instead of dividing by zero.
+7. `test_beta_pit_matches_scipy_and_masks_degenerates` -- PIT values equal `scipy.stats.beta.cdf` under the Beta marginal of the support Dirichlet; absent phases and single-phase supports are NaN.
+8. `test_fp_fn_mass_hand_case` -- FP-mass is the predicted-support conditional mean on truly-absent phases and FN-mass the true mass below threshold, per a hand-computed 3-phase row.
+9. `test_presence_scores_nan_when_undefined` -- per-phase recall/precision at 0.5, NaN for never-present / never-predicted phases.
+10. `test_recall_by_band_separates_intermediate_frequencies` -- recall stratified by the bulk's own presence-frequency band splits the intermediate (path-sensitive) misses from the high-frequency hits.
+11. `test_hurdle_nll_rows_matches_reference_assembly` -- per-row joint hurdle NLL equals summed Bernoulli log-likelihood plus `torch.distributions.Dirichlet` NLL on the sliced support, and the per-phase BCE decomposition sums back to the Bernoulli term.
+12. `test_stratified_mean` -- values grouped by label report the right per-group mean and count.
 
 ### test_training_curves.py
 
