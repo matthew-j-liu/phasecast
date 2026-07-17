@@ -3356,3 +3356,47 @@ hard-view cost; (b) amp conditional bimodality vs a single per-bulk Dirichlet;
 (c) NLL support-size comparability caveat on strata; (d) eval imports
 `_bulk_latents`/`_row_split_indices` privately from the training module;
 (e) split seed/val_fraction not stamped in `ModeHeadCheckpoint`.
+
+## 2026-07-17 -- Dirichlet-branch orientation: parity read, slide corrections, bimodality work queued
+
+**Q.** Figure-review phase 2: what does the magnitude (Dirichlet) branch
+actually claim, is the worked-example slide telling that story truthfully,
+and where does the amphibole failure come from mechanically?
+
+**Context.** Owner orientation session on `magnitude_parity.png` + the
+Dirichlet worked-example slide, before PIT. Numbers drifted mid-session as
+train-tier chunks landed (val grew ~930 -> 1,614 bulks); all provisional.
+
+**Considered.** For the parity regime panels: ranked all 21 phases on MAE,
+r, bias, and spread compression (pred std / true std) rather than eyeballing.
+For capturing within-bulk bimodality: support-conditioned magnitude branch
+vs mixture-of-Dirichlets vs condition-on-conditions chain vs flows/diffusion
+(last rejected: forfeits closed-form NLL/PIT and the microsecond-inference
+pitch for a 21-dim problem).
+
+**Decision.** `plot_magnitude_parity_subset` added to the harness (regimes:
+alkali feldspar = healthy r 0.89; plagioclase = tracks but systematically
+under-sized; amphibole = regression-to-the-middle of a two-humped truth,
+pred std 0.13 vs true std 0.23; spinel = MAE-flattered accessory, bias ~80%
+of median magnitude). Plag under-sizing challenged by owner and re-verified
+the valid way -- binned by *prediction* (truth exceeds prediction in 9/10
+deciles, +0.041 top decile; 75% of bulks negative; median bias -0.028) --
+after retracting the truth-binned visual argument (regression-to-the-mean
+artifact, not evidence). Dirichlet worked-example slide redrawn at owner
+request: two tracks converging at a scoring node (truth contributes support
+only as a grading mask; modes meet prediction at scoring), plus an expanded
+masked-NLL box (normalizer-vs-shape-term reading, definitions, worked
+numbers in notes). Mechanism settled in discussion: presence stays honest
+under path-ignorance because Bernoullis are closed under mixtures; a single
+Dirichlet is a one-hump family, so the bulk-level optimum is
+middle-mean/compressed-spread -- and one shared alpha0 per row couples all
+phases' spreads. Filed #25 (P1: amp multimodality + the tuning/architecture
+round, support-conditioned branch as sign-off-gated candidate) and #26 (P2:
+full-simplex-mean vs Bernoulli consistency probe; absent-phase alphas get
+zero gradient, so it measures trunk leakage, not correctness).
+
+**Next.** PIT figure walkthrough (subset still to add), alpha_concentration,
+mass_guardrails; then plan-mode design of the ModeHead-only Optuna scouting
+sweep (#25). Decision gate for the bimodality fix: stratify amp PIT by
+support -- U-shape dissolving within fixed supports means support-conditioning
+suffices, persisting means mixture components.

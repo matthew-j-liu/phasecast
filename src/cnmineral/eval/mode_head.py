@@ -387,6 +387,44 @@ def plot_magnitude_parity(
     return {"magnitude_mae": mae, "magnitude_r": r}
 
 
+PARITY_REGIME_PANELS = (
+    ("afs", "alkali feldspar"),
+    ("plag", "plagioclase"),
+    ("amp", "amphibole"),
+    ("spl", "spinel"),
+)
+
+
+def plot_magnitude_parity_subset(
+    cond_mean: np.ndarray,
+    magnitude: np.ndarray,
+    presence: np.ndarray,
+    out_path: Path,
+    panels: tuple = PARITY_REGIME_PANELS,
+) -> None:
+    """One magnitude-parity panel per behavior regime, 2x2 (slide-sized)."""
+    fig, axes = plt.subplots(2, 2, figsize=(9.0, 8.0))
+    for ax, (name, full_name) in zip(axes.flat, panels):
+        i = SOLID_PHASES.index(name)
+        m = presence[:, i] > 0
+        true, pred = magnitude[m, i], cond_mean[m, i]
+        mae = float(np.abs(pred - true).mean())
+        bias = float((pred - true).mean())
+        r = (float(np.corrcoef(true, pred)[0, 1])
+             if true.std() > 0 and pred.std() > 0 else float("nan"))
+        ax.hexbin(true, pred, gridsize=40, cmap="viridis", bins="log",
+                  extent=(0, 1, 0, 1))
+        ax.plot([0, 1], [0, 1], "w--", lw=0.8)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_title(f"{full_name}  MAE={mae:.3f}  r={r:.2f}  bias={bias:+.3f}",
+                     fontsize=12)
+        ax.set_xlabel("true magnitude", fontsize=10)
+        ax.set_ylabel("predicted cond. mean", fontsize=10)
+    _finish(fig, "conditional magnitude parity: the four behavior regimes",
+            out_path)
+
+
 def plot_pit(pit: np.ndarray, out_path: Path, n_bins: int = 20) -> None:
     """Per-phase PIT histograms; flat = calibrated magnitude spread."""
     fig, axes = _phase_grid()
@@ -600,6 +638,9 @@ def run_mode_head_eval(
     cm_true = conditional_mean(alpha_rows, presence)
     parity = plot_magnitude_parity(
         cm_true, magnitude, presence, output_dir / "magnitude_parity.png"
+    )
+    plot_magnitude_parity_subset(
+        cm_true, magnitude, presence, output_dir / "magnitude_parity_subset.png"
     )
     pit = beta_pit(alpha_rows, presence, magnitude)
     plot_pit(pit, output_dir / "magnitude_pit.png")
