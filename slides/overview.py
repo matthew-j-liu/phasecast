@@ -769,42 +769,61 @@ def s_mode_head_dirichlet(prs):
     s = new_slide(prs)
     header(s, "HEADS", "If it's there, how much? One row through the Dirichlet")
     caption(s, 0.55, 1.15, 12.2, "the magnitude branch's eval: slice the predicted "
-            "concentrations to the row's true support, compare means to truth, and ask "
-            "whether the claimed spread is honest (PIT)", 13, GRAYT, align=PP_ALIGN.LEFT)
-    box(s, 0.55, 2.1, 3.0, 2.0, ["one row's truth",
-        ("bulk X . draw 17 . rung 50",),
-        ("present: plag cpx amp ilm",),
-        ("modes: .44  .26  .19  .11",),
-        ("(crystals-renormalized, sum 1)",)], GREEN, size=12)
-    flow_arrow(s, 3.65, 2.9, 0.4, 0.35)
-    box(s, 4.15, 2.1, 3.0, 2.0, ["head output for bulk X",
-        ("alpha, sliced to the true support:",),
+            "concentrations to the row's true support, then meet the truth at the "
+            "scoring step -- are the means right, and is the claimed spread honest "
+            "(PIT)?", 13, GRAYT, align=PP_ALIGN.LEFT)
+    box(s, 0.55, 1.95, 2.8, 1.5, ["head output for bulk X",
+        ("alpha for all 21 phases,",),
+        ("computed from the latent --",),
+        ("truth is not an input",)], ORANGE, size=11)
+    flow_arrow(s, 3.45, 2.55, 0.35, 0.3)
+    box(s, 3.85, 1.95, 2.8, 1.5, ["alpha sliced to the support",
         ("plag 12.0    cpx 7.0",),
         ("amp 4.5      ilm 1.5",),
-        ("alpha0 = sum = 25 (confidence)",)], ORANGE, size=12)
-    flow_arrow(s, 7.25, 2.9, 0.4, 0.35)
-    box(s, 7.75, 2.1, 3.0, 2.0, ["predicted mean +/- spread",
-        ("plag 0.48 +/- 0.10   (true .44)",),
-        ("cpx 0.28 +/- 0.09   (true .26)",),
-        ("amp 0.18 +/- 0.08   (true .19)",),
-        ("ilm 0.06 +/- 0.05   (true .11)",)], PURPLE, size=12)
+        ("alpha0 = sum = 25 (confidence)",)], ORANGE, size=11)
+    flow_arrow(s, 6.75, 2.55, 0.35, 0.3)
+    box(s, 7.15, 1.95, 2.8, 1.5, ["predicted mean +/- spread",
+        ("plag 0.48 +/- 0.10",),
+        ("cpx 0.28 +/- 0.09",),
+        ("amp 0.18 +/- 0.08",),
+        ("ilm 0.06 +/- 0.05",)], PURPLE, size=11)
+    box(s, 0.55, 3.75, 2.8, 1.3, ["one row's truth",
+        ("bulk X . draw 17 . rung 50",),
+        ("present: plag cpx amp ilm",),
+        ("modes: .44  .26  .19  .11",)], GREEN, size=11)
+    flow_arrow(s, 3.45, 4.25, 0.35, 0.3)
+    box(s, 3.85, 3.75, 2.8, 1.3, ["scoring -- truth meets prediction",
+        ("eval: PIT of each true mode",),
+        ("train: masked Dirichlet NLL",)], BLUE, size=11)
+    line(s, 2.9, 3.75, 4.3, 3.45, GREEN, 1.5)
+    caption(s, 0.6, 3.47, 2.6, "support only (which phases)", 9, GREEN,
+            align=PP_ALIGN.LEFT)
+    line(s, 8.55, 3.45, 6.65, 4.3, PURPLE, 1.5)
+    box(s, 8.0, 3.75, 4.7, 1.3, ["L_magnitude = −log Dir(mₛ | αₛ), expanded:",
+        "= Σ lnΓ(αᵢ) − lnΓ(α₀) − Σ (αᵢ−1) ln mᵢ   (sums over S)",
+        ("mᵢ true mode . αᵢ predicted concentration . α₀ = Σ αᵢ . "
+         "Γ extends factorial",),
+        ("Γ terms: normalizer -- the cost of confidence, grows with α₀",),
+        ("(αᵢ−1) ln mᵢ: shape term -- the only place truth meets prediction",),
+        ("a density, not a probability -- well-scored rows go negative",)],
+        BLUE, lit=False, size=11)
     gx, gy, gw, gh = 11.05, 3.6, 2.0, 1.15
     gaussian(s, gx, gy - gh, gw, gh, [(0.48, 0.10, 1.0)], PURPLE,
              "plag marginal: Beta(12, 13)")
     tx = gx + 0.44 * gw
     line(s, tx, gy, tx, gy - gh - 0.15, GREEN, 2.0)
     caption(s, gx - 0.25, gy - gh - 0.55, gw + 0.5, "truth 0.44 -> PIT 0.34", 10, GREEN)
-    caption(s, 0.55, 4.55, 12.2, "each present phase's marginal is a Beta distribution; "
+    caption(s, 0.55, 5.2, 12.2, "each present phase's marginal is a Beta distribution; "
             "PIT = where the truth lands inside it (its CDF value). Over many rows a flat "
             "PIT histogram means the spread is honest; a U means overconfident (truth keeps "
             "escaping the claimed range), a hump means underconfident.",
             11, INK, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 5.35, 12.2, "the support is teacher-forced: training and this eval "
-            "slice alpha to the row's TRUE present set (absent phases contribute nothing -- "
-            "they belong to the Bernoullis; the sub-composition of a Dirichlet is itself a "
-            "Dirichlet, so the sliced score is a proper density). At inference the support "
-            "is sampled from the presence branch instead.", 11, INK, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 6.3, 12.2, "population: only truly-present (row, phase) pairs are "
+    caption(s, 0.55, 6.0, 12.2, "the truth plays two roles, never as a model input: its "
+            "support slices alpha (teacher-forced at train/eval, sampled from the presence "
+            "branch at inference; a Dirichlet sub-composition is itself a Dirichlet, so the "
+            "sliced score is a proper density), and its modes appear only at the scoring "
+            "step.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.85, 12.2, "population: only truly-present (row, phase) pairs are "
             "scored -- ~68k pairs for plag down to ~200 for corundum; single-phase rows are "
             "excluded (nothing to size). current limits (provisional): amphibole U-shaped "
             "PIT (spread too narrow; truth plausibly bimodal across paths), oxide "
@@ -812,7 +831,10 @@ def s_mode_head_dirichlet(prs):
             "results/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "
-             "branch's reliability worked example. Numbers illustrative but to scale: "
+             "branch's reliability worked example. Laid out as two tracks converging "
+             "at a scoring node: the prediction track never sees the truth's modes; "
+             "the truth contributes only its support to the slice (teacher-forced) "
+             "and meets the prediction at scoring. Numbers illustrative but to scale: "
              "alpha sliced to the true 4-phase support gives Dirichlet means "
              "alpha_i/alpha0 and Beta marginals Beta(alpha_i, alpha0 - alpha_i); plag "
              "Beta(12,13) has mean 0.48, sd ~0.10, and truth 0.44 lands at CDF 0.34. "
@@ -820,7 +842,11 @@ def s_mode_head_dirichlet(prs):
              "spreads can't be tuned independently (see alpha_concentration.png). PIT "
              "histograms are the magnitude analog of reliability diagrams; parity plots "
              "are the point-estimate view. Scored by masked Dirichlet NLL (anatomy "
-             "slide's L_magnitude).")
+             "slide's L_magnitude). Worked numbers for the expansion box: this row "
+             "scores -4.34 nats (normalizer -28.37 + shape +24.03); scaling alpha x4 "
+             "improves to -5.26 when truth is near the peak but explodes to +17.9 when "
+             "truth swaps to the other hump (plag/amp values exchanged) -- the mechanism "
+             "that pins amphibole's alpha0 low and its mean in the middle.")
 
 
 def s_outputs(prs):
