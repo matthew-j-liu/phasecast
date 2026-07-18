@@ -691,8 +691,8 @@ def s_mode_head_anatomy(prs):
              "pretraining of one branch. The hurdle split exists because one full-simplex "
              "Dirichlet cannot be simultaneously confident about absences and honest about "
              "present-phase spread (shared concentration). CompHead/CondHead follow the same "
-             "small-MLP-emitting-distribution-parameters pattern; counts land when they're "
-             "built.")
+             "small-MLP-emitting-distribution-parameters pattern; their anatomy slides "
+             "follow the eval-semantics slides.")
 
 
 def s_mode_head_reliability(prs):
@@ -856,6 +856,132 @@ def s_mode_head_dirichlet(prs):
              "that pins amphibole's alpha0 low and its mean in the middle.")
 
 
+def s_comp_head_anatomy(prs):
+    head_anatomy_slide(
+        prs,
+        title="Inside CompHead: one oxide Dirichlet per mineral",
+        intro="CompHead emits a Dirichlet over the 11 MAGEMin oxides for each of the 21 "
+              "phases -- composition is bulk-controlled, so it reads h only (never the "
+              "support or conditions)",
+        input_note="from the frozen encoder (3.23M params, not trained here)",
+        trunk=(["own trunk", ("Linear 256 -> 128",), ("GELU + dropout",),
+                ("32,896 params",)], PURPLE),
+        branches=[
+            {"box": ["mean branch", ("Linear 128 -> 231 (21x11)",),
+                     ("softmax per phase: m_p, the oxide mix",), ("29,799 params",)],
+             "out": ["21 simplex means", ("what each mineral",), ("is made of",)],
+             "color": TEAL},
+            {"box": ["concentration branch", ("Linear 128 -> 21, softplus + eps",),
+                     ("c_p = one certainty scalar per phase",), ("2,709 params",)],
+             "out": ["21 certainties", ("alpha_p = c_p · m_p",),
+                     ("(mean invariant to c_p)",)], "color": ORANGE},
+        ],
+        params_line="65,404 trainable params (trunk 32,896 + mean 29,799 + concentration "
+                    "2,709) -- ~2.0% of the frozen encoder; the largest head, and still "
+                    "trivially retrainable.",
+        dials_line="dials (configs/heads/joint_heads.yaml): hidden 128 . dropout 0.0 . "
+                   "alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) . "
+                   "lambda_comp 1.0 . lambda_balance 1.0 -- fixed in code: GELU, AdamW, "
+                   "per-head grad-clip 1.0",
+        loss_boxes=[
+            (["alpha_p = c_p · softmax(u_p)",
+              ("mean x shared-concentration factorization: c_p scales certainty, "
+               "never the predicted composition",)], TEAL),
+            (["L_comp = −mean_{p ∈ S} log Dir(x_p | alpha_p)",
+              ("Dirichlet NLL only where the label marks phase p present; "
+               "targets eps-clipped to full support, renormalized",)], ORANGE),
+            (["L_closure = ‖(1−F_liq−F_fl)·Σᵢ mᵢCᵢ + F_liq·C_liq + F_fl·C_fl − B‖²",
+              ("mass balance: ModeHead's modes m x CompHead's comps C must rebuild "
+               "the input bulk B; melt/fluid side teacher-forced from the corpus",)], REDX),
+        ],
+        notes_text="Anatomy of CompHead (trains in the joint trainer, "
+             "checkpoints/joint_heads_seed0). Interface: h [256] in, alpha [21, 11] out; "
+             "one training example is one (bulk, draw, rung) row; targets are per-phase "
+             "oxide mass fractions from the rungs table (same-token instances merged by "
+             "mass-weighted mean, feldspar split into plag/afs BEFORE averaging so the "
+             "solvus pair never mixes), eps-clipped at comp_eps and renormalized. "
+             "Param counts are exact (instantiated at d_model 256, hidden 128). The "
+             "shared-concentration factorization is the locked heads.md parameterization: "
+             "one c_p per phase blurs per-oxide error bars toward each other -- accepted "
+             "because composition spreads are 10-30x tighter than modal spreads (the "
+             "reason CompHead is bulk-controlled and unconditioned). L_comp's minimum: "
+             "the Dirichlet matching the per-bulk composition distribution of each phase. "
+             "L_closure is the one loss term coupling two heads (mode x comp product); "
+             "squared-L2 is a constraint penalty, not a head likelihood, so the no-MSE "
+             "rule for heads doesn't apply. Known limits: hard-zero oxides are clipped "
+             "(a q row is 'SiO2 + 10 eps-floors'); ~0.3% of corpus rows don't self-close "
+             "(melt immiscibility, dropped-phase mass, worst 5.2 wt%) and set an "
+             "unattainable closure floor there; endmember bonus heads deferred "
+             "(heads.md).")
+
+
+def s_cond_head_anatomy(prs):
+    head_anatomy_slide(
+        prs,
+        title="Inside CondHead: a support-conditioned mixture over (T, P, H2O)",
+        intro="the inverse-inference head, chain rule p(support | h) x p(T, P, H2O | h, "
+              "support): the presence vector joins h at the input -- teacher-forced true "
+              "set at train, ModeHead-sampled at inference",
+        input_note="frozen h [256] ++ presence vector [21] = 277-dim input",
+        trunk=(["own trunk", ("Linear 277 -> 128",), ("GELU + dropout",),
+                ("35,584 params",)], PURPLE),
+        branches=[
+            {"box": ["weight branch", ("Linear 128 -> 9 (3 axes x K=3)",),
+                     ("log-softmax over K per axis",), ("1,161 params",)],
+             "out": ["mixture weights", ("which condition mode,",), ("how likely",)],
+             "color": TEAL},
+            {"box": ["mean branch", ("Linear 128 -> 9",),
+                     ("mu_k in raw units (C, kbar, wt%)",), ("1,161 params",)],
+             "out": ["component centers", ("e.g. deep-wet vs",), ("shallow-dry",)],
+             "color": GREEN},
+            {"box": ["spread branch", ("Linear 128 -> 9, softplus + eps",),
+                     ("sigma_k, heteroscedastic",), ("1,161 params",)],
+             "out": ["per-mode spreads", ("row-dependent",), ("error bars",)],
+             "color": ORANGE},
+        ],
+        params_line="39,067 trainable params (trunk 35,584 + 3 x 1,161) -- ~1.2% of the "
+                    "frozen encoder; output biases seeded at the targets' mean/std "
+                    "(raw-unit cold-start fix: an unseeded head starts ~1,300 sigmas "
+                    "from typical T).",
+        dials_line="dials (configs/heads/joint_heads.yaml): cond_n_components 3 (HPO "
+                   "sweeps {2,3,4}) . cond_sigma_eps 1e-3 . hidden 128 . dropout 0.0 . "
+                   "lambda_cond 0.01 -- fixed in code: GELU, AdamW, per-head grad-clip "
+                   "1.0, linear units (no log transform of T/P/H2O)",
+        loss_boxes=[
+            (["L_cond = Σ_axis −log Σ_k w_k · N(t | mu_k, sigma_k²)",
+              ("per-axis GMM NLL in raw units; minimized when the mixture "
+               "matches each rock's condition distribution per support",)], TEAL),
+            (["support in, never through the encoder",
+              ("teacher-forced true set at train -> no gradient coupling to "
+               "ModeHead; sampled sets at inference (exposure bias, #31)",)], GREEN),
+            (["L = L_mode + λ_comp·L_comp + λ_cond·L_cond + λ_bal·L_closure",
+              ("heads share no weights, so λ_cond mainly weights EARLY STOPPING "
+               "(best-epoch pick), not gradients -- 0.01 = mineralogy-first",)], PURPLE),
+        ],
+        notes_text="Anatomy of CondHead (trains in the joint trainer, "
+             "checkpoints/joint_heads_seed0). Interface: concat(h [256], presence [21]) "
+             "in; (log_w, mu, sigma) each [3 axes, K] out; one training example is one "
+             "(bulk, draw, rung) row with targets (T_end from the rung row; P_kbar, H2O "
+             "from the draw). Param counts exact (d_model 256, hidden 128, K=3). "
+             "Support-conditioning is the locked chain-rule decision: independent heads "
+             "assume a conditional independence the corpus violates by design -- the "
+             "within-bulk label variance is driven by the shared hidden (P, H2O) path, "
+             "and marginals forget which condition mode went with which support. Raw "
+             "linear units are deliberate (no log transforms; negative mass is a "
+             "diagnostic, not a bug -- mass_below_zero in the cond eval). init_output_bias "
+             "seeds component means at target mean +/- 1 std and sigmas at the target "
+             "std; without it Adam needs ~mu/lr steps to walk mu from 0 to ~900 C. "
+             "lambda_cond nuance: L_cond's gradient reaches only CondHead's own weights "
+             "(frozen encoder, separate trunks, teacher-forced input), and per-head "
+             "clipping + Adam's per-parameter scaling make the constant nearly inert for "
+             "optimization; its real lever is the val-total early stop, where 0.01 "
+             "down-weights condition improvements 100x vs mineralogy (the locked "
+             "mineralogy-first priority). Known limits: axes are independent mixtures "
+             "(no (T, P) correlation, deferred per ADR 006); exposure bias measured, "
+             "not yet mitigated (#31); T is a derived cooling endpoint, not a sampled "
+             "axis, in the scenario view.")
+
+
 def s_outputs(prs):
     s = new_slide(prs)
     header(s, "HEADS", "What the heads emit (distributions, not point estimates)")
@@ -908,6 +1034,7 @@ if __name__ == "__main__":
     s_ssl(prs); s_workflow(prs)
     s_heads(prs); s_mode_head_anatomy(prs); s_mode_head_reliability(prs)
     s_mode_head_dirichlet(prs)
+    s_comp_head_anatomy(prs); s_cond_head_anatomy(prs)
     s_outputs(prs); s_scenarios(prs)
     out = Path(__file__).resolve().parent / "overview.pptx"
     prs.save(out)

@@ -100,37 +100,94 @@ def synthetic_token_dataset():
     return SyntheticTokenDataset
 
 
-# feldspar oxide mass fractions on either side of the solvus, for synthetic
-# rungs rows that must route deterministically (see feldspar_rule)
-PLAG_WT = {"wt_CaO": 0.6 * 56.0774, "wt_Na2O": 0.38 * 61.9789 / 2, "wt_K2O": 0.02 * 94.196 / 2}
-AFS_WT = {"wt_CaO": 0.02 * 56.0774, "wt_Na2O": 0.38 * 61.9789 / 2, "wt_K2O": 0.60 * 94.196 / 2}
+# per-phase 11-oxide mass fractions (magemin_corpus.COMP_OXIDES order), each
+# summing to 1; plag/afs embed solvus-side CaO/Na2O/K2O ratios so feldspar
+# instances route deterministically (see feldspar_rule)
+SYNTH_COMPS = {
+    "liq": [0.62, 0.16, 0.04, 0.02, 0.04, 0.03, 0.04, 0.01, 0.0, 0.0, 0.04],
+    "fl": [0.10, 0.02, 0.0, 0.0, 0.0, 0.01, 0.02, 0.0, 0.0, 0.0, 0.85],
+    "plag": [0.55, 0.28, 0.12, 0.0, 0.009, 0.001, 0.04, 0.0, 0.0, 0.0, 0.0],
+    "afs": [0.66, 0.19, 0.005, 0.0, 0.005, 0.10, 0.03, 0.01, 0.0, 0.0, 0.0],
+    "cpx": [0.52, 0.03, 0.20, 0.14, 0.10, 0.0, 0.005, 0.005, 0.0, 0.0, 0.0],
+    "amp": [0.45, 0.10, 0.10, 0.15, 0.15, 0.005, 0.025, 0.01, 0.0, 0.0, 0.01],
+    "q": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+}
+
+# (phase-as-written, instance, mode_wt) per (draw, rung, T_end); fsp instances
+# carry plag/afs comps so the vocabulary split has one of each at rung 50
+_SYNTH_GROUPS = [
+    (0, 50, 900.0, [("liq", "liq", 0.45), ("fl", "fl", 0.05),
+                    ("fsp", "plag", 0.25), ("fsp", "afs", 0.05),
+                    ("cpx", "cpx", 0.15), ("amp", "amp", 0.05)]),
+    (0, 30, 800.0, [("liq", "liq", 0.30), ("cpx", "cpx", 0.40),
+                    ("fsp", "plag", 0.20), ("q", "q", 0.10)]),
+    (1, 50, 950.0, [("liq", "liq", 0.50), ("cpx", "cpx", 0.50)]),
+]
+
+_SYNTH_DRAW_CONDITIONS = {0: (6.0, None), 1: (2.0, None)}
+
+
+def _wt_columns(comp_key: str) -> dict:
+    from cnmineral.data.magemin_corpus import COMP_OXIDES
+
+    return {f"wt_{o}": v for o, v in zip(COMP_OXIDES, SYNTH_COMPS[comp_key])}
 
 
 def write_synthetic_rungs(corpus_dir: Path, bulk_ids: list[int]) -> Path:
     """Write one chunk_0000_rungs.parquet with two draws per bulk.
 
     Draw 0 has rows at rungs 50 and 30 (mixed assemblage, one plag + one afs
-    feldspar instance at rung 50); draw 1 reaches only rung 50 (attrition).
+    feldspar instance at rung 50, a fluid row); draw 1 reaches only rung 50
+    (attrition). Every row carries the full 11-oxide composition and T_end.
     Returns `corpus_dir`.
     """
-    zero = {"wt_CaO": 0.0, "wt_Na2O": 0.0, "wt_K2O": 0.0}
     rows = []
     for bulk in bulk_ids:
-        rows += [
-            dict(bulk=bulk, draw=0, rung=50, phase="liq", instance=0, mode_wt=0.50, **zero),
-            dict(bulk=bulk, draw=0, rung=50, phase="fsp", instance=0, mode_wt=0.25, **PLAG_WT),
-            dict(bulk=bulk, draw=0, rung=50, phase="fsp", instance=1, mode_wt=0.05, **AFS_WT),
-            dict(bulk=bulk, draw=0, rung=50, phase="cpx", instance=0, mode_wt=0.15, **zero),
-            dict(bulk=bulk, draw=0, rung=50, phase="amp", instance=0, mode_wt=0.05, **zero),
-            dict(bulk=bulk, draw=0, rung=30, phase="liq", instance=0, mode_wt=0.30, **zero),
-            dict(bulk=bulk, draw=0, rung=30, phase="cpx", instance=0, mode_wt=0.40, **zero),
-            dict(bulk=bulk, draw=0, rung=30, phase="fsp", instance=0, mode_wt=0.20, **PLAG_WT),
-            dict(bulk=bulk, draw=0, rung=30, phase="q", instance=0, mode_wt=0.10, **zero),
-            dict(bulk=bulk, draw=1, rung=50, phase="liq", instance=0, mode_wt=0.50, **zero),
-            dict(bulk=bulk, draw=1, rung=50, phase="cpx", instance=0, mode_wt=0.50, **zero),
-        ]
+        for draw, rung, t_end, phases in _SYNTH_GROUPS:
+            rows += [
+                dict(bulk=bulk, draw=draw, rung=rung, T_end=t_end, phase=phase,
+                     instance=i, mode_wt=mode, **_wt_columns(comp_key))
+                for i, (phase, comp_key, mode) in enumerate(phases)
+            ]
     corpus_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_parquet(corpus_dir / "chunk_0000_rungs.parquet")
+    return corpus_dir
+
+
+def write_synthetic_draws(corpus_dir: Path, bulk_ids: list[int]) -> Path:
+    """Write the chunk_0000_draws.parquet matching `write_synthetic_rungs`.
+
+    Each draw's input oxides are the rung-50 reconstruction of its rows
+    (mode-weighted comps, scaled to wt%), so rung-50 groups close exactly
+    under the mass-balance identity; rung-30 groups close only approximately.
+    All iron is ferrous (`in_fe2o3` = 0). Returns `corpus_dir`.
+    """
+    import numpy as np
+
+    from cnmineral.data.magemin_corpus import COMP_OXIDES
+
+    in_cols = ["in_sio2", "in_al2o3", "in_cao", "in_mgo", "in_feo",
+               "in_k2o", "in_na2o", "in_tio2", "in_cr2o3"]
+    slot = {c: COMP_OXIDES.index(o) for c, o in zip(
+        in_cols, ["SiO2", "Al2O3", "CaO", "MgO", "FeO",
+                  "K2O", "Na2O", "TiO2", "Cr2O3"])}
+    rows = []
+    for bulk in bulk_ids:
+        for draw, rung, _, phases in _SYNTH_GROUPS:
+            if rung != 50:
+                continue
+            b = np.zeros(len(COMP_OXIDES))
+            for _, comp_key, mode in phases:
+                b += mode * np.array(SYNTH_COMPS[comp_key])
+            b *= 100.0
+            p_kbar, _ = _SYNTH_DRAW_CONDITIONS[draw]
+            rows.append(dict(
+                bulk=bulk, draw=draw, P_kbar=p_kbar,
+                H2O=float(b[COMP_OXIDES.index("H2O")]), in_fe2o3=0.0,
+                **{c: float(b[i]) for c, i in slot.items()},
+            ))
+    corpus_dir.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_parquet(corpus_dir / "chunk_0000_draws.parquet")
     return corpus_dir
 
 
@@ -138,6 +195,18 @@ def write_synthetic_rungs(corpus_dir: Path, bulk_ids: list[int]) -> Path:
 def synthetic_mineralogy_corpus():
     """The `write_synthetic_rungs` builder, for tiny mineralogy-label corpora."""
     return write_synthetic_rungs
+
+
+@pytest.fixture
+def synthetic_joint_corpus():
+    """Builder writing both rungs and draws tables (for `load_joint_labels`)."""
+
+    def _build(corpus_dir: Path, bulk_ids: list[int]) -> Path:
+        write_synthetic_rungs(corpus_dir, bulk_ids)
+        write_synthetic_draws(corpus_dir, bulk_ids)
+        return corpus_dir
+
+    return _build
 
 
 def _tiny_config(corpus_subset_path: Path) -> dict:

@@ -3530,3 +3530,61 @@ exist; inspect_checkpoint doesn't know ModeHeadCheckpoint).
 mass-balance) -> joint tuning per ADR 006 -> staged amphibole fixes
 (support-conditioning first, mixture second), each measured against this
 baseline.
+
+## 2026-07-18 -- CompHead + CondHead + joint trainer built (code complete; baseline run pending)
+
+**Q.** Build the two remaining supervised heads and the joint loss with
+the mass-balance closure term -- what shape does the joint stack take, and
+what did the corpus reveal on the way?
+
+**Context.** ModeHead-only baseline landed on the sealed val roster
+(-1.0066 nats/row). Owner sign-off on two structural choices: the joint
+trainer retrains all three heads together against the frozen encoder
+(closure is differentiable in both modes and comps; ADR 006's single-stage
+HPO assumes one objective), and the build ships end-to-end. The standalone
+ModeHead trainer stays as the harness for isolated amp-fix measurements
+(#25).
+
+**Considered.** Comp parameterization: per-oxide alphas vs the locked
+mean x shared-concentration factorization (adopted: softmax mean x one
+softplus scalar per phase; the mean is invariant to the concentration).
+Closure norm: L1 vs squared L2 (adopted L2 -- constraint penalty, not a
+head likelihood, so the no-MSE rule doesn't apply). Cond conditioning
+mechanism: concat(h, presence) into the trunk (adopted) vs FiLM (deferred,
+no evidence it's needed). Checkpoint schema: extend ModeHeadCheckpoint vs
+a new JointHeadCheckpoint (adopted new -- three state dicts + a loss
+bundle are a different shape, not optional fields).
+
+**Decision.** Landed: `models/comp_head.py` (65,404 params at d_model 256)
+and `models/cond_head.py` (39,067; input concat(h, presence[21]), per-axis
+K=3 GMM in raw units); losses `comp_loss` / `cond_loss` / `closure_loss` /
+`joint_loss`; `load_joint_labels` + `JointHeadDataset` (comp targets with
+mass-weighted instance merge, feldspar split before averaging; cond
+targets from the rungs T_end + draws join; closure fixings with the
+fe2o3 -> FeO-equivalent + excess-O basis conversion, verified against the
+corpus at 9.5e-5 max residual on well-formed rows); the joint trainer with
+JointHeadCheckpoint; comp + cond eval harnesses (incl. the teacher-forced
+vs ModeHead-sampled exposure-bias measurement); 47 new tests, full suite
+286 green; anatomy slides for both heads in the deck (exact param counts).
+Two training fixes forced by raw-unit cond targets: `init_output_bias`
+seeds the mixture at the targets' mean/std (an unseeded head starts ~1,300
+sigmas from typical T and Adam needs ~mu/lr steps to close), and gradient
+clipping is per-head so CondHead's early gradients can't starve the
+others. Surprises: (1) ~0.3% of corpus rows do not self-close in MAGEMin's
+own output (multi-instance melt immiscibility; dropped-phase mass), tail
+bounded at 5.24 wt%, 99.7% of rows within 0.1 wt% -- owner reviewed the
+distribution and declined to act; the real-corpus closure test asserts
+quantile thresholds. (2) lambda_cond is nearly inert for optimization
+(L_cond's gradient reaches only CondHead's own weights; frozen encoder +
+separate trunks + teacher forcing sever every cross-head path, and Adam
+absorbs constant rescaling); its one real lever is the val-total early
+stop, where 0.01 down-weights condition progress 100x -- owner classed
+this an observation/feature (mineralogy-first), not a bug. Exposure bias
+filed as #31 with the mitigation ladder (observed-combinations filter
+first, mask noising second, joint support model never-yet).
+
+**Next.** Baseline joint training run (owner-executed) -> both eval
+harnesses -> read exposure delta (#31), closure residuals, comp
+concentration blur, GMM component structure -> eval-semantics deck slides
+from the real figures + heads.md/roadmap status -> joint single-stage HPO
+(ADR 006) -> staged amp fixes against the tuned baseline.

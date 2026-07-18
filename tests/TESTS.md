@@ -18,9 +18,13 @@ rename, or repurpose a test) updates this file in the same change.**
   `tiny_pretrain_checkpoint` (a real on-disk encoder+head checkpoint),
   shared by the eval and explorations suites;
   `synthetic_mineralogy_corpus` (the `write_synthetic_rungs` builder:
-  one rungs parquet with two draws per bulk, mixed assemblage, one
-  plag + one afs feldspar instance, and a rung-30 attrition case),
-  shared by the mineralogy-dataset and mode-head training suites.
+  one rungs parquet with two draws per bulk, mixed assemblage with full
+  11-oxide comps and T_end, one plag + one afs feldspar instance, a
+  fluid row, and a rung-30 attrition case) and `synthetic_joint_corpus`
+  (rungs + the matching draws parquet via `write_synthetic_draws`,
+  whose input oxides equal each draw's rung-50 reconstruction so
+  rung-50 groups close under the mass-balance identity), shared by the
+  mineralogy-dataset, mode-head, and joint-heads suites.
 - `tests/training/conftest.py` -- `_tiny_config()` (minimal config on
   the corpus fixture; `min_class_count=5` so both stratified splits
   survive) and `_write_yaml()`.
@@ -107,6 +111,9 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_input_tokens_match_bulk_chemistry` -- the item's src/frac equal the `BulkChemistryDataset` row for the same sample id (inputs come from the original bulk chemistry, never per-draw oxides).
 3. `test_unresolvable_bulk_dropped` -- a corpus bulk id absent from the chemistry table is dropped with a printed count, not an error.
 4. `test_bulk_ids_filter_restricts_rows` -- the `bulk_ids` filter keeps only the requested bulks' label rows and raises when the filter empties the corpus.
+5. `test_joint_dataset_shapes_and_dtypes` -- `JointHeadDataset` items add comp/cond targets and closure fixings with the right shapes, float32 dtypes, and simplex comp rows.
+6. `test_joint_dataset_cond_join_matches_draws` -- per-row (T_end, P_kbar, H2O) targets join the correct draws-table row for each (draw, rung).
+7. `test_joint_dataset_rung50_closure_identity` -- true modes x comp targets plus teacher-forced melt/fluid fixings reconstruct `bulk_11` on rung-50 rows to eps-clip precision.
 
 ### test_valtest_split.py
 
@@ -126,6 +133,15 @@ rename, or repurpose a test) updates this file in the same change.**
 7. `test_missing_corpus_raises` -- an empty corpus dir raises FileNotFoundError.
 8. `test_hurdle_targets_cutoff_and_renorm` -- sub-cutoff phases are marked absent and the present modes renormalize.
 9. `test_hurdle_targets_single_present` -- a single-phase row yields magnitude exactly 1 on that phase.
+10. `test_joint_labels_align_with_mode_labels` -- `load_joint_labels` modes match `load_mode_labels` row for row.
+11. `test_joint_comp_mass_weighted_instance_merge` -- two same-token instances merge to the mass-weighted mean oxide composition.
+12. `test_joint_feldspar_pair_not_averaged` -- plag and afs keep separate comps (the vocabulary split precedes averaging).
+13. `test_joint_trd_comp_merges_into_q` -- trd's comp folds into q by the same mass weighting as its mode.
+14. `test_joint_comp_targets_are_eps_clipped_simplexes` -- comp targets are strictly positive and sum to 1 after the eps-clip renorm.
+15. `test_joint_fixings_and_absent_fluid` -- melt/fluid fractions and comps extract per group; groups without a liq/fl row get zeros.
+16. `test_joint_cond_targets` -- (T_end, P_kbar, H2O) assemble from the rung row and the draws join.
+17. `test_joint_bulk_11_fe_split` -- the draws in_* oxides convert to the 11-oxide output basis (Fe2O3 -> FeO-equivalent + excess O) against a hand computation, normalized to sum 1.
+18. `test_joint_labels_close_on_real_corpus` -- (skipped without `data/corpus/valtest`) the mass-balance identity holds through the builder's own outputs at quantile thresholds (a small corpus tail does not self-close: melt immiscibility, dropped-phase mass).
 
 ### test_volcanic_subset.py
 
@@ -154,6 +170,24 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_single_phase_support_contributes_zero` -- a one-phase support is a degenerate point mass and contributes NLL 0.
 5. `test_mode_head_loss_composition` -- `total` is BCE + `magnitude_weight` x Dirichlet NLL, and both unweighted terms are returned for logging.
 6. `test_gradient_reaches_unfrozen_encoder` -- backprop through ModeHead reaches a live encoder's parameters (the Track C end-to-end readiness gate).
+
+### test_comp_loss.py
+
+1. `test_matches_torch_dirichlet_on_present` -- with an all-present mask the masked comp NLL equals `torch.distributions.Dirichlet` on the oxide simplex.
+2. `test_absent_phases_get_zero_loss_and_gradient` -- absent phases contribute zero loss and exactly zero alpha gradient.
+3. `test_mean_reduction_divides_by_present_pairs` -- the mean reduction normalizes by the number of present (row, phase) pairs, not the batch size.
+
+### test_cond_loss.py
+
+1. `test_single_component_matches_normal` -- K=1 reduces to the summed per-axis `Normal.log_prob`.
+2. `test_multi_component_matches_mixture_same_family` -- multi-K matches a hand-assembled `MixtureSameFamily` per axis.
+3. `test_mean_reduction` -- mean reduction averages the per-row NLL.
+
+### test_closure_loss.py
+
+1. `test_consistent_inputs_give_zero_residual` -- modes/comps/fixings constructed to reconstruct the bulk give residual ~0 and loss ~0.
+2. `test_gradient_reaches_modes_and_comp_not_fixings` -- the closure loss backpropagates into predicted modes and comps; teacher-forced fixings stay gradient-free.
+3. `test_loss_is_mean_squared_l2` -- the loss equals the row-mean squared L2 norm of the per-oxide residual.
 
 ### test_pretrain_loss.py
 
@@ -211,6 +245,23 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_alpha_strictly_positive` -- alphas respect the softplus + `alpha_eps` floor even on extreme inputs.
 3. `test_default_hidden_is_half_d_model` -- the trunk width defaults to `d_model // 2` and honors an explicit `hidden`.
 4. `test_gradients_flow_to_all_parameters` -- every head parameter receives gradient from a combined logits+alpha objective.
+
+### test_comp_head.py
+
+1. `test_output_shape_and_positivity` -- forward returns `[B, N_PHASES, N_OXIDES]` alphas, strictly positive.
+2. `test_mean_is_simplex` -- the implied Dirichlet mean sums to 1 per phase.
+3. `test_shared_concentration_scales_alpha_not_mean` -- rescaling the concentration branch changes alphas but leaves the mean fixed (the shared-concentration factorization).
+4. `test_default_hidden_is_half_d_model` -- trunk width default and override.
+5. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
+
+### test_cond_head.py
+
+1. `test_output_shapes` -- forward returns (log_w, mu, sigma), each `[B, 3, K]`.
+2. `test_log_weights_normalize` -- mixture log-weights logsumexp to 0 per axis.
+3. `test_sigma_respects_floor` -- sigmas respect the softplus + `sigma_eps` floor.
+4. `test_presence_changes_output` -- flipping one presence bit moves the output (the support conditioning is live).
+5. `test_init_output_bias_seeds_mixture_at_target_scale` -- `init_output_bias` puts component means/sigmas at the per-axis target scale (the raw-unit cold-start fix).
+6. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
 
 ## training/
 
@@ -281,6 +332,10 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs training on one synthetic corpus while a second synthetic valtest corpus (roster monkeypatched) drives the val monitor: monitor tracks every term per epoch, label semantics (`rungs`, `presence_cutoff`, `valtest_corpus_dir`) are stamped into the checkpoint, the saved file round-trips through `ModeHeadCheckpoint.load`, and `build_head` reconstructs a working head.
 
+### test_joint_heads_train.py
+
+1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs of the joint trainer on synthetic rungs+draws corpora (roster monkeypatched): the monitor tracks every loss term per epoch, `comp_eps` and the loss weights are stamped, the saved file round-trips through `JointHeadCheckpoint.load`, and all three `build_*_head` reconstructors return working heads.
+
 ## eval/
 
 ### test_probes.py
@@ -337,6 +392,26 @@ rename, or repurpose a test) updates this file in the same change.**
 14. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
 15. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
 16. `test_run_mode_head_eval_end_to_end` -- full harness smoke on a test-trained checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, figures land on disk, and a checkpoint whose `label_config` predates the roster raises.
+
+### test_comp_head_eval.py
+
+1. `test_comp_nll_matrix_masks_absent` -- the per-(row, phase) NLL matrix is NaN at absent phases and finite at present ones.
+2. `test_comp_beta_pit_uniform_alpha_analytic` -- with alpha = ones the oxide PIT equals the analytic Beta(1, O-1) CDF.
+3. `test_comp_beta_pit_calibrated_samples_are_uniform` -- PIT of true Dirichlet samples under their own alphas is uniform (mean and tail mass).
+4. `test_comp_parity_stats_perfect_prediction` -- a perfect predictor scores MAE 0 and r 1 per (phase, oxide).
+5. `test_an_number_hand_case` -- equal molar CaO and Na2O with no K2O gives An# 0.5.
+6. `test_run_comp_head_eval_end_to_end` -- full harness smoke on a test-trained joint checkpoint (roster and results root monkeypatched): metrics.json + parity/closure figures land, and a checkpoint whose `label_config` lacks `comp_eps` raises.
+
+### test_cond_head_eval.py
+
+1. `test_gmm_nll_per_axis_matches_loss_module` -- the numpy per-axis NLL sums to the torch `gmm_nll` per row.
+2. `test_gmm_pit_single_component_is_normal_cdf` -- K=1 PIT equals the normal CDF.
+3. `test_gmm_pit_calibrated_coverage` -- PIT of samples drawn from the scored mixture yields nominal central coverage at 50/90%.
+4. `test_central_coverage_hand_case` -- a 3-value hand case lands the right central-interval fraction.
+5. `test_effective_components_limits` -- exp-entropy of one-hot weights is 1 and of uniform weights is K.
+6. `test_mass_below_zero` -- mixture mass below zero is 0.5 for a zero-centered unit normal and ~0 far above zero.
+7. `test_sample_supports_deterministic_extremes` -- p=0/1 presence probabilities sample deterministically.
+8. `test_run_cond_head_eval_end_to_end` -- full harness smoke on a test-trained joint checkpoint (roster and results root monkeypatched): per-axis metrics incl. the exposure-bias delta are finite and PIT/component figures land.
 
 ### test_training_curves.py
 

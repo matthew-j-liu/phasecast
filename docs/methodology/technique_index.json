@@ -1,6 +1,12 @@
 {
   "architecture": {
+    "comp_dirichlet_head": [
+      "src/cnmineral/losses/joint_loss.py",
+      "src/cnmineral/models/comp_head.py",
+      "src/cnmineral/training/joint_heads.py"
+    ],
     "dropout": [
+      "configs/heads/joint_heads.yaml",
       "configs/heads/mode_head.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
@@ -9,12 +15,15 @@
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/probe/primitives.py",
+      "src/cnmineral/models/comp_head.py",
+      "src/cnmineral/models/cond_head.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/training/build_from_config.py",
       "src/cnmineral/training/checkpoint.py",
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py"
     ],
     "fractional_encoding": [
@@ -22,13 +31,21 @@
       "src/cnmineral/models/fractional_encoder.py"
     ],
     "gelu_activation": [
+      "src/cnmineral/models/comp_head.py",
+      "src/cnmineral/models/cond_head.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/models/pretrain_head.py"
     ],
+    "gmm_cond_head": [
+      "configs/heads/joint_heads.yaml",
+      "src/cnmineral/models/cond_head.py",
+      "src/cnmineral/training/joint_heads.py"
+    ],
     "hurdle_mode_head": [
       "src/cnmineral/models/mode_head.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py"
     ],
     "imputation_readout_head": [
@@ -41,6 +58,8 @@
       "src/cnmineral/eval/probe/primitives.py"
     ],
     "masked_mean_pool": [
+      "src/cnmineral/models/comp_head.py",
+      "src/cnmineral/models/cond_head.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
       "src/cnmineral/models/mode_head.py",
@@ -74,6 +93,7 @@
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/pretrain_objective.py",
       "src/cnmineral/training/reconstruction_mse.py",
@@ -81,16 +101,26 @@
     ]
   },
   "evaluation": {
+    "comp_oxide_calibration": [
+      "src/cnmineral/eval/comp_head.py"
+    ],
+    "cond_gmm_calibration": [
+      "src/cnmineral/eval/cond_head.py"
+    ],
     "element_imputation": [
       "scripts/eval/impute_elements.py",
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/training/imputation_head.py"
+    ],
+    "exposure_bias_measurement": [
+      "src/cnmineral/eval/cond_head.py"
     ],
     "fp_mass_guardrail": [
       "src/cnmineral/eval/mode_head.py"
     ],
     "joint_hurdle_nll_eval": [
       "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py"
     ],
     "knn_label_purity": [
@@ -114,6 +144,7 @@
       "src/cnmineral/eval/mode_head.py"
     ],
     "pit_magnitude_calibration": [
+      "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/eval/mode_head.py"
     ],
     "presence_reliability_ece": [
@@ -166,6 +197,8 @@
   "initialization": {
     "checkpoint_load": [
       "scripts/view/plot_training.py",
+      "src/cnmineral/eval/comp_head.py",
+      "src/cnmineral/eval/cond_head.py",
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/mode_head.py",
@@ -175,6 +208,7 @@
       "src/cnmineral/training/checkpoint.py",
       "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py"
     ],
     "mask_token_learnable": [
@@ -190,11 +224,30 @@
     ]
   },
   "loss": {
+    "comp_dirichlet_nll": [
+      "src/cnmineral/eval/comp_head.py",
+      "src/cnmineral/losses/comp_loss.py",
+      "src/cnmineral/losses/joint_loss.py"
+    ],
     "cross_entropy": [
       "src/cnmineral/eval/probe/primitives.py"
     ],
+    "gmm_nll": [
+      "src/cnmineral/eval/cond_head.py",
+      "src/cnmineral/losses/cond_loss.py",
+      "src/cnmineral/losses/joint_loss.py"
+    ],
+    "joint_multihead_loss": [
+      "scripts/eval/comp_head.py",
+      "scripts/eval/cond_head.py",
+      "src/cnmineral/eval/comp_head.py",
+      "src/cnmineral/eval/cond_head.py",
+      "src/cnmineral/losses/joint_loss.py",
+      "src/cnmineral/training/joint_heads.py"
+    ],
     "masked_dirichlet_nll": [
       "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/losses/mode_loss.py",
       "src/cnmineral/training/mode_head.py"
     ],
@@ -204,12 +257,20 @@
       "src/cnmineral/models/imputation_head.py",
       "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/pretrain_objective.py"
+    ],
+    "mass_balance_closure": [
+      "configs/heads/joint_heads.yaml",
+      "src/cnmineral/eval/comp_head.py",
+      "src/cnmineral/losses/closure_loss.py",
+      "src/cnmineral/losses/joint_loss.py",
+      "src/cnmineral/training/joint_heads.py"
     ]
   },
   "optimization": {
     "adamw": [
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
@@ -280,6 +341,7 @@
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "early_stopping": [
+      "configs/heads/joint_heads.yaml",
       "configs/heads/mode_head.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
@@ -287,6 +349,7 @@
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
@@ -298,6 +361,7 @@
     ],
     "grad_clip": [
       "src/cnmineral/training/imputation_head.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
@@ -317,11 +381,17 @@
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "sealed_valtest_roster": [
+      "configs/heads/joint_heads.yaml",
       "configs/heads/mode_head.yaml",
       "scripts/build/build_valtest_split.py",
+      "scripts/eval/comp_head.py",
+      "scripts/eval/cond_head.py",
       "scripts/eval/mode_head.py",
       "src/cnmineral/data/mineralogy_dataset.py",
+      "src/cnmineral/eval/comp_head.py",
+      "src/cnmineral/eval/cond_head.py",
       "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/mode_head.py"
     ],
     "stratified_split": [

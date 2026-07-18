@@ -67,6 +67,18 @@ techniques:
       - "ModeHead("
       - "presence_out"
       - "alpha_out"
+  - name: comp_dirichlet_head
+    type: architecture
+    patterns:
+      - "CompHead("
+      - "conc_out"
+      - "comp_alpha"
+  - name: gmm_cond_head
+    type: architecture
+    patterns:
+      - "CondHead("
+      - "cond_n_components"
+      - "init_output_bias"
 
   # ---- initialization ----
   - name: mat2vec_embedding
@@ -165,6 +177,25 @@ techniques:
     patterns:
       - "masked_dirichlet_nll"
       - "mode_head_loss"
+  - name: comp_dirichlet_nll
+    type: loss
+    patterns:
+      - "masked_comp_dirichlet_nll"
+  - name: gmm_nll
+    type: loss
+    patterns:
+      - "gmm_nll"
+  - name: mass_balance_closure
+    type: loss
+    patterns:
+      - "closure_residual"
+      - "closure_loss"
+      - "lambda_balance"
+  - name: joint_multihead_loss
+    type: loss
+    patterns:
+      - "joint_heads_loss"
+      - "JointHeadCheckpoint"
 
   # ---- preprocessing ----
   - name: standard_scaler
@@ -278,6 +309,23 @@ techniques:
     type: evaluation
     patterns:
       - "beta_pit"
+  - name: comp_oxide_calibration
+    type: evaluation
+    patterns:
+      - "comp_beta_pit"
+      - "comp_parity_stats"
+      - "an_number"
+  - name: cond_gmm_calibration
+    type: evaluation
+    patterns:
+      - "gmm_pit"
+      - "central_coverage"
+      - "effective_components"
+  - name: exposure_bias_measurement
+    type: evaluation
+    patterns:
+      - "sample_supports"
+      - "exposure_bias_nll_delta"
   - name: pit_by_support_stratification
     type: evaluation
     patterns:

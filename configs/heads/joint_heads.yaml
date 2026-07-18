@@ -1,0 +1,31 @@
+encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
+
+# labels (semantics stamped into the checkpoint; must match at re-eval)
+corpus_dir: data/corpus/train
+valtest_corpus_dir: data/corpus/valtest   # val roster of valtest_split.csv drives early stopping
+rungs: [50, 30]
+comp_eps: 1.0e-4      # hard-zero oxide clip before renormalizing comp targets
+
+# head architecture
+hidden: null          # null -> d_model // 2 trunk (all three heads)
+dropout: 0.0
+alpha_eps: 1.0e-6
+cond_n_components: 3
+cond_sigma_eps: 1.0e-3
+
+# loss weights (fixed until the joint single-stage HPO, ADR 006)
+magnitude_weight: 1.0
+lambda_comp: 1.0
+lambda_cond: 0.01     # cond NLL is in raw (T, P, H2O) units, so this also absorbs the scale gap
+lambda_balance: 1.0
+
+# optimization
+epochs: 40
+early_stop_patience: 5
+batch_size: 1024
+lr: 1.0e-3
+weight_decay: 0.0
+seed: 0
+
+head_checkpoint_dir: checkpoints/joint_heads_seed0
+head_checkpoint_filename: heads_best.pt
