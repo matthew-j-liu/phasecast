@@ -106,9 +106,14 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_rows_and_target_shapes` -- one item per (bulk, draw, rung) label row with 21-phase presence/magnitude targets; present magnitudes sum to 1, absent are exactly 0.
 2. `test_input_tokens_match_bulk_chemistry` -- the item's src/frac equal the `BulkChemistryDataset` row for the same sample id (inputs come from the original bulk chemistry, never per-draw oxides).
 3. `test_unresolvable_bulk_dropped` -- a corpus bulk id absent from the chemistry table is dropped with a printed count, not an error.
-4. `test_provisional_split_disjoint_and_deterministic` -- the hash split partitions the ids, reproduces exactly, and lands near the requested fraction.
-5. `test_provisional_split_stable_under_corpus_growth` -- a bulk's train/val membership never changes when more bulks are added.
-6. `test_provisional_split_seed_changes_membership` -- a different seed reassigns membership.
+4. `test_bulk_ids_filter_restricts_rows` -- the `bulk_ids` filter keeps only the requested bulks' label rows and raises when the filter empties the corpus.
+
+### test_valtest_split.py
+
+1. `test_roster_partitions_and_excludes_dropped_bulk` -- the committed roster holds 499 unique bulks assigned val/test only, with the dropped bulk absent.
+2. `test_roster_counts_and_stratification` -- 221 val / 278 test, and every qap class appears in both subsets.
+3. `test_load_valtest_split_sorted_disjoint` -- both subsets load as sorted int64 arrays, disjoint, union 499.
+4. `test_load_valtest_split_unknown_subset_raises` -- a subset name other than val/test raises.
 
 ### test_mineralogy_labels.py
 
@@ -274,7 +279,7 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_mode_head_train.py
 
-1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs on a synthetic mineralogy corpus + tiny frozen encoder: monitor tracks every term per epoch, label semantics (`rungs`, `presence_cutoff`) are stamped into the checkpoint, the saved file round-trips through `ModeHeadCheckpoint.load`, and `build_head` reconstructs a working head.
+1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs training on one synthetic corpus while a second synthetic valtest corpus (roster monkeypatched) drives the val monitor: monitor tracks every term per epoch, label semantics (`rungs`, `presence_cutoff`, `valtest_corpus_dir`) are stamped into the checkpoint, the saved file round-trips through `ModeHeadCheckpoint.load`, and `build_head` reconstructs a working head.
 
 ## eval/
 
@@ -331,6 +336,7 @@ rename, or repurpose a test) updates this file in the same change.**
 13. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
 14. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
 15. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
+16. `test_run_mode_head_eval_end_to_end` -- full harness smoke on a test-trained checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, figures land on disk, and a checkpoint whose `label_config` predates the roster raises.
 
 ### test_training_curves.py
 

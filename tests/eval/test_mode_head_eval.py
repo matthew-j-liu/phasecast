@@ -1,9 +1,15 @@
+import dataclasses
+
 import numpy as np
+import pytest
 import torch
 import torch.nn.functional as F
 from scipy.stats import beta as beta_dist
 from torch.distributions import Dirichlet
 
+import cnmineral.eval.mode_head as eval_mod
+import cnmineral.training.mode_head as train_mod
+from cnmineral.data.bulk_chemistry import BulkChemistryDataset
 from cnmineral.eval.mode_head import (
     beta_pit,
     conditional_mean,
@@ -12,6 +18,7 @@ from cnmineral.eval.mode_head import (
     presence_scores,
     recall_by_band,
     reliability_table,
+    run_mode_head_eval,
     select_overlay_exemplars,
     stratified_mean,
     support_group_pit_stats,
@@ -224,3 +231,66 @@ def test_beta_overlay_exemplar_selection():
     within = ex["within_support"]
     assert within["bulk"] == 1
     assert np.isclose(within["m_lo"], 0.2) and np.isclose(within["m_hi"], 0.8)
+
+
+def test_run_mode_head_eval_end_to_end(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_mineralogy_corpus,
+    tmp_path, monkeypatch,
+):
+    data_kwargs = {"csv_path": str(corpus_subset_path), "min_class_count": 5}
+    chem = BulkChemistryDataset(
+        csv_path=str(corpus_subset_path), require_all_majors=False, min_class_count=5
+    )
+    bulk_ids = [int(s) for s in chem.sample_ids[:12]]
+    corpus_dir = synthetic_mineralogy_corpus(tmp_path / "corpus", bulk_ids[:8])
+    valtest_dir = synthetic_mineralogy_corpus(tmp_path / "valtest", bulk_ids[8:])
+    val_ids = np.array(bulk_ids[8:], dtype=np.int64)
+    monkeypatch.setattr(train_mod, "load_valtest_split", lambda subset: val_ids)
+    monkeypatch.setattr(eval_mod, "load_valtest_split", lambda subset: val_ids)
+
+    config = {
+        "encoder_checkpoint": str(tiny_pretrain_checkpoint),
+        "corpus_dir": str(corpus_dir),
+        "valtest_corpus_dir": str(valtest_dir),
+        "epochs": 1,
+        "batch_size": 16,
+        "lr": 1e-3,
+        "seed": 0,
+        "data_kwargs": data_kwargs,
+        "head_checkpoint_dir": str(tmp_path / "ckpt"),
+        "head_checkpoint_filename": "head_best.pt",
+    }
+    train_mod.train_mode_head(config, torch.device("cpu"))
+    ckpt_path = tmp_path / "ckpt" / "head_best.pt"
+
+    # the harness rebuilds the dataset against the default gard2019 csv;
+    # inject the fixture subset without adding a production seam
+    real_dataset = eval_mod.ModeHeadDataset
+    monkeypatch.setattr(
+        eval_mod, "ModeHeadDataset",
+        lambda **kw: real_dataset(**kw, data_kwargs=data_kwargs),
+    )
+    monkeypatch.setattr(eval_mod, "RESULTS_ROOT", tmp_path / "results")
+    metrics = run_mode_head_eval(ckpt_path, device=torch.device("cpu"))
+
+    assert metrics["split"] == {
+        "csv": "src/cnmineral/data/valtest_split.csv",
+        "subset": "val",
+        "n_assigned_bulks": len(val_ids),
+    }
+    assert metrics["n_val_bulks"] == len(val_ids)
+    assert metrics["n_val_rows"] == 3 * len(val_ids)
+    out_dir = tmp_path / "results" / "mode_head" / "ckpt"
+    assert (out_dir / "metrics.json").exists()
+    assert (out_dir / "reliability.png").exists()
+    assert (out_dir / "magnitude_pit_by_support.png").exists()
+
+    stale = dataclasses.replace(
+        train_mod.ModeHeadCheckpoint.load(ckpt_path),
+        label_config={k: v for k, v in metrics["label_config"].items()
+                      if k != "valtest_corpus_dir"},
+    )
+    stale_path = tmp_path / "ckpt_stale" / "head_best.pt"
+    stale.save(stale_path)
+    with pytest.raises(ValueError, match="predates the valtest roster"):
+        run_mode_head_eval(stale_path, device=torch.device("cpu"))

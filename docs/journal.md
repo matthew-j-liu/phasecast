@@ -3479,3 +3479,54 @@ numbers recorded here and in #25.
 checkpoint (eval-harness code, plan mode first); valtest lands -> delete
 `provisional_bulk_split`, refresh figures and deck captions; then
 CompHead/CondHead plan mode.
+
+## 2026-07-18 -- Split swap: sealed valtest roster replaces the provisional split; first val-roster baseline
+
+**Q.** Retire the provisional hash split and install the final two-tier
+split: what carries the sealed val/test assignment, how do the degenerate
+valtest bulks enter it, and what replaces "provisional" in reporting?
+
+**Context.** Both tiers complete and audited (948k train rows; valtest
+125,105 usable rows, 97.7%); bulk 411132 dropped by owner decision
+2026-07-17, leaving 499 roster bulks. New facts surfaced at implementation:
+7 roster bulks have zero usable rows at any rung (3 tephritic phonolite,
+2 rhyolite, 1 phonolitic tephrite, 1 alkali feldspar trachyte), and 5 of
+the 6 short bulks (<200 rows) are tephritic phonolite / phonolitic
+tephrite -- solver attrition concentrates in the alkaline classes.
+Stratification is otherwise clean: 22 qap classes, no singletons.
+
+**Considered.** Roster membership for the odd bulks: assign all 499
+(adopted -- a zero-row bulk never enters a dataset, so it contributes no
+signal anywhere, and the roster stays stable if those bulks are ever
+regenerated) vs dropping the 7 vs pinning them to val. Persistence:
+committed CSV generated once (adopted -- the sealed test assignment must
+not drift with sklearn versions, and the roster is reviewable in git) vs
+seed-recompute at load. Reporting: factual caption "val (N bulks, 128
+draws/bulk)" with N computed at runtime; metrics.json records the csv
+path, subset, and counts -- no adjectives.
+
+**Decision.** `scripts/build/build_valtest_split.py` (one-shot,
+--force-guarded) wrote `src/cnmineral/data/valtest_split.csv`: 221 val /
+278 test, stratified 16:20 by qap_name (seed 0), every class present in
+both subsets. `provisional_bulk_split` deleted; the trainer now trains on
+every train-tier bulk (9,933 after the chemistry join) and early-stops on
+the val roster (218 effective bulks, 55,576 rows); the eval harness takes
+only `--checkpoint` and rejects pre-roster checkpoints. Retrained head:
+best val at epoch 3 (early stop at 8), joint hurdle NLL -1.0066 nats/row
+on the val roster -- a new baseline series, not comparable to the
+provisional-split -0.818. First val-roster read against the
+provisional-era story: garnet's high-frequency miss is gone (recall 1.0
+at f > 0.9, 0.0 below f = 0.5 -- misses are now purely
+intermediate-frequency, alongside opx 0.23 / ru 0.13 / ol 0.04); plag's
+PIT flattened (tails 0.12); amphibole keeps the U-with-high-tilt (tails
+0.27, mean 0.58: spread too narrow and conditionally under-sized, the #25
+target); oxide accessories stay humped (spl/ilm/ru tails ~0.01). Deck
+updated with fixed-roster populations, the 256-rows/rock worked example,
+and the regen-status slide closed out. Issues #29/#30 filed as
+low-priority assessments (shared eval-figure helpers once Comp/Cond evals
+exist; inspect_checkpoint doesn't know ModeHeadCheckpoint).
+
+**Next.** CompHead/CondHead build (plan mode; two heads + joint loss +
+mass-balance) -> joint tuning per ADR 006 -> staged amphibole fixes
+(support-conditioning first, mixture second), each measured against this
+baseline.

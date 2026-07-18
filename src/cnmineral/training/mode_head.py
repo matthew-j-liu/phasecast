@@ -3,12 +3,13 @@
 The encoder checkpoint named in the config is loaded, frozen, and used once
 to produce one pooled latent per corpus bulk (all draws/rungs of a bulk share
 one input vector, so the latent table is tiny and lives on the device). The
-head trains on those latents against the `ModeHeadDataset` hurdle targets
-with `mode_head_loss`, early-stopping on val total loss over the provisional
-bulk-level split. Evaluation assembles the joint hurdle NLL explicitly (the
-training loss is two surrogates; the joint likelihood of a modal vector is
-the summed Bernoulli log-likelihoods plus the support-Dirichlet NLL) and
-reports per-phase presence calibration and recall.
+head trains on every train-tier row against the `ModeHeadDataset` hurdle
+targets with `mode_head_loss`, early-stopping on total loss over the valtest
+tier's val roster (`load_valtest_split`). Evaluation assembles the joint
+hurdle NLL explicitly (the training loss is two surrogates; the joint
+likelihood of a modal vector is the summed Bernoulli log-likelihoods plus
+the support-Dirichlet NLL) and reports per-phase presence calibration and
+recall.
 """
 
 import datetime
@@ -21,9 +22,9 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 import yaml
-from torch.utils.data import DataLoader, Subset, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 
-from cnmineral.data.mineralogy_dataset import ModeHeadDataset, provisional_bulk_split
+from cnmineral.data.mineralogy_dataset import ModeHeadDataset, load_valtest_split
 from cnmineral.data.phase_vocab import SOLID_PHASES
 from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.losses.mode_loss import masked_dirichlet_nll, mode_head_loss
@@ -37,9 +38,11 @@ class ModeHeadCheckpoint:
     """One serialized ModeHead, bound to its frozen encoder and label semantics.
 
     `label_config` records what the targets were built from (`corpus_dir`,
-    `rungs`, `presence_cutoff`) -- scoring a checkpoint against differently
-    built labels is a category error, so the semantics travel with the
-    weights. Dataset rows are not stored; they rebuild from `label_config`.
+    `valtest_corpus_dir`, `rungs`, `presence_cutoff`) -- scoring a checkpoint
+    against differently built labels is a category error, so the semantics
+    travel with the weights. Dataset rows are not stored; they rebuild from
+    `label_config` plus the committed valtest roster (`valtest_split.csv`,
+    versioned with the code at `git_sha`).
     """
 
     head_state: dict
@@ -136,17 +139,6 @@ def _bulk_latents(
     return torch.cat(outs)
 
 
-def _row_split_indices(
-    dataset: ModeHeadDataset, val_fraction: float, seed: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """Bulk-level split mapped down to row indices."""
-    _, val_ids = provisional_bulk_split(dataset.bulk_ids, val_fraction, seed)
-    is_val_bulk = np.zeros(len(dataset.bulk_ids), dtype=bool)
-    is_val_bulk[np.searchsorted(dataset.bulk_ids, val_ids)] = True
-    row_is_val = is_val_bulk[dataset.row_bulk_idx.numpy()]
-    return np.flatnonzero(~row_is_val), np.flatnonzero(row_is_val)
-
-
 def evaluate_mode_head(
     head: ModeHead,
     latents: torch.Tensor,
@@ -209,11 +201,11 @@ def evaluate_mode_head(
 def train_mode_head(config: dict, device: torch.device) -> ModeHeadCheckpoint:
     """Train the ModeHead per `config`; return the best-val checkpoint.
 
-    Required config keys: `encoder_checkpoint`, `corpus_dir`, `epochs`, `lr`,
-    `batch_size`. Optional: `rungs`, `presence_cutoff`, `hidden`, `dropout`,
-    `alpha_eps`, `magnitude_weight`, `weight_decay`, `early_stop_patience`,
-    `val_fraction`, `seed`, `data_kwargs`, `head_checkpoint_dir` +
-    `head_checkpoint_filename`.
+    Required config keys: `encoder_checkpoint`, `corpus_dir`,
+    `valtest_corpus_dir`, `epochs`, `lr`, `batch_size`. Optional: `rungs`,
+    `presence_cutoff`, `hidden`, `dropout`, `alpha_eps`, `magnitude_weight`,
+    `weight_decay`, `early_stop_patience`, `seed`, `data_kwargs`,
+    `head_checkpoint_dir` + `head_checkpoint_filename`.
     """
     encoder_ckpt_path = config["encoder_checkpoint"]
     encoder, enc_ckpt = load_encoder_from_checkpoint(encoder_ckpt_path)
@@ -226,23 +218,32 @@ def train_mode_head(config: dict, device: torch.device) -> ModeHeadCheckpoint:
 
     label_config = {
         "corpus_dir": str(config["corpus_dir"]),
+        "valtest_corpus_dir": str(config["valtest_corpus_dir"]),
         "rungs": tuple(config.get("rungs", (50, 30))),
         "presence_cutoff": config.get("presence_cutoff"),
     }
-    dataset_kwargs = {k: v for k, v in label_config.items() if v is not None}
-    dataset = ModeHeadDataset(
+    dataset_kwargs = {
+        k: v for k, v in label_config.items()
+        if k != "valtest_corpus_dir" and v is not None
+    }
+    train_ds = ModeHeadDataset(
         **dataset_kwargs, data_kwargs=config.get("data_kwargs")
     )
-    label_config["presence_cutoff"] = float(dataset.presence_cutoff)
-
-    latents = _bulk_latents(encoder, dataset, device)
-    train_rows, val_rows = _row_split_indices(
-        dataset, config.get("val_fraction", 0.20), seed
+    label_config["presence_cutoff"] = float(train_ds.presence_cutoff)
+    val_ds = ModeHeadDataset(
+        corpus_dir=config["valtest_corpus_dir"],
+        rungs=label_config["rungs"],
+        presence_cutoff=label_config["presence_cutoff"],
+        data_kwargs=config.get("data_kwargs"),
+        bulk_ids=load_valtest_split("val"),
     )
+
+    train_latents = _bulk_latents(encoder, train_ds, device)
+    val_latents = _bulk_latents(encoder, val_ds, device)
     print(
         f"train_mode_head: device={device} encoder={Path(encoder_ckpt_path).name} "
-        f"bulks={len(dataset.bulk_ids)} rows={len(dataset)} "
-        f"n_train={len(train_rows)} n_val={len(val_rows)} (provisional split)"
+        f"train: bulks={len(train_ds.bulk_ids)} rows={len(train_ds)} "
+        f"val: bulks={len(val_ds.bulk_ids)} rows={len(val_ds)} (valtest val roster)"
     )
 
     head_config = {
@@ -263,15 +264,16 @@ def train_mode_head(config: dict, device: torch.device) -> ModeHeadCheckpoint:
         head.parameters(), lr=config["lr"],
         weight_decay=config.get("weight_decay", 0.0),
     )
-    rows = TensorDataset(dataset.row_bulk_idx, dataset.presence, dataset.magnitude)
     train_loader = DataLoader(
-        Subset(rows, train_rows.tolist()), batch_size=config["batch_size"], shuffle=True,
+        TensorDataset(train_ds.row_bulk_idx, train_ds.presence, train_ds.magnitude),
+        batch_size=config["batch_size"], shuffle=True,
     )
     val_loader = DataLoader(
-        Subset(rows, val_rows.tolist()), batch_size=config["batch_size"], shuffle=False,
+        TensorDataset(val_ds.row_bulk_idx, val_ds.presence, val_ds.magnitude),
+        batch_size=config["batch_size"], shuffle=False,
     )
 
-    def _batch_loss(batch):
+    def _batch_loss(batch, latents):
         bidx, presence, magnitude = (t.to(device) for t in batch)
         logits, alpha = head(latents[bidx])
         return mode_head_loss(
@@ -292,7 +294,7 @@ def train_mode_head(config: dict, device: torch.device) -> ModeHeadCheckpoint:
         n_batches = 0
         epoch_start = time()
         for batch in train_loader:
-            terms = _batch_loss(batch)
+            terms = _batch_loss(batch, train_latents)
             optimizer.zero_grad()
             terms["total"].backward()
             torch.nn.utils.clip_grad_norm_(head.parameters(), max_norm=1.0)
@@ -309,7 +311,7 @@ def train_mode_head(config: dict, device: torch.device) -> ModeHeadCheckpoint:
         n_batches = 0
         with torch.no_grad():
             for batch in val_loader:
-                terms = _batch_loss(batch)
+                terms = _batch_loss(batch, val_latents)
                 for k in sums:
                     sums[k] += terms[k].item()
                 n_batches += 1
@@ -337,7 +339,9 @@ def train_mode_head(config: dict, device: torch.device) -> ModeHeadCheckpoint:
     if best_state is not None:
         head.load_state_dict(best_state)
 
-    metrics = evaluate_mode_head(head, latents, dataset, val_rows, device)
+    metrics = evaluate_mode_head(
+        head, val_latents, val_ds, np.arange(len(val_ds)), device
+    )
     print(f"\nval joint hurdle NLL: {metrics['joint_nll']:.4f} nats/row")
     table = pd.DataFrame(metrics["per_phase"]).sort_values(
         "frequency", ascending=False

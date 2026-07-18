@@ -128,10 +128,11 @@ techniques:
     patterns:
       - "train_imputation_head"
       - "ImputationHeadCheckpoint"
-  - name: hash_stable_bulk_split
+  - name: sealed_valtest_roster
     type: training_strategy
     patterns:
-      - "provisional_bulk_split"
+      - "load_valtest_split"
+      - "valtest_split.csv"
 
   # ---- optimization ----
   - name: adamw

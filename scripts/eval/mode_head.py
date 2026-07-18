@@ -1,12 +1,11 @@
-"""Interrogate a trained ModeHead checkpoint on its provisional val split.
+"""Interrogate a trained ModeHead checkpoint on the valtest val roster.
 
   python scripts/eval/mode_head.py --checkpoint checkpoints/mode_head_seed0/head_best.pt
 
 `--checkpoint` is a `ModeHeadCheckpoint` (head weights + encoder pointer +
-label semantics). The dataset and split are rebuilt from the checkpoint's
-stamped `label_config` plus `--seed` / `--val-fraction`, which must match the
-training config (the split is hashed, not stored). Figures + `metrics.json`
-land at `results/mode_head/<checkpoint dir name>/`.
+label semantics). The val dataset is rebuilt from the checkpoint's stamped
+`label_config` plus the committed valtest roster (`valtest_split.csv`).
+Figures + `metrics.json` land at `results/mode_head/<checkpoint dir name>/`.
 """
 
 import os
@@ -26,18 +25,8 @@ def main() -> None:
         "--checkpoint", type=Path, required=True,
         help="ModeHead checkpoint produced by scripts/training/mode_head.py",
     )
-    parser.add_argument(
-        "--seed", type=int, default=0,
-        help="provisional-split seed used at training time",
-    )
-    parser.add_argument(
-        "--val-fraction", type=float, default=0.20,
-        help="provisional-split val fraction used at training time",
-    )
     args = parser.parse_args()
-    run_mode_head_eval(
-        args.checkpoint.resolve(), seed=args.seed, val_fraction=args.val_fraction
-    )
+    run_mode_head_eval(args.checkpoint.resolve())
 
 
 if __name__ == "__main__":

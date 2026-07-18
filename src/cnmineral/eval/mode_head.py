@@ -1,14 +1,12 @@
 """Interrogation report for a trained hurdle ModeHead.
 
-Rebuilds the checkpoint's dataset and provisional val split, caches one
+Rebuilds the checkpoint's valtest val-roster dataset, caches one
 `(p, alpha)` prediction per bulk, and scores it per the heads.md eval
 philosophy: presence calibration and the joint hurdle NLL (stratified by
 phase rarity, rung, qap class, support size) as the headline, presence
 recall and false-positive mass as guardrails, plus PIT-based magnitude
 calibration. The statistics live as pure array functions; `run_mode_head_eval`
 orchestrates and emits figures + `metrics.json` under `results/mode_head/<tag>/`.
-All numbers are provisional until the valtest tier replaces the provisional
-split.
 """
 
 import json
@@ -26,16 +24,12 @@ import torch.nn.functional as F
 from scipy.special import betainc
 from scipy.stats import beta
 
-from cnmineral.data.mineralogy_dataset import ModeHeadDataset
+from cnmineral.data.mineralogy_dataset import ModeHeadDataset, load_valtest_split
 from cnmineral.data.phase_vocab import SOLID_PHASES
 from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.losses.mode_loss import masked_dirichlet_nll
 from cnmineral.training import pick_device
-from cnmineral.training.mode_head import (
-    ModeHeadCheckpoint,
-    _bulk_latents,
-    _row_split_indices,
-)
+from cnmineral.training.mode_head import ModeHeadCheckpoint, _bulk_latents
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RESULTS_ROOT = REPO_ROOT / "results"
@@ -355,9 +349,6 @@ def recall_by_band(
     return {"recall": recall, "n_present": n_present}
 
 
-PROVISIONAL = "provisional (partial corpus, provisional split)"
-
-
 def _phase_grid(ncols: int = 5) -> tuple[plt.Figure, np.ndarray]:
     nrows = ceil(len(SOLID_PHASES) / ncols)
     fig, axes = plt.subplots(
@@ -368,15 +359,16 @@ def _phase_grid(ncols: int = 5) -> tuple[plt.Figure, np.ndarray]:
     return fig, axes
 
 
-def _finish(fig: plt.Figure, title: str, out_path: Path) -> None:
-    fig.suptitle(f"{title} -- {PROVISIONAL}")
+def _finish(fig: plt.Figure, title: str, out_path: Path, split_tag: str) -> None:
+    fig.suptitle(f"{title} -- {split_tag}")
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
 def plot_reliability(
-    p_rows: np.ndarray, presence: np.ndarray, out_path: Path, n_bins: int = 10
+    p_rows: np.ndarray, presence: np.ndarray, out_path: Path, split_tag: str,
+    n_bins: int = 10,
 ) -> list[dict]:
     """Per-phase reliability diagrams; returns each phase's reliability table."""
     fig, axes = _phase_grid()
@@ -397,7 +389,7 @@ def plot_reliability(
         ax.set_title(f"{name}  ECE={t['ece']:.3f}", fontsize=9)
         ax.set_xlabel("predicted p", fontsize=8)
         ax.set_ylabel("empirical freq", fontsize=8)
-    _finish(fig, "presence reliability (bars: bin counts)", out_path)
+    _finish(fig, "presence reliability (bars: bin counts)", out_path, split_tag)
     return tables
 
 
@@ -413,6 +405,7 @@ def plot_reliability_subset(
     p_rows: np.ndarray,
     presence: np.ndarray,
     out_path: Path,
+    split_tag: str,
     panels: tuple = REGIME_PANELS,
     n_bins: int = 10,
 ) -> None:
@@ -434,11 +427,12 @@ def plot_reliability_subset(
         ax.set_title(f"{full_name}  ECE={t['ece']:.3f}", fontsize=12)
         ax.set_xlabel("predicted p", fontsize=10)
         ax.set_ylabel("empirical frequency", fontsize=10)
-    _finish(fig, "presence reliability: the four behavior regimes", out_path)
+    _finish(fig, "presence reliability: the four behavior regimes", out_path,
+            split_tag)
 
 
 def plot_pf_scatter(
-    p_bulk: np.ndarray, f_bulk: np.ndarray, out_path: Path
+    p_bulk: np.ndarray, f_bulk: np.ndarray, out_path: Path, split_tag: str
 ) -> dict[str, np.ndarray]:
     """Per-phase p_i vs within-bulk frequency f_i; returns per-phase r and MAE."""
     fig, axes = _phase_grid()
@@ -460,7 +454,8 @@ def plot_pf_scatter(
         ax.set_title(f"{name}{tag}  r={r[i]:.2f} MAE={mae[i]:.3f}", fontsize=9)
         ax.set_xlabel("within-bulk freq f", fontsize=8)
         ax.set_ylabel("predicted p", fontsize=8)
-    _finish(fig, "presence p vs within-bulk frequency (one point per bulk)", out_path)
+    _finish(fig, "presence p vs within-bulk frequency (one point per bulk)",
+            out_path, split_tag)
     return {"pf_r": r, "pf_mae": mae}
 
 
@@ -476,6 +471,7 @@ def plot_pf_subset(
     p_bulk: np.ndarray,
     f_bulk: np.ndarray,
     out_path: Path,
+    split_tag: str,
     panels: tuple = PF_REGIME_PANELS,
 ) -> None:
     """One p-vs-frequency panel per behavior regime, 2x2 (slide-sized)."""
@@ -495,7 +491,7 @@ def plot_pf_subset(
         ax.set_xlabel("within-bulk frequency f", fontsize=10)
         ax.set_ylabel("predicted p", fontsize=10)
     _finish(fig, "presence p vs within-bulk frequency: the four behavior regimes",
-            out_path)
+            out_path, split_tag)
 
 
 def _parity_band(ax, levels: np.ndarray, sigmas: np.ndarray) -> None:
@@ -513,6 +509,7 @@ def plot_magnitude_parity(
     presence: np.ndarray,
     band: tuple[np.ndarray, np.ndarray],
     out_path: Path,
+    split_tag: str,
 ) -> dict[str, np.ndarray]:
     """True vs predicted conditional magnitude on truly-present rows.
 
@@ -545,7 +542,7 @@ def plot_magnitude_parity(
         ax.set_xlabel("predicted cond. mean", fontsize=8)
         ax.set_ylabel("true magnitude", fontsize=8)
     _finish(fig, "conditional magnitude parity (true support; band = +/-1 "
-            "within-bulk sd at that magnitude level)", out_path)
+            "within-bulk sd at that magnitude level)", out_path, split_tag)
     return {"magnitude_mae": mae, "magnitude_r": r}
 
 
@@ -563,6 +560,7 @@ def plot_magnitude_parity_subset(
     sigma_wb: np.ndarray,
     band: tuple[np.ndarray, np.ndarray],
     out_path: Path,
+    split_tag: str,
     panels: tuple = PARITY_REGIME_PANELS,
 ) -> None:
     """One magnitude-parity panel per behavior regime (slide-sized)."""
@@ -585,10 +583,12 @@ def plot_magnitude_parity_subset(
         ax.set_xlabel("predicted cond. mean", fontsize=10)
         ax.set_ylabel("true magnitude", fontsize=10)
     _finish(fig, "conditional magnitude parity: behavior regimes "
-            "(band = +/-1 within-bulk sd at that magnitude level)", out_path)
+            "(band = +/-1 within-bulk sd at that magnitude level)", out_path,
+            split_tag)
 
 
-def plot_pit(pit: np.ndarray, out_path: Path, n_bins: int = 20) -> None:
+def plot_pit(pit: np.ndarray, out_path: Path, split_tag: str,
+             n_bins: int = 20) -> None:
     """Per-phase PIT histograms; flat = calibrated magnitude spread."""
     fig, axes = _phase_grid()
     for i, (ax, name) in enumerate(zip(axes.flat, SOLID_PHASES)):
@@ -601,7 +601,8 @@ def plot_pit(pit: np.ndarray, out_path: Path, n_bins: int = 20) -> None:
         ax.set_xlim(0, 1)
         ax.set_title(f"{name}  n={vals.size}", fontsize=9)
         ax.set_xlabel("PIT", fontsize=8)
-    _finish(fig, "magnitude PIT (flat=calibrated, U=overconfident)", out_path)
+    _finish(fig, "magnitude PIT (flat=calibrated, U=overconfident)", out_path,
+            split_tag)
 
 
 PIT_REGIME_PANELS = (
@@ -614,6 +615,7 @@ PIT_REGIME_PANELS = (
 def plot_pit_subset(
     pit: np.ndarray,
     out_path: Path,
+    split_tag: str,
     panels: tuple = PIT_REGIME_PANELS,
     n_bins: int = 20,
 ) -> None:
@@ -633,11 +635,11 @@ def plot_pit_subset(
         ax.set_xlabel("PIT", fontsize=10)
         ax.set_ylabel("density", fontsize=10)
     _finish(fig, "magnitude PIT: behavior regimes "
-            "(flat = honest spread; tails expected 0.10)", out_path)
+            "(flat = honest spread; tails expected 0.10)", out_path, split_tag)
 
 
 def plot_pit_by_support(
-    pit: np.ndarray, stats: list[dict], out_path: Path,
+    pit: np.ndarray, stats: list[dict], out_path: Path, split_tag: str,
     phase: str = "amp", full_name: str = "amphibole", n_bins: int = 20,
 ) -> None:
     """Pooled PIT vs per-(bulk, support)-group PIT (mean, sd) scatter."""
@@ -671,7 +673,7 @@ def plot_pit_by_support(
                       f"two_sided={s['frac_two_sided']:.2f}", fontsize=11)
     axes[1].legend(fontsize=8)
     _finish(fig, f"{full_name} PIT by (bulk, support) group -- one predicted "
-            "Beta per group", out_path)
+            "Beta per group", out_path, split_tag)
 
 
 def _split_two_means(x: np.ndarray) -> tuple[float, float, float, float]:
@@ -760,6 +762,7 @@ def plot_beta_overlay(
     row_bulk: np.ndarray,
     bulk_ids: np.ndarray,
     out_path: Path,
+    split_tag: str,
     phase: str = "amp",
     full_name: str = "amphibole",
 ) -> None:
@@ -810,11 +813,11 @@ def plot_beta_overlay(
     ax.set_ylabel("density", fontsize=10)
     _finish(fig, f"{full_name}: predicted Beta marginal vs one bulk's true "
             "proportions (left: humps split by support; right: humps within "
-            "one support)", out_path)
+            "one support)", out_path, split_tag)
 
 
 def plot_alpha_concentration(
-    alpha0: np.ndarray, support_size: np.ndarray, out_path: Path
+    alpha0: np.ndarray, support_size: np.ndarray, out_path: Path, split_tag: str
 ) -> None:
     """Support-summed alpha_0 distributions by support size."""
     sizes = np.unique(support_size)
@@ -824,11 +827,12 @@ def plot_alpha_concentration(
     ax.set_yscale("log")
     ax.set_xlabel("true support size")
     ax.set_ylabel("support-summed alpha_0")
-    _finish(fig, "Dirichlet concentration by support size", out_path)
+    _finish(fig, "Dirichlet concentration by support size", out_path, split_tag)
 
 
 def plot_rung_frequency(
-    f50: np.ndarray, f30: np.ndarray, p_bulk: np.ndarray, out_path: Path
+    f50: np.ndarray, f30: np.ndarray, p_bulk: np.ndarray, out_path: Path,
+    split_tag: str,
 ) -> None:
     """f_i at rung 50 vs rung 30 per bulk, colored by the single per-bulk p_i."""
     ncols = 5
@@ -854,7 +858,7 @@ def plot_rung_frequency(
         ax.set_ylabel("f at rung 30", fontsize=8)
     if sc is not None:
         fig.colorbar(sc, ax=axes.ravel().tolist(), label="predicted p", shrink=0.5)
-    fig.suptitle(f"presence frequency by rung, colored by p -- {PROVISIONAL}")
+    fig.suptitle(f"presence frequency by rung, colored by p -- {split_tag}")
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
@@ -872,6 +876,7 @@ def plot_rung_subset(
     f30: np.ndarray,
     p_bulk: np.ndarray,
     out_path: Path,
+    split_tag: str,
     panels: tuple = RUNG_REGIME_PANELS,
 ) -> None:
     """One rung-comparison panel per behavior regime, 2x2 (slide-sized)."""
@@ -894,13 +899,13 @@ def plot_rung_subset(
     if sc is not None:
         fig.colorbar(sc, ax=axes.ravel().tolist(), label="predicted p", shrink=0.6)
     fig.suptitle("presence frequency by rung: the four behavior regimes -- "
-                 f"{PROVISIONAL}")
+                 f"{split_tag}")
     fig.savefig(out_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
 def plot_mass_guardrails(
-    fp_mass: np.ndarray, fn_mass: np.ndarray, out_path: Path
+    fp_mass: np.ndarray, fn_mass: np.ndarray, out_path: Path, split_tag: str
 ) -> None:
     """Per-row FP-mass and FN-mass distributions (log counts)."""
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
@@ -915,7 +920,7 @@ def plot_mass_guardrails(
         ax.set_ylabel("rows")
         ax.set_title(f"mean={vals.mean():.4f}  p95={np.quantile(vals, 0.95):.4f}",
                      fontsize=9)
-    _finish(fig, "thresholded-view mass guardrails", out_path)
+    _finish(fig, "thresholded-view mass guardrails", out_path, split_tag)
 
 
 def _rarity_band(frequency: float) -> str:
@@ -936,15 +941,13 @@ def _qap_labels(names: np.ndarray, top_k: int = 8) -> np.ndarray:
 def run_mode_head_eval(
     head_checkpoint_path: Path,
     *,
-    seed: int = 0,
-    val_fraction: float = 0.20,
     device: torch.device | None = None,
 ) -> dict:
-    """Full interrogation of a ModeHead checkpoint on its provisional val split.
+    """Full interrogation of a ModeHead checkpoint on the valtest val roster.
 
-    `seed` / `val_fraction` must match the values the checkpoint was trained
-    with (the split is rebuilt, not stored). Writes figures + `metrics.json`
-    to `results/mode_head/<checkpoint dir name>/` and returns the metrics.
+    The val dataset rebuilds from the checkpoint's stamped `label_config` plus
+    the committed `valtest_split.csv`. Writes figures + `metrics.json` to
+    `results/mode_head/<checkpoint dir name>/` and returns the metrics.
     """
     head_checkpoint_path = Path(head_checkpoint_path)
     ckpt = ModeHeadCheckpoint.load(head_checkpoint_path)
@@ -962,24 +965,31 @@ def run_mode_head_eval(
     head = ckpt.build_head().to(device)
 
     lc = ckpt.label_config
+    if "valtest_corpus_dir" not in lc:
+        raise ValueError(
+            "checkpoint predates the valtest roster (no valtest_corpus_dir in "
+            "label_config); retrain the head"
+        )
+    val_bulk_ids = load_valtest_split("val")
     dataset = ModeHeadDataset(
-        corpus_dir=lc["corpus_dir"],
+        corpus_dir=lc["valtest_corpus_dir"],
         rungs=tuple(lc["rungs"]),
         presence_cutoff=lc["presence_cutoff"],
+        bulk_ids=val_bulk_ids,
     )
     latents = _bulk_latents(encoder, dataset, device)
-    _, val_rows = _row_split_indices(dataset, val_fraction, seed)
     print(f"bulks={len(dataset.bulk_ids)} rows={len(dataset)} "
-          f"n_val={len(val_rows)} (provisional split, seed={seed})")
+          f"(valtest val roster)")
+    split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
 
     logits_bulk, alpha_bulk = head(latents)
     p_bulk = torch.sigmoid(logits_bulk).cpu().numpy()
     alpha_bulk_np = alpha_bulk.cpu().numpy()
 
-    row_bulk = dataset.row_bulk_idx[val_rows].numpy()
-    presence = dataset.presence[val_rows].numpy()
-    magnitude = dataset.magnitude[val_rows].numpy()
-    rung = dataset.rung[val_rows].numpy()
+    row_bulk = dataset.row_bulk_idx.numpy()
+    presence = dataset.presence.numpy()
+    magnitude = dataset.magnitude.numpy()
+    rung = dataset.rung.numpy()
     qap = _qap_labels(dataset.bulk_qap_names[row_bulk])
     p_rows = p_bulk[row_bulk]
     alpha_rows = alpha_bulk_np[row_bulk]
@@ -996,48 +1006,50 @@ def run_mode_head_eval(
     f_all, _ = within_bulk_frequency(presence, row_bulk, n_bulks)
     f50, _ = within_bulk_frequency(presence[rung == 50], row_bulk[rung == 50], n_bulks)
     f30, _ = within_bulk_frequency(presence[rung == 30], row_bulk[rung == 30], n_bulks)
-    val_bulks = np.unique(row_bulk)
     f_rows = f_all[row_bulk]
 
-    rel_tables = plot_reliability(p_rows, presence, output_dir / "reliability.png")
-    plot_reliability_subset(p_rows, presence, output_dir / "reliability_subset.png")
-    pf = plot_pf_scatter(
-        p_bulk[val_bulks], f_all[val_bulks], output_dir / "p_vs_frequency.png"
+    rel_tables = plot_reliability(
+        p_rows, presence, output_dir / "reliability.png", split_tag
     )
-    plot_pf_subset(
-        p_bulk[val_bulks], f_all[val_bulks], output_dir / "p_vs_frequency_subset.png"
+    plot_reliability_subset(
+        p_rows, presence, output_dir / "reliability_subset.png", split_tag
     )
+    pf = plot_pf_scatter(p_bulk, f_all, output_dir / "p_vs_frequency.png", split_tag)
+    plot_pf_subset(p_bulk, f_all, output_dir / "p_vs_frequency_subset.png", split_tag)
     cm_true = conditional_mean(alpha_rows, presence)
     sigma_wb = within_bulk_conditional_sigma(magnitude, presence, row_bulk)
     band = within_bulk_sigma_profile(magnitude, presence, row_bulk)
     parity = plot_magnitude_parity(
-        cm_true, magnitude, presence, band, output_dir / "magnitude_parity.png"
+        cm_true, magnitude, presence, band, output_dir / "magnitude_parity.png",
+        split_tag,
     )
     plot_magnitude_parity_subset(
         cm_true, magnitude, presence, sigma_wb, band,
-        output_dir / "magnitude_parity_subset.png",
+        output_dir / "magnitude_parity_subset.png", split_tag,
     )
     pit = beta_pit(alpha_rows, presence, magnitude)
-    plot_pit(pit, output_dir / "magnitude_pit.png")
-    plot_pit_subset(pit, output_dir / "magnitude_pit_subset.png")
+    plot_pit(pit, output_dir / "magnitude_pit.png", split_tag)
+    plot_pit_subset(pit, output_dir / "magnitude_pit_subset.png", split_tag)
     pit_support = support_group_pit_stats(pit, presence, row_bulk)
     plot_pit_by_support(pit, pit_support,
-                        output_dir / "magnitude_pit_by_support.png")
+                        output_dir / "magnitude_pit_by_support.png", split_tag)
     plot_beta_overlay(alpha_rows, presence, magnitude, row_bulk,
-                      dataset.bulk_ids, output_dir / "amp_beta_overlay.png")
+                      dataset.bulk_ids, output_dir / "amp_beta_overlay.png",
+                      split_tag)
     alpha0 = (alpha_rows * presence).sum(-1)
-    plot_alpha_concentration(alpha0, support_size, output_dir / "alpha_concentration.png")
+    plot_alpha_concentration(
+        alpha0, support_size, output_dir / "alpha_concentration.png", split_tag
+    )
     plot_rung_frequency(
-        f50[val_bulks], f30[val_bulks], p_bulk[val_bulks],
-        output_dir / "rung_frequency.png",
+        f50, f30, p_bulk, output_dir / "rung_frequency.png", split_tag
     )
     plot_rung_subset(
-        f50[val_bulks], f30[val_bulks], p_bulk[val_bulks],
-        output_dir / "rung_frequency_subset.png",
+        f50, f30, p_bulk, output_dir / "rung_frequency_subset.png", split_tag
     )
     masses = fp_fn_mass(p_rows, alpha_rows, presence, magnitude)
     plot_mass_guardrails(
-        masses["fp_mass"], masses["fn_mass"], output_dir / "mass_guardrails.png"
+        masses["fp_mass"], masses["fn_mass"], output_dir / "mass_guardrails.png",
+        split_tag,
     )
 
     scores = presence_scores(p_rows, presence)
@@ -1068,9 +1080,13 @@ def run_mode_head_eval(
         "head_checkpoint": str(head_checkpoint_path),
         "encoder_checkpoint": str(ckpt.encoder_checkpoint),
         "label_config": dict(lc),
-        "split": {"kind": "provisional", "seed": seed, "val_fraction": val_fraction},
-        "n_val_rows": int(len(val_rows)),
-        "n_val_bulks": int(len(val_bulks)),
+        "split": {
+            "csv": "src/cnmineral/data/valtest_split.csv",
+            "subset": "val",
+            "n_assigned_bulks": int(len(val_bulk_ids)),
+        },
+        "n_val_rows": int(len(dataset)),
+        "n_val_bulks": int(n_bulks),
         "joint_nll": float(nll["joint"].mean()),
         "bernoulli_nll": float(nll["bernoulli"].mean()),
         "dirichlet_nll": float(nll["dirichlet"].mean()),

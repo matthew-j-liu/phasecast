@@ -22,7 +22,7 @@ cover the 8-item checklist:
   6. ground truth -- label construction, split, and what a prediction means
      against it
   7. headline eval -- metric, what good looks like, artifact pointer,
-     provisional/final flag
+     split identity (val roster vs sealed test)
   8. known limits -- 2-3 bullets, pointers to heads.md / ADRs for rationale
 
     conda run -n alignn_fix python slides/overview.py
@@ -409,10 +409,10 @@ def s_regen_status(prs):
         ("2. orchestrator", ["landed + smoke-run", ("generate_mineralogy_corpus",)], True, False),
         ("3. water A/B", ["switch holds;", ("biotite gap is",),
                           ("prior-side, not coverage",)], True, False),
-        ("4. pilot + rung pick", ["first 5 train chunks", ("health report +",),
-                                  ("rung_prescreen.py -> owner",)], False, True),
-        ("5. production", ["10k x 48 + 500 x 128", ("~2 days, pausable",),
-                           ("rerun command = resume",)], False, False),
+        ("4. pilot + rung pick", ["passed; rungs locked", ("50 + 30 (owner,",),
+                                  ("rung_prescreen.py)",)], True, False),
+        ("5. production", ["both tiers complete", ("948k train rows;",),
+                           ("valtest 125k, sealed",), ("221/278 val/test roster",)], True, False),
     ]
     bx, bw, bh, by = [0.55, 3.15, 5.75, 8.35, 10.95], 2.35, 2.1, 2.3
     for i, (name, lines, landed, is_next) in enumerate(steps):
@@ -424,16 +424,17 @@ def s_regen_status(prs):
             pr = bx[i - 1] + bw
             flow_arrow(s, pr + 0.04, by + bh / 2 - 0.18, bx[i] - pr - 0.08, 0.36,
                        lit=landed or is_next)
-    caption(s, 0.55, 5.2, 12.2, "gates between stages: the A/B re-checks the amp/opx "
-            "multimodality magnitude and the biotite presence gap under bounded water; the "
-            "pilot pre-screen scores each rung against the real benchmark (presence per SiO2 "
-            "band, then rank of proportions) and the owner picks the training rung before "
-            "production launches.", 13, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 5.2, 12.2, "all gates passed: the water A/B held under bounded "
+            "sampling; the pilot pre-screen locked rungs 50 + 30; production completed "
+            "2026-07-17 (train 99.2% point convergence, valtest 97.7% usable rows after "
+            "dropping one solver-poisoned bulk). The 499 valtest bulks divide 16:20 into "
+            "a committed val/test roster (valtest_split.csv); test stays sealed.",
+            13, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.35, 12.2, "spec: docs/corpus_regen_spec.md (all design decisions locked "
-            "2026-07-14; what remains is measurement and generation).", 12, GRAYT, align=PP_ALIGN.LEFT)
-    notes(s, "Status strip for the corpus regen. Stages 1-2 are code, landed and tested. "
-             "Stage 3-5 are runs the owner executes in his own terminal; each has a decision "
-             "gate before the next. Update this slide as stages complete.")
+            "2026-07-14; generation complete 2026-07-17).", 12, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Status strip for the corpus regen, now fully landed -- the slide is a record, "
+             "not a plan. Candidate to retire or fold into the corpora slide at the next "
+             "deck pass (owner call).")
 
 
 def s_architecture(prs):
@@ -700,9 +701,9 @@ def s_mode_head_reliability(prs):
     caption(s, 0.55, 1.15, 12.2, "the presence head's headline eval: pool every prediction "
             "near a probability, then ask how often the mineral was really there",
             13, GRAYT, align=PP_ALIGN.LEFT)
-    rocks = [("rock A (andesite)", "p_cpx = 0.71", "96 rows: cpx in 70"),
-             ("rock B (bas. andesite)", "p_cpx = 0.74", "96 rows: cpx in 61"),
-             ("rock C (andesite)", "p_cpx = 0.77", "96 rows: cpx in 74")]
+    rocks = [("rock A (andesite)", "p_cpx = 0.71", "256 rows: cpx in 187"),
+             ("rock B (bas. andesite)", "p_cpx = 0.74", "256 rows: cpx in 163"),
+             ("rock C (andesite)", "p_cpx = 0.77", "256 rows: cpx in 197")]
     caption(s, 0.55, 1.75, 2.9, "22-token chemistry -> one p per rock", 11, BLUE)
     caption(s, 4.05, 1.75, 3.2, "truth: rows where cpx > 0.1 wt% of the solids", 11, GREEN)
     for i, (name, pred, truth) in enumerate(rocks):
@@ -712,8 +713,8 @@ def s_mode_head_reliability(prs):
         box(s, 4.05, y, 3.2, 0.85, [truth], GREEN, size=12)
         line(s, 7.25, y + 0.42, 7.85, 3.7, GRAYT, 1.5)
     box(s, 7.85, 2.75, 2.6, 1.9, ["predictions binned:", ("p in [0.70, 0.80): 3 predictions,",),
-        ("x 96 labels each = 288 pairs",), ("mean p = 0.740  .  actually",),
-        ("present: 205 / 288 = 0.712",)], ORANGE, size=13)
+        ("x 256 labels each = 768 pairs",), ("mean p = 0.740  .  actually",),
+        ("present: 547 / 768 = 0.712",)], ORANGE, size=13)
     px, py, pw, ph = 10.8, 1.95, 2.3, 2.3
     frame = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(px), Inches(py), Inches(pw), Inches(ph))
     frame.fill.background(); frame.line.color.rgb = _rgb(GRAYL)
@@ -731,36 +732,40 @@ def s_mode_head_reliability(prs):
     caption(s, px - 0.3, py + ph + 0.05, pw + 0.6, "predicted p ->", 10, GRAYT)
     caption(s, px - 0.3, py - 0.45, pw + 0.6, "on the diagonal = calibrated", 11, ORANGE)
     caption(s, px - 0.3, py + ph + 0.42, pw + 0.6,
-            "gray dot: overconfident (if truth were 135/288)", 9, GRAYT)
+            "gray dot: overconfident (if truth were 360/768)", 9, GRAYT)
     caption(s, 0.55, 5.15, 12.2, '"actually present" is the pooled hit rate over the rows whose '
             "prediction landed in the bin -- never a corpus-wide rate, never one rock alone. "
             "Per-rock misses can cancel inside a bin (B deserved 0.64); the p-vs-frequency "
             "scatter is the stricter per-rock test, and the head is scored on both.",
             11, INK, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 5.9, 12.2, "3 rocks shown; the real figure pools the validation rocks "
-            "only -- currently ~930 rocks x 96 rows = 86,617 (p, truth) pairs per mineral "
-            "panel, partitioned across the 10 bins (the gray bars). Training rocks are "
-            "excluded because a head that memorized them would grade itself calibrated. And "
-            "since all 96 rows of a rock share one prediction, a panel holds only ~930 "
-            "distinct p values, each stamped 96x -- the effective sample size is rocks, not "
-            "rows, which is why every number stays provisional until the valtest tier "
-            "(500 rocks x 128 draws) lands.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 5.9, 12.2, "3 rocks shown; the real figure pools the val-roster rocks "
+            "only -- 218 rocks x ~255 rows = 55,576 (p, truth) pairs per mineral panel, "
+            "partitioned across the 10 bins (the gray bars). Training rocks are excluded "
+            "because a head that memorized them would grade itself calibrated. And since "
+            "all ~255 rows of a rock share one prediction, a panel holds only 218 distinct "
+            "p values, each stamped ~255x -- the effective sample size is rocks, not rows. "
+            "The population is the fixed val roster of the sealed valtest tier (128 "
+            "draws/rock at rungs 50+30), so panels are comparable across retrains.",
+            11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.95, 12.2, "BCE's per-rock minimum is the true fraction, so an honest "
-            "head lands on the diagonal by construction. current limits (provisional): garnet "
-            "presence under-predicted even at f > 0.9; amphibole magnitude spread too narrow. "
-            "full report: results/mode_head/<tag>/", 10, GRAYT, align=PP_ALIGN.LEFT)
+            "head lands on the diagonal by construction. current limits: "
+            "intermediate-frequency presence is the miss mode (garnet recall 1.0 at f > 0.9 "
+            "but 0.0 below f = 0.5; opx 0.23 / ru 0.13 / ol 0.04 overall); spinel is the "
+            "worst-calibrated panel (ECE 0.043); amphibole magnitude spread stays too "
+            "narrow (next slide). full report: results/mode_head/<tag>/",
+            10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Worked example for the reliability diagram in results/mode_head/<tag>/"
              "reliability.png. Numbers illustrative but to scale: three rocks predicted in "
              "[0.70, 0.80) -- a real bin edge of the 10 equal-width bins the code uses -- "
-             "contribute 3 predictions x 96 labels = 288 (p, truth) pairs -- 3 predictions, "
-             "not 288; each rock's single p is scored against its 96 labels. "
+             "contribute 3 predictions x 256 labels = 768 (p, truth) pairs -- 3 predictions, "
+             "not 768; each rock's single p is scored against its 256 labels. "
              "x = count-weighted mean p (0.740), "
-             "y = pooled fraction of pairs with cpx present (205/288 = 0.712). ECE on the "
+             "y = pooled fraction of pairs with cpx present (547/768 = 0.712). ECE on the "
              "real panels is the count-weighted |x - y| over 10 such bins. The gray ghost "
-             "dot shows the overconfident failure mode. Real population: val split of the "
-             "provisional bulk-level hash split (~20% of 4,670 corpus rocks at 47/100 "
-             "chunks); the '~930 rocks / 86,617 rows' line is a current snapshot and grows "
-             "with the corpus -- update it on regen. Pair with figure 2 (p vs within-bulk "
+             "dot shows the overconfident failure mode. Real population: the sealed valtest "
+             "tier's val roster (221 assigned rocks, 218 contributing 55,576 rows at 128 "
+             "draws x rungs 50/30, minus attrition). Fixed roster: panel numbers move only "
+             "when the head retrains. Pair with figure 2 (p vs within-bulk "
              "frequency): reliability is aggregate honesty, the scatter is per-rock "
              "sharpness; a base-rate predictor passes the first and fails the second.")
 
@@ -824,10 +829,12 @@ def s_mode_head_dirichlet(prs):
             "sliced score is a proper density), and its modes appear only at the scoring "
             "step.", 11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.85, 12.2, "population: only truly-present (row, phase) pairs are "
-            "scored -- ~68k pairs for plag down to ~200 for corundum; single-phase rows are "
-            "excluded (nothing to size). current limits (provisional): amphibole U-shaped "
-            "PIT (spread too narrow; truth plausibly bimodal across paths), oxide "
-            "accessories humped (too wide), plag under-sized. full report: "
+            "scored -- ~41k pairs for plag down to ~240 for andalusite; single-phase rows "
+            "are excluded (nothing to size). current limits: amphibole PIT U-shaped with a "
+            "high-side tilt (tails 0.27 vs 0.10 expected: spread too narrow and "
+            "conditionally under-sized; corpus bimodality measured), oxide accessories "
+            "humped (spl/ilm/ru tails ~0.01: too wide); plag's earlier under-sizing "
+            "flattened with the full-tier retrain (tails 0.12). full report: "
             "results/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "

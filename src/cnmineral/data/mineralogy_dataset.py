@@ -6,14 +6,15 @@ cation+trace input (built from the original gard chemistry via
 factor leaks the sampled H2O; see ADR 008) plus the ModeHead hurdle targets
 from `mineralogy_labels`. All rows of a bulk share one input vector, exposed
 per-bulk (`bulk_src` / `bulk_frac` + `row_bulk_idx`) so a frozen-encoder
-trainer can cache one latent per bulk. Splits are bulk-level; see
-`provisional_bulk_split`.
+trainer can cache one latent per bulk. Splits are bulk-level: the valtest
+tier's val/test roster is the committed `valtest_split.csv`, read via
+`load_valtest_split`; the train tier trains whole.
 """
 
-import hashlib
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
@@ -21,9 +22,31 @@ from .bulk_chemistry import BulkChemistryDataset
 from .mineralogy_labels import hurdle_targets, load_mode_labels
 from .phase_vocab import PRESENCE_CUTOFF
 
+VALTEST_SPLIT_PATH = Path(__file__).resolve().parent / "valtest_split.csv"
+
+
+def load_valtest_split(subset: str) -> np.ndarray:
+    """Sorted bulk ids of the requested valtest roster subset (`val` | `test`).
+
+    The roster is the committed `valtest_split.csv`, generated once by
+    `scripts/build/build_valtest_split.py` and never recomputed at load time:
+    the test subset is sealed, so the assignment must not drift with library
+    versions. Roster membership is nominal -- a bulk with no usable corpus
+    rows contributes nothing downstream.
+    """
+    roster = pd.read_csv(VALTEST_SPLIT_PATH)
+    if subset not in ("val", "test"):
+        raise ValueError(f"unknown valtest subset {subset!r}; expected 'val' or 'test'")
+    ids = roster.loc[roster["subset"] == subset, "sample_id"].to_numpy(dtype=np.int64)
+    return np.sort(ids)
+
 
 class ModeHeadDataset(Dataset):
-    """(bulk, draw, rung) rows with hurdle targets over the phase vocabulary."""
+    """(bulk, draw, rung) rows with hurdle targets over the phase vocabulary.
+
+    `bulk_ids` restricts label rows to those bulks (how the trainer and eval
+    harness select a valtest roster subset); default keeps every corpus bulk.
+    """
 
     def __init__(
         self,
@@ -31,9 +54,16 @@ class ModeHeadDataset(Dataset):
         rungs: tuple[int, ...] = (50, 30),
         presence_cutoff: float = PRESENCE_CUTOFF,
         data_kwargs: dict | None = None,
+        bulk_ids: np.ndarray | None = None,
     ) -> None:
         self.presence_cutoff = presence_cutoff
         labels = load_mode_labels(corpus_dir, rungs)
+        if bulk_ids is not None:
+            labels = labels[labels["bulk"].isin({int(b) for b in bulk_ids})]
+            if labels.empty:
+                raise ValueError(
+                    f"no label rows for the requested bulk_ids under {corpus_dir}"
+                )
 
         chem_kwargs = {"require_all_majors": False, **(data_kwargs or {})}
         chem = BulkChemistryDataset(**chem_kwargs)
@@ -75,23 +105,3 @@ class ModeHeadDataset(Dataset):
             "magnitude": self.magnitude[idx].clone(),
             "bulk_idx": b.clone(),
         }
-
-
-def provisional_bulk_split(
-    bulk_ids: np.ndarray, val_fraction: float = 0.2, seed: int = 0
-) -> tuple[np.ndarray, np.ndarray]:
-    """Deterministic bulk-level train/val membership, stable as chunks accumulate.
-
-    Each bulk hashes independently to train or val, so membership never
-    changes as more corpus chunks land -- at corpus scale the split is
-    class-representative without explicit stratification. PROVISIONAL until
-    the high-precision valtest tier exists: this carves validation out of the
-    train tier and must be discarded once `data/corpus/valtest/` lands. Never
-    use it as the final 64/16/20 split.
-    """
-    digests = np.array([
-        int(hashlib.md5(f"{seed}:{int(b)}".encode()).hexdigest()[:8], 16)
-        for b in bulk_ids
-    ])
-    is_val = (digests % 10_000) < int(round(val_fraction * 10_000))
-    return bulk_ids[~is_val], bulk_ids[is_val]
