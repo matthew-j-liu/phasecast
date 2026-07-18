@@ -110,6 +110,9 @@
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/eval/probe/scoring.py"
     ],
+    "pit_by_support_stratification": [
+      "src/cnmineral/eval/mode_head.py"
+    ],
     "pit_magnitude_calibration": [
       "src/cnmineral/eval/mode_head.py"
     ],

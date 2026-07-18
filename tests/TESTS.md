@@ -328,6 +328,9 @@ rename, or repurpose a test) updates this file in the same change.**
 10. `test_recall_by_band_separates_intermediate_frequencies` -- recall stratified by the bulk's own presence-frequency band splits the intermediate (path-sensitive) misses from the high-frequency hits.
 11. `test_hurdle_nll_rows_matches_reference_assembly` -- per-row joint hurdle NLL equals summed Bernoulli log-likelihood plus `torch.distributions.Dirichlet` NLL on the sliced support, and the per-phase BCE decomposition sums back to the Bernoulli term.
 12. `test_stratified_mean` -- values grouped by label report the right per-group mean and count.
+13. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
+14. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
+15. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
 
 ### test_training_curves.py
 

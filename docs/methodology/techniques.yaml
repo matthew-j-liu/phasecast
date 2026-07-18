@@ -277,6 +277,11 @@ techniques:
     type: evaluation
     patterns:
       - "beta_pit"
+  - name: pit_by_support_stratification
+    type: evaluation
+    patterns:
+      - "support_group_pit_stats"
+      - "pit_by_support"
   - name: fp_mass_guardrail
     type: evaluation
     patterns:

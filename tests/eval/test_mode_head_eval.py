@@ -12,7 +12,9 @@ from cnmineral.eval.mode_head import (
     presence_scores,
     recall_by_band,
     reliability_table,
+    select_overlay_exemplars,
     stratified_mean,
+    support_group_pit_stats,
     within_bulk_conditional_sigma,
     within_bulk_frequency,
     within_bulk_sigma_profile,
@@ -156,3 +158,69 @@ def test_stratified_mean():
     out = stratified_mean(values, labels)
     assert out["50"] == {"mean": 2.0, "n": 2}
     assert out["30"] == {"mean": 3.0, "n": 2}
+
+
+def test_support_group_pit_stats_classifies_hand_groups():
+    # bulk 0 holds two supports (groups must split within a bulk):
+    # group A piled near 0 -> shifted; group B at both extremes -> two_sided.
+    # bulk 1 holds a uniform grid -> flat. bulk 2 has 5 rows -> filtered.
+    pit_a = np.linspace(0.0, 0.09, 20)
+    pit_b = np.array([0.02] * 8 + [0.98] * 8 + [0.5] * 4)
+    pit_c = np.linspace(0.025, 0.975, 20)
+    pit_d = np.full(5, 0.5)
+    pit0 = np.concatenate([pit_a, pit_b, pit_c, pit_d])
+    pit = np.column_stack([pit0, np.full(65, np.nan)])
+    presence = np.zeros((65, 3))
+    presence[:, 0] = 1.0
+    presence[:20, 1] = 1.0
+    presence[20:40, 2] = 1.0
+    presence[40:, 1] = 1.0
+    row_bulk = np.array([0] * 40 + [1] * 20 + [2] * 5)
+    s = support_group_pit_stats(pit, presence, row_bulk, min_rows=20)
+
+    assert s[0]["n_groups"] == 3
+    assert np.isclose(s[0]["coverage"], 60 / 65)
+    assert sorted(s[0]["group_class"]) == ["flat", "shifted", "two_sided"]
+    assert np.isclose(s[0]["frac_shifted"], 1 / 3)
+    assert np.isclose(s[0]["frac_two_sided"], 1 / 3)
+    shifted_mean = s[0]["group_mean"][s[0]["group_class"] == "shifted"]
+    assert np.isclose(shifted_mean, pit_a.mean())
+    assert s[1]["n_groups"] == 0 and np.isnan(s[1]["frac_shifted"])
+
+
+def test_support_group_pit_stats_uniform_false_positive_rate():
+    rng = np.random.default_rng(0)
+    n_groups, rows = 200, 20
+    pit = rng.uniform(size=(n_groups * rows, 1))
+    presence = np.ones((n_groups * rows, 2))
+    row_bulk = np.repeat(np.arange(n_groups), rows)
+    s = support_group_pit_stats(pit[:, :1], presence, row_bulk, min_rows=rows)
+    assert s[0]["n_groups"] == n_groups
+    # calibrated groups of the minimum size: misclassification stays bounded
+    assert s[0]["frac_two_sided"] < 0.2
+    assert s[0]["frac_shifted"] < 0.1
+
+
+def test_beta_overlay_exemplar_selection():
+    # bulk 0: two supports at means 0.2 / 0.7 -> support-separated winner
+    # (constant within each support, so no within-support candidacy);
+    # bulk 1: one support split 0.2 / 0.8 -> within-support winner.
+    presence = np.zeros((80, 3))
+    presence[:, 0] = 1.0
+    presence[:25, 1] = 1.0
+    presence[25:40, 2] = 1.0
+    presence[40:, 1] = 1.0
+    magnitude = np.zeros((80, 3))
+    magnitude[:25, 0] = 0.2
+    magnitude[25:40, 0] = 0.7
+    magnitude[40:60, 0] = 0.2
+    magnitude[60:, 0] = 0.8
+    row_bulk = np.array([0] * 40 + [1] * 40)
+    ex = select_overlay_exemplars(magnitude, presence, row_bulk, phase_idx=0)
+
+    sep = ex["support_separated"]
+    assert sep["bulk"] == 0
+    assert len(sep["dom_rows"]) == 25 and len(sep["second_rows"]) == 15
+    within = ex["within_support"]
+    assert within["bulk"] == 1
+    assert np.isclose(within["m_lo"], 0.2) and np.isclose(within["m_hi"], 0.8)

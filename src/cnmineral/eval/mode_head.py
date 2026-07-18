@@ -24,6 +24,7 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from scipy.special import betainc
+from scipy.stats import beta
 
 from cnmineral.data.mineralogy_dataset import ModeHeadDataset
 from cnmineral.data.phase_vocab import SOLID_PHASES
@@ -211,6 +212,80 @@ def beta_pit(
     x = np.clip(magnitude, 1e-12, 1.0 - 1e-12)
     pit[valid] = betainc(alpha[valid], b[valid], x[valid])
     return pit
+
+
+PIT_GROUP_MIN_ROWS = 20
+PIT_TAIL_LO, PIT_TAIL_HI = 0.1, 0.9
+PIT_TWO_SIDED_MIN_TAIL = 0.15
+PIT_SHIFTED_MEAN_BAND = (0.35, 0.65)
+
+
+def _support_group_ids(presence: np.ndarray, row_bulk: np.ndarray) -> np.ndarray:
+    """Integer id per row for its exact (bulk, support) group."""
+    buf = np.empty((len(row_bulk), presence.shape[1] + 8), dtype=np.uint8)
+    buf[:, :8] = row_bulk.astype("<i8").reshape(-1, 1).view(np.uint8)
+    buf[:, 8:] = presence.astype(np.uint8)
+    keys = np.ascontiguousarray(buf).view(np.dtype((np.void, buf.shape[1]))).ravel()
+    _, inverse = np.unique(keys, return_inverse=True)
+    return inverse
+
+
+def support_group_pit_stats(
+    pit: np.ndarray,
+    presence: np.ndarray,
+    row_bulk: np.ndarray,
+    min_rows: int = PIT_GROUP_MIN_ROWS,
+) -> list[dict]:
+    """Per-phase PIT statistics within exact (bulk, support) groups.
+
+    All rows of a group share one predicted Beta marginal (one alpha vector
+    per bulk, one mask per support), so the group's PIT distribution reads
+    directly: piled on one side = `shifted` (re-centerable by conditioning on
+    the support); mass beyond both tails = `two_sided` (bimodal within the
+    support, out of reach for any single Dirichlet); neither = `flat`.
+    Returns one dict per phase: `n_groups`, `coverage` (fraction of the
+    phase's finite-PIT rows inside groups of >= `min_rows`), `frac_shifted`,
+    `frac_two_sided`, and per-group arrays (`group_n/mean/sd/class`).
+    """
+    gid = _support_group_ids(presence, row_bulk)
+    out = []
+    for i in range(pit.shape[1]):
+        ok = np.isfinite(pit[:, i])
+        vals, g = pit[ok, i], gid[ok]
+        n = np.bincount(g, minlength=gid.max() + 1)
+        keep = np.flatnonzero(n >= min_rows)
+        if keep.size == 0 or vals.size == 0:
+            out.append({"n_groups": 0, "coverage": 0.0,
+                        "frac_shifted": np.nan, "frac_two_sided": np.nan,
+                        "group_n": np.array([], dtype=np.int64),
+                        "group_mean": np.array([]), "group_sd": np.array([]),
+                        "group_class": np.array([], dtype=object)})
+            continue
+        s1 = np.bincount(g, weights=vals, minlength=len(n))
+        s2 = np.bincount(g, weights=vals ** 2, minlength=len(n))
+        lo = np.bincount(g, weights=(vals < PIT_TAIL_LO).astype(float),
+                         minlength=len(n))
+        hi = np.bincount(g, weights=(vals > PIT_TAIL_HI).astype(float),
+                         minlength=len(n))
+        gn = n[keep].astype(np.int64)
+        mean = s1[keep] / gn
+        sd = np.sqrt(np.maximum(s2[keep] / gn - mean ** 2, 0.0))
+        min_tail = np.minimum(lo[keep], hi[keep]) / gn
+        two_sided = min_tail >= PIT_TWO_SIDED_MIN_TAIL
+        shifted = ~two_sided & ((mean < PIT_SHIFTED_MEAN_BAND[0])
+                                | (mean > PIT_SHIFTED_MEAN_BAND[1]))
+        cls = np.where(two_sided, "two_sided", np.where(shifted, "shifted", "flat"))
+        out.append({
+            "n_groups": int(keep.size),
+            "coverage": float(gn.sum() / vals.size),
+            "frac_shifted": float(shifted.mean()),
+            "frac_two_sided": float(two_sided.mean()),
+            "group_n": gn,
+            "group_mean": mean,
+            "group_sd": sd,
+            "group_class": cls.astype(object),
+        })
+    return out
 
 
 def fp_fn_mass(
@@ -561,6 +636,183 @@ def plot_pit_subset(
             "(flat = honest spread; tails expected 0.10)", out_path)
 
 
+def plot_pit_by_support(
+    pit: np.ndarray, stats: list[dict], out_path: Path,
+    phase: str = "amp", full_name: str = "amphibole", n_bins: int = 20,
+) -> None:
+    """Pooled PIT vs per-(bulk, support)-group PIT (mean, sd) scatter."""
+    i = SOLID_PHASES.index(phase)
+    s = stats[i]
+    v = pit[:, i]
+    v = v[np.isfinite(v)]
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 4.4))
+    tails = float(((v < 0.05) | (v > 0.95)).mean()) if v.size else np.nan
+    axes[0].hist(v, bins=n_bins, range=(0, 1), density=True,
+                 color="#d95f02", alpha=0.8)
+    axes[0].axhline(1.0, color="k", ls="--", lw=0.8)
+    axes[0].set_xlim(0, 1)
+    axes[0].set_title(f"{full_name} pooled  mean={v.mean():.2f}  "
+                      f"tails={tails:.2f}", fontsize=11)
+    axes[0].set_xlabel("PIT", fontsize=10)
+    axes[0].set_ylabel("density", fontsize=10)
+    colors = {"shifted": "#36c", "two_sided": "#d62728", "flat": "#999999"}
+    for cls, c in colors.items():
+        m = s["group_class"] == cls
+        if m.any():
+            axes[1].scatter(s["group_mean"][m], s["group_sd"][m], s=14,
+                            alpha=0.6, color=c, edgecolors="none", label=cls)
+    axes[1].axvline(0.5, color="k", ls=":", lw=0.8)
+    axes[1].axhline(np.sqrt(1 / 12), color="k", ls="--", lw=0.8)
+    axes[1].set_xlim(0, 1)
+    axes[1].set_xlabel("group PIT mean", fontsize=10)
+    axes[1].set_ylabel("group PIT sd (dashed = uniform)", fontsize=10)
+    axes[1].set_title(f"groups={s['n_groups']}  coverage={s['coverage']:.2f}  "
+                      f"shifted={s['frac_shifted']:.2f}  "
+                      f"two_sided={s['frac_two_sided']:.2f}", fontsize=11)
+    axes[1].legend(fontsize=8)
+    _finish(fig, f"{full_name} PIT by (bulk, support) group -- one predicted "
+            "Beta per group", out_path)
+
+
+def _split_two_means(x: np.ndarray) -> tuple[float, float, float, float]:
+    """Exact 1-D 2-means split; returns (separation, minority share, m_lo, m_hi)."""
+    x = np.sort(np.asarray(x, np.float64))
+    n = len(x)
+    if n < 2 or x.std() < 1e-9:
+        return 0.0, 0.0, float(x.mean()) if n else np.nan, np.nan
+    csum = np.cumsum(x)
+    tot = csum[-1]
+    k = np.arange(1, n)
+    m1 = csum[:-1] / k
+    m2 = (tot - csum[:-1]) / (n - k)
+    bss = k * (m1 - tot / n) ** 2 + (n - k) * (m2 - tot / n) ** 2
+    j = int(np.argmax(bss)) + 1
+    m_lo, m_hi = float(x[:j].mean()), float(x[j:].mean())
+    return m_hi - m_lo, min(j, n - j) / n, m_lo, m_hi
+
+
+def select_overlay_exemplars(
+    magnitude: np.ndarray,
+    presence: np.ndarray,
+    row_bulk: np.ndarray,
+    phase_idx: int,
+    min_bulk_rows: int = 30,
+    min_second_rows: int = 10,
+    min_group_rows: int = PIT_GROUP_MIN_ROWS,
+    min_share: float = 0.2,
+    min_sep: float = 0.05,
+) -> dict:
+    """Pick the two Beta-overlay exemplar bulks by measured criteria.
+
+    `support_separated`: the bulk maximizing the gap between its dominant and
+    second support's mean phase proportion (both supports well-populated) --
+    the failure support-conditioning re-centers away. `within_support`: the
+    dominant-support subset maximizing 2-means split separation subject to a
+    minority-share floor -- bimodality no single Dirichlet can represent
+    (split separation ranks exemplars only; it is not a bimodality test).
+    Single-phase supports are excluded (their Beta marginal is a point mass).
+    Selection is programmatic so exemplars survive split changes. Either key
+    is None when no bulk qualifies.
+    """
+    gid = _support_group_ids(presence, row_bulk)
+    mask = (presence[:, phase_idx] > 0) & (presence.sum(-1) > 1)
+    result = {"support_separated": None, "within_support": None}
+    best_gap, best_sep = -np.inf, -np.inf
+    for b in np.unique(row_bulk[mask]):
+        rows = np.flatnonzero(mask & (row_bulk == b))
+        if len(rows) < min_bulk_rows:
+            continue
+        groups, counts = np.unique(gid[rows], return_counts=True)
+        order = np.argsort(counts)[::-1]
+        dom_rows = rows[gid[rows] == groups[order[0]]]
+        if len(order) > 1 and counts[order[1]] >= min_second_rows:
+            second_rows = rows[gid[rows] == groups[order[1]]]
+            gap = abs(magnitude[dom_rows, phase_idx].mean()
+                      - magnitude[second_rows, phase_idx].mean())
+            if gap > best_gap:
+                best_gap = gap
+                result["support_separated"] = {
+                    "bulk": int(b), "rows": rows,
+                    "dom_rows": dom_rows, "second_rows": second_rows,
+                }
+        if len(dom_rows) >= min_group_rows:
+            sep, share, m_lo, m_hi = _split_two_means(
+                magnitude[dom_rows, phase_idx])
+            if share >= min_share and sep >= min_sep and sep > best_sep:
+                best_sep = sep
+                result["within_support"] = {
+                    "bulk": int(b), "rows": dom_rows,
+                    "m_lo": m_lo, "m_hi": m_hi,
+                }
+    return result
+
+
+def _beta_marginal(alpha_row: np.ndarray, presence_row: np.ndarray,
+                   phase_idx: int) -> tuple[float, float]:
+    a = float(alpha_row[phase_idx])
+    return a, float((alpha_row * presence_row).sum() - a)
+
+
+def plot_beta_overlay(
+    alpha_rows: np.ndarray,
+    presence: np.ndarray,
+    magnitude: np.ndarray,
+    row_bulk: np.ndarray,
+    bulk_ids: np.ndarray,
+    out_path: Path,
+    phase: str = "amp",
+    full_name: str = "amphibole",
+) -> None:
+    """Predicted Beta marginal(s) over one bulk's true proportions, twice."""
+    i = SOLID_PHASES.index(phase)
+    ex = select_overlay_exemplars(magnitude, presence, row_bulk, i)
+    grid = np.linspace(1e-4, 1 - 1e-4, 400)
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 4.4))
+
+    ax, sel = axes[0], ex["support_separated"]
+    if sel is None:
+        ax.text(0.5, 0.5, "no qualifying bulk", ha="center", va="center")
+    else:
+        vals = magnitude[sel["rows"], i]
+        ax.hist(vals, bins=24, range=(0, max(0.05, vals.max() * 1.05)),
+                density=True, color="#999999", alpha=0.7)
+        for rows, color, label in ((sel["dom_rows"], "#1b7", "dominant support"),
+                                   (sel["second_rows"], "#d95f02", "second support")):
+            a, bb = _beta_marginal(alpha_rows[rows[0]], presence[rows[0]], i)
+            ax.plot(grid, beta.pdf(grid, a, bb), color=color, lw=1.6, label=label)
+            ax.axvline(magnitude[rows, i].mean(), color=color, ls=":", lw=1.0)
+        m_dom = magnitude[sel["dom_rows"], i].mean()
+        m_sec = magnitude[sel["second_rows"], i].mean()
+        ax.set_xlim(0, max(0.05, vals.max() * 1.1))
+        ax.set_title(f"bulk {bulk_ids[sel['bulk']]}  n={len(vals)}  "
+                     f"support means {m_dom:.2f} / {m_sec:.2f}", fontsize=11)
+        ax.legend(fontsize=8)
+    ax.set_xlabel(f"{full_name} proportion (given presence)", fontsize=10)
+    ax.set_ylabel("density", fontsize=10)
+
+    ax, sel = axes[1], ex["within_support"]
+    if sel is None:
+        ax.text(0.5, 0.5, "no qualifying bulk", ha="center", va="center")
+    else:
+        vals = magnitude[sel["rows"], i]
+        ax.hist(vals, bins=24, range=(0, max(0.05, vals.max() * 1.05)),
+                density=True, color="#999999", alpha=0.7)
+        a, bb = _beta_marginal(alpha_rows[sel["rows"][0]],
+                               presence[sel["rows"][0]], i)
+        ax.plot(grid, beta.pdf(grid, a, bb), color="#d62728", lw=1.6,
+                label="dominant-support Beta")
+        ax.set_xlim(0, max(0.05, vals.max() * 1.1))
+        ax.set_title(f"bulk {bulk_ids[sel['bulk']]}  n={len(vals)}  "
+                     f"within-support split {sel['m_lo']:.2f} / "
+                     f"{sel['m_hi']:.2f}", fontsize=11)
+        ax.legend(fontsize=8)
+    ax.set_xlabel(f"{full_name} proportion (given presence)", fontsize=10)
+    ax.set_ylabel("density", fontsize=10)
+    _finish(fig, f"{full_name}: predicted Beta marginal vs one bulk's true "
+            "proportions (left: humps split by support; right: humps within "
+            "one support)", out_path)
+
+
 def plot_alpha_concentration(
     alpha0: np.ndarray, support_size: np.ndarray, out_path: Path
 ) -> None:
@@ -768,6 +1020,11 @@ def run_mode_head_eval(
     pit = beta_pit(alpha_rows, presence, magnitude)
     plot_pit(pit, output_dir / "magnitude_pit.png")
     plot_pit_subset(pit, output_dir / "magnitude_pit_subset.png")
+    pit_support = support_group_pit_stats(pit, presence, row_bulk)
+    plot_pit_by_support(pit, pit_support,
+                        output_dir / "magnitude_pit_by_support.png")
+    plot_beta_overlay(alpha_rows, presence, magnitude, row_bulk,
+                      dataset.bulk_ids, output_dir / "amp_beta_overlay.png")
     alpha0 = (alpha_rows * presence).sum(-1)
     plot_alpha_concentration(alpha0, support_size, output_dir / "alpha_concentration.png")
     plot_rung_frequency(
@@ -831,6 +1088,23 @@ def run_mode_head_eval(
                 "n_present": band_recall["n_present"][k].tolist(),
             }
             for k, (lo, hi) in enumerate(FREQUENCY_BANDS)
+        },
+        "pit_by_support": {
+            "min_rows": PIT_GROUP_MIN_ROWS,
+            "tails": [PIT_TAIL_LO, PIT_TAIL_HI],
+            "two_sided_min_tail": PIT_TWO_SIDED_MIN_TAIL,
+            "shifted_mean_band": list(PIT_SHIFTED_MEAN_BAND),
+            "per_phase": {
+                name: {
+                    "n_groups": s["n_groups"],
+                    "coverage": s["coverage"],
+                    "frac_shifted": None if np.isnan(s["frac_shifted"])
+                    else s["frac_shifted"],
+                    "frac_two_sided": None if np.isnan(s["frac_two_sided"])
+                    else s["frac_two_sided"],
+                }
+                for name, s in zip(SOLID_PHASES, pit_support)
+            },
         },
         "per_phase": per_phase,
     }
