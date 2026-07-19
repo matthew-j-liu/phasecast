@@ -1,0 +1,54 @@
+# Conditional CondHead-architecture mini-sweep (ADR 006). The main sweep
+# locked the shared environment + ModeHead architecture; cond's trunk was
+# invisible to that objective, so it sweeps here against cond's own NLL.
+# `base:` carries the main-sweep tiebreak winner verbatim (provenance in the
+# joint_heads_hpo journal / readout). Cond has no closure coupling into
+# mode, so the `mode_reference` guard here only screens seed-noise-scale
+# drift. Trial 0 is the current production architecture (hidden null ->
+# d_model // 2 = 128). The search space is 12 discrete cells and seed is
+# fixed, so duplicate trials just re-measure a cell; n_trials is a ceiling,
+# stop anytime, the journal resumes.
+
+study_name: joint_heads_minisweep_cond
+storage_path: data/optuna/journals/joint_heads_minisweep_cond.journal
+output_dir: results/heads_hpo
+
+objective: cond
+tie_band: 0.03
+mode_reference: -5.838094660910693
+sampler_seed: 42
+n_trials: 16
+n_startup_trials: 8
+
+base:
+  encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
+  corpus_dir: data/corpus/train
+  valtest_corpus_dir: data/corpus/valtest
+  rungs: [50, 30]
+  comp_eps: 1.0e-4
+  mode_hidden: 256
+  mode_layers: 3
+  comp_hidden: null
+  comp_layers: 1
+  alpha_eps: 1.0e-6
+  cond_n_components: 3
+  cond_sigma_eps: 1.0e-3
+  magnitude_weight: 0.2501388179331724
+  lambda_comp: 1.0
+  lambda_cond: 0.01
+  lambda_balance: 54.52629573235609
+  dropout: 0.3479155007864341
+  epochs: 120
+  early_stop_patience: 10
+  batch_size: 1024
+  lr: 2.1469012235795473e-04
+  weight_decay: 1.0397924477833218e-05
+  seed: 0
+
+search_space:
+  cond_hidden: {type: categorical, choices: [64, 128, 256, 512]}
+  cond_layers: {type: int, low: 1, high: 3}
+
+baseline:
+  cond_hidden: 128
+  cond_layers: 1
