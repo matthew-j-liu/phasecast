@@ -418,6 +418,7 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_plot_run_loss_returns_axes_with_two_lines` -- plotting a train+val monitor draws exactly two lines on the axes.
 2. `test_plot_run_loss_handles_train_only` -- a monitor without a val key still renders cleanly.
 3. `test_plot_run_loss_custom_ylabel` -- a custom ylabel lands on the axes.
+4. `test_plot_joint_run_loss_panel_per_term` -- a joint-heads monitor renders one panel per loss term plus the total, each with train and val lines.
 
 ## explorations/
 

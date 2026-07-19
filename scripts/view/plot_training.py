@@ -6,6 +6,8 @@ Two modes, picked by which flag you pass:
   Single-run loss curve:
       python scripts/view/plot_training.py --checkpoint checkpoints/.../epoch_best.pt \\
           --out results/scratch/run_curve.png
+      (joint-heads checkpoints are detected by their per-term monitor
+      keys and render one panel per loss term)
 
   HPO study (optimization history + per-trial curves as a second
   `<out>_trials.png` file):
@@ -34,14 +36,17 @@ from optuna.visualization.matplotlib import (
     plot_intermediate_values,
     plot_optimization_history,
 )
-from cnmineral.eval.training_curves import plot_run_loss
+from cnmineral.eval.training_curves import plot_joint_run_loss, plot_run_loss
 
 
 def plot_from_checkpoint(checkpoint_path: Path, out: Path | None) -> None:
     payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     monitor = payload["monitor"]
-    fig, ax = plt.subplots()
-    plot_run_loss(monitor, ax=ax, title=f"{checkpoint_path.name}")
+    if any(k.startswith("train_") for k in monitor):
+        fig = plot_joint_run_loss(monitor, title=checkpoint_path.name)
+    else:
+        fig, ax = plt.subplots()
+        plot_run_loss(monitor, ax=ax, title=f"{checkpoint_path.name}")
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(out, dpi=300, bbox_inches="tight")
