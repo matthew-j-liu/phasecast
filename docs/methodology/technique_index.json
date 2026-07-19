@@ -1,12 +1,15 @@
 {
   "architecture": {
     "comp_dirichlet_head": [
+      "scripts/view/truth_vs_pred.py",
+      "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/models/comp_head.py",
       "src/cnmineral/training/joint_heads.py"
     ],
     "dropout": [
       "configs/heads/joint_heads.yaml",
+      "configs/heads/joint_heads_hpo.yaml",
       "configs/heads/mode_head.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
@@ -40,6 +43,7 @@
     ],
     "gmm_cond_head": [
       "configs/heads/joint_heads.yaml",
+      "configs/heads/joint_heads_hpo.yaml",
       "src/cnmineral/models/cond_head.py",
       "src/cnmineral/training/joint_heads.py"
     ],
@@ -163,14 +167,27 @@
     ]
   },
   "hpo": {
+    "joint_heads_hpo": [
+      "configs/heads/joint_heads.yaml",
+      "configs/heads/joint_heads_hpo.yaml",
+      "scripts/training/joint_heads.py",
+      "src/cnmineral/eval/probe/hpo.py",
+      "src/cnmineral/losses/joint_loss.py",
+      "src/cnmineral/training/hpo.py",
+      "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/joint_heads.py",
+      "src/cnmineral/training/joint_heads_hpo.py"
+    ],
     "optuna_journal_storage": [
+      "configs/heads/joint_heads_hpo.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
       "scripts/view/plot_training.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
-      "src/cnmineral/training/imputation_head_hpo.py"
+      "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/joint_heads_hpo.py"
     ],
     "optuna_median_pruner": [
       "configs/pretrain/pretrain_hpo.yaml",
@@ -183,20 +200,24 @@
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
-      "src/cnmineral/training/imputation_head_hpo.py"
+      "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/joint_heads_hpo.py"
     ],
     "optuna_tpe_sampler": [
+      "configs/heads/joint_heads_hpo.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
-      "src/cnmineral/training/imputation_head_hpo.py"
+      "src/cnmineral/training/imputation_head_hpo.py",
+      "src/cnmineral/training/joint_heads_hpo.py"
     ]
   },
   "initialization": {
     "checkpoint_load": [
       "scripts/view/plot_training.py",
+      "scripts/view/truth_vs_pred.py",
       "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/eval/cond_head.py",
       "src/cnmineral/eval/imputation.py",
@@ -240,8 +261,10 @@
     "joint_multihead_loss": [
       "scripts/eval/comp_head.py",
       "scripts/eval/cond_head.py",
+      "scripts/view/truth_vs_pred.py",
       "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/eval/cond_head.py",
+      "src/cnmineral/eval/training_curves.py",
       "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/training/joint_heads.py"
     ],
@@ -260,6 +283,7 @@
     ],
     "mass_balance_closure": [
       "configs/heads/joint_heads.yaml",
+      "configs/heads/joint_heads_hpo.yaml",
       "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/losses/closure_loss.py",
       "src/cnmineral/losses/joint_loss.py",
@@ -324,6 +348,7 @@
       "scripts/build/build_test_fixture.py",
       "scripts/build/build_valtest_split.py",
       "scripts/build/report_corpus_health.py",
+      "scripts/view/truth_vs_pred.py",
       "src/cnmineral/data/bulk_chemistry.py",
       "src/cnmineral/data/fe_redox.py",
       "src/cnmineral/data/magemin_corpus.py",
@@ -342,6 +367,7 @@
     ],
     "early_stopping": [
       "configs/heads/joint_heads.yaml",
+      "configs/heads/joint_heads_hpo.yaml",
       "configs/heads/mode_head.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
@@ -380,6 +406,13 @@
       "src/cnmineral/training/reconstruction_mse.py",
       "src/cnmineral/training/ssl_pretrain.py"
     ],
+    "per_head_checkpoint_selection": [
+      "scripts/view/plot_training.py",
+      "src/cnmineral/eval/comp_head.py",
+      "src/cnmineral/eval/training_curves.py",
+      "src/cnmineral/training/joint_heads.py",
+      "src/cnmineral/training/joint_heads_hpo.py"
+    ],
     "sealed_valtest_roster": [
       "configs/heads/joint_heads.yaml",
       "configs/heads/mode_head.yaml",
@@ -387,6 +420,7 @@
       "scripts/eval/comp_head.py",
       "scripts/eval/cond_head.py",
       "scripts/eval/mode_head.py",
+      "scripts/view/truth_vs_pred.py",
       "src/cnmineral/data/mineralogy_dataset.py",
       "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/eval/cond_head.py",

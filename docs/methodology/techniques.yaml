@@ -145,6 +145,11 @@ techniques:
     patterns:
       - "load_valtest_split"
       - "valtest_split.csv"
+  - name: per_head_checkpoint_selection
+    type: training_strategy
+    patterns:
+      - "selection_series"
+      - "per-head bests"
 
   # ---- optimization ----
   - name: adamw
@@ -258,6 +263,12 @@ techniques:
       - "optuna.create_study"
       - "study.optimize"
       - "trial.suggest_"
+  - name: joint_heads_hpo
+    type: hpo
+    patterns:
+      - "joint_heads_hpo"
+      - "tiebreak_best"
+      - "mode_reference"
       - "_sample_hyperparameter"
 
   # ---- evaluation ----

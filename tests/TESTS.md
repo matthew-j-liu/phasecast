@@ -244,7 +244,8 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_output_shapes` -- forward returns presence logits and alphas, both `[B, N_PHASES]`.
 2. `test_alpha_strictly_positive` -- alphas respect the softplus + `alpha_eps` floor even on extreme inputs.
 3. `test_default_hidden_is_half_d_model` -- the trunk width defaults to `d_model // 2` and honors an explicit `hidden`.
-4. `test_gradients_flow_to_all_parameters` -- every head parameter receives gradient from a combined logits+alpha objective.
+4. `test_layers_stack_the_trunk` -- `layers` stacks trunk blocks (shapes hold, params grow) and `layers < 1` raises.
+5. `test_gradients_flow_to_all_parameters` -- every head parameter receives gradient from a combined logits+alpha objective.
 
 ### test_comp_head.py
 
@@ -252,7 +253,8 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_mean_is_simplex` -- the implied Dirichlet mean sums to 1 per phase.
 3. `test_shared_concentration_scales_alpha_not_mean` -- rescaling the concentration branch changes alphas but leaves the mean fixed (the shared-concentration factorization).
 4. `test_default_hidden_is_half_d_model` -- trunk width default and override.
-5. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
+5. `test_layers_stack_the_trunk` -- `layers` stacks trunk blocks; shapes and positivity hold, params grow.
+6. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
 
 ### test_cond_head.py
 
@@ -261,7 +263,8 @@ rename, or repurpose a test) updates this file in the same change.**
 3. `test_sigma_respects_floor` -- sigmas respect the softplus + `sigma_eps` floor.
 4. `test_presence_changes_output` -- flipping one presence bit moves the output (the support conditioning is live).
 5. `test_init_output_bias_seeds_mixture_at_target_scale` -- `init_output_bias` puts component means/sigmas at the per-axis target scale (the raw-unit cold-start fix).
-6. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
+6. `test_layers_stack_the_trunk` -- `layers` stacks trunk blocks; output shapes hold, params grow.
+7. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
 
 ## training/
 
@@ -334,7 +337,15 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_joint_heads_train.py
 
-1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs of the joint trainer on synthetic rungs+draws corpora (roster monkeypatched): the monitor tracks every loss term per epoch, `comp_eps` and the loss weights are stamped, the saved file round-trips through `JointHeadCheckpoint.load`, and all three `build_*_head` reconstructors return working heads.
+1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs of the joint trainer on synthetic rungs+draws corpora (roster monkeypatched): the monitor tracks every loss term per epoch, `comp_eps`, the loss weights, and the per-head architecture keys are stamped, the saved file round-trips through `JointHeadCheckpoint.load`, and all three `build_*_head` reconstructors return working heads.
+2. `test_per_head_selection_restores_each_heads_best` -- under a forced selection where mode peaks at epoch 1 while comp/cond keep improving, the stamped mode state bitwise-matches a same-seed 1-epoch run and comp/cond states do not (each head keeps its own best epoch).
+3. `test_early_stop_waits_for_slowest_head` -- with mode/comp flat after epoch 1 and cond improving through epoch 4, patience 1 stops at epoch 5, not when the fast heads plateau.
+
+### test_joint_heads_hpo.py
+
+1. `test_tiebreak_mode_ties_break_to_comp_then_cond` -- mode-objective read-out: trials within the tie band are ties broken by comp NLL then cond NLL; outside-band trials never win.
+2. `test_tiebreak_minisweep_requires_mode_within_band` -- comp-objective read-out admits only trials whose mode best stays within the band of `mode_reference`, returning None when none qualify.
+3. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
 
 ## eval/
 
@@ -400,7 +411,7 @@ rename, or repurpose a test) updates this file in the same change.**
 3. `test_comp_beta_pit_calibrated_samples_are_uniform` -- PIT of true Dirichlet samples under their own alphas is uniform (mean and tail mass).
 4. `test_comp_parity_stats_perfect_prediction` -- a perfect predictor scores MAE 0 and r 1 per (phase, oxide).
 5. `test_an_number_hand_case` -- equal molar CaO and Na2O with no K2O gives An# 0.5.
-6. `test_run_comp_head_eval_end_to_end` -- full harness smoke on a test-trained joint checkpoint (roster and results root monkeypatched): metrics.json + parity/closure figures land, and a checkpoint whose `label_config` lacks `comp_eps` raises.
+6. `test_run_comp_head_eval_end_to_end` -- full harness smoke on a test-trained joint checkpoint (roster and results root monkeypatched): metrics.json + parity/closure figures land, `run_predicted_closure_eval` returns a finite predicted-modes closure summary over the same rows, and a checkpoint whose `label_config` lacks `comp_eps` raises.
 
 ### test_cond_head_eval.py
 

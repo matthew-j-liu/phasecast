@@ -3588,3 +3588,91 @@ harnesses -> read exposure delta (#31), closure residuals, comp
 concentration blur, GMM component structure -> eval-semantics deck slides
 from the real figures + heads.md/roadmap status -> joint single-stage HPO
 (ADR 006) -> staged amp fixes against the tuned baseline.
+
+## 2026-07-18 -- Joint baseline readout: stopping arbitration, underconfident comp, over-eager accessories
+
+**Q.** What did the first joint baseline run + both eval harnesses reveal?
+
+**Context.** `joint_heads_seed0` (11 epochs, early stop kept epoch 6),
+comp/cond harnesses run, orientation figures 1-7 in
+`results/summary/joint_heads_seed0/`.
+
+**Findings.** (1) **Heads disagree on stopping** -- quantified from the raw
+monitor: the joint epoch-6 checkpoint cost mode 0.004 and comp 0.017 nats
+(wobble scale) but cond >=0.057 *and its convergence* (still improving
+~0.01 nats/epoch at cutoff). Comp's numerically largest term decides the
+checkpoint. (2) **Closure** <1 wt%/oxide (accepted) but with a systematic
+sign bias (SiO2 +0.9 / Al2O3 -0.6) numerically invisible to the penalty at
+weight 1. (3) **Comp** accurate on majors (plag An# r=0.92; ilmenite
+FeO/TiO2 the outlier) yet underconfident everywhere: alpha0 compressed to
+~100-650, fixed-recipe phases get no tail mass -- re-measure after tuning
+before questioning the locked shared-concentration design. (4) **Mode**
+nails majors including amp's bimodal spread; accessories over-predicted in
+presence and magnitude (spl 12%->44%; ilm ~8x presence on the basalt
+case). (5) **Cond** teacher-forced well calibrated; sampled-support
+coverage collapses 68%->30-36% (#31 now measured; demoted per
+mineralogy-first).
+
+**Next.** Plan the heads study order-of-operations before any code.
+
+## 2026-07-19 -- Heads study locked: per-head selection, mode-primary HPO objective, 3-prime sweep design
+
+**Q.** In what order do we tune/ablate the heads, and what objective does
+the joint HPO (ADR 006) rank trials by?
+
+**Context.** Baseline readout above. Candidate objectives: weighted total
+(rejected: self-gaming -- the lambdas are search variables), mode-primary
+with feasibility constraints, Pareto front, per-head checkpointing.
+
+**Considered.** The curves show **no real mode<->comp tradeoff**: disjoint
+parameter blocks on a frozen encoder + AdamW scale-invariance leave only
+two couplings -- the closure term (~0.0015 at baseline weight) and
+checkpoint selection -- and the selection artifact's victim was cond, not a
+mode/comp fight. So fix the mechanism: **per-head best checkpoints** (each
+head snapshotted at its own raw-val best; stop when every head is
+`patience` past its own best), and the objective simplifies to the
+**unweighted assemblage NLL** (bce + Dirichlet, ungameable by
+`magnitude_weight`) at mode's best epoch, ties <=0.03 nats broken by comp
+then cond. Architecture splits by **objective visibility**: mode's
+width/depth joins the main sweep (7 dims: lr, wd, magnitude_weight,
+lambda_balance across seven decades, dropout, mode_hidden, mode_layers);
+comp/cond architecture is invisible to a mode objective and gets
+conditional **mini-sweeps** against their own NLLs (adoption requires mode
+inside the tie band via `mode_reference`). Shared-lr remains the one live
+coupling -- audited by the per-trial mode-vs-comp scatter; per-head lr
+param groups are the escape hatch. **Gate before adopting**: predicted-
+modes closure, per-head-best pairing (rerun) vs the old epoch-6 checkpoint.
+
+**Decision.** Locked and built: `layers` on all three heads, per-head
+config keys, per-head selection trainer (`selection_series`),
+`predicted_modes_closure` + `run_predicted_closure_eval`,
+`joint_heads_hpo` harness (enqueued baseline trial 0, user-attr audit
+data, `tiebreak_best` read-out, fANOVA + scatter figures) + config
+(n_trials 150 ceiling, no pruner, seed 0 every trial).
+
+**Next.** Epic + child issues; owner reruns the baseline config (doubles
+as the gate input), then the main sweep, mini-sweeps, production readout.
+
+## 2026-07-19 -- Cross-epoch closure gate: PASS; rerun corrects the comp-overfitting read
+
+**Q.** Does pairing mode@its-best with comp@its-best (37 epochs apart)
+degrade the predicted-modes closure diagnostic relative to the co-trained
+epoch-6 pairing?
+
+**Context.** Baseline rerun under per-head selection: mode -5.7523@ep2
+(exact replication of the old trajectory -- the refactor changed no
+training semantics), comp -50.7946@ep39, cond 8.4569@ep57 (ran the full
+60-epoch ceiling, ~0.002 nats/epoch at the end). Correction to
+2026-07-18: comp's "overfitting after epoch 7" was a local bump -- with
+room to run it improved another 0.59 nats by ep39, so the joint epoch-6
+checkpoint was costing comp ~0.6 nats, not 0.017.
+
+**Decision.** PASS: cross-epoch l2 mean 0.0324 / p95 0.0699 vs co-trained
+0.0329 / 0.0672 -- within a few percent, mean slightly better. Per-head
+selection adopted. Note the signed per-oxide bias is state-dependent
+(ep6 pairing: Al2O3 -0.010 dominant; cross-epoch: SiO2 -0.011), and both
+differ from the teacher-forced instrument's stable +SiO2/-Al2O3 -- the
+closure-penalty-form ablation should use the teacher-forced instrument.
+
+**Next.** Main sweep overnight (expect trials to run the full 60-epoch
+ceiling; cond rarely plateaus 10-in-a-row before 60); epic + child issues.

@@ -319,6 +319,17 @@ metric:
   EDS maps), never seen in training. Showing the right scenario carries
   meaningful weight on rocks whose true assemblage is known is the test that
   this is a calibrated inverse model, not amortized MAGEMin.
+- **Checkpoint selection and HPO ranking (locked 2026-07-19):** each head is
+  snapshotted at its own best raw val epoch (mode on the unweighted
+  assemblage NLL `bce + Dirichlet`, comp/cond on their own NLLs) -- a single
+  weighted-total epoch let the largest term decide and starved cond.  The
+  joint HPO ranks trials on mode's raw assemblage NLL at mode's best epoch,
+  ties within the val-roster wobble band broken by comp then cond; no
+  weighted aggregate anywhere in selection, since the weights are the
+  search variables and any aggregate re-imports an arbitrary exchange rate
+  between heads.  Cross-head consistency of mixed-epoch heads is measured
+  by the predicted-modes closure residual, which doubles as the OOD
+  diagnostic.
 
 ## How this design was arrived at (durable summary of the review)
 
