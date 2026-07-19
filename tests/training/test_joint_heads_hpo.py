@@ -1,0 +1,143 @@
+"""Tests for `cnmineral.training.joint_heads_hpo`.
+
+`tiebreak_best` is unit-tested on fabricated trials (the locked winner
+read-out: mode ties break to comp then cond; mini-sweep admissibility under
+`mode_reference`).  The end-to-end test runs a 2-trial sweep on the
+synthetic joint corpus: enqueued baseline trial, per-head user attrs incl.
+the predicted-modes closure, tiebreak winner in the summary, journal +
+figures on disk.
+"""
+
+import json
+
+import numpy as np
+import optuna
+import torch
+import yaml
+
+import cnmineral.eval.comp_head as comp_head_eval
+import cnmineral.training.joint_heads as joint_heads_train
+from cnmineral.data.bulk_chemistry import BulkChemistryDataset
+from cnmineral.training.joint_heads_hpo import run_hpo, tiebreak_best
+
+
+def _trial(value, *, mode=None, comp=0.0, cond=0.0):
+    attrs = {"comp_best": comp, "cond_best": cond}
+    if mode is not None:
+        attrs["mode_best"] = mode
+    return optuna.trial.create_trial(
+        params={}, distributions={}, value=value, user_attrs=attrs,
+    )
+
+
+def test_tiebreak_mode_ties_break_to_comp_then_cond():
+    leader = _trial(-5.750, comp=-50.0, cond=8.6)
+    tied_better_comp = _trial(-5.740, comp=-51.0, cond=8.7)
+    outside_band = _trial(-5.700, comp=-60.0, cond=8.0)
+    winner = tiebreak_best(
+        [leader, tied_better_comp, outside_band], "mode", tie_band=0.03,
+    )
+    assert winner is tied_better_comp
+
+    cond_breaks = _trial(-5.749, comp=-51.0, cond=8.5)
+    winner = tiebreak_best(
+        [leader, tied_better_comp, cond_breaks], "mode", tie_band=0.03,
+    )
+    assert winner is cond_breaks
+
+
+def test_tiebreak_minisweep_requires_mode_within_band():
+    good = _trial(-50.5, mode=-5.74)
+    better_but_hurts_mode = _trial(-51.0, mode=-5.60)
+    winner = tiebreak_best(
+        [good, better_but_hurts_mode], "comp", tie_band=0.03,
+        mode_reference=-5.75,
+    )
+    assert winner is good
+    assert (
+        tiebreak_best(
+            [better_but_hurts_mode], "comp", tie_band=0.03, mode_reference=-5.75,
+        )
+        is None
+    )
+
+
+def _write_hpo_yaml(path, config, storage_dir, output_dir):
+    """Minimal hand-written HPO config so the test breaks on `run_hpo`
+    mishandling the YAML, not on edits to the production config.  Absolute
+    storage / output paths pass straight through the REPO_ROOT join."""
+    spec = {
+        "study_name": "joint_heads_hpo_test",
+        "storage_path": str(storage_dir / "joint_heads_hpo_test.journal"),
+        "output_dir": str(output_dir),
+        "objective": "mode",
+        "tie_band": 0.03,
+        "sampler_seed": 7,
+        "n_trials": 2,
+        "n_startup_trials": 2,
+        "base": config,
+        "search_space": {
+            "lr": {"type": "float", "low": 1e-4, "high": 5e-3, "log": True},
+            "mode_layers": {"type": "int", "low": 1, "high": 2},
+        },
+        "baseline": {"lr": 1e-3, "mode_layers": 1},
+    }
+    with open(path, "w") as f:
+        yaml.safe_dump(spec, f)
+    return path
+
+
+def test_run_joint_heads_hpo_end_to_end(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+    tmp_path, monkeypatch,
+):
+    chem = BulkChemistryDataset(
+        csv_path=str(corpus_subset_path), require_all_majors=False, min_class_count=5
+    )
+    bulk_ids = [int(s) for s in chem.sample_ids[:12]]
+    corpus_dir = synthetic_joint_corpus(tmp_path / "corpus", bulk_ids[:8])
+    valtest_dir = synthetic_joint_corpus(tmp_path / "valtest", bulk_ids[8:])
+    def roster(subset):
+        return np.array(bulk_ids[8:], dtype=np.int64)
+
+    monkeypatch.setattr(joint_heads_train, "load_valtest_split", roster)
+    monkeypatch.setattr(comp_head_eval, "load_valtest_split", roster)
+
+    base = {
+        "encoder_checkpoint": str(tiny_pretrain_checkpoint),
+        "corpus_dir": str(corpus_dir),
+        "valtest_corpus_dir": str(valtest_dir),
+        "epochs": 2,
+        "batch_size": 16,
+        "lambda_cond": 0.01,
+        "seed": 0,
+        "data_kwargs": {"csv_path": str(corpus_subset_path), "min_class_count": 5},
+    }
+    storage_dir = tmp_path / "optuna"
+    storage_dir.mkdir()
+    output_dir = tmp_path / "out"
+    cfg_path = _write_hpo_yaml(
+        tmp_path / "joint_hpo.yaml", base, storage_dir, output_dir,
+    )
+
+    summary = run_hpo(cfg_path, device=torch.device("cpu"))
+
+    assert summary["n_trials_complete"] == 2
+    assert summary["objective"] == "mode"
+    winner = summary["tiebreak_winner"]
+    assert winner is not None and "lr" in winner["params"]
+    for key in ("mode_best", "mode_best_epoch", "comp_best", "cond_best",
+                "closure_l2_mean"):
+        assert key in winner["user_attrs"]
+    assert np.isfinite(winner["user_attrs"]["closure_l2_mean"])
+    # trial 0 is the enqueued baseline
+    assert summary["config"]["baseline"] == {"lr": 1e-3, "mode_layers": 1}
+
+    run_dir = output_dir / "joint_heads_hpo_test"
+    with open(run_dir / "summary.json") as f:
+        assert json.load(f)["n_trials_complete"] == 2
+    assert (run_dir / "hpo_history.png").stat().st_size > 0
+    assert (run_dir / "mode_vs_comp_scatter.png").stat().st_size > 0
+    # fANOVA importances are skipped below 4 completed trials
+    assert not (run_dir / "hpo_param_importances.png").exists()
+    assert list(storage_dir.glob("*.journal"))
