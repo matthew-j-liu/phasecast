@@ -25,10 +25,9 @@ def _config(tiny_pretrain_checkpoint, corpus_dir, valtest_dir, corpus_subset_pat
     }
 
 
-def test_train_smoke_and_checkpoint_roundtrip(
-    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
-    tmp_path, monkeypatch,
-):
+def _setup_config(tiny_pretrain_checkpoint, corpus_subset_path,
+                  synthetic_joint_corpus, tmp_path, monkeypatch):
+    """Synthetic train + valtest corpora, patched roster, ready-to-train config."""
     chem = BulkChemistryDataset(
         csv_path=str(corpus_subset_path), require_all_majors=False, min_class_count=5
     )
@@ -39,9 +38,19 @@ def test_train_smoke_and_checkpoint_roundtrip(
         joint_heads_train, "load_valtest_split",
         lambda subset: np.array(bulk_ids[8:], dtype=np.int64),
     )
-    config = _config(
+    return _config(
         tiny_pretrain_checkpoint, corpus_dir, valtest_dir, corpus_subset_path,
         tmp_path,
+    )
+
+
+def test_train_smoke_and_checkpoint_roundtrip(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+    tmp_path, monkeypatch,
+):
+    config = _setup_config(
+        tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+        tmp_path, monkeypatch,
     )
 
     ckpt = train_joint_heads(config, torch.device("cpu"))
@@ -55,6 +64,9 @@ def test_train_smoke_and_checkpoint_roundtrip(
     assert path.exists()
     loaded = JointHeadCheckpoint.load(path)
     assert loaded.head_config == ckpt.head_config
+    for key in ("mode_hidden", "mode_layers", "comp_hidden", "comp_layers",
+                "cond_hidden", "cond_layers"):
+        assert key in loaded.head_config
     assert loaded.encoder_checkpoint == str(tiny_pretrain_checkpoint)
 
     d_model = loaded.head_config["d_model"]
@@ -67,3 +79,74 @@ def test_train_smoke_and_checkpoint_roundtrip(
     )
     k = loaded.head_config["cond_n_components"]
     assert log_w.shape == mu.shape == sigma.shape == (3, 3, k)
+
+
+def test_per_head_selection_restores_each_heads_best(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+    tmp_path, monkeypatch,
+):
+    """Each head's stamped state comes from its own best epoch, not a joint one.
+
+    Run A stops after epoch 1; run B trains 3 epochs under a forced selection
+    where mode's best stays at epoch 1 while comp/cond improve every epoch.
+    Same seed means identical trajectories through epoch 1, so B's mode state
+    must equal A's exactly while B's comp state must have moved on.
+    """
+    config = _setup_config(
+        tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+        tmp_path, monkeypatch,
+    )
+    config.pop("head_checkpoint_dir")
+    config.pop("head_checkpoint_filename")
+    ckpt_a = train_joint_heads({**config, "epochs": 1}, torch.device("cpu"))
+
+    def forced_selection(monitor, split="val"):
+        n = len(monitor[f"{split}_mode_nll"])
+        return {
+            "mode": [0.0] + [1.0] * (n - 1),
+            "comp": [-float(i) for i in range(n)],
+            "cond": [-float(i) for i in range(n)],
+        }
+
+    monkeypatch.setattr(joint_heads_train, "selection_series", forced_selection)
+    ckpt_b = train_joint_heads({**config, "epochs": 3}, torch.device("cpu"))
+
+    def same(a, b):
+        return all(torch.equal(a[k], b[k]) for k in a)
+
+    assert same(ckpt_b.mode_state, ckpt_a.mode_state)
+    assert not same(ckpt_b.comp_state, ckpt_a.comp_state)
+    assert not same(ckpt_b.cond_state, ckpt_a.cond_state)
+
+
+def test_early_stop_waits_for_slowest_head(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+    tmp_path, monkeypatch,
+):
+    """Stopping requires every head to be `patience` epochs past its own best.
+
+    Forced selection: mode/comp peak at epoch 1, cond keeps improving through
+    epoch 4.  With patience 1 the run must survive to epoch 5 (cond's first
+    non-improving epoch), not stop at epoch 2 when the fast heads plateau.
+    """
+    config = _setup_config(
+        tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+        tmp_path, monkeypatch,
+    )
+    config.pop("head_checkpoint_dir")
+    config.pop("head_checkpoint_filename")
+
+    def forced_selection(monitor, split="val"):
+        n = len(monitor[f"{split}_mode_nll"])
+        flat = [0.0] + [1.0] * (n - 1)
+        return {
+            "mode": flat,
+            "comp": list(flat),
+            "cond": [-float(min(i, 3)) for i in range(n)],
+        }
+
+    monkeypatch.setattr(joint_heads_train, "selection_series", forced_selection)
+    ckpt = train_joint_heads(
+        {**config, "epochs": 8, "early_stop_patience": 1}, torch.device("cpu")
+    )
+    assert len(ckpt.monitor["val"]) == 5

@@ -5,8 +5,10 @@ bulk, cached on device), but one optimizer over ModeHead + CompHead +
 CondHead under `joint_heads_loss`: the mode hurdle terms, the present-masked
 comp Dirichlet NLL, the support-conditioned per-axis GMM NLL (teacher-forced
 true presence), and the mass-balance closure penalty with corpus-pinned
-melt/fluid fixings. Early-stops on the val-roster total. Loss weights are
-fixed config values until the joint single-stage HPO (ADR 006).
+melt/fluid fixings. Each head is snapshotted at its own best raw val epoch
+(`selection_series`); training stops once every head is `patience` epochs
+past its own best. Loss weights come from the config; `joint_heads_hpo`
+sweeps them (ADR 006).
 """
 
 import datetime
@@ -33,16 +35,39 @@ from cnmineral.training.mode_head import _bulk_latents, evaluate_mode_head
 
 _TERMS = ("presence_bce", "mode_nll", "comp_nll", "cond_nll", "closure")
 
+HEAD_NAMES = ("mode", "comp", "cond")
+
+
+def selection_series(monitor: dict, split: str = "val") -> dict[str, list[float]]:
+    """Per-head selection curves from a run monitor, in raw (unweighted) units.
+
+    Mode selects on the assemblage NLL `presence_bce + mode_nll` --
+    deliberately NOT scaled by `magnitude_weight`, so selection (and the HPO
+    objective built on it) cannot be gamed by the weight.  Comp and cond
+    select on their own NLL terms.
+    """
+    bce = monitor[f"{split}_presence_bce"]
+    nll = monitor[f"{split}_mode_nll"]
+    return {
+        "mode": [b + n for b, n in zip(bce, nll)],
+        "comp": list(monitor[f"{split}_comp_nll"]),
+        "cond": list(monitor[f"{split}_cond_nll"]),
+    }
+
 
 @dataclass(frozen=True, slots=True)
 class JointHeadCheckpoint:
-    """The three serialized heads, bound to encoder, label, and loss semantics.
+    """The three serialized heads, each at its own best-val epoch.
 
-    `label_config` records what the targets were built from (`corpus_dir`,
-    `valtest_corpus_dir`, `rungs`, `presence_cutoff`, `comp_eps`);
-    `loss_config` the fixed term weights the heads were trained under.
-    Dataset rows rebuild from `label_config` plus the committed valtest
-    roster, as with `ModeHeadCheckpoint`.
+    Selection is per head on raw (unweighted) val terms -- mode on
+    `presence_bce + mode_nll`, comp on `comp_nll`, cond on `cond_nll` -- so
+    the stamped states generally come from different epochs.  Best epochs and
+    values are not stamped: derive them from `monitor` via
+    `selection_series`.  `label_config` records what the targets were built
+    from (`corpus_dir`, `valtest_corpus_dir`, `rungs`, `presence_cutoff`,
+    `comp_eps`); `loss_config` the term weights the heads were trained
+    under.  Dataset rows rebuild from `label_config` plus the committed
+    valtest roster, as with `ModeHeadCheckpoint`.
     """
 
     mode_state: dict
@@ -52,8 +77,6 @@ class JointHeadCheckpoint:
     loss_config: dict
     encoder_checkpoint: str
     label_config: dict
-    train_loss: float
-    val_loss: float
     monitor: dict
     git_sha: str | None = None
     saved_at: str | None = None
@@ -68,8 +91,6 @@ class JointHeadCheckpoint:
         loss_config: dict,
         encoder_checkpoint: str,
         label_config: dict,
-        train_loss: float,
-        val_loss: float,
         monitor: dict,
     ) -> "JointHeadCheckpoint":
         return cls(
@@ -80,8 +101,6 @@ class JointHeadCheckpoint:
             loss_config=loss_config,
             encoder_checkpoint=str(encoder_checkpoint),
             label_config=label_config,
-            train_loss=float(train_loss),
-            val_loss=float(val_loss),
             monitor=monitor,
             git_sha=_git_sha(),
             saved_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -98,8 +117,6 @@ class JointHeadCheckpoint:
             loss_config=payload["loss_config"],
             encoder_checkpoint=payload["encoder_checkpoint"],
             label_config=payload["label_config"],
-            train_loss=payload["train_loss"],
-            val_loss=payload["val_loss"],
             monitor=payload["monitor"],
             git_sha=payload.get("git_sha"),
             saved_at=payload.get("saved_at"),
@@ -117,8 +134,6 @@ class JointHeadCheckpoint:
                 "loss_config": self.loss_config,
                 "encoder_checkpoint": self.encoder_checkpoint,
                 "label_config": self.label_config,
-                "train_loss": self.train_loss,
-                "val_loss": self.val_loss,
                 "monitor": self.monitor,
                 "git_sha": self.git_sha,
                 "saved_at": self.saved_at,
@@ -129,7 +144,8 @@ class JointHeadCheckpoint:
     def build_mode_head(self) -> ModeHead:
         head = ModeHead(
             d_model=self.head_config["d_model"],
-            hidden=self.head_config.get("hidden"),
+            hidden=self.head_config.get("mode_hidden"),
+            layers=self.head_config.get("mode_layers", 1),
             dropout=self.head_config.get("dropout", 0.0),
             alpha_eps=self.head_config.get("alpha_eps", 1e-6),
         )
@@ -140,7 +156,8 @@ class JointHeadCheckpoint:
     def build_comp_head(self) -> CompHead:
         head = CompHead(
             d_model=self.head_config["d_model"],
-            hidden=self.head_config.get("hidden"),
+            hidden=self.head_config.get("comp_hidden"),
+            layers=self.head_config.get("comp_layers", 1),
             dropout=self.head_config.get("dropout", 0.0),
             alpha_eps=self.head_config.get("alpha_eps", 1e-6),
         )
@@ -152,7 +169,8 @@ class JointHeadCheckpoint:
         head = CondHead(
             d_model=self.head_config["d_model"],
             n_components=self.head_config["cond_n_components"],
-            hidden=self.head_config.get("hidden"),
+            hidden=self.head_config.get("cond_hidden"),
+            layers=self.head_config.get("cond_layers", 1),
             dropout=self.head_config.get("dropout", 0.0),
             sigma_eps=self.head_config.get("cond_sigma_eps", 1e-3),
         )
@@ -173,9 +191,11 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
 
     Required config keys: `encoder_checkpoint`, `corpus_dir`,
     `valtest_corpus_dir`, `epochs`, `lr`, `batch_size`. Optional: `rungs`,
-    `presence_cutoff`, `comp_eps`, `hidden`, `dropout`, `alpha_eps`,
-    `cond_n_components`, `cond_sigma_eps`, the four loss weights,
-    `weight_decay`, `early_stop_patience`, `seed`, `data_kwargs`,
+    `presence_cutoff`, `comp_eps`, per-head `{mode,comp,cond}_hidden` +
+    `{mode,comp,cond}_layers`, `dropout`, `alpha_eps`, `cond_n_components`,
+    `cond_sigma_eps`, the four loss weights, `weight_decay`,
+    `early_stop_patience` (per-head: stop once every head is this many
+    epochs past its own best), `seed`, `data_kwargs`,
     `head_checkpoint_dir` + `head_checkpoint_filename`.
     """
     encoder_ckpt_path = config["encoder_checkpoint"]
@@ -221,7 +241,12 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
 
     head_config = {
         "d_model": enc_ckpt.config["d_model"],
-        "hidden": config.get("hidden"),
+        "mode_hidden": config.get("mode_hidden"),
+        "mode_layers": int(config.get("mode_layers", 1)),
+        "comp_hidden": config.get("comp_hidden"),
+        "comp_layers": int(config.get("comp_layers", 1)),
+        "cond_hidden": config.get("cond_hidden"),
+        "cond_layers": int(config.get("cond_layers", 1)),
         "dropout": config.get("dropout", 0.0),
         "alpha_eps": config.get("alpha_eps", 1e-6),
         "cond_n_components": int(config.get("cond_n_components", 3)),
@@ -234,18 +259,20 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         "lambda_balance": config.get("lambda_balance", 1.0),
     }
     mode_head = ModeHead(
-        d_model=head_config["d_model"], hidden=head_config["hidden"],
-        dropout=head_config["dropout"], alpha_eps=head_config["alpha_eps"],
+        d_model=head_config["d_model"], hidden=head_config["mode_hidden"],
+        layers=head_config["mode_layers"], dropout=head_config["dropout"],
+        alpha_eps=head_config["alpha_eps"],
     ).to(device)
     comp_head = CompHead(
-        d_model=head_config["d_model"], hidden=head_config["hidden"],
-        dropout=head_config["dropout"], alpha_eps=head_config["alpha_eps"],
+        d_model=head_config["d_model"], hidden=head_config["comp_hidden"],
+        layers=head_config["comp_layers"], dropout=head_config["dropout"],
+        alpha_eps=head_config["alpha_eps"],
     ).to(device)
     cond_head = CondHead(
         d_model=head_config["d_model"],
         n_components=head_config["cond_n_components"],
-        hidden=head_config["hidden"], dropout=head_config["dropout"],
-        sigma_eps=head_config["cond_sigma_eps"],
+        hidden=head_config["cond_hidden"], layers=head_config["cond_layers"],
+        dropout=head_config["dropout"], sigma_eps=head_config["cond_sigma_eps"],
     ).to(device)
     cond_head.init_output_bias(
         train_ds.cond_target.mean(0).to(device),
@@ -284,10 +311,11 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
                   *(f"val_{t}" for t in _TERMS))
     }
     patience = config.get("early_stop_patience")
-    best_val = float("inf")
-    best_train = float("nan")
-    best_states: tuple[dict, ...] | None = None
-    epochs_no_improve = 0
+    heads_by_name = dict(zip(HEAD_NAMES, heads))
+    best = {name: float("inf") for name in HEAD_NAMES}
+    best_epoch = {name: 0 for name in HEAD_NAMES}
+    best_states: dict[str, dict] = {}
+    since_improve = {name: 0 for name in HEAD_NAMES}
     for epoch in range(config["epochs"]):
         for head in heads:
             head.train()
@@ -334,22 +362,35 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
             f"elapsed={time() - epoch_start:.1f}s"
         )
 
-        if val_mean < best_val:
-            best_val, best_train = val_mean, monitor["train"][-1]
-            best_states = tuple(
-                {k: v.clone() for k, v in head.state_dict().items()}
-                for head in heads
+        sel = {name: series[-1] for name, series in selection_series(monitor).items()}
+        for name, value in sel.items():
+            if value < best[name]:
+                best[name], best_epoch[name] = value, epoch + 1
+                best_states[name] = {
+                    k: v.clone()
+                    for k, v in heads_by_name[name].state_dict().items()
+                }
+                since_improve[name] = 0
+            else:
+                since_improve[name] += 1
+        if patience is not None and all(
+            v >= patience for v in since_improve.values()
+        ):
+            print(
+                f"early stop at epoch {epoch + 1}: every head is "
+                f"{patience}+ epochs past its own best"
             )
-            epochs_no_improve = 0
-        else:
-            epochs_no_improve += 1
-            if patience is not None and epochs_no_improve >= patience:
-                print(f"early stop at epoch {epoch + 1} (best val={best_val:.4f})")
-                break
+            break
 
-    if best_states is not None:
-        for head, state in zip(heads, best_states):
-            head.load_state_dict(state)
+    for name, head in heads_by_name.items():
+        if name in best_states:
+            head.load_state_dict(best_states[name])
+    print(
+        "per-head bests: "
+        + " ".join(
+            f"{name}={best[name]:.4f}@ep{best_epoch[name]}" for name in HEAD_NAMES
+        )
+    )
 
     metrics = evaluate_mode_head(
         mode_head, val_latents, val_ds, np.arange(len(val_ds)), device
@@ -362,7 +403,7 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
 
     ckpt = JointHeadCheckpoint.from_heads(
         mode_head, comp_head, cond_head, head_config, loss_config,
-        str(encoder_ckpt_path), label_config, best_train, best_val, monitor,
+        str(encoder_ckpt_path), label_config, monitor,
     )
     if config.get("head_checkpoint_dir"):
         out_path = (
@@ -370,7 +411,9 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         )
         ckpt.save(out_path)
         print(f"heads checkpoint -> {out_path}")
-        fig = plot_joint_run_loss(monitor, title=out_path.stem)
+        fig = plot_joint_run_loss(
+            monitor, selection=selection_series(monitor), title=out_path.stem
+        )
         curve_path = out_path.with_name("loss_curves.png")
         fig.savefig(curve_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
@@ -382,4 +425,7 @@ def run_single(config_path: Path, device: torch.device) -> dict:
     with open(config_path) as f:
         config = yaml.safe_load(f)
     ckpt = train_joint_heads(config, device)
-    return {"train_loss": ckpt.train_loss, "val_loss": ckpt.val_loss}
+    return {
+        name: min(vals)
+        for name, vals in selection_series(ckpt.monitor).items()
+    }

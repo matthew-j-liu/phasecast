@@ -4,7 +4,8 @@
         + lambda_balance * L_closure
 
 where L_mode = BCE + magnitude_weight * masked Dirichlet NLL (mode_loss).
-Weights are fixed config values until the joint single-stage HPO (ADR 006).
+Weights come from the training config; `joint_heads_hpo` sweeps them
+(ADR 006).
 The cond NLL is in raw (T, P, H2O) units, so `lambda_cond` also absorbs the
 scale gap to the simplex NLLs.
 """

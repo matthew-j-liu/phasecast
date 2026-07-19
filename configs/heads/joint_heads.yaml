@@ -6,22 +6,28 @@ valtest_corpus_dir: data/corpus/valtest   # val roster of valtest_split.csv driv
 rungs: [50, 30]
 comp_eps: 1.0e-4      # hard-zero oxide clip before renormalizing comp targets
 
-# head architecture
-hidden: null          # null -> d_model // 2 trunk (all three heads)
+# head architecture (per-head trunks; null hidden -> d_model // 2)
+mode_hidden: null
+mode_layers: 1
+comp_hidden: null
+comp_layers: 1
+cond_hidden: null
+cond_layers: 1
 dropout: 0.0
 alpha_eps: 1.0e-6
 cond_n_components: 3
 cond_sigma_eps: 1.0e-3
 
-# loss weights (fixed until the joint single-stage HPO, ADR 006)
+# loss weights (swept by joint_heads_hpo, ADR 006)
 magnitude_weight: 1.0
 lambda_comp: 1.0
 lambda_cond: 0.01     # cond NLL is in raw (T, P, H2O) units, so this also absorbs the scale gap
 lambda_balance: 1.0
 
-# optimization
-epochs: 40
-early_stop_patience: 5
+# optimization (patience is per-head: training stops when every head is
+# `early_stop_patience` epochs past its own best)
+epochs: 60
+early_stop_patience: 10
 batch_size: 1024
 lr: 1.0e-3
 weight_decay: 0.0
