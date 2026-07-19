@@ -39,6 +39,15 @@ def test_default_hidden_is_half_d_model():
     assert CompHead(d_model=64, hidden=7).trunk[0].out_features == 7
 
 
+def test_layers_stack_the_trunk():
+    deep = CompHead(d_model=32, layers=2)
+    assert sum(isinstance(m, torch.nn.Linear) for m in deep.trunk) == 2
+    alpha = deep(torch.randn(4, 32))
+    assert alpha.shape == (4, N_PHASES, N_OXIDES) and (alpha > 0).all()
+    shallow = sum(p.numel() for p in CompHead(d_model=32).parameters())
+    assert sum(p.numel() for p in deep.parameters()) > shallow
+
+
 def test_gradients_flow_to_all_parameters():
     head = CompHead(d_model=16)
     head(torch.randn(2, 16)).sum().backward()

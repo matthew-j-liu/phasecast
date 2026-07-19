@@ -52,6 +52,15 @@ def test_init_output_bias_seeds_mixture_at_target_scale():
     assert torch.allclose(sigma[0, :, 1], std, rtol=0.2)
 
 
+def test_layers_stack_the_trunk():
+    deep = CondHead(d_model=32, layers=2)
+    assert sum(isinstance(m, torch.nn.Linear) for m in deep.trunk) == 2
+    (log_w, mu, sigma), _, _ = _forward(deep)
+    assert log_w.shape == mu.shape == sigma.shape == (4, N_AXES, 3)
+    shallow = sum(p.numel() for p in CondHead(d_model=32).parameters())
+    assert sum(p.numel() for p in deep.parameters()) > shallow
+
+
 def test_gradients_flow_to_all_parameters():
     head = CondHead(d_model=16)
     (log_w, mu, sigma), _, _ = _forward(head, d_model=16)

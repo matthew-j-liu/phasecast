@@ -22,14 +22,20 @@ class ModeHead(nn.Module):
         d_model: int,
         *,
         hidden: int | None = None,
+        layers: int = 1,
         dropout: float = 0.0,
         alpha_eps: float = 1e-6,
     ) -> None:
         super().__init__()
+        if layers < 1:
+            raise ValueError(f"layers must be >= 1, got {layers}")
         hidden = d_model // 2 if hidden is None else hidden
-        self.trunk = nn.Sequential(
-            nn.Linear(d_model, hidden), nn.GELU(), nn.Dropout(dropout)
-        )
+        blocks: list[nn.Module] = []
+        in_dim = d_model
+        for _ in range(layers):
+            blocks += [nn.Linear(in_dim, hidden), nn.GELU(), nn.Dropout(dropout)]
+            in_dim = hidden
+        self.trunk = nn.Sequential(*blocks)
         self.presence_out = nn.Linear(hidden, N_PHASES)
         self.alpha_out = nn.Linear(hidden, N_PHASES)
         self.alpha_eps = alpha_eps
