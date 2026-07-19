@@ -74,6 +74,7 @@ def plot_run_loss(
 def plot_joint_run_loss(
     monitor: dict[str, list[float]],
     *,
+    selection: dict[str, list[float]] | None = None,
     title: str | None = None,
 ) -> Figure:
     """Render per-term train + val curves from a joint-heads monitor.
@@ -84,6 +85,10 @@ def plot_joint_run_loss(
         Monitor dict with `train` / `val` totals plus `train_<term>` /
         `val_<term>` series, as carried on `JointHeadCheckpoint`.
         Term panels are laid out in the monitor's key order.
+    selection
+        Optional per-head selection curves
+        (`training.joint_heads.selection_series`); when given, each head's
+        best epoch is marked on the term panels that feed its selection.
     title
         Optional figure suptitle.
 
@@ -100,12 +105,25 @@ def plot_joint_run_loss(
     )
     flat = axes.ravel()
     plot_run_loss(monitor, ax=flat[0], title="total", ylabel="weighted total")
+    selection_panels = {
+        "presence_bce": "mode", "mode_nll": "mode",
+        "comp_nll": "comp", "cond_nll": "cond",
+    }
     for ax, term in zip(flat[1:], terms):
         sub = {
             "train": monitor.get(f"train_{term}", []),
             "val": monitor.get(f"val_{term}", []),
         }
         plot_run_loss(sub, ax=ax, title=term)
+        head = selection_panels.get(term)
+        if selection and head in selection and selection[head]:
+            series = selection[head]
+            best_epoch = 1 + min(range(len(series)), key=series.__getitem__)
+            ax.axvline(
+                best_epoch, color="0.4", linestyle="--",
+                label=f"{head} best (ep {best_epoch})",
+            )
+            ax.legend()
     for ax in flat[n_panels:]:
         ax.set_visible(False)
     if title:

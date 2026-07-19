@@ -37,13 +37,21 @@ from optuna.visualization.matplotlib import (
     plot_optimization_history,
 )
 from cnmineral.eval.training_curves import plot_joint_run_loss, plot_run_loss
+from cnmineral.training.joint_heads import selection_series
 
 
 def plot_from_checkpoint(checkpoint_path: Path, out: Path | None) -> None:
     payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     monitor = payload["monitor"]
     if any(k.startswith("train_") for k in monitor):
-        fig = plot_joint_run_loss(monitor, title=checkpoint_path.name)
+        # joint-heads monitors carry per-head terms; the ModeHead trainer's
+        # (train_bce / train_nll) also land here but have no selection curves
+        selection = (
+            selection_series(monitor) if "val_comp_nll" in monitor else None
+        )
+        fig = plot_joint_run_loss(
+            monitor, selection=selection, title=checkpoint_path.name,
+        )
     else:
         fig, ax = plt.subplots()
         plot_run_loss(monitor, ax=ax, title=f"{checkpoint_path.name}")
