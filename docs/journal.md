@@ -3676,3 +3676,68 @@ closure-penalty-form ablation should use the teacher-forced instrument.
 
 **Next.** Main sweep overnight (expect trials to run the full 60-epoch
 ceiling; cond rarely plateaus 10-in-a-row before 60); epic + child issues.
+
+## 2026-07-19 -- Main sweep sealed at 42 trials; trial-21 tiebreak winner adopted; ceiling 120
+
+**Q.** When to stop the main sweep, does mode_layers railing at 3 warrant
+extending the range, and what gets adopted?
+
+**Context.** 42 complete trials. Last material incumbent jump at trial 20
+(-5.8562); the next 16 trials added 0.0015 (trial 36, -5.8577) --
+fourth-decimal polish. 15 trials inside the 0.03 tie band, all
+mode_hidden 256, 14/15 at mode_layers 3, dropout 0.32-0.36, lr ~2-4e-4.
+Untuned -> tuned mode gain 0.105 nats; the epoch-2 stopping worry from
+the baseline era is settled -- the old settings were simply wrong for mode.
+
+**Considered.** Layers extension: best by layer count 1/2/3 = -5.8028 /
+-5.8478 / -5.8577. The 2->3 step (0.010 nats) is a quarter of 1->2
+(0.045) and already under the tie band; layers-3's 22-vs-8 trial-count
+advantage inflates it if anything; and fANOVA puts both architecture
+knobs at ~0 (mode_hidden 0.02, mode_layers <0.01). Rejected on those
+three consistent lines. fANOVA's headline lambda_balance 0.59 is a
+whole-space number: closure weights toward the 1e4 end wreck mode
+training (the scatter's -4.8..-5.4 stragglers), while inside the basin
+the tie band tolerates 2.9e-2..62 -- inert near the optimum, consistent
+with the baseline "penalty invisible" read. Scatter: **no mode-comp
+tradeoff** -- the best-comp corner sits inside the best-mode cluster, and
+the entire shared-lr tax on comp is 0.044 nats (best-anywhere trial 11 vs
+the winner), so per-head lr (#39) has no comp case left; cond is starved
+in every tuned trial (8.55-8.66 vs untuned 8.457). The winner's comp/cond
+best epochs are 58/60 -- pinned to the 60-epoch ceiling by the cool tuned
+lr. Under per-head selection a taller ceiling is free for mode (its best
+froze at ep30), so the choice was 120 vs 200: the lr-scaling hint
+(baseline-lr cond converged ~ep57; tuned lr is ~4.7x cooler) says even
+200 may rail at 1.7x the cost, and if cond rails at 120 the finding is
+"per-head lr, not epochs" either way.
+
+**Decision.** Sweep sealed at n_trials 42 (journal +
+results/heads_hpo/joint_heads_hpo/ are the record). Tiebreak winner
+**trial 21** (mode -5.8381@ep30, comp -53.796@ep58, cond 8.634@ep60,
+predicted-modes closure 0.027): lr 2.15e-4, weight_decay 1.04e-5,
+magnitude_weight 0.25, lambda_balance 54.5, dropout 0.348, mode 256x3.
+Adopted **verbatim** into joint_heads.yaml -- seed 0 kept, so the
+production retrain replicates the trial through ep60 and then lets
+comp/cond continue. The Optuna incumbent (trial 36, -5.8577) ceded 0.020
+in-band mode nats for 0.32 comp nats: the tiebreak working as designed.
+**Epoch ceiling 60 -> 120** in the production config and both
+mini-sweeps (owner call, over 200). Mini-sweep configs authored
+(joint_heads_minisweep_{comp,cond}.yaml): search = that head's hidden x
+layers ([64..512] x [1..3]), base = winner verbatim, mode_reference
+-5.8381, trial 0 = the current 128x1; **n_trials 16**, not the planned
+~30 -- the space is 12 discrete cells with a fixed seed, so extra trials
+mostly re-measure cells. Sweeps run sequentially, not in parallel:
+~57 GB resident each (mostly MPS-allocator hoard) on 128 GB, and the
+shared GPU voids any wall-clock gain. #35 closed (manually -- Closes
+keywords on a feature branch only fire on merge to main), #36
+in-progress; comp sweep launched (~19 s/epoch, <=38 min/trial).
+
+**Next.** Cond sweep after comp; each writes its summary + figures on
+natural completion (after a Ctrl-C instead: lower n_trials to the
+completed count and rerun --hpo -- the workaround #42 exists to remove).
+Mini-sweep NLLs are **not comparable** to main-sweep numbers (120- vs
+60-epoch ceiling): judge architecture against the mini-sweep's own
+trial 0. Then #37: production retrain + full readout (alpha0
+compression, accessory reliability, teacher-forced signed closure bias,
+truth_vs_pred baseline-vs-tuned), deck refresh from the new checkpoint,
+heads.md/roadmap/journal. #39's remaining case is cond-only and demoted;
+#38 ablates the closure-penalty form on the teacher-forced instrument.

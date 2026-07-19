@@ -880,8 +880,8 @@ def s_comp_head_anatomy(prs):
                     "2,709) -- ~2.0% of the frozen encoder; the largest head, and still "
                     "trivially retrainable.",
         dials_line="dials (configs/heads/joint_heads.yaml): comp_hidden 128 . comp_layers 1 . "
-                   "dropout 0.0 . alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) . "
-                   "lambda_comp 1.0 . lambda_balance 1.0 -- fixed in code: GELU, AdamW, "
+                   "dropout 0.35 . alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) . "
+                   "lambda_comp 1.0 . lambda_balance 54.5 -- fixed in code: GELU, AdamW, "
                    "per-head grad-clip 1.0",
         loss_boxes=[
             (["alpha_p = c_p · softmax(u_p)",
@@ -943,10 +943,11 @@ def s_cond_head_anatomy(prs):
                     "frozen encoder; output biases seeded at the targets' mean/std "
                     "(raw-unit cold-start fix: an unseeded head starts ~1,300 sigmas "
                     "from typical T).",
-        dials_line="dials (configs/heads/joint_heads.yaml): cond_n_components 3 (HPO "
-                   "sweeps {2,3,4}) . cond_sigma_eps 1e-3 . cond_hidden 128 . cond_layers 1 . "
-                   "dropout 0.0 . lambda_cond 0.01 -- fixed in code: GELU, AdamW, per-head "
-                   "grad-clip 1.0, linear units (no log transform of T/P/H2O)",
+        dials_line="dials (configs/heads/joint_heads.yaml): cond_n_components 3 . "
+                   "cond_sigma_eps 1e-3 . cond_hidden 128 . cond_layers 1 (architecture "
+                   "mini-sweep pending) . dropout 0.35 . lambda_cond 0.01 -- fixed in code: "
+                   "GELU, AdamW, per-head grad-clip 1.0, linear units (no log transform of "
+                   "T/P/H2O)",
         loss_boxes=[
             (["L_cond = Σ_axis −log Σ_k w_k · N(t | mu_k, sigma_k²)",
               ("per-axis GMM NLL in raw units; minimized when the mixture "

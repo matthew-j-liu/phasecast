@@ -93,12 +93,12 @@ phases (amp/bi/fl/mu/ne) that the corpus regen + CompHead were
 designed to help; CondHead calibration is honest.
 
 Status (2026-07-19): all three heads + joint loss built and
-baseline-evaluated; the tuning phase runs under the heads-study epic
-(#32) -- per-head best checkpointing (#33, landed; gate #34 passed), joint
-single-stage HPO (#35, mode-primary raw-NLL objective, ADR 006), comp/cond
-architecture mini-sweeps (#36), production readout (#37), then structural
-ablations (#38-#41) and the staged amp fixes (#25) against the tuned
-baseline.
+baseline-evaluated; heads-study epic (#32) in flight -- per-head best
+checkpointing (#33, landed; gate #34 passed), main HPO sweep done (#35:
+sealed at 42 trials, tiebreak winner adopted into `joint_heads.yaml`,
+epoch ceiling 60 -> 120), comp/cond architecture mini-sweeps running
+(#36), then production retrain + readout (#37), structural ablations
+(#38-#41), and the staged amp fixes (#25) against the tuned baseline.
 
 v2 cell-c baseline to beat: CondHead conditions T 14.8 °C MAE,
 P 1.73 kbar, H2O 0.51 wt%; the per-phase R²_bulk gains cell-c booked

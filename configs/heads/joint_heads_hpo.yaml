@@ -3,13 +3,12 @@
 # ModeHead's own best epoch. Per-head best checkpointing in the trainer means
 # trials never arbitrate stopping; comp/cond bests ride along as user attrs.
 # comp/cond architecture is objective-invisible here and gets its own
-# conditional mini-sweeps (configs written after this sweep locks the
-# environment). Resumable via JournalStorage; n_trials is a ceiling, stop
-# anytime.
+# conditional mini-sweeps (joint_heads_minisweep_{comp,cond}.yaml).
+# Resumable via JournalStorage; n_trials is a ceiling, stop anytime.
 #
 # `base:` carries the locked knobs; `search_space:` the swept ones --
 # disjoint, same convention as configs/imputation/imputation_head_hpo.yaml.
-# `baseline:` is enqueued as trial 0 (the untuned reference: current
+# `baseline:` is enqueued as trial 0 (the untuned reference: the pre-sweep
 # joint_heads.yaml values, weight_decay repointed to the log-range floor).
 
 study_name: joint_heads_hpo
