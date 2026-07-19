@@ -879,8 +879,8 @@ def s_comp_head_anatomy(prs):
         params_line="65,404 trainable params (trunk 32,896 + mean 29,799 + concentration "
                     "2,709) -- ~2.0% of the frozen encoder; the largest head, and still "
                     "trivially retrainable.",
-        dials_line="dials (configs/heads/joint_heads.yaml): hidden 128 . dropout 0.0 . "
-                   "alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) . "
+        dials_line="dials (configs/heads/joint_heads.yaml): comp_hidden 128 . comp_layers 1 . "
+                   "dropout 0.0 . alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) . "
                    "lambda_comp 1.0 . lambda_balance 1.0 -- fixed in code: GELU, AdamW, "
                    "per-head grad-clip 1.0",
         loss_boxes=[
@@ -944,9 +944,9 @@ def s_cond_head_anatomy(prs):
                     "(raw-unit cold-start fix: an unseeded head starts ~1,300 sigmas "
                     "from typical T).",
         dials_line="dials (configs/heads/joint_heads.yaml): cond_n_components 3 (HPO "
-                   "sweeps {2,3,4}) . cond_sigma_eps 1e-3 . hidden 128 . dropout 0.0 . "
-                   "lambda_cond 0.01 -- fixed in code: GELU, AdamW, per-head grad-clip "
-                   "1.0, linear units (no log transform of T/P/H2O)",
+                   "sweeps {2,3,4}) . cond_sigma_eps 1e-3 . cond_hidden 128 . cond_layers 1 . "
+                   "dropout 0.0 . lambda_cond 0.01 -- fixed in code: GELU, AdamW, per-head "
+                   "grad-clip 1.0, linear units (no log transform of T/P/H2O)",
         loss_boxes=[
             (["L_cond = Σ_axis −log Σ_k w_k · N(t | mu_k, sigma_k²)",
               ("per-axis GMM NLL in raw units; minimized when the mixture "
@@ -955,8 +955,8 @@ def s_cond_head_anatomy(prs):
               ("teacher-forced true set at train -> no gradient coupling to "
                "ModeHead; sampled sets at inference (exposure bias, #31)",)], GREEN),
             (["L = L_mode + λ_comp·L_comp + λ_cond·L_cond + λ_bal·L_closure",
-              ("heads share no weights, so λ_cond mainly weights EARLY STOPPING "
-               "(best-epoch pick), not gradients -- 0.01 = mineralogy-first",)], PURPLE),
+              ("heads share no weights and each is snapshotted at its own raw-val "
+               "best, so λ_cond only absorbs the raw-unit scale in the total",)], PURPLE),
         ],
         notes_text="Anatomy of CondHead (trains in the joint trainer, "
              "checkpoints/joint_heads_seed0). Interface: concat(h [256], presence [21]) "
@@ -974,9 +974,9 @@ def s_cond_head_anatomy(prs):
              "lambda_cond nuance: L_cond's gradient reaches only CondHead's own weights "
              "(frozen encoder, separate trunks, teacher-forced input), and per-head "
              "clipping + Adam's per-parameter scaling make the constant nearly inert for "
-             "optimization; its real lever is the val-total early stop, where 0.01 "
-             "down-weights condition improvements 100x vs mineralogy (the locked "
-             "mineralogy-first priority). Known limits: axes are independent mixtures "
+             "optimization; per-head best selection (each head keeps its own raw-val "
+             "best epoch) removed its old early-stopping lever too, leaving it a "
+             "raw-unit scale absorber (mineralogy-first). Known limits: axes are independent mixtures "
              "(no (T, P) correlation, deferred per ADR 006); exposure bias measured, "
              "not yet mitigated (#31); T is a derived cooling endpoint, not a sampled "
              "axis, in the scenario view.")
