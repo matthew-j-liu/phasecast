@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import time
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -22,6 +23,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
 from cnmineral.eval.latent import load_encoder_from_checkpoint
+from cnmineral.eval.training_curves import plot_joint_run_loss
 from cnmineral.losses.joint_loss import joint_heads_loss
 from cnmineral.models.comp_head import CompHead
 from cnmineral.models.cond_head import CondHead
@@ -368,6 +370,11 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         )
         ckpt.save(out_path)
         print(f"heads checkpoint -> {out_path}")
+        fig = plot_joint_run_loss(monitor, title=out_path.stem)
+        curve_path = out_path.with_name("loss_curves.png")
+        fig.savefig(curve_path, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        print(f"loss curves -> {curve_path}")
     return ckpt
 
 
