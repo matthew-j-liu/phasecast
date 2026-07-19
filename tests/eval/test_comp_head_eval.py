@@ -112,6 +112,15 @@ def test_run_comp_head_eval_end_to_end(
     assert (out_dir / "comp_parity_SiO2.png").exists()
     assert (out_dir / "closure_residual.png").exists()
 
+    closure = eval_mod.run_predicted_closure_eval(
+        ckpt_path, device=torch.device("cpu")
+    )
+    assert closure["n_val_rows"] == metrics["n_val_rows"]
+    assert closure["closure_l2"]["mean"] >= 0
+    assert set(closure["signed_mean_by_oxide"]) == set(
+        metrics["closure_abs_by_oxide"]
+    )
+
     stale = dataclasses.replace(
         train_mod.JointHeadCheckpoint.load(ckpt_path),
         label_config={k: v for k, v in metrics["label_config"].items()

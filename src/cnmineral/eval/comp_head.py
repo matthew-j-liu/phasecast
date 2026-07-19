@@ -6,8 +6,11 @@ comp Dirichlet NLL as the headline (per phase, per rung), per-(phase, oxide)
 parity, Beta-marginal PIT calibration, the shared-concentration profile, the
 mass-balance closure residual, and a plag An# face-validity check. The
 closure here uses the TRUE modes (not ModeHead's), isolating composition
-error from mode error; melt/fluid fixings are teacher-forced as in training. Statistics live as pure array functions;
-`run_comp_head_eval` orchestrates and emits figures + `metrics.json` under
+error from mode error; melt/fluid fixings are teacher-forced as in training.
+`predicted_modes_closure` / `run_predicted_closure_eval` are the
+predicted-modes variant (the cross-epoch selection gate and OOD
+diagnostic). Statistics live as pure array functions; `run_comp_head_eval`
+orchestrates and emits figures + `metrics.json` under
 `results/comp_head/<tag>/`.
 """
 
@@ -179,6 +182,40 @@ def plot_comp_concentration(
     _finish(fig, "CompHead shared concentration", out_path, split_tag)
 
 
+@torch.no_grad()
+def predicted_modes_closure(
+    mode_head, comp_head, dataset, latents: torch.Tensor
+) -> np.ndarray:
+    """Per-row signed closure residual [R, O] from predicted modes x comps.
+
+    Composes the two heads exactly as the training closure does -- true-
+    presence-masked mode alphas renormalized to modes, times comp simplex
+    means, plus the corpus-pinned melt/fluid fixings -- so it measures
+    whether a (mode, comp) pairing stays mass-balance consistent.  This is
+    the cross-epoch gate instrument for per-head checkpoint selection and
+    the OOD diagnostic's numerator; the closure in `run_comp_head_eval`
+    instead uses TRUE modes to isolate composition error.
+    """
+    device = latents.device
+    row_bulk = dataset.row_bulk_idx.to(device)
+    presence = dataset.presence.to(device)
+    _, mode_alpha = mode_head(latents)
+    comp_alpha = comp_head(latents)
+    masked = presence * mode_alpha[row_bulk]
+    modes = masked / masked.sum(-1, keepdim=True).clamp_min(1e-12)
+    comp_mean = comp_alpha[row_bulk]
+    comp_mean = comp_mean / comp_mean.sum(-1, keepdim=True)
+    solids = torch.einsum("rp,rpo->ro", modes, comp_mean)
+    f_liq = dataset.f_liq.to(device)
+    f_fl = dataset.f_fl.to(device)
+    recon = (
+        (1.0 - f_liq - f_fl).unsqueeze(-1) * solids
+        + f_liq.unsqueeze(-1) * dataset.c_liq.to(device)
+        + f_fl.unsqueeze(-1) * dataset.c_fl.to(device)
+    )
+    return (recon - dataset.bulk_11.to(device)).cpu().numpy()
+
+
 def plot_closure_residual(
     residual: np.ndarray, out_path: Path, split_tag: str
 ) -> None:
@@ -205,6 +242,70 @@ def plot_an_parity(
     _finish(fig, "plag An# parity (derived from oxide means)", out_path, split_tag)
 
 
+def _val_dataset_and_latents(
+    ckpt: JointHeadCheckpoint, device: torch.device
+) -> tuple[JointHeadDataset, torch.Tensor]:
+    """Rebuild the valtest val-roster dataset + pooled latents for `ckpt`."""
+    lc = ckpt.label_config
+    if "valtest_corpus_dir" not in lc or "comp_eps" not in lc:
+        raise ValueError(
+            "checkpoint lacks valtest_corpus_dir/comp_eps in label_config; "
+            "retrain with the current joint trainer"
+        )
+    encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
+    encoder.to(device)
+    dataset = JointHeadDataset(
+        corpus_dir=lc["valtest_corpus_dir"],
+        rungs=tuple(lc["rungs"]),
+        presence_cutoff=lc["presence_cutoff"],
+        comp_eps=lc["comp_eps"],
+        bulk_ids=load_valtest_split("val"),
+    )
+    latents = _bulk_latents(encoder, dataset, device)
+    return dataset, latents
+
+
+@torch.no_grad()
+def run_predicted_closure_eval(
+    head_checkpoint_path: Path,
+    *,
+    device: torch.device | None = None,
+) -> dict:
+    """Predicted-modes closure summary for one checkpoint's (mode, comp) pair.
+
+    Loads both heads at their stamped epochs, rebuilds the val roster, and
+    summarizes `predicted_modes_closure`: per-row L2 mean/p95 plus per-oxide
+    signed-mean residuals.  Run on two checkpoints to compare pairings --
+    e.g. per-head bests against a joint-epoch snapshot for the cross-epoch
+    selection gate.
+    """
+    head_checkpoint_path = Path(head_checkpoint_path)
+    ckpt = JointHeadCheckpoint.load(head_checkpoint_path)
+    device = device or pick_device()
+    dataset, latents = _val_dataset_and_latents(ckpt, device)
+    mode_head = ckpt.build_mode_head().to(device)
+    comp_head = ckpt.build_comp_head().to(device)
+    residual = predicted_modes_closure(mode_head, comp_head, dataset, latents)
+    l2 = np.linalg.norm(residual, axis=1)
+    summary = {
+        "head_checkpoint": str(head_checkpoint_path),
+        "n_val_rows": int(len(dataset)),
+        "closure_l2": {
+            "mean": float(l2.mean()),
+            "p95": float(np.quantile(l2, 0.95)),
+        },
+        "signed_mean_by_oxide": {
+            o: float(residual[:, j].mean()) for j, o in enumerate(COMP_OXIDES)
+        },
+    }
+    print(
+        f"predicted-modes closure ({head_checkpoint_path.parent.name}): "
+        f"l2 mean={summary['closure_l2']['mean']:.4f} "
+        f"p95={summary['closure_l2']['p95']:.4f}"
+    )
+    return summary
+
+
 @torch.no_grad()
 def run_comp_head_eval(
     head_checkpoint_path: Path,
@@ -228,25 +329,8 @@ def run_comp_head_eval(
     print(f"encoder: {ckpt.encoder_checkpoint}")
     print(f"output:  {output_dir}")
 
-    lc = ckpt.label_config
-    if "valtest_corpus_dir" not in lc or "comp_eps" not in lc:
-        raise ValueError(
-            "checkpoint lacks valtest_corpus_dir/comp_eps in label_config; "
-            "retrain with the current joint trainer"
-        )
-    encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
-    encoder.to(device)
     comp_head = ckpt.build_comp_head().to(device)
-
-    val_bulk_ids = load_valtest_split("val")
-    dataset = JointHeadDataset(
-        corpus_dir=lc["valtest_corpus_dir"],
-        rungs=tuple(lc["rungs"]),
-        presence_cutoff=lc["presence_cutoff"],
-        comp_eps=lc["comp_eps"],
-        bulk_ids=val_bulk_ids,
-    )
-    latents = _bulk_latents(encoder, dataset, device)
+    dataset, latents = _val_dataset_and_latents(ckpt, device)
     print(f"bulks={len(dataset.bulk_ids)} rows={len(dataset)} (valtest val roster)")
     split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
 
@@ -320,7 +404,7 @@ def run_comp_head_eval(
     metrics = {
         "head_checkpoint": str(head_checkpoint_path),
         "encoder_checkpoint": str(ckpt.encoder_checkpoint),
-        "label_config": dict(lc),
+        "label_config": dict(ckpt.label_config),
         "n_val_rows": int(len(dataset)),
         "n_val_bulks": int(len(dataset.bulk_ids)),
         "comp_nll": float(np.nanmean(nll)),
