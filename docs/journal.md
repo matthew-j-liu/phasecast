@@ -3863,3 +3863,42 @@ joint checkpoints (`results/mode_head/joint_heads_seed0{_baseline,}/`).
 no longer regenerable. #30 closed obsolete, #29 closed satisfied.
 
 **Next.** None -- the instrument now exists; #41 consumes it first.
+
+## 2026-07-21 -- Results restructure: tracked `results/` (curated) + untracked `runs/` (machine output)
+
+**Q.** Where do the new cross-version presentation artifacts (model-
+improvement ledger, frozen per-version headline reports) live, given
+`results/` was gitignored scratch?
+
+**Context.** Session locked four canonical headline figures per model
+version (skill trajectory, mode truth-vs-pred, inference card, scenario
+view); the trajectory needs numbers from every past version, but old
+checkpoints and eval pipelines die (the standalone-ModeHead record is
+already unregenerable), so its inputs cannot live in gitignored dirs.
+Meanwhile `explorations/*/results/` were already tracked -- "results"
+meant opposite things at different depths.
+
+**Considered.** (a) keep untracked results/, add tracked `reports/`
+(cheap, but two near-synonym siblings forever); (b) rename + tracked
+results/ (one invariant repo-wide); (c) b plus a top-level `archive/`
+tier for closed-era dirs (third category with a boundary to
+re-adjudicate every time something closes -- deferred until a second
+unregenerable artifact exists).
+
+**Decision.** Option b. Untracked `results/` renamed `runs/` (gitignore
+now anchors `/runs/`); everything instruments emit is unchanged in
+layout, just re-rooted (the four runs-rooted `RESULTS_ROOT` constants,
+renamed `RUNS_ROOT` to match -- explorations-rooted ones keep their
+name -- plus script defaults, 6 HPO config `output_dir`s, deck notes,
+live doc refs). New tracked `results/` holds
+curated history: `ledger.yaml` (one entry per shipped model version;
+schema lands with the trajectory work) + `reports/<version>/` frozen
+headline figures. Repo invariant: results = tracked conclusions (top
+level and in explorations), runs = untracked machine output.
+`runs/mode_head/mode_head_seed0/` remains the unregenerable
+standalone-era record (checkpoint on disk at
+`checkpoints/mode_head_seed0/`, format readers deleted); flagged in
+`results/README.md`, its numbers become durable via the ledger.
+
+**Next.** Skill-score reference + ledger schema + inference-card and
+scenario-view builders (this session), writing into the new layout.
