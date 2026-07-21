@@ -37,7 +37,7 @@ checkpoint lives at
 
 Probe results on the 20-epoch encoder (`scripts/eval/probe_encoder.py`,
 library-default probe HPs; figures + JSON under
-`results/probe/pretrain_v3_logmse_std_seed0_epoch_best/`):
+`runs/probe/pretrain_v3_logmse_std_seed0_epoch_best/`):
 
 | probe | test accuracy | v2 cell-c bar |
 |---|---|---|
@@ -48,7 +48,7 @@ library-default probe HPs; figures + JSON under
 | qap_name LR    | 0.722 | -- |
 
 The tuned row is the same encoder probed at the
-probe-HPO best params (`results/probe_hpo/`); the
+probe-HPO best params (`runs/probe_hpo/`); the
 library-default rows are the apples-to-apples comparison against
 v2 cell-c.
 

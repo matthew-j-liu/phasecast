@@ -79,7 +79,7 @@ Implementation (built):
 - `scripts/training/imputation_head.py` -- the single entry, mirroring
   `pretrain.py`: a plain `--config` run trains the head on a frozen encoder
   (`train_imputation_head`) then scores the test split once, writing the
-  log-space scorecard to `results/imputation/<encoder_tag>/readout/`; `--hpo`
+  log-space scorecard to `runs/imputation/<encoder_tag>/readout/`; `--hpo`
   runs the head sweep instead. Configs: `configs/imputation/imputation_head.yaml`
   and `imputation_head_hpo.yaml`. Dataset/splits reconstruct from the encoder
   checkpoint's config.
