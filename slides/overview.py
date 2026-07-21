@@ -640,26 +640,26 @@ def s_mode_head_anatomy(prs):
         intro="ModeHead, the first head trained end-to-end -- two clean factors of "
               "the hurdle likelihood P(modal) = P(present) x P(modal | present)",
         input_note="from the frozen encoder (3.23M params, not trained here)",
-        trunk=(["shared trunk", ("Linear 256 -> 128",), ("GELU + dropout",),
-                ("32,896 params",)], PURPLE),
+        trunk=(["shared trunk", ("3 x [Linear -> 256]",), ("GELU + dropout each",),
+                ("197,376 params",)], PURPLE),
         branches=[
-            {"box": ["presence branch", ("Linear 128 -> 21, sigmoid",),
-                     ("p_i = P(phase i present)",), ("2,709 params",)],
+            {"box": ["presence branch", ("Linear 256 -> 21, sigmoid",),
+                     ("p_i = P(phase i present)",), ("5,397 params",)],
              "out": ["21 Bernoullis", ("which minerals",), ("BCE loss",)],
              "color": GREEN},
-            {"box": ["magnitude branch", ("Linear 128 -> 21, softplus",),
-                     ("alpha_i, Dirichlet concentration",), ("2,709 params",)],
+            {"box": ["magnitude branch", ("Linear 256 -> 21, softplus",),
+                     ("alpha_i, Dirichlet concentration",), ("5,397 params",)],
              "out": ["cond. Dirichlet", ("how much of each,",),
                      ("on the present set (NLL)",)],
              "color": ORANGE},
         ],
-        params_line="38,314 trainable params (trunk 32,896 + 2 x 2,709) -- ~1.2% of the "
-                    "frozen encoder; retrains in under a minute, so the label proxy stays "
-                    "cheap to revise.",
-        dials_line="dials (configs/heads/mode_head.yaml): hidden 128 . dropout 0.0 . "
-                   "magnitude_weight 1.0 . alpha_eps 1e-6 . lr 1e-3 . weight_decay 0 . "
-                   "batch 1024 . epochs 40 / patience 5 -- fixed in code: GELU, AdamW, "
-                   "grad-clip 1.0",
+        params_line="208,170 trainable params (trunk 197,376 + 2 x 5,397) -- ~6.4% of the "
+                    "frozen encoder; the 256 x 3 trunk is the joint-HPO winner (untuned "
+                    "128 x 1 gave up 0.105 nats of assemblage NLL).",
+        dials_line="dials (configs/heads/joint_heads.yaml): mode_hidden 256 . mode_layers 3 . "
+                   "dropout 0.348 . magnitude_weight 0.25 . alpha_eps 1e-6 . lr 2.15e-4 . "
+                   "weight_decay 1.04e-5 . batch 1024 . epochs 120 / per-head patience 10 -- "
+                   "fixed in code: GELU, AdamW, grad-clip 1.0",
         loss_boxes=[
             (["L_presence = −Σᵢ [ yᵢ ln pᵢ + (1−yᵢ) ln(1−pᵢ) ]",
               ("BCE, all 21 phases x every row; minimized when "
@@ -672,16 +672,18 @@ def s_mode_head_anatomy(prs):
                "own term's gradient, the shared trunk gets the SUM of both -- "
                "∇L(trunk) = ∇L_pres + λ_mag ∇L_mag",)], PURPLE),
         ],
-        notes_text="Anatomy of the trained ModeHead (checkpoints/mode_head_seed0): shared trunk "
-             "Linear(256->128)+GELU+dropout, then two parallel linear branches -- presence "
-             "logits (sigmoid -> per-phase Bernoulli, BCE) and concentrations (softplus + eps "
+        notes_text="Anatomy of the trained ModeHead (checkpoints/joint_heads_seed0): shared trunk "
+             "3 stacked Linear(->256)+GELU+dropout blocks, then two parallel linear branches -- "
+             "presence logits (sigmoid -> per-phase Bernoulli, BCE) and concentrations (softplus + eps "
              "-> conditional Dirichlet, masked NLL on the true support). Param counts are "
-             "exact for hidden=d_model//2. Loss boxes mirror the SSL slide: BCE is a proper "
+             "pulled from the checkpoint (mode_hidden 256, mode_layers 3, the joint-HPO "
+             "winner; fANOVA put architecture near zero, the gain came with the tuned "
+             "environment). Loss boxes mirror the SSL slide: BCE is a proper "
              "scoring rule (per-rock minimum = within-bulk presence frequency, which is why "
              "intermediate p is signal); the Dirichlet NLL is masked to the label's present "
              "set (sub-composition property keeps it a proper density); λ_mag is the "
-             "loss-weighting coefficient (config key magnitude_weight, 1.0 currently) -- "
-             "λ chosen over w to avoid clashing with layer weights and to match the coming "
+             "loss-weighting coefficient (config key magnitude_weight, 0.25 tuned) -- "
+             "λ chosen over w to avoid clashing with layer weights and to match the "
              "λ_balance / λ_comp family. 'Trained jointly' is literal chain-rule math: L is "
              "one scalar, so one backward pass and one AdamW step update all params at once. "
              "Each branch's weights appear in only its own term (the other term's gradient "
@@ -691,8 +693,8 @@ def s_mode_head_anatomy(prs):
              "pretraining of one branch. The hurdle split exists because one full-simplex "
              "Dirichlet cannot be simultaneously confident about absences and honest about "
              "present-phase spread (shared concentration). CompHead/CondHead follow the same "
-             "small-MLP-emitting-distribution-parameters pattern; their anatomy slides "
-             "follow the eval-semantics slides.")
+             "small-MLP-emitting-distribution-parameters pattern; their two-slide reports "
+             "follow ModeHead's.")
 
 
 def s_mode_head_reliability(prs):
@@ -748,11 +750,11 @@ def s_mode_head_reliability(prs):
             "draws/rock at rungs 50+30), so panels are comparable across retrains.",
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.95, 12.2, "BCE's per-rock minimum is the true fraction, so an honest "
-            "head lands on the diagonal by construction. current limits: "
-            "intermediate-frequency presence is the miss mode (garnet recall 1.0 at f > 0.9 "
-            "but 0.0 below f = 0.5; opx 0.23 / ru 0.13 / ol 0.04 overall); spinel is the "
-            "worst-calibrated panel (ECE 0.043); amphibole magnitude spread stays too "
-            "narrow (next slide). full report: results/mode_head/<tag>/",
+            "head lands on the diagonal by construction. current limits (tuned model): "
+            "intermediate-frequency presence is the miss mode (garnet recall 0.58 in "
+            "f = [0.5, 0.9) and 0.0 elsewhere; opx 0.25 / ru 0.08 / ol 0.08 overall); "
+            "spinel is the worst-calibrated panel (ECE 0.037); amphibole magnitude spread "
+            "stays too narrow (next slide). full report: results/mode_head/<tag>/",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Worked example for the reliability diagram in results/mode_head/<tag>/"
              "reliability.png. Numbers illustrative but to scale: three rocks predicted in "
@@ -830,11 +832,11 @@ def s_mode_head_dirichlet(prs):
             "step.", 11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.85, 12.2, "population: only truly-present (row, phase) pairs are "
             "scored -- ~41k pairs for plag down to ~240 for andalusite; single-phase rows "
-            "are excluded (nothing to size). current limits: amphibole PIT U-shaped with a "
-            "high-side tilt (tails 0.27 vs 0.10 expected: spread too narrow and "
-            "conditionally under-sized; corpus bimodality measured), oxide accessories "
-            "humped (spl/ilm/ru tails ~0.01: too wide); plag's earlier under-sizing "
-            "flattened with the full-tier retrain (tails 0.12). full report: "
+            "are excluded (nothing to size). current limits (tuned model): amphibole stays "
+            "the flagship miss -- 65% of its (rock, support) PIT groups are mean-shifted "
+            "(within-bulk bimodality collapses to the mean; mixture fix staged, #25) and "
+            "tuning did not move its magnitude error; plag/afs/q are majority-shifted too "
+            "(the support-conditioning signal, heads.md). full report: "
             "results/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "
@@ -879,8 +881,9 @@ def s_comp_head_anatomy(prs):
         params_line="65,404 trainable params (trunk 32,896 + mean 29,799 + concentration "
                     "2,709) -- ~2.0% of the frozen encoder; the largest head, and still "
                     "trivially retrainable.",
-        dials_line="dials (configs/heads/joint_heads.yaml): comp_hidden 128 . comp_layers 1 . "
-                   "dropout 0.35 . alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) . "
+        dials_line="dials (configs/heads/joint_heads.yaml): comp_hidden 128 . comp_layers 1 "
+                   "(mini-sweep verdict: capacity above 128 x 1 hurts comp) . dropout 0.348 . "
+                   "alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) . "
                    "lambda_comp 1.0 . lambda_balance 54.5 -- fixed in code: GELU, AdamW, "
                    "per-head grad-clip 1.0",
         loss_boxes=[
@@ -923,31 +926,31 @@ def s_cond_head_anatomy(prs):
               "support): the presence vector joins h at the input -- teacher-forced true "
               "set at train, ModeHead-sampled at inference",
         input_note="frozen h [256] ++ presence vector [21] = 277-dim input",
-        trunk=(["own trunk", ("Linear 277 -> 128",), ("GELU + dropout",),
-                ("35,584 params",)], PURPLE),
+        trunk=(["own trunk", ("2 x [Linear -> 512]",), ("GELU + dropout each",),
+                ("404,992 params",)], PURPLE),
         branches=[
-            {"box": ["weight branch", ("Linear 128 -> 9 (3 axes x K=3)",),
-                     ("log-softmax over K per axis",), ("1,161 params",)],
+            {"box": ["weight branch", ("Linear 512 -> 9 (3 axes x K=3)",),
+                     ("log-softmax over K per axis",), ("4,617 params",)],
              "out": ["mixture weights", ("which condition mode,",), ("how likely",)],
              "color": TEAL},
-            {"box": ["mean branch", ("Linear 128 -> 9",),
-                     ("mu_k in raw units (C, kbar, wt%)",), ("1,161 params",)],
+            {"box": ["mean branch", ("Linear 512 -> 9",),
+                     ("mu_k in raw units (C, kbar, wt%)",), ("4,617 params",)],
              "out": ["component centers", ("e.g. deep-wet vs",), ("shallow-dry",)],
              "color": GREEN},
-            {"box": ["spread branch", ("Linear 128 -> 9, softplus + eps",),
-                     ("sigma_k, heteroscedastic",), ("1,161 params",)],
+            {"box": ["spread branch", ("Linear 512 -> 9, softplus + eps",),
+                     ("sigma_k, heteroscedastic",), ("4,617 params",)],
              "out": ["per-mode spreads", ("row-dependent",), ("error bars",)],
              "color": ORANGE},
         ],
-        params_line="39,067 trainable params (trunk 35,584 + 3 x 1,161) -- ~1.2% of the "
-                    "frozen encoder; output biases seeded at the targets' mean/std "
-                    "(raw-unit cold-start fix: an unseeded head starts ~1,300 sigmas "
-                    "from typical T).",
+        params_line="418,843 trainable params (trunk 404,992 + 3 x 4,617) -- ~13% of the "
+                    "frozen encoder; the 512 x 2 trunk is the mini-sweep winner (0.29 nats "
+                    "over the starved 128 x 1). Output biases seeded at the targets' "
+                    "mean/std (raw-unit cold-start fix).",
         dials_line="dials (configs/heads/joint_heads.yaml): cond_n_components 3 . "
-                   "cond_sigma_eps 1e-3 . cond_hidden 128 . cond_layers 1 (architecture "
-                   "mini-sweep pending) . dropout 0.35 . lambda_cond 0.01 -- fixed in code: "
-                   "GELU, AdamW, per-head grad-clip 1.0, linear units (no log transform of "
-                   "T/P/H2O)",
+                   "cond_sigma_eps 1e-3 . cond_hidden 512 . cond_layers 2 (adopted from "
+                   "the architecture mini-sweep) . dropout 0.348 . lambda_cond 0.01 -- fixed "
+                   "in code: GELU, AdamW, per-head grad-clip 1.0, linear units (no log "
+                   "transform of T/P/H2O)",
         loss_boxes=[
             (["L_cond = Σ_axis −log Σ_k w_k · N(t | mu_k, sigma_k²)",
               ("per-axis GMM NLL in raw units; minimized when the mixture "
@@ -963,7 +966,9 @@ def s_cond_head_anatomy(prs):
              "checkpoints/joint_heads_seed0). Interface: concat(h [256], presence [21]) "
              "in; (log_w, mu, sigma) each [3 axes, K] out; one training example is one "
              "(bulk, draw, rung) row with targets (T_end from the rung row; P_kbar, H2O "
-             "from the draw). Param counts exact (d_model 256, hidden 128, K=3). "
+             "from the draw). Param counts pulled from the checkpoint (cond_hidden 512, "
+             "cond_layers 2, K=3): cond was the one head that wanted capacity -- starved "
+             "at 128x1 under the shared tuned lr, fixed by the mini-sweep adoption. "
              "Support-conditioning is the locked chain-rule decision: independent heads "
              "assume a conditional independence the corpus violates by design -- the "
              "within-bulk label variance is driven by the shared hidden (P, H2O) path, "
