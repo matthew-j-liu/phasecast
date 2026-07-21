@@ -3741,3 +3741,125 @@ compression, accessory reliability, teacher-forced signed closure bias,
 truth_vs_pred baseline-vs-tuned), deck refresh from the new checkpoint,
 heads.md/roadmap/journal. #39's remaining case is cond-only and demoted;
 #38 ablates the closure-penalty form on the teacher-forced instrument.
+
+## 2026-07-21 -- Architecture mini-sweeps sealed: comp keeps 128x1, cond adopts 512x2
+
+**Q.** Do the comp/cond trunks (invisible to the main sweep's mode
+objective) want different architecture, judged against their own NLLs
+under the tie-band admissibility guard?
+
+**Context.** Both sweeps ran the 12-cell grid (hidden {64,128,256,512} x
+layers {1..3}) at the tuned environment, 120-epoch ceiling, sealed at 20
+complete trials each (budget bumped 16 -> 20 mid-run; journal resume
+counts only COMPLETE trials, so user-killed trials cost nothing across
+relaunches). TPE re-measured the incumbent cells heavily -- and every
+duplicate reproduced to 14 decimals: training is fully deterministic on
+this stack at fixed seed, so within-config wobble is exactly zero.
+
+**Considered.** Comp (9/12 cells): capacity monotonically HURTS above
+128x1 -- 512x3 worst at -51.56 and early-stopping by ep13, and bigger
+comp trunks drag mode ~0.010 nats through the closure coupling. The three
+unmeasured cells sit on downhill trend lines. Trial 0's 0.053-nat margin
+over 64x1 is within comp's seed-noise scale (~0.15, measured below), so
+the honest read is "<=128 ties, >128 hurts beyond noise" -- either way the
+incumbent stands. Cond (5/12 cells, winner re-measured 8x): opposite
+story -- monotone in width (64s ~8.72 < 128x1 8.5999 < 256x3 8.3623 <
+512x2 8.3110), confirming starvation rather than overfit; winner sits at
+the measured grid's edge (512x3 was proposed twice, both user-killed;
+accepted per mineralogy-first, cond is the bonus head). Bonus
+measurement: cond-architecture swaps perturb mode/comp only through the
+shared RNG stream (init draw order, dropout masks), giving a free
+seed-noise estimate at fixed data -- mode ~0.021 nats, comp ~0.15. The
+0.03 mode tie band is appropriately sized (noise eats two-thirds of it).
+
+**Decision.** Comp keeps `comp_hidden null / comp_layers 1` (no diff).
+Cond adopts `cond_hidden 512 / cond_layers 2` (0.289 nats, ~8x its noise
+scale, beats even the untuned 8.457 every shared-lr trial had starved;
+mode untouched at -5.83842 vs reference -5.83809). #36 closed; #39
+(per-head lr) closed -- its only case was cond starvation, fixed by
+capacity; cond's best epoch 101 < 120 also retires the
+"rails at the ceiling" worry.
+
+**Next.** #37 production retrain (expected to replicate the cond sweep's
+trial-12 cell exactly, given determinism) + full readout.
+
+## 2026-07-21 -- Production retrain + tuned-vs-baseline readout: two diseases cured, two confirmed structural
+
+**Q.** Does the adopted config reproduce the sweep's numbers in
+production, and which of the baseline's diagnosed pathologies did tuning
+actually fix?
+
+**Context.** Retrain of `joint_heads.yaml` (no --hpo) stopped at ep111
+with per-head bests mode -5.8384@ep31 / comp -53.7574@ep93 / cond
+8.3110@ep101 -- an exact replica of cond-sweep trial 12, the free
+pipeline check. Baseline checkpoint preserved at
+`checkpoints/joint_heads_seed0_baseline/` (with `heads_joint_ep6.pt`
+gate provenance); baseline eval artifacts renamed to
+`results/*/joint_heads_seed0_baseline/`. All evals rerun on the tuned
+checkpoint; every number below is same-instrument, same-roster.
+
+**Considered.** (1) Comp alpha0 compression: CURED -- baseline hedged
+every phase into alpha0 100-650; tuned spans 25-32,000 and orders by
+real mineralogy (q/ru/sph/sill sharp, spl/ilm/cpx soft); eval comp NLL
+-50.25 -> -53.85, majors' PIT tails near nominal. (2) Closure signed
+bias: CURED -- the stable +SiO2/-Al2O3 signature collapsed to
+zero-centered per-oxide residuals, L2 mean 0.0181 -> 0.0134 (#38 closed
+on this evidence). (3) Cond: teacher-forced honest (NLL 8.60 -> 8.32,
+coverage_68 0.65-0.69 -> 0.67-0.72) but the exposure gap WIDENED (T
+delta 2.91 -> 3.94, H2O 1.53 -> 2.40, P_kbar inf on some sampled-support
+rows) -- sharper under truth = more wrong under mismatch; recorded on
+#31, stays P3. (4) Mode (first full joint-era interrogation, see next
+entry): hurdle NLL -0.996 -> -1.162; amp presence improved (ECE 0.029 ->
+0.014, recall 0.868 -> 0.893) but amp magnitude UNMOVED (MAE 0.1357 ->
+0.1353; 65% of its (rock, support) PIT groups still mean-shifted) --
+the within-bulk bimodality is structural, exactly as staged (#25).
+Accessories still over-predicted (zero recall on ep/mu/ky/cor/and with
+leaked sample mass); garnet's high-frequency recall miss is back in the
+joint model (0.0 at f > 0.9, n=156) -- watch during #25/#41.
+
+**Decision.** Tuned model is production. Readout verdicts recorded;
+issue audit closed #12/#29/#30/#36/#38/#39 (rationales on the issues),
+commented #31. Deck refreshed: three anatomy slides at checkpoint-pulled
+counts (mode 208,170 / comp 65,404 / cond 418,843 = 692,417 head params,
+~21% of the 3.23M-param trainable encoder), ModeHead dials repointed to
+joint_heads.yaml, comp+cond eval-semantics slides authored (their
+two-slide reports are now complete).
+
+**Next.** #41 (accessory hurdle recalibration -- post-hoc calibration on
+the new reliability instrument before any structure), then #25 (amp
+mixture magnitude branch). #37 + epic #32 close with this entry.
+
+## 2026-07-21 -- Eval consolidation: one joint-checkpoint entry point; standalone ModeHead pipeline deleted
+
+**Q.** The mode eval could only load the pre-joint `ModeHeadCheckpoint`
+format, so no joint model ever had the full ModeHead interrogation --
+bandaid an adapter, or consolidate?
+
+**Context.** Owner call: no bandaid sprawl. Joint training is the only
+production path; the standalone pipeline existed purely as history.
+
+**Considered.** Adapter-only (two formats forever) and three-scripts +
+shared loader (keeps triple setup cost: each eval script rebuilt the
+dataset and re-ran the encoder) both rejected for the clean shape: one
+entry point, engines as pure measurement functions.
+
+**Decision.** Deleted: `training/mode_head.py` (ModeHeadCheckpoint,
+standalone trainer), its script + `configs/heads/mode_head.yaml`,
+`ModeHeadDataset`, `load_mode_labels`, the three per-head eval scripts,
+`tests/training/test_mode_head_train.py`. Landed:
+`cnmineral/eval/joint_heads.py` (`run_joint_eval` +
+`val_dataset_and_latents`, one dataset rebuild + one encoder pass shared
+across heads) behind `scripts/eval/joint_heads.py --checkpoint ...
+[--heads mode,comp,cond]`; engines now take `(ckpt, dataset, latents,
+*, device, tag)`; `bulk_latents` public in `eval/latent.py`;
+`evaluate_mode_head` lives with its only caller in
+`training/joint_heads.py`; metrics stamp `checkpoint_tag` instead of a
+path. Label-semantics tests ported onto `load_joint_labels` (the
+deleted loader was their oracle; testing an inlined copy would test
+nothing). Full suite 296 green; refactored path reproduces pre-refactor
+comp metrics bit-identically; mode interrogations backfilled for BOTH
+joint checkpoints (`results/mode_head/joint_heads_seed0{_baseline,}/`).
+`results/mode_head/mode_head_seed0/` stays as the standalone-era record,
+no longer regenerable. #30 closed obsolete, #29 closed satisfied.
+
+**Next.** None -- the instrument now exists; #41 consumes it first.

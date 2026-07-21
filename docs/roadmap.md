@@ -92,13 +92,19 @@ Acceptance: per-phase R²_bulk improves over v2 cell-c on the hydrous
 phases (amp/bi/fl/mu/ne) that the corpus regen + CompHead were
 designed to help; CondHead calibration is honest.
 
-Status (2026-07-19): all three heads + joint loss built and
-baseline-evaluated; heads-study epic (#32) in flight -- per-head best
-checkpointing (#33, landed; gate #34 passed), main HPO sweep done (#35:
-sealed at 42 trials, tiebreak winner adopted into `joint_heads.yaml`,
-epoch ceiling 60 -> 120), comp/cond architecture mini-sweeps running
-(#36), then production retrain + readout (#37), structural ablations
-(#38-#41), and the staged amp fixes (#25) against the tuned baseline.
+Status (2026-07-21): heads-study epic (#32) COMPLETE -- per-head best
+checkpointing (#33, gate #34 passed), main sweep (#35: 42 trials,
+trial-21 winner adopted), architecture mini-sweeps (#36: comp keeps
+128x1, cond adopts 512x2), production retrain + readout (#37: replicates
+the sweep cell exactly; alpha0 compression and the closure signed bias
+CURED, cond teacher-forced calibration honest). Per-head evals run
+behind the single `scripts/eval/joint_heads.py` entry point (standalone
+ModeHead pipeline deleted 2026-07-21). Confirmed structural, next in
+order: accessory over-prediction (#41, post-hoc hurdle recalibration on
+the new reliability instrument) then the staged amp magnitude fixes
+(#25, mixture branch); cond exposure bias measured wider post-tuning
+(#31, stays P3 per mineralogy-first). #38/#39 closed on the readout
+evidence; journal 2026-07-21 has the full record.
 
 v2 cell-c baseline to beat: CondHead conditions T 14.8 °C MAE,
 P 1.73 kbar, H2O 0.51 wt%; the per-phase R²_bulk gains cell-c booked

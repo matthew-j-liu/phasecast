@@ -354,8 +354,10 @@ so the reasoning is not re-litigated:
   measurement); a plain full-simplex Dirichlet remains the natural ablation
   baseline when the eval framework lands. Sparsemax stays rejected
   (conflicts with the probabilistic-head mandate).
-- **MeltHead** deferred (inference-time closure + melt output).
-- **Public-facing renormalization** (drop liq/fl for the hand-sample view) is
-  a presentation-layer concern, volcanic-vs-plutonic aware.
+- **MeltHead** deferred (inference-time closure + melt output). It also owns
+  the volcanic hand-sample nuance: the modal vocabulary is already
+  crystals-renormalized (liq/fl are not vocabulary), so the only remaining
+  presentation question is adding residual melt *back* for volcanics, where
+  it quenches to real glass.
 - Composition is bulk-controlled, so CompHead is not condition-conditioned;
   revisit only if a real need for scenario-specific composition appears.
