@@ -3,6 +3,7 @@ import torch
 from scipy.stats import norm
 
 import cnmineral.eval.cond_head as eval_mod
+import cnmineral.eval.joint_heads as joint_eval_mod
 import cnmineral.training.joint_heads as train_mod
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset
 from cnmineral.eval.cond_head import (
@@ -11,9 +12,9 @@ from cnmineral.eval.cond_head import (
     gmm_nll_per_axis,
     gmm_pit,
     mass_below_zero,
-    run_cond_head_eval,
     sample_supports,
 )
+from cnmineral.eval.joint_heads import run_joint_eval
 from cnmineral.losses.cond_loss import gmm_nll
 
 
@@ -100,7 +101,7 @@ def test_run_cond_head_eval_end_to_end(
     valtest_dir = synthetic_joint_corpus(tmp_path / "valtest", bulk_ids[8:])
     val_ids = np.array(bulk_ids[8:], dtype=np.int64)
     monkeypatch.setattr(train_mod, "load_valtest_split", lambda subset: val_ids)
-    monkeypatch.setattr(eval_mod, "load_valtest_split", lambda subset: val_ids)
+    monkeypatch.setattr(joint_eval_mod, "load_valtest_split", lambda subset: val_ids)
 
     config = {
         "encoder_checkpoint": str(tiny_pretrain_checkpoint),
@@ -117,13 +118,15 @@ def test_run_cond_head_eval_end_to_end(
     train_mod.train_joint_heads(config, torch.device("cpu"))
     ckpt_path = tmp_path / "ckpt" / "heads_best.pt"
 
-    real_dataset = eval_mod.JointHeadDataset
+    real_dataset = joint_eval_mod.JointHeadDataset
     monkeypatch.setattr(
-        eval_mod, "JointHeadDataset",
+        joint_eval_mod, "JointHeadDataset",
         lambda **kw: real_dataset(**kw, data_kwargs=data_kwargs),
     )
     monkeypatch.setattr(eval_mod, "RESULTS_ROOT", tmp_path / "results")
-    metrics = run_cond_head_eval(ckpt_path, device=torch.device("cpu"))
+    metrics = run_joint_eval(
+        ckpt_path, heads=("cond",), device=torch.device("cpu")
+    )["cond"]
 
     assert metrics["n_val_bulks"] == len(val_ids)
     assert metrics["n_val_rows"] == 3 * len(val_ids)

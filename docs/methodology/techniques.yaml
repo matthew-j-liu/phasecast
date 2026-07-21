@@ -236,7 +236,7 @@ techniques:
   - name: crystals_renormalized_labels
     type: preprocessing
     patterns:
-      - "load_mode_labels"
+      - "load_joint_labels"
       - "hurdle_targets"
       - "PRESENCE_CUTOFF"
 

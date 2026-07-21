@@ -36,7 +36,8 @@ from optuna.visualization.matplotlib import (
     plot_param_importances,
 )
 
-from cnmineral.eval.comp_head import _val_dataset_and_latents, predicted_modes_closure
+from cnmineral.eval.comp_head import predicted_modes_closure
+from cnmineral.eval.joint_heads import val_dataset_and_latents
 from cnmineral.training import pick_device
 from cnmineral.training.hpo import _sample_hyperparameter
 from cnmineral.training.joint_heads import (
@@ -198,7 +199,7 @@ def run_hpo(
                 f"{name}_best_epoch", 1 + int(np.argmin(sel[name]))
             )
         if "data" not in closure_cache:
-            closure_cache["data"] = _val_dataset_and_latents(ckpt, device)
+            closure_cache["data"] = val_dataset_and_latents(ckpt, device)
         dataset, latents = closure_cache["data"]
         with torch.no_grad():
             residual = predicted_modes_closure(

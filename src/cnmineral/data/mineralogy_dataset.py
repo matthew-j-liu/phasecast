@@ -4,8 +4,8 @@ Each item is one (bulk, draw, rung) corpus row: the bulk's 22-token
 cation+trace input (built from the original gard chemistry via
 `BulkChemistryDataset` -- never the per-draw renormalized oxides, whose scale
 factor leaks the sampled H2O; see ADR 008) plus the head targets from
-`mineralogy_labels` (ModeHead hurdle targets; `JointHeadDataset` adds comp,
-cond, and mass-balance fixings). All rows of a bulk share one input vector, exposed
+`mineralogy_labels` (ModeHead hurdle targets, comp, cond, and mass-balance
+fixings). All rows of a bulk share one input vector, exposed
 per-bulk (`bulk_src` / `bulk_frac` + `row_bulk_idx`) so a frozen-encoder
 trainer can cache one latent per bulk. Splits are bulk-level: the valtest
 tier's val/test roster is the committed `valtest_split.csv`, read via
@@ -20,7 +20,7 @@ import torch
 from torch.utils.data import Dataset
 
 from .bulk_chemistry import BulkChemistryDataset
-from .mineralogy_labels import hurdle_targets, load_joint_labels, load_mode_labels
+from .mineralogy_labels import hurdle_targets, load_joint_labels
 from .phase_vocab import PRESENCE_CUTOFF
 
 VALTEST_SPLIT_PATH = Path(__file__).resolve().parent / "valtest_split.csv"
@@ -61,70 +61,14 @@ def _resolve_bulk_inputs(corpus_ids: np.ndarray, data_kwargs: dict | None):
     return resolved, src, frac, chem.qap_names[chem_rows]
 
 
-class ModeHeadDataset(Dataset):
-    """(bulk, draw, rung) rows with hurdle targets over the phase vocabulary.
-
-    `bulk_ids` restricts label rows to those bulks (how the trainer and eval
-    harness select a valtest roster subset); default keeps every corpus bulk.
-    """
-
-    def __init__(
-        self,
-        corpus_dir: str | Path,
-        rungs: tuple[int, ...] = (50, 30),
-        presence_cutoff: float = PRESENCE_CUTOFF,
-        data_kwargs: dict | None = None,
-        bulk_ids: np.ndarray | None = None,
-    ) -> None:
-        self.presence_cutoff = presence_cutoff
-        labels = load_mode_labels(corpus_dir, rungs)
-        if bulk_ids is not None:
-            labels = labels[labels["bulk"].isin({int(b) for b in bulk_ids})]
-            if labels.empty:
-                raise ValueError(
-                    f"no label rows for the requested bulk_ids under {corpus_dir}"
-                )
-
-        corpus_ids = np.sort(labels["bulk"].unique())
-        resolved, self.bulk_src, self.bulk_frac, self.bulk_qap_names = (
-            _resolve_bulk_inputs(corpus_ids, data_kwargs)
-        )
-        if len(resolved) < len(corpus_ids):
-            labels = labels[labels["bulk"].isin(set(resolved.tolist()))]
-        self.bulk_ids = resolved
-
-        bulk_pos = {int(b): i for i, b in enumerate(resolved)}
-        self.row_bulk_idx = torch.tensor(
-            [bulk_pos[int(b)] for b in labels["bulk"]], dtype=torch.long
-        )
-        self.rung = torch.tensor(labels["rung"].to_numpy(), dtype=torch.long)
-
-        modes = labels.drop(columns=["bulk", "draw", "rung"]).to_numpy(dtype=np.float64)
-        presence, magnitude = hurdle_targets(modes, presence_cutoff)
-        self.presence = torch.tensor(presence, dtype=torch.float32)
-        self.magnitude = torch.tensor(magnitude, dtype=torch.float32)
-
-    def __len__(self) -> int:
-        return len(self.row_bulk_idx)
-
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        b = self.row_bulk_idx[idx]
-        return {
-            "src": self.bulk_src[b].clone(),
-            "frac": self.bulk_frac[b].clone(),
-            "presence": self.presence[idx].clone(),
-            "magnitude": self.magnitude[idx].clone(),
-            "bulk_idx": b.clone(),
-        }
-
-
 class JointHeadDataset(Dataset):
     """(bulk, draw, rung) rows with mode, comp, cond, and closure targets.
 
-    Superset of `ModeHeadDataset` items: adds the CompHead oxide targets, the
-    CondHead (T_end, P_kbar, H2O) targets, and the teacher-forced mass-balance
-    fixings from `load_joint_labels`. Same bulk-level roster filtering via
-    `bulk_ids`.
+    Hurdle targets over the phase vocabulary plus the CompHead oxide targets,
+    the CondHead (T_end, P_kbar, H2O) targets, and the teacher-forced
+    mass-balance fixings from `load_joint_labels`. `bulk_ids` restricts label
+    rows to those bulks (how the trainer and eval harness select a valtest
+    roster subset); default keeps every corpus bulk.
     """
 
     def __init__(

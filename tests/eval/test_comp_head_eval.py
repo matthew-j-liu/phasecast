@@ -1,11 +1,8 @@
-import dataclasses
-
 import numpy as np
-import pytest
 import torch
-from scipy.stats import beta as beta_dist
 
 import cnmineral.eval.comp_head as eval_mod
+import cnmineral.eval.joint_heads as joint_eval_mod
 import cnmineral.training.joint_heads as train_mod
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset
 from cnmineral.data.magemin_corpus import COMP_OXIDES
@@ -14,8 +11,8 @@ from cnmineral.eval.comp_head import (
     comp_beta_pit,
     comp_nll_matrix,
     comp_parity_stats,
-    run_comp_head_eval,
 )
+from cnmineral.eval.joint_heads import run_joint_eval
 
 
 def test_comp_nll_matrix_masks_absent():
@@ -78,7 +75,7 @@ def test_run_comp_head_eval_end_to_end(
     valtest_dir = synthetic_joint_corpus(tmp_path / "valtest", bulk_ids[8:])
     val_ids = np.array(bulk_ids[8:], dtype=np.int64)
     monkeypatch.setattr(train_mod, "load_valtest_split", lambda subset: val_ids)
-    monkeypatch.setattr(eval_mod, "load_valtest_split", lambda subset: val_ids)
+    monkeypatch.setattr(joint_eval_mod, "load_valtest_split", lambda subset: val_ids)
 
     config = {
         "encoder_checkpoint": str(tiny_pretrain_checkpoint),
@@ -95,13 +92,15 @@ def test_run_comp_head_eval_end_to_end(
     train_mod.train_joint_heads(config, torch.device("cpu"))
     ckpt_path = tmp_path / "ckpt" / "heads_best.pt"
 
-    real_dataset = eval_mod.JointHeadDataset
+    real_dataset = joint_eval_mod.JointHeadDataset
     monkeypatch.setattr(
-        eval_mod, "JointHeadDataset",
+        joint_eval_mod, "JointHeadDataset",
         lambda **kw: real_dataset(**kw, data_kwargs=data_kwargs),
     )
     monkeypatch.setattr(eval_mod, "RESULTS_ROOT", tmp_path / "results")
-    metrics = run_comp_head_eval(ckpt_path, device=torch.device("cpu"))
+    metrics = run_joint_eval(
+        ckpt_path, heads=("comp",), device=torch.device("cpu")
+    )["comp"]
 
     assert metrics["n_val_bulks"] == len(val_ids)
     assert metrics["n_val_rows"] == 3 * len(val_ids)
@@ -112,21 +111,15 @@ def test_run_comp_head_eval_end_to_end(
     assert (out_dir / "comp_parity_SiO2.png").exists()
     assert (out_dir / "closure_residual.png").exists()
 
+    ckpt = train_mod.JointHeadCheckpoint.load(ckpt_path)
+    dataset, latents = joint_eval_mod.val_dataset_and_latents(
+        ckpt, torch.device("cpu")
+    )
     closure = eval_mod.run_predicted_closure_eval(
-        ckpt_path, device=torch.device("cpu")
+        ckpt, dataset, latents, device=torch.device("cpu"), tag="ckpt"
     )
     assert closure["n_val_rows"] == metrics["n_val_rows"]
     assert closure["closure_l2"]["mean"] >= 0
     assert set(closure["signed_mean_by_oxide"]) == set(
         metrics["closure_abs_by_oxide"]
     )
-
-    stale = dataclasses.replace(
-        train_mod.JointHeadCheckpoint.load(ckpt_path),
-        label_config={k: v for k, v in metrics["label_config"].items()
-                      if k != "comp_eps"},
-    )
-    stale_path = tmp_path / "ckpt_stale" / "heads_best.pt"
-    stale.save(stale_path)
-    with pytest.raises(ValueError, match="comp_eps"):
-        run_comp_head_eval(stale_path, device=torch.device("cpu"))

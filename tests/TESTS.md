@@ -17,14 +17,14 @@ rename, or repurpose a test) updates this file in the same change.**
   `synthetic_token_dataset` (tiny token datasets) and
   `tiny_pretrain_checkpoint` (a real on-disk encoder+head checkpoint),
   shared by the eval and explorations suites;
-  `synthetic_mineralogy_corpus` (the `write_synthetic_rungs` builder:
-  one rungs parquet with two draws per bulk, mixed assemblage with full
-  11-oxide comps and T_end, one plag + one afs feldspar instance, a
-  fluid row, and a rung-30 attrition case) and `synthetic_joint_corpus`
-  (rungs + the matching draws parquet via `write_synthetic_draws`,
-  whose input oxides equal each draw's rung-50 reconstruction so
-  rung-50 groups close under the mass-balance identity), shared by the
-  mineralogy-dataset, mode-head, and joint-heads suites.
+  `synthetic_joint_corpus` (the `write_synthetic_rungs` +
+  `write_synthetic_draws` builder: one rungs parquet with two draws per
+  bulk, mixed assemblage with full 11-oxide comps and T_end, one plag +
+  one afs feldspar instance, a fluid row, and a rung-30 attrition case,
+  plus the matching draws parquet whose input oxides equal each draw's
+  rung-50 reconstruction so rung-50 groups close under the mass-balance
+  identity), shared by the mineralogy-dataset, eval, and joint-heads
+  suites.
 - `tests/training/conftest.py` -- `_tiny_config()` (minimal config on
   the corpus fixture; `min_class_count=5` so both stratified splits
   survive) and `_write_yaml()`.
@@ -124,7 +124,7 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_mineralogy_labels.py
 
-1. `test_one_row_per_reached_rung` -- one label row per (bulk, draw, rung) actually present in the rungs table; columns follow `SOLID_PHASES` order.
+1. `test_one_row_per_reached_rung` -- one label row per (bulk, draw, rung) actually present in the rungs table; the modes matrix spans `SOLID_PHASES`.
 2. `test_crystals_renormalization_and_fsp_routing` -- liq is dropped, solids renormalize to 1, fsp instances route to plag/afs, and trd merges into q.
 3. `test_dropped_phase_mass_renormalizes_away` -- chl mass disappears and the surviving solids still sum to 1.
 4. `test_instances_sum` -- two instances of one phase sum into a single mode.
@@ -133,15 +133,14 @@ rename, or repurpose a test) updates this file in the same change.**
 7. `test_missing_corpus_raises` -- an empty corpus dir raises FileNotFoundError.
 8. `test_hurdle_targets_cutoff_and_renorm` -- sub-cutoff phases are marked absent and the present modes renormalize.
 9. `test_hurdle_targets_single_present` -- a single-phase row yields magnitude exactly 1 on that phase.
-10. `test_joint_labels_align_with_mode_labels` -- `load_joint_labels` modes match `load_mode_labels` row for row.
-11. `test_joint_comp_mass_weighted_instance_merge` -- two same-token instances merge to the mass-weighted mean oxide composition.
-12. `test_joint_feldspar_pair_not_averaged` -- plag and afs keep separate comps (the vocabulary split precedes averaging).
-13. `test_joint_trd_comp_merges_into_q` -- trd's comp folds into q by the same mass weighting as its mode.
-14. `test_joint_comp_targets_are_eps_clipped_simplexes` -- comp targets are strictly positive and sum to 1 after the eps-clip renorm.
-15. `test_joint_fixings_and_absent_fluid` -- melt/fluid fractions and comps extract per group; groups without a liq/fl row get zeros.
-16. `test_joint_cond_targets` -- (T_end, P_kbar, H2O) assemble from the rung row and the draws join.
-17. `test_joint_bulk_11_fe_split` -- the draws in_* oxides convert to the 11-oxide output basis (Fe2O3 -> FeO-equivalent + excess O) against a hand computation, normalized to sum 1.
-18. `test_joint_labels_close_on_real_corpus` -- (skipped without `data/corpus/valtest`) the mass-balance identity holds through the builder's own outputs at quantile thresholds (a small corpus tail does not self-close: melt immiscibility, dropped-phase mass).
+10. `test_joint_comp_mass_weighted_instance_merge` -- two same-token instances merge to the mass-weighted mean oxide composition.
+11. `test_joint_feldspar_pair_not_averaged` -- plag and afs keep separate comps (the vocabulary split precedes averaging).
+12. `test_joint_trd_comp_merges_into_q` -- trd's comp folds into q by the same mass weighting as its mode.
+13. `test_joint_comp_targets_are_eps_clipped_simplexes` -- comp targets are strictly positive and sum to 1 after the eps-clip renorm.
+14. `test_joint_fixings_and_absent_fluid` -- melt/fluid fractions and comps extract per group; groups without a liq/fl row get zeros.
+15. `test_joint_cond_targets` -- (T_end, P_kbar, H2O) assemble from the rung row and the draws join.
+16. `test_joint_bulk_11_fe_split` -- the draws in_* oxides convert to the 11-oxide output basis (Fe2O3 -> FeO-equivalent + excess O) against a hand computation, normalized to sum 1.
+17. `test_joint_labels_close_on_real_corpus` -- (skipped without `data/corpus/valtest`) the mass-balance identity holds through the builder's own outputs at quantile thresholds (a small corpus tail does not self-close: melt immiscibility, dropped-phase mass).
 
 ### test_volcanic_subset.py
 
@@ -331,10 +330,6 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_run_imputation_hpo_end_to_end` -- a 2-trial sweep against the tiny encoder produces a well-formed summary (best_params, finite best_value, baseline reference) plus a resumable journal and history figure; exercises split + per-trial head train + val LOO scoring.
 
-### test_mode_head_train.py
-
-1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs training on one synthetic corpus while a second synthetic valtest corpus (roster monkeypatched) drives the val monitor: monitor tracks every term per epoch, label semantics (`rungs`, `presence_cutoff`, `valtest_corpus_dir`) are stamped into the checkpoint, the saved file round-trips through `ModeHeadCheckpoint.load`, and `build_head` reconstructs a working head.
-
 ### test_joint_heads_train.py
 
 1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs of the joint trainer on synthetic rungs+draws corpora (roster monkeypatched): the monitor tracks every loss term per epoch, `comp_eps`, the loss weights, and the per-head architecture keys are stamped, the saved file round-trips through `JointHeadCheckpoint.load`, and all three `build_*_head` reconstructors return working heads.
@@ -402,7 +397,7 @@ rename, or repurpose a test) updates this file in the same change.**
 13. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
 14. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
 15. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
-16. `test_run_mode_head_eval_end_to_end` -- full harness smoke on a test-trained checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, figures land on disk, and a checkpoint whose `label_config` predates the roster raises.
+16. `test_run_mode_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("mode",))` on a test-trained joint checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, and figures land under `results/mode_head/<tag>/`.
 
 ### test_comp_head_eval.py
 
@@ -411,7 +406,7 @@ rename, or repurpose a test) updates this file in the same change.**
 3. `test_comp_beta_pit_calibrated_samples_are_uniform` -- PIT of true Dirichlet samples under their own alphas is uniform (mean and tail mass).
 4. `test_comp_parity_stats_perfect_prediction` -- a perfect predictor scores MAE 0 and r 1 per (phase, oxide).
 5. `test_an_number_hand_case` -- equal molar CaO and Na2O with no K2O gives An# 0.5.
-6. `test_run_comp_head_eval_end_to_end` -- full harness smoke on a test-trained joint checkpoint (roster and results root monkeypatched): metrics.json + parity/closure figures land, `run_predicted_closure_eval` returns a finite predicted-modes closure summary over the same rows, and a checkpoint whose `label_config` lacks `comp_eps` raises.
+6. `test_run_comp_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("comp",))` on a test-trained joint checkpoint (roster and results root monkeypatched): metrics.json + parity/closure figures land, and `run_predicted_closure_eval` on the shared `(ckpt, dataset, latents)` returns a finite predicted-modes closure summary over the same rows.
 
 ### test_cond_head_eval.py
 
@@ -422,7 +417,13 @@ rename, or repurpose a test) updates this file in the same change.**
 5. `test_effective_components_limits` -- exp-entropy of one-hot weights is 1 and of uniform weights is K.
 6. `test_mass_below_zero` -- mixture mass below zero is 0.5 for a zero-centered unit normal and ~0 far above zero.
 7. `test_sample_supports_deterministic_extremes` -- p=0/1 presence probabilities sample deterministically.
-8. `test_run_cond_head_eval_end_to_end` -- full harness smoke on a test-trained joint checkpoint (roster and results root monkeypatched): per-axis metrics incl. the exposure-bias delta are finite and PIT/component figures land.
+8. `test_run_cond_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("cond",))` on a test-trained joint checkpoint (roster and results root monkeypatched): per-axis metrics incl. the exposure-bias delta are finite and PIT/component figures land.
+
+### test_joint_heads_eval.py
+
+1. `test_run_joint_eval_shares_one_dataset_build` -- a two-head run (`mode`, `comp`) on a test-trained joint checkpoint builds the val dataset exactly once (counted via a monkeypatched constructor), returns both metrics dicts, and lands both heads' metrics.json files.
+2. `test_run_joint_eval_rejects_unknown_head` -- an unrecognized head name raises before any checkpoint loading.
+3. `test_stale_label_config_raises` -- `val_dataset_and_latents` raises on a checkpoint whose `label_config` lacks `comp_eps` (predates the current joint trainer).
 
 ### test_training_curves.py
 

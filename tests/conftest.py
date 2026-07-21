@@ -192,12 +192,6 @@ def write_synthetic_draws(corpus_dir: Path, bulk_ids: list[int]) -> Path:
 
 
 @pytest.fixture
-def synthetic_mineralogy_corpus():
-    """The `write_synthetic_rungs` builder, for tiny mineralogy-label corpora."""
-    return write_synthetic_rungs
-
-
-@pytest.fixture
 def synthetic_joint_corpus():
     """Builder writing both rungs and draws tables (for `load_joint_labels`)."""
 

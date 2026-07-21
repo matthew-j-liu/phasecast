@@ -1,14 +1,15 @@
 """Interrogation report for the CondHead of a trained joint checkpoint.
 
-Rebuilds the checkpoint's valtest val-roster dataset and scores the
-support-conditioned per-axis GMM over (T_end, P_kbar, H2O): per-axis NLL
-(stratified by rung and support size) as the headline, mixture-CDF PIT and
-central-interval coverage for calibration, component-usage diagnostics, and
-the exposure-bias measurement -- the same rows scored under the teacher-forced
-true support vs supports sampled from the checkpoint's own ModeHead, the
-decision input for mask-noising mitigations (heads.md). Statistics live as
-pure array functions; `run_cond_head_eval` orchestrates and emits figures +
-`metrics.json` under `results/cond_head/<tag>/`.
+Scores the support-conditioned per-axis GMM over (T_end, P_kbar, H2O):
+per-axis NLL (stratified by rung and support size) as the headline,
+mixture-CDF PIT and central-interval coverage for calibration,
+component-usage diagnostics, and the exposure-bias measurement -- the same
+rows scored under the teacher-forced true support vs supports sampled from
+the checkpoint's own ModeHead, the decision input for mask-noising
+mitigations (heads.md). Statistics live as pure array functions;
+`run_cond_head_eval` takes the shared `(ckpt, dataset, latents)` built by
+`eval.joint_heads` and emits figures + `metrics.json` under
+`results/cond_head/<tag>/`.
 """
 
 import json
@@ -23,14 +24,11 @@ import pandas as pd
 import torch
 from scipy.stats import norm
 
-from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
+from cnmineral.data.mineralogy_dataset import JointHeadDataset
 from cnmineral.data.phase_vocab import PHASE_INDEX
-from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.eval.mode_head import RESULTS_ROOT, _finish, stratified_mean
 from cnmineral.models.cond_head import COND_AXES
-from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
-from cnmineral.training.mode_head import _bulk_latents
 
 COVERAGE_LEVELS = (0.5, 0.68, 0.9)
 DIAGNOSTIC_PHASES = ("amp", "q", "ne")
@@ -169,49 +167,27 @@ def plot_nll_by_support_size(
 
 @torch.no_grad()
 def run_cond_head_eval(
-    head_checkpoint_path: Path,
+    ckpt: JointHeadCheckpoint,
+    dataset: JointHeadDataset,
+    latents: torch.Tensor,
     *,
-    device: torch.device | None = None,
+    device: torch.device,
+    tag: str,
     exposure_seed: int = 0,
 ) -> dict:
     """Full CondHead interrogation on the valtest val roster.
 
-    The val dataset rebuilds from the checkpoint's stamped `label_config`
-    plus the committed `valtest_split.csv`. Writes figures + `metrics.json`
-    to `results/cond_head/<checkpoint dir name>/` and returns the metrics.
+    `ckpt`, `dataset`, and `latents` come from the shared setup in
+    `eval.joint_heads`. Writes figures + `metrics.json` to
+    `results/cond_head/<tag>/` and returns the metrics.
     """
-    head_checkpoint_path = Path(head_checkpoint_path)
-    ckpt = JointHeadCheckpoint.load(head_checkpoint_path)
-    device = device or pick_device()
-    tag = head_checkpoint_path.parent.name
     output_dir = RESULTS_ROOT / "cond_head" / tag
     output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"device:  {device}")
-    print(f"heads:   {head_checkpoint_path}")
-    print(f"encoder: {ckpt.encoder_checkpoint}")
     print(f"output:  {output_dir}")
 
     lc = ckpt.label_config
-    if "valtest_corpus_dir" not in lc or "comp_eps" not in lc:
-        raise ValueError(
-            "checkpoint lacks valtest_corpus_dir/comp_eps in label_config; "
-            "retrain with the current joint trainer"
-        )
-    encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
-    encoder.to(device)
     cond_head = ckpt.build_cond_head().to(device)
     mode_head = ckpt.build_mode_head().to(device)
-
-    val_bulk_ids = load_valtest_split("val")
-    dataset = JointHeadDataset(
-        corpus_dir=lc["valtest_corpus_dir"],
-        rungs=tuple(lc["rungs"]),
-        presence_cutoff=lc["presence_cutoff"],
-        comp_eps=lc["comp_eps"],
-        bulk_ids=val_bulk_ids,
-    )
-    latents = _bulk_latents(encoder, dataset, device)
-    print(f"bulks={len(dataset.bulk_ids)} rows={len(dataset)} (valtest val roster)")
     split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
 
     row_bulk = dataset.row_bulk_idx.numpy()
@@ -270,7 +246,7 @@ def run_cond_head_eval(
         })
 
     metrics = {
-        "head_checkpoint": str(head_checkpoint_path),
+        "checkpoint_tag": tag,
         "encoder_checkpoint": str(ckpt.encoder_checkpoint),
         "label_config": dict(lc),
         "n_val_rows": int(len(dataset)),

@@ -6,88 +6,8 @@ import pytest
 
 from cnmineral.data.magemin_corpus import COMP_OXIDES
 from cnmineral.data.magemin_oxides import FE2O3_TO_FEO_MASS
-from cnmineral.data.mineralogy_labels import (
-    hurdle_targets,
-    load_joint_labels,
-    load_mode_labels,
-)
+from cnmineral.data.mineralogy_labels import hurdle_targets, load_joint_labels
 from cnmineral.data.phase_vocab import PHASE_INDEX, SOLID_PHASES
-
-
-def _write(corpus_dir, rows):
-    corpus_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).to_parquet(corpus_dir / "chunk_0000_rungs.parquet")
-    return corpus_dir
-
-
-_ZERO = {"wt_CaO": 0.0, "wt_Na2O": 0.0, "wt_K2O": 0.0}
-_PLAG = {"wt_CaO": 33.6, "wt_Na2O": 11.8, "wt_K2O": 0.9}
-_AFS = {"wt_CaO": 1.1, "wt_Na2O": 11.8, "wt_K2O": 28.3}
-
-
-@pytest.fixture
-def corpus_dir(tmp_path):
-    return _write(tmp_path / "corpus", [
-        dict(bulk=1, draw=0, rung=50, phase="liq", instance=0, mode_wt=0.50, **_ZERO),
-        dict(bulk=1, draw=0, rung=50, phase="fsp", instance=0, mode_wt=0.30, **_PLAG),
-        dict(bulk=1, draw=0, rung=50, phase="fsp", instance=1, mode_wt=0.10, **_AFS),
-        dict(bulk=1, draw=0, rung=50, phase="q", instance=0, mode_wt=0.05, **_ZERO),
-        dict(bulk=1, draw=0, rung=50, phase="trd", instance=0, mode_wt=0.05, **_ZERO),
-        dict(bulk=1, draw=0, rung=30, phase="liq", instance=0, mode_wt=0.28, **_ZERO),
-        dict(bulk=1, draw=0, rung=30, phase="fl", instance=0, mode_wt=0.02, **_ZERO),
-        dict(bulk=1, draw=0, rung=30, phase="cpx", instance=0, mode_wt=0.60, **_ZERO),
-        dict(bulk=1, draw=0, rung=30, phase="chl", instance=0, mode_wt=0.10, **_ZERO),
-        dict(bulk=1, draw=0, rung=40, phase="q", instance=0, mode_wt=1.00, **_ZERO),
-        dict(bulk=1, draw=1, rung=50, phase="liq", instance=0, mode_wt=0.60, **_ZERO),
-        dict(bulk=1, draw=1, rung=50, phase="amp", instance=0, mode_wt=0.20, **_ZERO),
-        dict(bulk=1, draw=1, rung=50, phase="amp", instance=1, mode_wt=0.20, **_ZERO),
-    ])
-
-
-def test_one_row_per_reached_rung(corpus_dir):
-    labels = load_mode_labels(corpus_dir)
-    keys = set(map(tuple, labels[["bulk", "draw", "rung"]].to_numpy()))
-    assert keys == {(1, 0, 50), (1, 0, 30), (1, 1, 50)}
-    assert list(labels.columns[3:]) == list(SOLID_PHASES)
-
-
-def test_crystals_renormalization_and_fsp_routing(corpus_dir):
-    labels = load_mode_labels(corpus_dir).set_index(["draw", "rung"])
-    r50 = labels.loc[(0, 50)]
-    assert np.isclose(r50["plag"], 0.6)
-    assert np.isclose(r50["afs"], 0.2)
-    assert np.isclose(r50["q"], 0.2)  # q 0.05 + trd 0.05, renormalized
-
-
-def test_dropped_phase_mass_renormalizes_away(corpus_dir):
-    labels = load_mode_labels(corpus_dir).set_index(["draw", "rung"])
-    r30 = labels.loc[(0, 30)]
-    assert np.isclose(r30["cpx"], 1.0)  # chl dropped, liq/fl excluded
-    assert np.isclose(r30[list(SOLID_PHASES)].sum(), 1.0)
-
-
-def test_instances_sum(corpus_dir):
-    labels = load_mode_labels(corpus_dir).set_index(["draw", "rung"])
-    assert np.isclose(labels.loc[(1, 50)]["amp"], 1.0)
-
-
-def test_rung_filter(corpus_dir):
-    labels = load_mode_labels(corpus_dir, rungs=(40,))
-    assert len(labels) == 1
-    assert np.isclose(labels.iloc[0]["q"], 1.0)
-
-
-def test_unknown_phase_raises(tmp_path):
-    corpus = _write(tmp_path / "bad", [
-        dict(bulk=1, draw=0, rung=50, phase="wumbo", instance=0, mode_wt=1.0, **_ZERO),
-    ])
-    with pytest.raises(ValueError, match="wumbo"):
-        load_mode_labels(corpus)
-
-
-def test_missing_corpus_raises(tmp_path):
-    with pytest.raises(FileNotFoundError):
-        load_mode_labels(tmp_path / "nowhere")
 
 
 def _comp(**named):
@@ -111,6 +31,100 @@ _DRAW_DEFAULTS = dict(
     in_cao=6.0, in_mgo=4.0, in_feo=6.0, in_fe2o3=2.0, in_k2o=2.0,
     in_na2o=2.0, in_tio2=0.8, in_cr2o3=0.2,
 )
+
+
+_MODES_PLAG = _comp(SiO2=0.55, Al2O3=0.28, CaO=0.12, Na2O=0.04, K2O=0.001)
+_MODES_AFS = _comp(SiO2=0.66, Al2O3=0.19, K2O=0.10, Na2O=0.03, CaO=0.005)
+
+
+@pytest.fixture
+def modes_corpus(tmp_path):
+    rung_rows = [
+        dict(bulk=1, draw=0, rung=50, T_end=900.0, phase="liq", instance=0,
+             mode_wt=0.50, **_comp(SiO2=0.7)),
+        dict(bulk=1, draw=0, rung=50, T_end=900.0, phase="fsp", instance=1,
+             mode_wt=0.30, **_MODES_PLAG),
+        dict(bulk=1, draw=0, rung=50, T_end=900.0, phase="fsp", instance=2,
+             mode_wt=0.10, **_MODES_AFS),
+        dict(bulk=1, draw=0, rung=50, T_end=900.0, phase="q", instance=3,
+             mode_wt=0.05, **_comp(SiO2=1.0)),
+        dict(bulk=1, draw=0, rung=50, T_end=900.0, phase="trd", instance=4,
+             mode_wt=0.05, **_comp(SiO2=1.0)),
+        dict(bulk=1, draw=0, rung=30, T_end=800.0, phase="liq", instance=0,
+             mode_wt=0.28, **_comp(SiO2=0.7)),
+        dict(bulk=1, draw=0, rung=30, T_end=800.0, phase="fl", instance=1,
+             mode_wt=0.02, **_comp(H2O=1.0)),
+        dict(bulk=1, draw=0, rung=30, T_end=800.0, phase="cpx", instance=2,
+             mode_wt=0.60, **_comp(SiO2=0.5, CaO=0.25, MgO=0.25)),
+        dict(bulk=1, draw=0, rung=30, T_end=800.0, phase="chl", instance=3,
+             mode_wt=0.10, **_comp(SiO2=0.3, MgO=0.4, FeO=0.3)),
+        dict(bulk=1, draw=0, rung=40, T_end=850.0, phase="q", instance=0,
+             mode_wt=1.00, **_comp(SiO2=1.0)),
+        dict(bulk=1, draw=1, rung=50, T_end=900.0, phase="liq", instance=0,
+             mode_wt=0.60, **_comp(SiO2=0.7)),
+        dict(bulk=1, draw=1, rung=50, T_end=900.0, phase="amp", instance=1,
+             mode_wt=0.20, **_comp(SiO2=0.4, MgO=0.3, FeO=0.3)),
+        dict(bulk=1, draw=1, rung=50, T_end=900.0, phase="amp", instance=2,
+             mode_wt=0.20, **_comp(SiO2=0.6, MgO=0.2, FeO=0.2)),
+    ]
+    draw_rows = [dict(_DRAW_DEFAULTS), dict(_DRAW_DEFAULTS, draw=1)]
+    return _write_joint(tmp_path, rung_rows, draw_rows)
+
+
+def _modes_row(j, draw, rung):
+    idx = j["index"]
+    pos = np.flatnonzero(
+        (idx["draw"] == draw).to_numpy() & (idx["rung"] == rung).to_numpy()
+    )
+    assert len(pos) == 1
+    return j["modes"][pos[0]]
+
+
+def test_one_row_per_reached_rung(modes_corpus):
+    j = load_joint_labels(modes_corpus)
+    keys = set(map(tuple, j["index"][["bulk", "draw", "rung"]].to_numpy()))
+    assert keys == {(1, 0, 50), (1, 0, 30), (1, 1, 50)}
+    assert j["modes"].shape[1] == len(SOLID_PHASES)
+
+
+def test_crystals_renormalization_and_fsp_routing(modes_corpus):
+    r50 = _modes_row(load_joint_labels(modes_corpus), draw=0, rung=50)
+    assert np.isclose(r50[PHASE_INDEX["plag"]], 0.6)
+    assert np.isclose(r50[PHASE_INDEX["afs"]], 0.2)
+    assert np.isclose(r50[PHASE_INDEX["q"]], 0.2)  # q 0.05 + trd 0.05, renormalized
+
+
+def test_dropped_phase_mass_renormalizes_away(modes_corpus):
+    r30 = _modes_row(load_joint_labels(modes_corpus), draw=0, rung=30)
+    assert np.isclose(r30[PHASE_INDEX["cpx"]], 1.0)  # chl dropped, liq/fl excluded
+    assert np.isclose(r30.sum(), 1.0)
+
+
+def test_instances_sum(modes_corpus):
+    r50 = _modes_row(load_joint_labels(modes_corpus), draw=1, rung=50)
+    assert np.isclose(r50[PHASE_INDEX["amp"]], 1.0)
+
+
+def test_rung_filter(modes_corpus):
+    j = load_joint_labels(modes_corpus, rungs=(40,))
+    assert len(j["modes"]) == 1
+    assert np.isclose(j["modes"][0][PHASE_INDEX["q"]], 1.0)
+
+
+def test_unknown_phase_raises(tmp_path):
+    corpus = _write_joint(
+        tmp_path,
+        [dict(bulk=1, draw=0, rung=50, T_end=900.0, phase="wumbo", instance=0,
+              mode_wt=1.0, **_comp(SiO2=1.0))],
+        [dict(_DRAW_DEFAULTS)],
+    )
+    with pytest.raises(ValueError, match="wumbo"):
+        load_joint_labels(corpus)
+
+
+def test_missing_corpus_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_joint_labels(tmp_path / "nowhere")
 
 
 def _joint_corpus(tmp_path):
@@ -143,18 +157,6 @@ def _joint_corpus(tmp_path):
         dict(_DRAW_DEFAULTS, draw=1, P_kbar=2.0, H2O=1.0),
     ]
     return _write_joint(tmp_path, rung_rows, draw_rows)
-
-
-def test_joint_labels_align_with_mode_labels(tmp_path):
-    corpus = _joint_corpus(tmp_path)
-    j = load_joint_labels(corpus)
-    m = load_mode_labels(corpus).sort_values(["bulk", "draw", "rung"])
-    order = np.lexsort(
-        (j["index"]["rung"], j["index"]["draw"], j["index"]["bulk"])
-    )
-    assert np.allclose(
-        m.drop(columns=["bulk", "draw", "rung"]).to_numpy(), j["modes"][order]
-    )
 
 
 def test_joint_comp_mass_weighted_instance_merge(tmp_path):

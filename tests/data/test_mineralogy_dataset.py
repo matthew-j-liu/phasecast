@@ -3,28 +3,28 @@ import pytest
 import torch
 
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset
-from cnmineral.data.mineralogy_dataset import JointHeadDataset, ModeHeadDataset
+from cnmineral.data.mineralogy_dataset import JointHeadDataset
 from cnmineral.data.phase_vocab import N_PHASES
 from cnmineral.models.comp_head import N_OXIDES
 
 _DATA_KWARGS = {"min_class_count": 5}
 
 
-def _dataset(corpus_subset_path, synthetic_mineralogy_corpus, tmp_path, n_bulks=2):
+def _dataset(corpus_subset_path, synthetic_joint_corpus, tmp_path, n_bulks=2):
     chem = BulkChemistryDataset(
         csv_path=str(corpus_subset_path), require_all_majors=False, **_DATA_KWARGS
     )
     bulk_ids = [int(s) for s in chem.sample_ids[:n_bulks]]
-    corpus_dir = synthetic_mineralogy_corpus(tmp_path / "corpus", bulk_ids)
-    ds = ModeHeadDataset(
+    corpus_dir = synthetic_joint_corpus(tmp_path / "corpus", bulk_ids)
+    ds = JointHeadDataset(
         corpus_dir,
         data_kwargs={"csv_path": str(corpus_subset_path), **_DATA_KWARGS},
     )
     return ds, chem, bulk_ids
 
 
-def test_rows_and_target_shapes(corpus_subset_path, synthetic_mineralogy_corpus, tmp_path):
-    ds, _, bulk_ids = _dataset(corpus_subset_path, synthetic_mineralogy_corpus, tmp_path)
+def test_rows_and_target_shapes(corpus_subset_path, synthetic_joint_corpus, tmp_path):
+    ds, _, bulk_ids = _dataset(corpus_subset_path, synthetic_joint_corpus, tmp_path)
     # 3 label rows per bulk: draw 0 at rungs 50+30, draw 1 at rung 50
     assert len(ds) == 3 * len(bulk_ids)
     item = ds[0]
@@ -37,9 +37,9 @@ def test_rows_and_target_shapes(corpus_subset_path, synthetic_mineralogy_corpus,
 
 
 def test_input_tokens_match_bulk_chemistry(
-    corpus_subset_path, synthetic_mineralogy_corpus, tmp_path
+    corpus_subset_path, synthetic_joint_corpus, tmp_path
 ):
-    ds, chem, _ = _dataset(corpus_subset_path, synthetic_mineralogy_corpus, tmp_path)
+    ds, chem, _ = _dataset(corpus_subset_path, synthetic_joint_corpus, tmp_path)
     item = ds[0]
     bulk_id = int(ds.bulk_ids[item["bulk_idx"]])
     chem_row = int(np.flatnonzero(chem.sample_ids == bulk_id)[0])
@@ -49,14 +49,14 @@ def test_input_tokens_match_bulk_chemistry(
 
 
 def test_unresolvable_bulk_dropped(
-    corpus_subset_path, synthetic_mineralogy_corpus, tmp_path, capsys
+    corpus_subset_path, synthetic_joint_corpus, tmp_path, capsys
 ):
     chem = BulkChemistryDataset(
         csv_path=str(corpus_subset_path), require_all_majors=False, **_DATA_KWARGS
     )
     bulk_ids = [int(chem.sample_ids[0]), 999_999_999]
-    corpus_dir = synthetic_mineralogy_corpus(tmp_path / "corpus", bulk_ids)
-    ds = ModeHeadDataset(
+    corpus_dir = synthetic_joint_corpus(tmp_path / "corpus", bulk_ids)
+    ds = JointHeadDataset(
         corpus_dir,
         data_kwargs={"csv_path": str(corpus_subset_path), **_DATA_KWARGS},
     )
@@ -66,21 +66,21 @@ def test_unresolvable_bulk_dropped(
 
 
 def test_bulk_ids_filter_restricts_rows(
-    corpus_subset_path, synthetic_mineralogy_corpus, tmp_path
+    corpus_subset_path, synthetic_joint_corpus, tmp_path
 ):
     chem = BulkChemistryDataset(
         csv_path=str(corpus_subset_path), require_all_majors=False, **_DATA_KWARGS
     )
     bulk_ids = [int(s) for s in chem.sample_ids[:3]]
-    corpus_dir = synthetic_mineralogy_corpus(tmp_path / "corpus", bulk_ids)
+    corpus_dir = synthetic_joint_corpus(tmp_path / "corpus", bulk_ids)
     data_kwargs = {"csv_path": str(corpus_subset_path), **_DATA_KWARGS}
-    ds = ModeHeadDataset(
+    ds = JointHeadDataset(
         corpus_dir, data_kwargs=data_kwargs, bulk_ids=np.array(bulk_ids[:2])
     )
     assert sorted(ds.bulk_ids.tolist()) == sorted(bulk_ids[:2])
     assert len(ds) == 3 * 2
     with pytest.raises(ValueError, match="no label rows"):
-        ModeHeadDataset(
+        JointHeadDataset(
             corpus_dir, data_kwargs=data_kwargs, bulk_ids=np.array([999_999_999])
         )
 

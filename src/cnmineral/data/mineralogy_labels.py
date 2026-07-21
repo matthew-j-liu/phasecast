@@ -1,15 +1,15 @@
-"""Build crystals-renormalized modal labels from the mineralogy-corpus rungs tables.
+"""Build crystals-renormalized labels from the mineralogy-corpus tables.
 
-Turns the long (bulk, draw, rung, phase, instance) rungs rows into one modal
-vector per (bulk, draw, rung) over `phase_vocab.SOLID_PHASES`: feldspar
+Turns the long (bulk, draw, rung, phase, instance) rungs rows into
+per-(bulk, draw, rung) targets over `phase_vocab.SOLID_PHASES`: feldspar
 instances are routed to plag/afs by `feldspar_rule`, the merge/drop rules
 applied, instance modes summed, liq/fl dropped and the solids renormalized to
-sum to 1. `load_joint_labels` additionally emits the CompHead oxide targets,
-the CondHead (T, P, H2O) targets, and the teacher-forced mass-balance fixings
-(melt/fluid fractions and compositions, input bulk in the 11-oxide basis).
-The presence cutoff and the present-only Dirichlet target are derived
-downstream in `mineralogy_dataset` -- label semantics are training-time
-rebuilds from raw modes, never materialized to disk.
+sum to 1. `load_joint_labels` emits the modal vector plus the CompHead oxide
+targets, the CondHead (T, P, H2O) targets, and the teacher-forced
+mass-balance fixings (melt/fluid fractions and compositions, input bulk in
+the 11-oxide basis). The presence cutoff and the present-only Dirichlet
+target are derived downstream in `mineralogy_dataset` -- label semantics are
+training-time rebuilds from raw modes, never materialized to disk.
 """
 
 from pathlib import Path
@@ -26,44 +26,6 @@ from .phase_vocab import (
     PHASE_MERGES,
     SOLID_PHASES,
 )
-
-_RUNG_COLUMNS = [
-    "bulk", "draw", "rung", "phase", "mode_wt", "wt_CaO", "wt_Na2O", "wt_K2O",
-]
-
-
-def load_mode_labels(
-    corpus_dir: str | Path, rungs: tuple[int, ...] = (50, 30)
-) -> pd.DataFrame:
-    """One row per (bulk, draw, rung) with crystals-renormalized modes.
-
-    Returns columns `bulk`, `draw`, `rung` plus one column per phase in
-    `SOLID_PHASES`, each row's phase modes summing to 1. Draws that never
-    reached a requested rung have no rungs rows and are naturally absent.
-    """
-    files = sorted(Path(corpus_dir).glob("chunk_*_rungs.parquet"))
-    if not files:
-        raise FileNotFoundError(f"no chunk_*_rungs.parquet under {corpus_dir}")
-
-    parts = []
-    for f in files:
-        df = pd.read_parquet(f, columns=_RUNG_COLUMNS)
-        parts.append(df[df["rung"].isin(rungs) & ~df["phase"].isin(NON_SOLID_PHASES)])
-    df = pd.concat(parts, ignore_index=True)
-    df = df[~df["phase"].isin(DROPPED_PHASES)]
-
-    df = df.assign(token=_route_tokens(df))
-
-    wide = (
-        df.groupby(["bulk", "draw", "rung", "token"], sort=False)["mode_wt"]
-        .sum()
-        .unstack("token", fill_value=0.0)
-        .reindex(columns=list(SOLID_PHASES), fill_value=0.0)
-    )
-    total = wide.sum(axis=1)
-    wide = wide[total > 0].div(total[total > 0], axis=0)
-    return wide.reset_index()
-
 
 _WT_COLUMNS = [f"wt_{o}" for o in COMP_OXIDES]
 _IN_COLUMNS = [

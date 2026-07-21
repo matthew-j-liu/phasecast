@@ -7,10 +7,13 @@ masking: probes see what the encoder produces from the unaltered input,
 mirroring how inference-time consumers (k-NN lookup, classifier heads)
 would call the encoder.
 
-Three entry points:
+Four entry points:
 
 - `extract_latents(encoder, dataset, ...)` for an in-memory encoder, used
   by tests and by the CLI after it has loaded the checkpoint.
+- `bulk_latents(encoder, dataset, ...)` for the mineralogy datasets, which
+  carry one input vector per bulk (`bulk_src` / `bulk_frac`): one pooled
+  latent per bulk, returned on the compute device (the table is tiny).
 - `load_encoder_and_head_from_checkpoint(path)` rebuilds both the `Encoder`
   and the `PretrainHead` from a checkpoint's stamped config and applies the
   state dicts.  It is the implementation base for the head-less loader below;
@@ -66,6 +69,27 @@ def load_encoder_from_checkpoint(
     """Head-less variant for probes / UMAP, which only read pooled latents."""
     encoder, _head, ckpt = load_encoder_and_head_from_checkpoint(checkpoint_path)
     return encoder, ckpt
+
+
+@torch.no_grad()
+def bulk_latents(
+    encoder: Encoder,
+    dataset,
+    device: torch.device,
+    batch_size: int = 512,
+) -> torch.Tensor:
+    """One pooled latent per dataset bulk, on `device`.
+
+    `dataset` is a mineralogy dataset (`JointHeadDataset`) whose rows share
+    per-bulk inputs: only `bulk_src` / `bulk_frac` are encoded, one forward
+    per bulk rather than per row.
+    """
+    outs = []
+    for start in range(0, len(dataset.bulk_ids), batch_size):
+        src = dataset.bulk_src[start : start + batch_size].to(device)
+        frac = dataset.bulk_frac[start : start + batch_size].to(device)
+        outs.append(encoder(src=src, frac=frac))
+    return torch.cat(outs)
 
 
 @torch.no_grad()

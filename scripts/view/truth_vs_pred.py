@@ -35,7 +35,7 @@ from cnmineral.data.phase_vocab import SOLID_PHASES
 from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.models.cond_head import COND_AXES
 from cnmineral.training.joint_heads import JointHeadCheckpoint
-from cnmineral.training.mode_head import _bulk_latents
+from cnmineral.eval.latent import bulk_latents
 
 TRUTH_COLOR, PRED_COLOR = "tab:blue", "tab:orange"
 LEGEND = [
@@ -208,7 +208,7 @@ def main() -> None:
     if len(rows) == 0:
         raise SystemExit(f"bulk {bulk} has no rows at rung {args.rung}")
 
-    latents = _bulk_latents(encoder, ds, torch.device("cpu"))
+    latents = bulk_latents(encoder, ds, torch.device("cpu"))
     rng = np.random.default_rng(0)
     with torch.no_grad():
         logits, mode_alpha = mode_head(latents[bpos : bpos + 1])

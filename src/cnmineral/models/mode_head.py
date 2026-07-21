@@ -5,7 +5,7 @@ likelihood P(modal) = P(present) * P(modal | present): per-phase presence
 logits and per-phase Dirichlet concentrations. The conditional Dirichlet is
 evaluated on the present support only (Aitchison sub-composition), so the
 alphas are meaningful relative to whichever support they are sliced to.
-Training lives in `cnmineral.training.mode_head`; the loss in
+Training lives in `cnmineral.training.joint_heads`; the loss in
 `cnmineral.losses.mode_loss`.
 """
 

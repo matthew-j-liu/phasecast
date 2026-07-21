@@ -1,12 +1,12 @@
-"""Interrogation report for a trained hurdle ModeHead.
+"""Interrogation report for the ModeHead of a trained joint checkpoint.
 
-Rebuilds the checkpoint's valtest val-roster dataset, caches one
-`(p, alpha)` prediction per bulk, and scores it per the heads.md eval
-philosophy: presence calibration and the joint hurdle NLL (stratified by
+Caches one `(p, alpha)` prediction per bulk and scores it per the heads.md
+eval philosophy: presence calibration and the joint hurdle NLL (stratified by
 phase rarity, rung, qap class, support size) as the headline, presence
 recall and false-positive mass as guardrails, plus PIT-based magnitude
 calibration. The statistics live as pure array functions; `run_mode_head_eval`
-orchestrates and emits figures + `metrics.json` under `results/mode_head/<tag>/`.
+takes the shared `(ckpt, dataset, latents)` built by `eval.joint_heads` and
+emits figures + `metrics.json` under `results/mode_head/<tag>/`.
 """
 
 import json
@@ -24,12 +24,10 @@ import torch.nn.functional as F
 from scipy.special import betainc
 from scipy.stats import beta
 
-from cnmineral.data.mineralogy_dataset import ModeHeadDataset, load_valtest_split
+from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
 from cnmineral.data.phase_vocab import SOLID_PHASES
-from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.losses.mode_loss import masked_dirichlet_nll
-from cnmineral.training import pick_device
-from cnmineral.training.mode_head import ModeHeadCheckpoint, _bulk_latents
+from cnmineral.training.joint_heads import JointHeadCheckpoint
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RESULTS_ROOT = REPO_ROOT / "results"
@@ -939,47 +937,26 @@ def _qap_labels(names: np.ndarray, top_k: int = 8) -> np.ndarray:
 
 @torch.no_grad()
 def run_mode_head_eval(
-    head_checkpoint_path: Path,
+    ckpt: JointHeadCheckpoint,
+    dataset: JointHeadDataset,
+    latents: torch.Tensor,
     *,
-    device: torch.device | None = None,
+    device: torch.device,
+    tag: str,
 ) -> dict:
-    """Full interrogation of a ModeHead checkpoint on the valtest val roster.
+    """Full ModeHead interrogation on the valtest val roster.
 
-    The val dataset rebuilds from the checkpoint's stamped `label_config` plus
-    the committed `valtest_split.csv`. Writes figures + `metrics.json` to
-    `results/mode_head/<checkpoint dir name>/` and returns the metrics.
+    `ckpt`, `dataset`, and `latents` come from the shared setup in
+    `eval.joint_heads`. Writes figures + `metrics.json` to
+    `results/mode_head/<tag>/` and returns the metrics.
     """
-    head_checkpoint_path = Path(head_checkpoint_path)
-    ckpt = ModeHeadCheckpoint.load(head_checkpoint_path)
-    device = device or pick_device()
-    tag = head_checkpoint_path.parent.name
     output_dir = RESULTS_ROOT / "mode_head" / tag
     output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"device:  {device}")
-    print(f"head:    {head_checkpoint_path}")
-    print(f"encoder: {ckpt.encoder_checkpoint}")
     print(f"output:  {output_dir}")
 
-    encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
-    encoder.to(device)
-    head = ckpt.build_head().to(device)
-
+    head = ckpt.build_mode_head().to(device)
     lc = ckpt.label_config
-    if "valtest_corpus_dir" not in lc:
-        raise ValueError(
-            "checkpoint predates the valtest roster (no valtest_corpus_dir in "
-            "label_config); retrain the head"
-        )
     val_bulk_ids = load_valtest_split("val")
-    dataset = ModeHeadDataset(
-        corpus_dir=lc["valtest_corpus_dir"],
-        rungs=tuple(lc["rungs"]),
-        presence_cutoff=lc["presence_cutoff"],
-        bulk_ids=val_bulk_ids,
-    )
-    latents = _bulk_latents(encoder, dataset, device)
-    print(f"bulks={len(dataset.bulk_ids)} rows={len(dataset)} "
-          f"(valtest val roster)")
     split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
 
     logits_bulk, alpha_bulk = head(latents)
@@ -1077,7 +1054,7 @@ def run_mode_head_eval(
         })
 
     metrics = {
-        "head_checkpoint": str(head_checkpoint_path),
+        "checkpoint_tag": tag,
         "encoder_checkpoint": str(ckpt.encoder_checkpoint),
         "label_config": dict(lc),
         "split": {

@@ -1,8 +1,9 @@
 """Train the three supervised heads jointly on a frozen SSL encoder.
 
-Same frozen-encoder scheme as `training.mode_head` (one pooled latent per
-bulk, cached on device), but one optimizer over ModeHead + CompHead +
-CondHead under `joint_heads_loss`: the mode hurdle terms, the present-masked
+Frozen-encoder scheme: one pooled latent per bulk (all draws/rungs of a bulk
+share one input vector, so the latent table is tiny and cached on device),
+one optimizer over ModeHead + CompHead + CondHead under
+`joint_heads_loss`: the mode hurdle terms, the present-masked
 comp Dirichlet NLL, the support-conditioned per-axis GMM NLL (teacher-forced
 true presence), and the mass-balance closure penalty with corpus-pinned
 melt/fluid fixings. Each head is snapshotted at its own best raw val epoch
@@ -20,18 +21,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 import yaml
 from torch.utils.data import DataLoader, TensorDataset
 
 from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
-from cnmineral.eval.latent import load_encoder_from_checkpoint
+from cnmineral.data.phase_vocab import SOLID_PHASES
+from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.training_curves import plot_joint_run_loss
 from cnmineral.losses.joint_loss import joint_heads_loss
+from cnmineral.losses.mode_loss import masked_dirichlet_nll
 from cnmineral.models.comp_head import CompHead
 from cnmineral.models.cond_head import CondHead
 from cnmineral.models.mode_head import ModeHead
 from cnmineral.training.checkpoint import _git_sha
-from cnmineral.training.mode_head import _bulk_latents, evaluate_mode_head
 
 _TERMS = ("presence_bce", "mode_nll", "comp_nll", "cond_nll", "closure")
 
@@ -66,8 +69,9 @@ class JointHeadCheckpoint:
     `selection_series`.  `label_config` records what the targets were built
     from (`corpus_dir`, `valtest_corpus_dir`, `rungs`, `presence_cutoff`,
     `comp_eps`); `loss_config` the term weights the heads were trained
-    under.  Dataset rows rebuild from `label_config` plus the committed
-    valtest roster, as with `ModeHeadCheckpoint`.
+    under.  Dataset rows are not stored; they rebuild from `label_config` plus
+    the committed valtest roster (`valtest_split.csv`, versioned with the
+    code at `git_sha`).
     """
 
     mode_state: dict
@@ -179,6 +183,65 @@ class JointHeadCheckpoint:
         return head
 
 
+def evaluate_mode_head(
+    head: ModeHead,
+    latents: torch.Tensor,
+    dataset: JointHeadDataset,
+    row_indices: np.ndarray,
+    device: torch.device,
+    batch_size: int = 4096,
+) -> dict:
+    """Joint hurdle NLL + per-phase presence calibration / recall / magnitude MAE.
+
+    Returns `joint_nll` (mean nats per row) and a `per_phase` list of dicts
+    (empirical frequency, mean predicted presence probability, recall at 0.5,
+    conditional-magnitude MAE on rows where the phase is truly present).
+    """
+    head.eval()
+    n_phases = len(SOLID_PHASES)
+    joint_total = 0.0
+    freq = torch.zeros(n_phases)
+    mean_p = torch.zeros(n_phases)
+    tp = torch.zeros(n_phases)
+    mag_abs_err = torch.zeros(n_phases)
+    n_rows = len(row_indices)
+
+    with torch.no_grad():
+        for start in range(0, n_rows, batch_size):
+            idx = row_indices[start : start + batch_size]
+            presence = dataset.presence[idx].to(device)
+            magnitude = dataset.magnitude[idx].to(device)
+            h = latents[dataset.row_bulk_idx[idx].to(device)]
+            logits, alpha = head(h)
+
+            bern = F.binary_cross_entropy_with_logits(
+                logits, presence, reduction="none"
+            ).sum(-1)
+            dir_nll = masked_dirichlet_nll(alpha, magnitude, presence, reduction="none")
+            joint_total += (bern + dir_nll).sum().item()
+
+            p = torch.sigmoid(logits)
+            freq += presence.sum(0).cpu()
+            mean_p += p.sum(0).cpu()
+            tp += ((p > 0.5) & (presence > 0)).sum(0).cpu()
+            cond_mean = (presence * alpha) / (presence * alpha).sum(
+                -1, keepdim=True
+            ).clamp_min(1e-12)
+            mag_abs_err += (presence * (cond_mean - magnitude).abs()).sum(0).cpu()
+
+    per_phase = []
+    for i, name in enumerate(SOLID_PHASES):
+        n_present = freq[i].item()
+        per_phase.append({
+            "phase": name,
+            "frequency": n_present / n_rows,
+            "mean_p": mean_p[i].item() / n_rows,
+            "recall": tp[i].item() / n_present if n_present else float("nan"),
+            "magnitude_mae": mag_abs_err[i].item() / n_present if n_present else float("nan"),
+        })
+    return {"joint_nll": joint_total / n_rows, "per_phase": per_phase}
+
+
 def _row_tensors(ds: JointHeadDataset) -> TensorDataset:
     return TensorDataset(
         ds.row_bulk_idx, ds.presence, ds.magnitude, ds.comp_target,
@@ -231,8 +294,8 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         bulk_ids=load_valtest_split("val"),
     )
 
-    train_latents = _bulk_latents(encoder, train_ds, device)
-    val_latents = _bulk_latents(encoder, val_ds, device)
+    train_latents = bulk_latents(encoder, train_ds, device)
+    val_latents = bulk_latents(encoder, val_ds, device)
     print(
         f"train_joint_heads: device={device} encoder={Path(encoder_ckpt_path).name} "
         f"train: bulks={len(train_ds.bulk_ids)} rows={len(train_ds)} "

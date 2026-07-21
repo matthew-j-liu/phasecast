@@ -15,7 +15,7 @@ import optuna
 import torch
 import yaml
 
-import cnmineral.eval.comp_head as comp_head_eval
+import cnmineral.eval.joint_heads as joint_heads_eval
 import cnmineral.training.joint_heads as joint_heads_train
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset
 from cnmineral.training.joint_heads_hpo import run_hpo, tiebreak_best
@@ -101,7 +101,7 @@ def test_run_joint_heads_hpo_end_to_end(
         return np.array(bulk_ids[8:], dtype=np.int64)
 
     monkeypatch.setattr(joint_heads_train, "load_valtest_split", roster)
-    monkeypatch.setattr(comp_head_eval, "load_valtest_split", roster)
+    monkeypatch.setattr(joint_heads_eval, "load_valtest_split", roster)
 
     base = {
         "encoder_checkpoint": str(tiny_pretrain_checkpoint),
