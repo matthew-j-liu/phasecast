@@ -918,6 +918,73 @@ def s_comp_head_anatomy(prs):
              "(heads.md).")
 
 
+def s_comp_head_pit(prs):
+    s = new_slide(prs)
+    header(s, "HEADS", "Is the recipe right? One phase through the oxide Dirichlet")
+    caption(s, 0.55, 1.15, 12.2, "CompHead's eval: slice the per-phase Dirichlets to the "
+            "row's true support, then score each present phase's 11-oxide simplex -- right "
+            "mix (parity), honest error bars (PIT), and mass balance as the physics "
+            "self-check", 13, GRAYT, align=PP_ALIGN.LEFT)
+    box(s, 0.55, 1.95, 2.8, 1.5, ["head output for bulk X",
+        ("alpha [21 phases x 11 oxides],",),
+        ("computed from the latent --",),
+        ("truth is not an input",)], ORANGE, size=11)
+    flow_arrow(s, 3.45, 2.55, 0.35, 0.3)
+    box(s, 3.85, 1.95, 2.8, 1.5, ["one present phase: plag",
+        ("alpha0 = 780 (confidence)",),
+        ("mean = alpha / alpha0:",),
+        ("SiO2 .55  Al2O3 .28  CaO .12 ...",)], ORANGE, size=11)
+    flow_arrow(s, 6.75, 2.55, 0.35, 0.3)
+    box(s, 7.15, 1.95, 2.8, 1.5, ["predicted mix +/- spread",
+        ("SiO2 0.55 +/- 0.018",),
+        ("Al2O3 0.28 +/- 0.016",),
+        ("CaO 0.12 +/- 0.012",)], PURPLE, size=11)
+    box(s, 0.55, 3.75, 2.8, 1.3, ["one row's truth",
+        ("bulk X . draw 17 . rung 50",),
+        ("plag measured (mass-frac):",),
+        (".553  .285  .118  .041 ...",)], GREEN, size=11)
+    flow_arrow(s, 3.45, 4.25, 0.35, 0.3)
+    box(s, 3.85, 3.75, 2.8, 1.3, ["scoring -- truth meets prediction",
+        ("eval: per-oxide Beta PIT",),
+        ("train: masked comp Dirichlet NLL",)], BLUE, size=11)
+    gx, gy, gw, gh = 11.05, 3.6, 2.0, 1.15
+    gaussian(s, gx, gy - gh, gw, gh, [(0.55, 0.018 * 8, 1.0)], PURPLE,
+             "SiO2 marginal (Beta)")
+    tx = gx + 0.53 * gw
+    line(s, tx, gy, tx, gy - gh - 0.15, GREEN, 2.0)
+    caption(s, gx - 0.25, gy - gh - 0.55, gw + 0.5, "truth 0.553 -> PIT 0.43", 10, GREEN)
+    caption(s, 0.55, 5.2, 12.2, "population: only truly-present (row, phase) pairs -- 42k "
+            "for cpx down to ~240 for andalusite. headline (val roster, tuned): comp NLL "
+            "-53.85 nats per present (row, phase), from -50.25 untuned; majors' PIT tails "
+            "sit near the nominal 10% (cpx 0.055/0.056).", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 5.95, 12.2, "the tuned confidence spans ~3 decades and tracks real "
+            "mineralogy: near-stoichiometric phases (q, ru, sph, sill) earn alpha0 up to "
+            "~30,000 while wide solid solutions (spl, ilm, cpx) stay soft -- the untuned "
+            "model hedged every phase into alpha0 100-650. mass balance closes to 1.3% "
+            "mean L2 with signed per-oxide residuals centered on zero; plag An# parity "
+            "r = 0.93.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.85, 12.2, "current limits: hard-zero oxides ride the eps floor (a "
+            "quartz row is 'SiO2 + 10 floors'); ilmenite FeO/TiO2 stays the accuracy "
+            "outlier; ~0.3% of corpus rows cannot self-close and set an unattainable "
+            "closure floor there. full report: results/comp_head/<tag>/",
+            10, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Eval-semantics slide for CompHead, mirroring the ModeHead magnitude worked "
+             "example: two tracks converge at a scoring node; the truth contributes its "
+             "support to the slice and meets the prediction only at scoring. Box numbers "
+             "illustrative but to scale (a plag Dirichlet with alpha0 ~780 has SiO2 sd "
+             "~0.018); headline numbers are real, from "
+             "results/comp_head/joint_heads_seed0/metrics.json vs the preserved "
+             "joint_heads_seed0_baseline run: NLL -50.25 -> -53.85, closure L2 mean "
+             "0.0181 -> 0.0134 with the stable +SiO2/-Al2O3 signed bias collapsed to "
+             "zero-centered residuals (the closure-penalty-form question, #38, closed on "
+             "this evidence), An# parity mae 0.064 -> 0.060 / r 0.920 -> 0.927. The "
+             "alpha0-span story is the headline fix: comp_concentration.png baseline vs "
+             "tuned shows the 100-650 compression opening to 25-32,000, ordered by how "
+             "constrained each mineral's chemistry really is. PIT here is per-oxide Beta "
+             "marginals of the 11-simplex Dirichlet (same sub-composition property as the "
+             "mode slice).")
+
+
 def s_cond_head_anatomy(prs):
     head_anatomy_slide(
         prs,
@@ -988,6 +1055,68 @@ def s_cond_head_anatomy(prs):
              "axis, in the scenario view.")
 
 
+def s_cond_head_coverage(prs):
+    s = new_slide(prs)
+    header(s, "HEADS", "Is the 68% band honest? Coverage, and the exposure gap")
+    caption(s, 0.55, 1.15, 12.2, "CondHead's eval scores every row twice: told the TRUE "
+            "mineral list (teacher-forced -- the head's own skill) and told ModeHead's "
+            "SAMPLED list (the deployed pipeline). The first is calibrated; the gap to "
+            "the second is the exposure bias.", 13, GRAYT, align=PP_ALIGN.LEFT)
+    box(s, 0.55, 2.0, 2.9, 1.4, ["one row's input",
+        ("h [256] ++ true presence [21]",),
+        ("bulk X: plag cpx amp ilm",)], BLUE, size=11)
+    flow_arrow(s, 3.55, 2.55, 0.35, 0.3)
+    box(s, 3.95, 2.0, 3.1, 1.4, ["T-axis mixture (K=3)",
+        ("deep-wet:  mu 780 C, w 0.58",),
+        ("shallow-dry: mu 940 C, w 0.39",),
+        ("(third component ~unused)",)], TEAL, size=11)
+    gx, gy, gw, gh = 7.55, 3.3, 2.6, 1.25
+    gaussian(s, gx, gy - gh, gw, gh, [(0.32, 0.09, 0.6), (0.72, 0.08, 0.4)], TEAL,
+             "p(T | h, support): two condition modes")
+    tx = gx + 0.38 * gw
+    line(s, tx, gy, tx, gy - gh - 0.15, GREEN, 2.0)
+    caption(s, gx - 0.2, gy - gh - 0.55, gw + 0.4, "truth T = 815 C, inside the 68% band",
+            10, GREEN)
+    box(s, 10.55, 2.0, 2.35, 1.4, ["coverage question",
+        ("does the central 68% of",),
+        ("the mixture catch the",),
+        ("truth ~68% of rows?",)], GREEN, size=11)
+    box(s, 0.55, 4.0, 5.9, 1.15, ["teacher-forced (true list): honest",
+        ("68% band catches truth on 71.5% of rows (T),",),
+        ("67.1% (P), 68.4% (H2O) . NLL 8.32 nats/row (was 8.60)",)], GREEN, size=12)
+    box(s, 6.85, 4.0, 6.05, 1.15, ["ModeHead-sampled list: the exposure gap",
+        ("coverage collapses to 26-35% . NLL +2.4 to +3.9 nats/axis",),
+        ("(P_kbar hits inf rows) -- sharper under truth = more wrong under mismatch",)],
+        REDX, size=12)
+    caption(s, 0.55, 5.4, 12.2, "the gap is a deliberate debt: the head trains and is "
+            "graded teacher-forced (mineralogy-first -- conditions are the bonus product), "
+            "and tuning made the head sharper, which widened the gap. It is measured, "
+            "tracked (#31, P3), and untouched by design until the mineralogy heads are "
+            "done.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.15, 12.2, "population: all 55,576 val-roster rows, both scoring "
+            "passes on the same rows with a fixed sampling seed. per-axis NLL (tuned, "
+            "teacher-forced): T 4.97, P 1.82, H2O 1.53 -- summed 8.32.",
+            11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.9, 12.2, "current limits: axes are independent mixtures (no (T, P) "
+            "correlation, deferred per ADR 006); T is a derived cooling endpoint, not a "
+            "sampled axis; sampled-support P rows can blow up numerically (the inf rows "
+            "are #31's starting point). full report: results/cond_head/<tag>/",
+            10, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Eval-semantics slide for CondHead. The two-pass protocol is the point: "
+             "teacher-forced scoring isolates the head's conditional skill p(T,P,H2O | h, "
+             "true support); sampled-support scoring measures the deployed chain with "
+             "ModeHead's Bernoulli draws standing in for the truth (exposure_seed pins "
+             "reproducibility). Mixture drawing illustrative but to scale for a bimodal "
+             "amp/opx bulk (deep-wet vs shallow-dry is the flagship condition "
+             "multimodality). Real numbers from results/cond_head/joint_heads_seed0/"
+             "metrics.json vs the preserved baseline: teacher-forced NLL 8.60 -> 8.32 "
+             "and coverage_68 0.65-0.69 -> 0.67-0.72 (tuning + the 512x2 trunk), while "
+             "the exposure delta WIDENED (T 2.91 -> 3.94, H2O 1.53 -> 2.40, P finite -> "
+             "inf on some rows) -- the sharper head is more wrong under mismatched "
+             "supports. Coverage is central-interval mass via the mixture CDF (PIT), "
+             "same construction as the mode/comp calibration reads.")
+
+
 def s_outputs(prs):
     s = new_slide(prs)
     header(s, "HEADS", "What the heads emit (distributions, not point estimates)")
@@ -1040,7 +1169,8 @@ if __name__ == "__main__":
     s_ssl(prs); s_workflow(prs)
     s_heads(prs); s_mode_head_anatomy(prs); s_mode_head_reliability(prs)
     s_mode_head_dirichlet(prs)
-    s_comp_head_anatomy(prs); s_cond_head_anatomy(prs)
+    s_comp_head_anatomy(prs); s_comp_head_pit(prs)
+    s_cond_head_anatomy(prs); s_cond_head_coverage(prs)
     s_outputs(prs); s_scenarios(prs)
     out = Path(__file__).resolve().parent / "overview.pptx"
     prs.save(out)
