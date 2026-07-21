@@ -24,7 +24,7 @@ best checkpoint.  `run_production` is the one place that reads
 production run.
 
 `write_run_results` lands the per-run human-facing artifacts
-(`run_summary.json` + `loss_curve.png`) under `RESULTS_ROOT/<tag>/`;
+(`run_summary.json` + `loss_curve.png`) under `RUNS_ROOT/<tag>/`;
 shared by `run_single` and `run_hpo`'s production run.
 """
 
@@ -63,8 +63,8 @@ import yaml
 from pathlib import Path
 
 # Single-mode run artifacts land under a per-run tag here.  Module-level
-# so tests can monkeypatch it away from the real repo results/ tree.
-RESULTS_ROOT = REPO_ROOT / "results" / "pretrain"
+# so tests can monkeypatch it away from the real repo runs/ tree.
+RUNS_ROOT = REPO_ROOT / "runs" / "pretrain"
 
 
 def _forward_loss(
@@ -326,7 +326,7 @@ def write_run_results(result: dict, store: CheckpointStore) -> Path:
     """Write the per-run artifacts for a finished production run.
 
     Reads the stamped best checkpoint from `store` and lands
-    `run_summary.json` + `loss_curve.png` under `RESULTS_ROOT/<tag>/`.
+    `run_summary.json` + `loss_curve.png` under `RUNS_ROOT/<tag>/`.
     Headline fields come off the best checkpoint; the monitor and the
     figure come from `result` because the best checkpoint's monitor
     copy is truncated at the best epoch.  Returns the results dir.
@@ -335,7 +335,7 @@ def write_run_results(result: dict, store: CheckpointStore) -> Path:
     """
     best = store.load_best()
     tag = checkpoint_tag(store.best_path)
-    results_dir = RESULTS_ROOT / tag
+    results_dir = RUNS_ROOT / tag
     results_dir.mkdir(parents=True, exist_ok=True)
     summary = {
         "epoch": best.epoch,
@@ -458,7 +458,7 @@ def run_single(config_path: Path, device: torch.device) -> dict:
     `test_split=0`).  Reads the YAML and builds dataset/splits, then
     delegates the store/train/eval/stamp sequence to `run_production`,
     which stamps test_loss + test_indices onto the store's best
-    checkpoint and writes `RESULTS_ROOT/<run_tag>/run_summary.json`.
+    checkpoint and writes `RUNS_ROOT/<run_tag>/run_summary.json`.
     """
     with open(config_path) as f:
         config = yaml.safe_load(f)

@@ -9,7 +9,7 @@ the checkpoint's own ModeHead, the decision input for mask-noising
 mitigations (heads.md). Statistics live as pure array functions;
 `run_cond_head_eval` takes the shared `(ckpt, dataset, latents)` built by
 `eval.joint_heads` and emits figures + `metrics.json` under
-`results/cond_head/<tag>/`.
+`runs/cond_head/<tag>/`.
 """
 
 import json
@@ -26,7 +26,7 @@ from scipy.stats import norm
 
 from cnmineral.data.mineralogy_dataset import JointHeadDataset
 from cnmineral.data.phase_vocab import PHASE_INDEX
-from cnmineral.eval.mode_head import RESULTS_ROOT, _finish, stratified_mean
+from cnmineral.eval.mode_head import RUNS_ROOT, _finish, stratified_mean
 from cnmineral.models.cond_head import COND_AXES
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 
@@ -179,9 +179,9 @@ def run_cond_head_eval(
 
     `ckpt`, `dataset`, and `latents` come from the shared setup in
     `eval.joint_heads`. Writes figures + `metrics.json` to
-    `results/cond_head/<tag>/` and returns the metrics.
+    `runs/cond_head/<tag>/` and returns the metrics.
     """
-    output_dir = RESULTS_ROOT / "cond_head" / tag
+    output_dir = RUNS_ROOT / "cond_head" / tag
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"output:  {output_dir}")
 

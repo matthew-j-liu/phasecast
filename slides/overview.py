@@ -754,9 +754,9 @@ def s_mode_head_reliability(prs):
             "intermediate-frequency presence is the miss mode (garnet recall 0.58 in "
             "f = [0.5, 0.9) and 0.0 elsewhere; opx 0.25 / ru 0.08 / ol 0.08 overall); "
             "spinel is the worst-calibrated panel (ECE 0.037); amphibole magnitude spread "
-            "stays too narrow (next slide). full report: results/mode_head/<tag>/",
+            "stays too narrow (next slide). full report: runs/mode_head/<tag>/",
             10, GRAYT, align=PP_ALIGN.LEFT)
-    notes(s, "Worked example for the reliability diagram in results/mode_head/<tag>/"
+    notes(s, "Worked example for the reliability diagram in runs/mode_head/<tag>/"
              "reliability.png. Numbers illustrative but to scale: three rocks predicted in "
              "[0.70, 0.80) -- a real bin edge of the 10 equal-width bins the code uses -- "
              "contribute 3 predictions x 256 labels = 768 (p, truth) pairs -- 3 predictions, "
@@ -837,7 +837,7 @@ def s_mode_head_dirichlet(prs):
             "(within-bulk bimodality collapses to the mean; mixture fix staged, #25) and "
             "tuning did not move its magnitude error; plag/afs/q are majority-shifted too "
             "(the support-conditioning signal, heads.md). full report: "
-            "results/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
+            "runs/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "
              "branch's reliability worked example. Laid out as two tracks converging "
@@ -966,14 +966,14 @@ def s_comp_head_pit(prs):
     caption(s, 0.55, 6.85, 12.2, "current limits: hard-zero oxides ride the eps floor (a "
             "quartz row is 'SiO2 + 10 floors'); ilmenite FeO/TiO2 stays the accuracy "
             "outlier; ~0.3% of corpus rows cannot self-close and set an unattainable "
-            "closure floor there. full report: results/comp_head/<tag>/",
+            "closure floor there. full report: runs/comp_head/<tag>/",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for CompHead, mirroring the ModeHead magnitude worked "
              "example: two tracks converge at a scoring node; the truth contributes its "
              "support to the slice and meets the prediction only at scoring. Box numbers "
              "illustrative but to scale (a plag Dirichlet with alpha0 ~780 has SiO2 sd "
              "~0.018); headline numbers are real, from "
-             "results/comp_head/joint_heads_seed0/metrics.json vs the preserved "
+             "runs/comp_head/joint_heads_seed0/metrics.json vs the preserved "
              "joint_heads_seed0_baseline run: NLL -50.25 -> -53.85, closure L2 mean "
              "0.0181 -> 0.0134 with the stable +SiO2/-Al2O3 signed bias collapsed to "
              "zero-centered residuals (the closure-penalty-form question, #38, closed on "
@@ -1100,7 +1100,7 @@ def s_cond_head_coverage(prs):
     caption(s, 0.55, 6.9, 12.2, "current limits: axes are independent mixtures (no (T, P) "
             "correlation, deferred per ADR 006); T is a derived cooling endpoint, not a "
             "sampled axis; sampled-support P rows can blow up numerically (the inf rows "
-            "are #31's starting point). full report: results/cond_head/<tag>/",
+            "are #31's starting point). full report: runs/cond_head/<tag>/",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for CondHead. The two-pass protocol is the point: "
              "teacher-forced scoring isolates the head's conditional skill p(T,P,H2O | h, "
@@ -1108,7 +1108,7 @@ def s_cond_head_coverage(prs):
              "ModeHead's Bernoulli draws standing in for the truth (exposure_seed pins "
              "reproducibility). Mixture drawing illustrative but to scale for a bimodal "
              "amp/opx bulk (deep-wet vs shallow-dry is the flagship condition "
-             "multimodality). Real numbers from results/cond_head/joint_heads_seed0/"
+             "multimodality). Real numbers from runs/cond_head/joint_heads_seed0/"
              "metrics.json vs the preserved baseline: teacher-forced NLL 8.60 -> 8.32 "
              "and coverage_68 0.65-0.69 -> 0.67-0.72 (tuning + the 512x2 trunk), while "
              "the exposure delta WIDENED (T 2.91 -> 3.94, H2O 1.53 -> 2.40, P finite -> "

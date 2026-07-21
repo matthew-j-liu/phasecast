@@ -1,8 +1,8 @@
 # Data: input corpora (large, re-downloadable) + optuna sweep state
 /data/
 
-# Run artifacts (regenerable); anchored so committed explorations/<name>/results/ survive
-/results/
+# Run artifacts (regenerable); top-level results/ is tracked (curated ledger + frozen reports)
+/runs/
 
 # Exploration scratch: large regenerable MAGEMin inputs/outputs (results/ stays tracked)
 explorations/*/work/

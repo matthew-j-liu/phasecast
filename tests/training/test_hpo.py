@@ -78,7 +78,7 @@ def test_objective_end_to_end() -> None:
 
 
 def test_run_hpo_summary_carries_test_loss(
-    tmp_path: Path, pretrain_results_root: Path,
+    tmp_path: Path, pretrain_runs_root: Path,
 ) -> None:
     """run_hpo's summary JSON includes the final production run + test
     loss, the study figures land next to the summary, and the
@@ -115,7 +115,7 @@ def test_run_hpo_summary_carries_test_loss(
     for figure in ("hpo_history.png", "hpo_trial_curves.png"):
         assert (summary_path.parent / figure).stat().st_size > 0
 
-    production_results = pretrain_results_root / "ckpts_epoch_best"
+    production_results = pretrain_runs_root / "ckpts_epoch_best"
     assert (production_results / "run_summary.json").exists()
     assert (production_results / "loss_curve.png").stat().st_size > 0
 

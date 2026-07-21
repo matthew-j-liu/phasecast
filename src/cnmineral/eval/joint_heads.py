@@ -4,7 +4,7 @@ Loads a `JointHeadCheckpoint` once, rebuilds the valtest val-roster dataset
 from its stamped `label_config`, computes one pooled latent per bulk, and
 dispatches to the per-head eval engines (`eval.mode_head`, `eval.comp_head`,
 `eval.cond_head`), each of which writes figures + `metrics.json` under
-`results/{mode_head,comp_head,cond_head}/<checkpoint dir name>/`. The
+`runs/{mode_head,comp_head,cond_head}/<checkpoint dir name>/`. The
 expensive setup (dataset rebuild + encoder forward) happens exactly once
 regardless of how many heads are requested.
 """
@@ -59,7 +59,7 @@ def run_joint_eval(
     """Interrogate the requested heads of one joint checkpoint.
 
     Returns `{head_name: metrics}` for the requested heads; each engine also
-    writes its figures + `metrics.json` under `results/<head>_head/<tag>/`.
+    writes its figures + `metrics.json` under `runs/<head>_head/<tag>/`.
     """
     unknown = set(heads) - set(HEAD_EVALS)
     if unknown:

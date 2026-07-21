@@ -5,7 +5,7 @@ Two modes, picked by which flag you pass:
 
   Single-run loss curve:
       python scripts/view/plot_training.py --checkpoint checkpoints/.../epoch_best.pt \\
-          --out results/scratch/run_curve.png
+          --out runs/scratch/run_curve.png
       (joint-heads checkpoints are detected by their per-term monitor
       keys and render one panel per loss term)
 
@@ -14,7 +14,7 @@ Two modes, picked by which flag you pass:
       python scripts/view/plot_training.py \\
           --study-storage data/optuna/journals/v3_pretrain_hpo_long.journal \\
           --study-name v3_pretrain_hpo_long \\
-          --out results/scratch/study.png
+          --out runs/scratch/study.png
 
 Omitting `--out` opens an interactive window.
 """

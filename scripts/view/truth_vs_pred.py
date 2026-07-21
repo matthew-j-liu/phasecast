@@ -11,7 +11,7 @@ Truth is the corpus draws at one rung; predictions are posterior samples.
         --checkpoint checkpoints/joint_heads_seed0/heads_best.pt --bulk 871826
 
 Omitting `--bulk` uses the first val-roster bulk. Figures land in
-`results/summary/<checkpoint-dir-name>/` unless `--out-dir` says otherwise.
+`runs/summary/<checkpoint-dir-name>/` unless `--out-dir` says otherwise.
 """
 
 import os
@@ -180,7 +180,7 @@ def main() -> None:
     parser.add_argument("--n-samples", type=int, default=500,
                         help="posterior samples for the mode/comp views")
     parser.add_argument("--out-dir", type=Path, default=None,
-                        help="output dir (default results/summary/<checkpoint dir>)")
+                        help="output dir (default runs/summary/<checkpoint dir>)")
     args = parser.parse_args()
 
     ckpt = JointHeadCheckpoint.load(args.checkpoint)
@@ -220,7 +220,7 @@ def main() -> None:
 
     out_dir = args.out_dir
     if out_dir is None:
-        out_dir = Path("results/summary") / args.checkpoint.parent.name
+        out_dir = Path("runs/summary") / args.checkpoint.parent.name
     out_dir.mkdir(parents=True, exist_ok=True)
     title = (
         f"{ds.bulk_qap_names[bpos]} (bulk {bulk}), {args.rung}%-melt rung -- "

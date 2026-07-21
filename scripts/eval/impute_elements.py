@@ -5,7 +5,7 @@
 `--checkpoint` is an `ImputationHeadCheckpoint` (head weights + the encoder it
 was trained against).  The encoder and Gard test split are reconstructed from
 the encoder checkpoint's config; artifacts land at
-`results/imputation/<encoder_tag>/readout/`.
+`runs/imputation/<encoder_tag>/readout/`.
 """
 
 import os

@@ -60,8 +60,8 @@ def test_run_joint_eval_shares_one_dataset_build(
         return real_dataset(**kw, data_kwargs=data_kwargs)
 
     monkeypatch.setattr(joint_eval_mod, "JointHeadDataset", counting_dataset)
-    monkeypatch.setattr(mode_eval_mod, "RESULTS_ROOT", tmp_path / "results")
-    monkeypatch.setattr(comp_eval_mod, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(mode_eval_mod, "RUNS_ROOT", tmp_path / "runs")
+    monkeypatch.setattr(comp_eval_mod, "RUNS_ROOT", tmp_path / "runs")
 
     metrics = run_joint_eval(
         ckpt_path, heads=("mode", "comp"), device=torch.device("cpu")
@@ -70,8 +70,8 @@ def test_run_joint_eval_shares_one_dataset_build(
     assert len(builds) == 1
     assert metrics["mode"]["n_val_bulks"] == len(val_ids)
     assert metrics["comp"]["n_val_bulks"] == len(val_ids)
-    assert (tmp_path / "results" / "mode_head" / "ckpt" / "metrics.json").exists()
-    assert (tmp_path / "results" / "comp_head" / "ckpt" / "metrics.json").exists()
+    assert (tmp_path / "runs" / "mode_head" / "ckpt" / "metrics.json").exists()
+    assert (tmp_path / "runs" / "comp_head" / "ckpt" / "metrics.json").exists()
 
 
 def test_run_joint_eval_rejects_unknown_head(tmp_path):

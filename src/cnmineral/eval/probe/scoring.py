@@ -56,7 +56,7 @@ def run_scoring(
     # runs against different encoders land in different directories
     # without an --output-dir flag.
     tag = checkpoint_tag(checkpoint_path)
-    output_dir = REPO_ROOT / "results" / "probe" / tag
+    output_dir = REPO_ROOT / "runs" / "probe" / tag
     output_dir.mkdir(parents=True, exist_ok=True)
     device = device or pick_device()
     print(f"device: {device}")

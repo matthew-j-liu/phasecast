@@ -9,7 +9,7 @@
 The encoder, dataset, and splits are reconstructed from the encoder checkpoint
 named in the config; only the head trains.  A single run saves the head to
 `<head_checkpoint_dir>/<head_checkpoint_filename>` and writes its test scorecard
-under `results/imputation/<encoder_tag>/readout/`.
+under `runs/imputation/<encoder_tag>/readout/`.
 """
 
 import os

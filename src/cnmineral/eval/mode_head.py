@@ -6,7 +6,7 @@ phase rarity, rung, qap class, support size) as the headline, presence
 recall and false-positive mass as guardrails, plus PIT-based magnitude
 calibration. The statistics live as pure array functions; `run_mode_head_eval`
 takes the shared `(ckpt, dataset, latents)` built by `eval.joint_heads` and
-emits figures + `metrics.json` under `results/mode_head/<tag>/`.
+emits figures + `metrics.json` under `runs/mode_head/<tag>/`.
 """
 
 import json
@@ -30,7 +30,7 @@ from cnmineral.losses.mode_loss import masked_dirichlet_nll
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RESULTS_ROOT = REPO_ROOT / "results"
+RUNS_ROOT = REPO_ROOT / "runs"
 
 # phases whose within-bulk presence frequency hovers intermediate by design
 # (path-dependent stability); recall-at-0.5 is the wrong lens for these
@@ -948,9 +948,9 @@ def run_mode_head_eval(
 
     `ckpt`, `dataset`, and `latents` come from the shared setup in
     `eval.joint_heads`. Writes figures + `metrics.json` to
-    `results/mode_head/<tag>/` and returns the metrics.
+    `runs/mode_head/<tag>/` and returns the metrics.
     """
-    output_dir = RESULTS_ROOT / "mode_head" / tag
+    output_dir = RUNS_ROOT / "mode_head" / tag
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"output:  {output_dir}")
 

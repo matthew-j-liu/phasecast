@@ -123,7 +123,7 @@ def test_run_cond_head_eval_end_to_end(
         joint_eval_mod, "JointHeadDataset",
         lambda **kw: real_dataset(**kw, data_kwargs=data_kwargs),
     )
-    monkeypatch.setattr(eval_mod, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(eval_mod, "RUNS_ROOT", tmp_path / "runs")
     metrics = run_joint_eval(
         ckpt_path, heads=("cond",), device=torch.device("cpu")
     )["cond"]
@@ -135,7 +135,7 @@ def test_run_cond_head_eval_end_to_end(
     assert axes == ["T", "P_kbar", "H2O"]
     for r in metrics["per_axis"]:
         assert np.isfinite(r["exposure_bias_nll_delta"])
-    out_dir = tmp_path / "results" / "cond_head" / "ckpt"
+    out_dir = tmp_path / "runs" / "cond_head" / "ckpt"
     assert (out_dir / "metrics.json").exists()
     assert (out_dir / "cond_pit.png").exists()
     assert (out_dir / "cond_components.png").exists()

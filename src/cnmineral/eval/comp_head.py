@@ -11,7 +11,7 @@ are teacher-forced as in training. `predicted_modes_closure` /
 selection gate and OOD diagnostic). Statistics live as pure array functions;
 `run_comp_head_eval` takes the shared `(ckpt, dataset, latents)` built by
 `eval.joint_heads` and emits figures + `metrics.json` under
-`results/comp_head/<tag>/`.
+`runs/comp_head/<tag>/`.
 """
 
 import json
@@ -30,7 +30,7 @@ from cnmineral.data.magemin_corpus import COMP_OXIDES
 from cnmineral.data.mineralogy_dataset import JointHeadDataset
 from cnmineral.data.phase_vocab import PHASE_INDEX, SOLID_PHASES
 from cnmineral.eval.mode_head import (
-    RESULTS_ROOT,
+    RUNS_ROOT,
     _finish,
     _phase_grid,
     stratified_mean,
@@ -291,9 +291,9 @@ def run_comp_head_eval(
 
     `ckpt`, `dataset`, and `latents` come from the shared setup in
     `eval.joint_heads`. Writes figures + `metrics.json` to
-    `results/comp_head/<tag>/` and returns the metrics.
+    `runs/comp_head/<tag>/` and returns the metrics.
     """
-    output_dir = RESULTS_ROOT / "comp_head" / tag
+    output_dir = RUNS_ROOT / "comp_head" / tag
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"output:  {output_dir}")
 

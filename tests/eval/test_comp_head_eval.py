@@ -97,7 +97,7 @@ def test_run_comp_head_eval_end_to_end(
         joint_eval_mod, "JointHeadDataset",
         lambda **kw: real_dataset(**kw, data_kwargs=data_kwargs),
     )
-    monkeypatch.setattr(eval_mod, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(eval_mod, "RUNS_ROOT", tmp_path / "runs")
     metrics = run_joint_eval(
         ckpt_path, heads=("comp",), device=torch.device("cpu")
     )["comp"]
@@ -106,7 +106,7 @@ def test_run_comp_head_eval_end_to_end(
     assert metrics["n_val_rows"] == 3 * len(val_ids)
     assert np.isfinite(metrics["comp_nll"])
     assert metrics["closure_l2"]["mean"] >= 0
-    out_dir = tmp_path / "results" / "comp_head" / "ckpt"
+    out_dir = tmp_path / "runs" / "comp_head" / "ckpt"
     assert (out_dir / "metrics.json").exists()
     assert (out_dir / "comp_parity_SiO2.png").exists()
     assert (out_dir / "closure_residual.png").exists()

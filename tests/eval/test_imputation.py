@@ -42,7 +42,7 @@ def test_run_logspace_end_to_end_on_fixture(
     """`run_imputation` reconstructs the encoder's test split, scores every
     populated element in log space, and writes the metrics JSON + plot under a
     `readout/` subdir."""
-    monkeypatch.setattr(imputation, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(imputation, "RUNS_ROOT", tmp_path / "runs")
     monkeypatch.setattr(imputation, "GATE_RESULTS_ROOT", tmp_path / "gate")
     head_ckpt = _make_head_checkpoint(tiny_pretrain_checkpoint, tmp_path / "head_best.pt")
 
@@ -54,7 +54,7 @@ def test_run_logspace_end_to_end_on_fixture(
     assert metrics["space"] == "log10"
     assert metrics["trace_summary"]["n_traces"] >= 0
 
-    out_dir = tmp_path / "results" / "imputation"
+    out_dir = tmp_path / "runs" / "imputation"
     readout_dir = next(out_dir.iterdir()) / "readout"
     assert (readout_dir / "readout_logspace_metrics.json").exists()
     assert (readout_dir / "r2_by_element.png").exists()

@@ -160,7 +160,7 @@ def test_run_single_returns_test_loss(tmp_path: Path) -> None:
 
 
 def test_run_single_writes_results_artifacts(
-    tmp_path: Path, pretrain_results_root: Path,
+    tmp_path: Path, pretrain_runs_root: Path,
 ) -> None:
     """run_single writes run_summary.json + loss_curve.png under the
     per-run results dir.  Headline fields match the stamped best
@@ -171,7 +171,7 @@ def test_run_single_writes_results_artifacts(
 
     result = run_single(config_path, device=torch.device("cpu"))
 
-    results_dir = pretrain_results_root / "ckpts_epoch_best"
+    results_dir = pretrain_runs_root / "ckpts_epoch_best"
     summary_path = results_dir / "run_summary.json"
     assert summary_path.exists()
     with open(summary_path) as f:

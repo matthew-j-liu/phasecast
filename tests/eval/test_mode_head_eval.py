@@ -269,7 +269,7 @@ def test_run_mode_head_eval_end_to_end(
         joint_eval_mod, "JointHeadDataset",
         lambda **kw: real_dataset(**kw, data_kwargs=data_kwargs),
     )
-    monkeypatch.setattr(eval_mod, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(eval_mod, "RUNS_ROOT", tmp_path / "runs")
     metrics = run_joint_eval(
         ckpt_path, heads=("mode",), device=torch.device("cpu")
     )["mode"]
@@ -281,7 +281,7 @@ def test_run_mode_head_eval_end_to_end(
     }
     assert metrics["n_val_bulks"] == len(val_ids)
     assert metrics["n_val_rows"] == 3 * len(val_ids)
-    out_dir = tmp_path / "results" / "mode_head" / "ckpt"
+    out_dir = tmp_path / "runs" / "mode_head" / "ckpt"
     assert (out_dir / "metrics.json").exists()
     assert (out_dir / "reliability.png").exists()
     assert (out_dir / "magnitude_pit_by_support.png").exists()

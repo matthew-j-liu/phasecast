@@ -13,7 +13,7 @@
 
 study_name: joint_heads_hpo
 storage_path: data/optuna/journals/joint_heads_hpo.journal
-output_dir: results/heads_hpo
+output_dir: runs/heads_hpo
 
 objective: mode
 tie_band: 0.03        # nats; val-roster wobble scale -- differences under this are ties

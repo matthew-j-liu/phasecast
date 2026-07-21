@@ -16,8 +16,8 @@ readout capacity alone even when the latent holds the signal.  The head should
 approach it and stay under the input ceiling.  Both are read from the gate's
 `diagnostic_metrics.json` if present.
 
-Artifacts land under `results/imputation/<encoder_tag>/readout/`, beside (not
-over) the SSL head's `results/imputation/<encoder_tag>/` outputs.
+Artifacts land under `runs/imputation/<encoder_tag>/readout/`, beside (not
+over) the SSL head's `runs/imputation/<encoder_tag>/` outputs.
 """
 
 import json
@@ -42,7 +42,7 @@ from cnmineral.training import checkpoint_tag, create_dataset, pick_device, rese
 from cnmineral.training.imputation_head import ImputationHeadCheckpoint
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-RESULTS_ROOT = REPO_ROOT / "results"
+RUNS_ROOT = REPO_ROOT / "runs"
 GATE_RESULTS_ROOT = (
     REPO_ROOT / "explorations" / "trace_signal_in_latent" / "results"
 )
@@ -295,12 +295,12 @@ def run_imputation(
 
     Writes per-element log-space metrics (with the gate's reference lines when
     available), an R2 bar chart, and trace parity grids to
-    `results/imputation/<encoder_tag>/readout/`, and returns the metrics dict.
+    `runs/imputation/<encoder_tag>/readout/`, and returns the metrics dict.
     """
     head_ckpt = ImputationHeadCheckpoint.load(head_checkpoint_path)
     encoder_ckpt_path = Path(head_ckpt.encoder_checkpoint)
     tag = checkpoint_tag(encoder_ckpt_path)
-    output_dir = RESULTS_ROOT / "imputation" / tag / "readout"
+    output_dir = RUNS_ROOT / "imputation" / tag / "readout"
     output_dir.mkdir(parents=True, exist_ok=True)
     device = device or pick_device()
     print(f"device:          {device}")

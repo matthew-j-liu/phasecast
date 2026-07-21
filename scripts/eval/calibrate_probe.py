@@ -1,8 +1,8 @@
 """Cross-encoder probe-HPO calibration report CLI.
 
     python scripts/eval/calibrate_probe.py \\
-        results/probe_hpo/*/summary.json \\
-        --output-dir results/probe_calibration/
+        runs/probe_hpo/*/summary.json \\
+        --output-dir runs/probe_calibration/
 
 All business logic lives in `cnmineral.eval.probe.calibration`;
 this file is the argparse shell.
@@ -24,7 +24,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--output-dir", type=Path,
-        default=Path("results/probe_calibration"),
+        default=Path("runs/probe_calibration"),
     )
     args = parser.parse_args()
     run_calibration(args.summary_paths, args.output_dir.resolve())

@@ -9,7 +9,7 @@ rename, or repurpose a test) updates this file in the same change.**
 ## Shared fixtures
 
 - `tests/conftest.py` -- sets `KMP_DUPLICATE_LIB_OK` and
-  `OMP_NUM_THREADS` before imports; `pretrain_results_root` (autouse)
+  `OMP_NUM_THREADS` before imports; `pretrain_runs_root` (autouse)
   redirects `run_single` artifacts into tmp dirs; `corpus_subset_path`
   points at the checked-in 2000-row parquet fixture
   (`tests/fixtures/complete_subset.parquet`, rebuilt by
@@ -397,7 +397,7 @@ rename, or repurpose a test) updates this file in the same change.**
 13. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
 14. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
 15. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
-16. `test_run_mode_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("mode",))` on a test-trained joint checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, and figures land under `results/mode_head/<tag>/`.
+16. `test_run_mode_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("mode",))` on a test-trained joint checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, and figures land under `runs/mode_head/<tag>/`.
 
 ### test_comp_head_eval.py
 

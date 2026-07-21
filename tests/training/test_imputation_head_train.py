@@ -146,7 +146,7 @@ def test_run_single_trains_then_scores_test(
     """The single entry trains, saves the head, and scores the test split in one
     pass: it returns the train/val losses plus a `trace_summary` and writes the
     readout scorecard."""
-    monkeypatch.setattr(imputation, "RESULTS_ROOT", tmp_path / "results")
+    monkeypatch.setattr(imputation, "RUNS_ROOT", tmp_path / "runs")
     monkeypatch.setattr(imputation, "GATE_RESULTS_ROOT", tmp_path / "gate")
     config = {
         "encoder_checkpoint": str(tiny_pretrain_checkpoint),
@@ -167,5 +167,5 @@ def test_run_single_trains_then_scores_test(
     assert torch.isfinite(torch.tensor(result["val_loss"]))
     assert "n_traces" in result["trace_summary"]
     assert (tmp_path / "head" / "head_best.pt").exists()
-    readout_dir = next((tmp_path / "results" / "imputation").iterdir()) / "readout"
+    readout_dir = next((tmp_path / "runs" / "imputation").iterdir()) / "readout"
     assert (readout_dir / "readout_logspace_metrics.json").exists()

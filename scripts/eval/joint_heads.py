@@ -7,7 +7,7 @@
 label semantics). The val dataset is rebuilt once from the checkpoint's
 stamped `label_config` plus the committed valtest roster
 (`valtest_split.csv`) and shared across the requested heads. Figures +
-`metrics.json` land at `results/{mode_head,comp_head,cond_head}/<checkpoint
+`metrics.json` land at `runs/{mode_head,comp_head,cond_head}/<checkpoint
 dir name>/`.
 """
 

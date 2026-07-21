@@ -11,7 +11,7 @@
 
 study_name: joint_heads_minisweep_cond
 storage_path: data/optuna/journals/joint_heads_minisweep_cond.journal
-output_dir: results/heads_hpo
+output_dir: runs/heads_hpo
 
 objective: cond
 tie_band: 0.03

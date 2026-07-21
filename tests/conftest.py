@@ -44,18 +44,18 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 @pytest.fixture(autouse=True)
-def pretrain_results_root(monkeypatch, tmp_path: Path) -> Path:
+def pretrain_runs_root(monkeypatch, tmp_path: Path) -> Path:
     """Redirect `run_single`'s artifact writes into the test's tmp dir.
 
     Autouse so no test (including fixtures that drive `run_single` as
-    setup) can litter the real `results/pretrain/` tree.  Tests
+    setup) can litter the real `runs/pretrain/` tree.  Tests
     asserting on the summary artifact request this fixture by name to
     learn the patched root.
     """
     from cnmineral.training import ssl_pretrain
 
-    root = tmp_path / "results"
-    monkeypatch.setattr(ssl_pretrain, "RESULTS_ROOT", root)
+    root = tmp_path / "runs"
+    monkeypatch.setattr(ssl_pretrain, "RUNS_ROOT", root)
     return root
 
 
