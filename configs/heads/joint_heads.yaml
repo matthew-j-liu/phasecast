@@ -11,8 +11,8 @@ mode_hidden: 256
 mode_layers: 3
 comp_hidden: null
 comp_layers: 1
-cond_hidden: null
-cond_layers: 1
+cond_hidden: 512
+cond_layers: 2
 dropout: 0.3479155007864341
 alpha_eps: 1.0e-6
 cond_n_components: 3
