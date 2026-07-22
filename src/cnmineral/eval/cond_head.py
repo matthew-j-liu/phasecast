@@ -26,7 +26,12 @@ from scipy.stats import norm
 
 from cnmineral.data.mineralogy_dataset import JointHeadDataset
 from cnmineral.data.phase_vocab import PHASE_INDEX
-from cnmineral.eval.mode_head import RUNS_ROOT, _finish, stratified_mean
+from cnmineral.eval.mode_head import (
+    RUNS_ROOT,
+    _finish,
+    sample_supports,
+    stratified_mean,
+)
 from cnmineral.models.cond_head import COND_AXES
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 
@@ -76,13 +81,6 @@ def mass_below_zero(
 ) -> np.ndarray:
     """Mixture mass below 0 per (row, axis) [R, A] -- a diagnostic, not a bug."""
     return (np.exp(log_w) * norm.cdf((0.0 - mu) / sigma)).sum(-1)
-
-
-def sample_supports(
-    p: np.ndarray, rng: np.random.Generator
-) -> np.ndarray:
-    """One Bernoulli support draw per row from presence probabilities [R, P]."""
-    return (rng.random(p.shape) < p).astype(np.float32)
 
 
 def plot_cond_pit(pit: np.ndarray, out_path: Path, split_tag: str) -> None:
@@ -213,7 +211,7 @@ def run_cond_head_eval(
     eff = effective_components(log_w)
     below_zero = mass_below_zero(log_w, mu, sigma)
 
-    logits_bulk, _ = mode_head(latents)
+    logits_bulk = mode_head.presence_logits(latents)
     p_rows = torch.sigmoid(logits_bulk).cpu().numpy()[row_bulk]
     rng = np.random.default_rng(exposure_seed)
     sampled = sample_supports(p_rows, rng)

@@ -67,6 +67,8 @@ techniques:
       - "ModeHead("
       - "presence_out"
       - "alpha_out"
+      - "presence_logits"
+      - "magnitude_alpha"
   - name: comp_dirichlet_head
     type: architecture
     patterns:

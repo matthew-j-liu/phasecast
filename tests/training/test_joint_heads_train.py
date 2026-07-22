@@ -70,7 +70,9 @@ def test_train_smoke_and_checkpoint_roundtrip(
     assert loaded.encoder_checkpoint == str(tiny_pretrain_checkpoint)
 
     d_model = loaded.head_config["d_model"]
-    logits, alpha = loaded.build_mode_head()(torch.randn(3, d_model))
+    logits, alpha = loaded.build_mode_head()(
+        torch.randn(3, d_model), torch.zeros(3, N_PHASES)
+    )
     assert logits.shape == (3, N_PHASES) and torch.all(alpha > 0)
     comp_alpha = loaded.build_comp_head()(torch.randn(3, d_model))
     assert comp_alpha.shape == (3, N_PHASES, N_OXIDES) and torch.all(comp_alpha > 0)

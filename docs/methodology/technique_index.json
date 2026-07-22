@@ -50,6 +50,12 @@
       "src/cnmineral/training/joint_heads.py"
     ],
     "hurdle_mode_head": [
+      "scripts/view/inference_card.py",
+      "scripts/view/scenario_view.py",
+      "scripts/view/truth_vs_pred.py",
+      "src/cnmineral/eval/comp_head.py",
+      "src/cnmineral/eval/cond_head.py",
+      "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/training/joint_heads.py"
     ],
@@ -117,7 +123,8 @@
       "src/cnmineral/training/imputation_head.py"
     ],
     "exposure_bias_measurement": [
-      "src/cnmineral/eval/cond_head.py"
+      "src/cnmineral/eval/cond_head.py",
+      "src/cnmineral/eval/mode_head.py"
     ],
     "fp_mass_guardrail": [
       "src/cnmineral/eval/mode_head.py"

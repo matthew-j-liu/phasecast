@@ -137,10 +137,28 @@ into two heads trained on separate clean targets, never multiplied:
   magnitude head is simply *defined* on the present support; absent phases are
   owned by the Bernoullis.)
 
+  **Conditioned on the assemblage support** (adopted 2026-07-22, issue #25):
+  the alphas come from a dedicated trunk on `[h, support]`, the same chain
+  rule as CondHead -- teacher-forced true mask at train, ModeHead-sampled at
+  inference. A support-blind Dirichlet had to average across a bulk's FC
+  paths, and for the path-sensitive phases the conditional truth is bimodal
+  by support (deep-wet-much-amp vs shallow-dry-little; support identity
+  carries ~80% of the within-bulk conditional variance) -- one mean per bulk
+  could only split the humps. Conditioning lets the same bulk answer "how
+  much" differently per mineral set; the within-support humps that remain
+  are the mixture-parameterization candidate's target, not this mechanism's.
+  The presence branch stays support-blind by construction (it predicts the
+  support). Known cost, as with CondHead: exposure bias -- alphas queried
+  with a wrong lineup degrade (measured in `runs/mode_head/<tag>/` as
+  `dirichlet_nll_sampled_support` / `exposure_bias_nll_delta`); within an
+  ancestral sample the Dirichlet always lives on its own sampled support, so
+  every sample remains a coherent scenario.
+
 Training teacher-forces presence from the ground-truth mask -- the magnitude
-loss and the mass-balance term both use the true present set, staying
-differentiable in M and C with no fragile `p_i * m_i` product. The prediction
-is the magnitude head's mean over a support, not a product of two guesses.
+branch's support input, the magnitude loss, and the mass-balance term all use
+the true present set, staying differentiable in M and C with no fragile
+`p_i * m_i` product. The prediction is the magnitude head's mean over a
+support, not a product of two guesses.
 
 ### The output is the joint distribution, not a hard set
 

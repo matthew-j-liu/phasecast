@@ -12,7 +12,6 @@ from cnmineral.eval.cond_head import (
     gmm_nll_per_axis,
     gmm_pit,
     mass_below_zero,
-    sample_supports,
 )
 from cnmineral.eval.joint_heads import run_joint_eval
 from cnmineral.losses.cond_loss import gmm_nll
@@ -79,13 +78,6 @@ def test_mass_below_zero():
     log_w = np.zeros((1, 1, 1))
     assert np.isclose(mass_below_zero(log_w, np.zeros((1, 1, 1)), np.ones((1, 1, 1)))[0, 0], 0.5)
     assert mass_below_zero(log_w, np.full((1, 1, 1), 100.0), np.ones((1, 1, 1)))[0, 0] < 1e-6
-
-
-def test_sample_supports_deterministic_extremes():
-    rng = np.random.default_rng(0)
-    p = np.array([[0.0, 1.0], [1.0, 0.0]])
-    s = sample_supports(p, rng)
-    assert np.array_equal(s, p)
 
 
 def test_run_cond_head_eval_end_to_end(

@@ -14,9 +14,11 @@ from cnmineral.eval.mode_head import (
     conditional_mean,
     fp_fn_mass,
     hurdle_nll_rows,
+    magnitude_parity_stats,
     presence_scores,
     recall_by_band,
     reliability_table,
+    sample_supports,
     select_overlay_exemplars,
     stratified_mean,
     support_group_pit_stats,
@@ -109,6 +111,27 @@ def test_fp_fn_mass_hand_case():
     # phase 2 present with mass 0.6 but below threshold
     assert np.isclose(out["fn_mass"][0], 0.6)
     assert np.allclose(out["fp_mass_per_phase"], [[0.0, 0.25, 0.0]])
+
+
+def test_sample_supports_deterministic_extremes():
+    rng = np.random.default_rng(0)
+    p = np.array([[0.0, 1.0], [1.0, 0.0]])
+    s = sample_supports(p, rng)
+    assert np.array_equal(s, p)
+
+
+def test_magnitude_parity_stats_hand_case():
+    n_phases = len(eval_mod.SOLID_PHASES)
+    cond_mean = np.zeros((3, n_phases))
+    magnitude = np.zeros((3, n_phases))
+    presence = np.zeros((3, n_phases))
+    presence[:, 0] = 1.0
+    cond_mean[:, 0] = [0.1, 0.2, 0.3]
+    magnitude[:, 0] = [0.2, 0.4, 0.6]  # perfectly correlated, MAE 0.2
+    stats = magnitude_parity_stats(cond_mean, magnitude, presence)
+    assert np.isclose(stats["magnitude_mae"][0], 0.2)
+    assert np.isclose(stats["magnitude_r"][0], 1.0)
+    assert np.isnan(stats["magnitude_mae"][1])  # never-present phase
 
 
 def test_presence_scores_nan_when_undefined():

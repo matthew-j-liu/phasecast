@@ -4012,3 +4012,59 @@ corpus) run first.
 
 **Next.** #25 amphibole magnitude. #46 redox measurements (provenance
 split + `bulk_11` true-input ceiling) before the fO2 design decision.
+
+## 2026-07-22 -- Support-conditioned magnitude branch (#25 stage 1): adopted
+
+**Q.** Amphibole's conditional magnitude collapses to the mean (truth
+bimodal by (P, H2O) path within a bulk; one bulk-level Dirichlet says 0.4
+when the answer is 0.15-or-0.6). The 2026-07-17 measurement said support
+identity carries ~81% of the within-bulk conditional variance. Does
+feeding the support to the magnitude branch recover it?
+
+**Context.** ModeHead's magnitude branch got its own trunk on
+[h, support(21)], mirroring CondHead's locked chain rule (teacher-forced
+true mask at train, ModeHead-sampled at inference); the presence trunk
+stays support-blind by construction. Trial-21 config, seed, epochs
+unchanged for isolation; new checkpoint dir
+`joint_heads_supportmag_seed0` (no legacy loading code -- the old
+single-trunk checkpoint reads only under old git; baseline numbers live
+in the ledger and runs/). Eval instrument moved to row-level
+teacher-forced alphas; the fp/fn-mass guardrail queries the branch under
+the thresholded predicted support; inference sampling became two-step
+ancestral (support drawn from the Bernoullis, then that support's own
+Dirichlet -- `sample_assemblages` takes an `alpha_fn`, unique supports
+batched).
+
+**Considered.** An explorations/ pilot before touching src (rejected: the
+build decision was already recorded; a standalone pilot drops the closure
+coupling and the tuned loss weights, so it measures the pilot, not the
+change). Mixture-of-Dirichlets first (rejected earlier: staged after
+support-conditioning so each fix is measured in isolation).
+
+**Decision.** Adopted. Val roster: joint hurdle NLL -1.1621 -> -2.4565
+(all Dirichlet: -6.1046 -> -7.4538; bernoulli 4.9425 -> 4.9973, a real
+but small presence cost from losing the shared trunk's multi-task
+signal). Amp magnitude parity r 0.715 -> 0.876, MAE 0.135 -> 0.085;
+PIT frac_shifted 0.649 -> 0.406. Gains broad, as the shifted-groups
+finding predicted: plag r 0.834 -> 0.943, cpx 0.853 -> 0.926,
+q 0.903 -> 0.959. Amp frac_two_sided rose 0.026 -> 0.114 -- the
+within-support bimodality surfacing once the between-support shift is
+explained; that residue matches the ~30% irreducible measurement and is
+the mixture candidate's target, not a regression. Exposure bias measured
+(new `dirichlet_nll_sampled_support` mirror of the cond keys): -7.45
+teacher-forced vs -1.59 under one Bernoulli-sampled support per row
+(delta +5.87 nats; amp parity r 0.876 -> 0.539). Read it as a
+sensitivity diagnostic, not the deployed score: the instrument scores
+sampled-support alphas against the true-support sub-composition, a
+mismatch coherent ancestral samples never produce (each sample's
+Dirichlet lives on its own support); the support-blind baseline scores
+its teacher-forced -6.10 on this instrument by construction (alphas
+ignore the support), so the delta prices how much the new head trusts
+its lineup input -- the flip side of the conditioning gain.
+
+**Next.** Mixture parameterization for the within-support humps only if
+its expected gain survives the exposure-bias framing (amp two-sided
+groups are 11% of groups vs 41% still shifted). #25 possibly contributes
+a regen line item to #45: narrower trace-conditional (P, H2O) sampling
+shrinks the within-support spread the mixture would chase. #46 redox and
+#18 real-rock transfer remain the queued measurements.

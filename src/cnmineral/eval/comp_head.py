@@ -33,6 +33,7 @@ from cnmineral.eval.mode_head import (
     RUNS_ROOT,
     _finish,
     _phase_grid,
+    magnitude_alpha_rows,
     stratified_mean,
 )
 from cnmineral.losses.comp_loss import masked_comp_dirichlet_nll
@@ -196,9 +197,9 @@ def predicted_modes_closure(
     device = latents.device
     row_bulk = dataset.row_bulk_idx.to(device)
     presence = dataset.presence.to(device)
-    _, mode_alpha = mode_head(latents)
+    mode_alpha = magnitude_alpha_rows(mode_head, latents, row_bulk, presence)
     comp_alpha = comp_head(latents)
-    masked = presence * mode_alpha[row_bulk]
+    masked = presence * mode_alpha
     modes = masked / masked.sum(-1, keepdim=True).clamp_min(1e-12)
     comp_mean = comp_alpha[row_bulk]
     comp_mean = comp_mean / comp_mean.sum(-1, keepdim=True)

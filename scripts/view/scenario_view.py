@@ -27,6 +27,7 @@ import torch
 from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
 from cnmineral.data.phase_vocab import SOLID_PHASES
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
+from cnmineral.eval.mode_head import support_alpha_fn
 from cnmineral.eval.summary_cards import (
     pick_ambiguous_bulk,
     sample_assemblages,
@@ -87,9 +88,11 @@ def main() -> None:
     latents = bulk_latents(encoder, ds, torch.device("cpu"))
     rng = np.random.default_rng(args.seed)
     with torch.no_grad():
-        logits, mode_alpha = mode_head(latents[bpos : bpos + 1])
+        logits = mode_head.presence_logits(latents[bpos : bpos + 1])
     p = torch.sigmoid(logits)[0].numpy()
-    sampled = sample_assemblages(p, mode_alpha[0].numpy(), args.n_samples, rng)
+    sampled = sample_assemblages(
+        p, support_alpha_fn(mode_head, latents[bpos]), args.n_samples, rng
+    )
     scenarios = top_support_patterns(sampled, k=2)
     for i, sc in enumerate(scenarios):
         names = [n for n, keep in zip(SOLID_PHASES, sc["pattern"]) if keep]

@@ -33,6 +33,7 @@ from cnmineral.data.magemin_corpus import COMP_OXIDES
 from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
 from cnmineral.data.phase_vocab import SOLID_PHASES
 from cnmineral.eval.latent import load_encoder_from_checkpoint
+from cnmineral.eval.mode_head import support_alpha_fn
 from cnmineral.eval.summary_cards import sample_assemblages
 from cnmineral.models.cond_head import COND_AXES
 from cnmineral.training.joint_heads import JointHeadCheckpoint
@@ -201,7 +202,7 @@ def main() -> None:
     latents = bulk_latents(encoder, ds, torch.device("cpu"))
     rng = np.random.default_rng(0)
     with torch.no_grad():
-        logits, mode_alpha = mode_head(latents[bpos : bpos + 1])
+        logits = mode_head.presence_logits(latents[bpos : bpos + 1])
         comp_alpha = comp_head(latents[bpos : bpos + 1])[0].numpy()
         log_w, mu, sigma = cond_head(
             latents[bpos].expand(len(rows), -1), ds.presence[rows]
@@ -218,7 +219,7 @@ def main() -> None:
     )
 
     pred_modes = sample_assemblages(
-        p, mode_alpha[0].numpy(), args.n_samples, rng
+        p, support_alpha_fn(mode_head, latents[bpos]), args.n_samples, rng
     )
     mode_figure(
         ds.magnitude[rows].numpy(), pred_modes, ds.presence_cutoff, title,

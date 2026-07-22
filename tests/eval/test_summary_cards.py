@@ -14,14 +14,36 @@ def test_sample_assemblages_rows_on_simplex():
     rng = np.random.default_rng(0)
     p = np.array([0.9, 0.5, 0.1, 0.0])
     alpha = np.array([2.0, 3.0, 1.0, 5.0])
-    modes = sample_assemblages(p, alpha, 200, rng)
+    alpha_fn = lambda supports: np.tile(alpha, (len(supports), 1))
+    modes = sample_assemblages(p, alpha_fn, 200, rng)
     sums = modes.sum(1)
     np.testing.assert_allclose(sums, 1.0, atol=1e-9)
     assert (modes[:, 3] == 0).all()  # p=0 phase never enters a support
     modes2 = sample_assemblages(
-        p, alpha, 200, np.random.default_rng(0)
+        p, alpha_fn, 200, np.random.default_rng(0)
     )
     np.testing.assert_array_equal(modes, modes2)
+
+
+def test_sample_assemblages_alpha_fn_sees_unique_supports():
+    rng = np.random.default_rng(0)
+    p = np.array([1.0, 0.5, 0.0])
+    seen = []
+
+    def alpha_fn(supports):
+        seen.append(supports)
+        return supports * 100.0 + 1.0
+
+    modes = sample_assemblages(p, alpha_fn, 100, rng)
+    assert len(seen) == 1
+    uniq = seen[0]
+    assert len(np.unique(uniq, axis=0)) == len(uniq)  # deduped patterns only
+    assert set(map(tuple, uniq)) == {(1.0, 0.0, 0.0), (1.0, 1.0, 0.0)}
+    # alpha ~100 on the two-phase support makes its draws near-equal shares;
+    # a shared bulk-level alpha could not produce that split
+    two_phase = modes[modes[:, 1] > 0]
+    assert len(two_phase)
+    np.testing.assert_allclose(two_phase[:, 0], 0.5, atol=0.2)
 
 
 def _dataset(pattern_counts_per_bulk):

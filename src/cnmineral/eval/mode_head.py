@@ -178,6 +178,43 @@ def stratified_mean(values: np.ndarray, labels: np.ndarray) -> dict:
     return out
 
 
+def magnitude_alpha_rows(
+    head,
+    latents: torch.Tensor,
+    row_bulk: np.ndarray,
+    presence: torch.Tensor,
+    batch_size: int = 8192,
+) -> torch.Tensor:
+    """Row-level teacher-forced alphas: magnitude branch on (bulk latent, true support)."""
+    outs = []
+    with torch.no_grad():
+        for start in range(0, len(row_bulk), batch_size):
+            idx = torch.as_tensor(row_bulk[start:start + batch_size],
+                                  device=latents.device)
+            s = presence[start:start + batch_size].to(latents.device)
+            outs.append(head.magnitude_alpha(latents[idx], s))
+    return torch.cat(outs)
+
+
+def sample_supports(
+    p: np.ndarray, rng: np.random.Generator
+) -> np.ndarray:
+    """One Bernoulli support draw per row from presence probabilities [R, P]."""
+    return (rng.random(p.shape) < p).astype(np.float32)
+
+
+def support_alpha_fn(head, latent_row: torch.Tensor):
+    """`alpha_fn` for `sample_assemblages`: one bulk latent, alphas per support."""
+    def alpha_fn(supports: np.ndarray) -> np.ndarray:
+        with torch.no_grad():
+            return head.magnitude_alpha(
+                latent_row.expand(len(supports), -1),
+                torch.as_tensor(supports, dtype=latent_row.dtype,
+                                device=latent_row.device),
+            ).cpu().numpy()
+    return alpha_fn
+
+
 def conditional_mean(alpha: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Dirichlet mean restricted to `mask` (sub-composition); zero off-mask.
 
@@ -186,6 +223,22 @@ def conditional_mean(alpha: np.ndarray, mask: np.ndarray) -> np.ndarray:
     masked = alpha * mask
     denom = masked.sum(-1, keepdims=True)
     return np.divide(masked, denom, out=np.zeros_like(masked), where=denom > 0)
+
+
+def magnitude_parity_stats(
+    cond_mean: np.ndarray, magnitude: np.ndarray, presence: np.ndarray
+) -> dict[str, np.ndarray]:
+    """Per-phase conditional-magnitude MAE and Pearson r on truly-present rows."""
+    mae = np.full(len(SOLID_PHASES), np.nan)
+    r = np.full(len(SOLID_PHASES), np.nan)
+    for i in range(len(SOLID_PHASES)):
+        m = presence[:, i] > 0
+        true, pred = magnitude[m, i], cond_mean[m, i]
+        if true.size:
+            mae[i] = float(np.abs(pred - true).mean())
+            if true.std() > 0 and pred.std() > 0:
+                r[i] = float(np.corrcoef(true, pred)[0, 1])
+    return {"magnitude_mae": mae, "magnitude_r": r}
 
 
 def beta_pit(
@@ -291,7 +344,10 @@ def fp_fn_mass(
 
     FP-mass: conditional-mean mass the predicted support puts on
     truly-absent phases. FN-mass: true mass on phases the view missed.
-    Returns per-row totals and the per-phase FP-mass matrix [R, P].
+    `alpha` must be conditioned on the same thresholded support the view
+    predicts (the magnitude branch queried with `p > threshold`), not the
+    teacher-forced alphas. Returns per-row totals and the per-phase
+    FP-mass matrix [R, P].
     """
     pred = (p > threshold).astype(alpha.dtype)
     cm = conditional_mean(alpha, pred)
@@ -516,15 +572,11 @@ def plot_magnitude_parity(
     predictor cannot remove.
     """
     fig, axes = _phase_grid()
-    mae = np.full(len(SOLID_PHASES), np.nan)
-    r = np.full(len(SOLID_PHASES), np.nan)
+    stats = magnitude_parity_stats(cond_mean, magnitude, presence)
+    mae, r = stats["magnitude_mae"], stats["magnitude_r"]
     for i, (ax, name) in enumerate(zip(axes.flat, SOLID_PHASES)):
         m = presence[:, i] > 0
         true, pred = magnitude[m, i], cond_mean[m, i]
-        if true.size:
-            mae[i] = float(np.abs(pred - true).mean())
-            if true.std() > 0 and pred.std() > 0:
-                r[i] = float(np.corrcoef(true, pred)[0, 1])
         if true.size > 5000:
             ax.hexbin(pred, true, gridsize=40, cmap="viridis", bins="log",
                       extent=(0, 1, 0, 1))
@@ -943,6 +995,7 @@ def run_mode_head_eval(
     *,
     device: torch.device,
     tag: str,
+    exposure_seed: int = 0,
 ) -> dict:
     """Full ModeHead interrogation on the valtest val roster.
 
@@ -959,9 +1012,9 @@ def run_mode_head_eval(
     val_bulk_ids = load_valtest_split("val")
     split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
 
-    logits_bulk, alpha_bulk = head(latents)
+    with torch.no_grad():
+        logits_bulk = head.presence_logits(latents)
     p_bulk = torch.sigmoid(logits_bulk).cpu().numpy()
-    alpha_bulk_np = alpha_bulk.cpu().numpy()
 
     row_bulk = dataset.row_bulk_idx.numpy()
     presence = dataset.presence.numpy()
@@ -969,12 +1022,13 @@ def run_mode_head_eval(
     rung = dataset.rung.numpy()
     qap = _qap_labels(dataset.bulk_qap_names[row_bulk])
     p_rows = p_bulk[row_bulk]
-    alpha_rows = alpha_bulk_np[row_bulk]
+    alpha_rows_t = magnitude_alpha_rows(head, latents, row_bulk, dataset.presence)
+    alpha_rows = alpha_rows_t.cpu().numpy()
     support_size = presence.sum(-1).astype(np.int64)
 
     nll = hurdle_nll_rows(
         logits_bulk[torch.as_tensor(row_bulk, device=device)],
-        alpha_bulk[torch.as_tensor(row_bulk, device=device)],
+        alpha_rows_t,
         torch.as_tensor(presence, device=device),
         torch.as_tensor(magnitude, device=device),
     )
@@ -1013,6 +1067,23 @@ def run_mode_head_eval(
     plot_beta_overlay(alpha_rows, presence, magnitude, row_bulk,
                       dataset.bulk_ids, output_dir / "amp_beta_overlay.png",
                       split_tag)
+    # exposure bias: alphas conditioned on the model's own sampled supports,
+    # still scored on the true-support sub-composition (the target lives there)
+    rng = np.random.default_rng(exposure_seed)
+    sampled = sample_supports(p_rows, rng)
+    alpha_s_t = magnitude_alpha_rows(
+        head, latents, row_bulk, torch.as_tensor(sampled)
+    )
+    dir_nll_s = masked_dirichlet_nll(
+        alpha_s_t,
+        torch.as_tensor(magnitude, device=device),
+        torch.as_tensor(presence, device=device),
+        reduction="none",
+    ).cpu().numpy()
+    parity_s = magnitude_parity_stats(
+        conditional_mean(alpha_s_t.cpu().numpy(), presence), magnitude, presence
+    )
+
     alpha0 = (alpha_rows * presence).sum(-1)
     plot_alpha_concentration(
         alpha0, support_size, output_dir / "alpha_concentration.png", split_tag
@@ -1023,7 +1094,12 @@ def run_mode_head_eval(
     plot_rung_subset(
         f50, f30, p_bulk, output_dir / "rung_frequency_subset.png", split_tag
     )
-    masses = fp_fn_mass(p_rows, alpha_rows, presence, magnitude)
+    with torch.no_grad():
+        alpha_pred_bulk = head.magnitude_alpha(
+            latents, torch.as_tensor(p_bulk > 0.5, device=device,
+                                     dtype=latents.dtype)
+        ).cpu().numpy()
+    masses = fp_fn_mass(p_rows, alpha_pred_bulk[row_bulk], presence, magnitude)
     plot_mass_guardrails(
         masses["fp_mass"], masses["fn_mass"], output_dir / "mass_guardrails.png",
         split_tag,
@@ -1047,6 +1123,8 @@ def run_mode_head_eval(
             "bernoulli_nll": float(bce_phase[i]),
             "magnitude_mae": float(parity["magnitude_mae"][i]),
             "magnitude_r": float(parity["magnitude_r"][i]),
+            "magnitude_mae_sampled_support": float(parity_s["magnitude_mae"][i]),
+            "magnitude_r_sampled_support": float(parity_s["magnitude_r"][i]),
             "within_bulk_sd": float(sigma_wb[i]),
             "recall": float(scores["recall"][i]),
             "precision": float(scores["precision"][i]),
@@ -1067,6 +1145,9 @@ def run_mode_head_eval(
         "joint_nll": float(nll["joint"].mean()),
         "bernoulli_nll": float(nll["bernoulli"].mean()),
         "dirichlet_nll": float(nll["dirichlet"].mean()),
+        "dirichlet_nll_sampled_support": float(dir_nll_s.mean()),
+        "exposure_bias_nll_delta": float(dir_nll_s.mean() - nll["dirichlet"].mean()),
+        "exposure_seed": exposure_seed,
         "joint_nll_by_rung": stratified_mean(nll["joint"], rung),
         "joint_nll_by_qap": stratified_mean(nll["joint"], qap),
         "joint_nll_by_support_size": stratified_mean(nll["joint"], support_size),
@@ -1108,6 +1189,9 @@ def run_mode_head_eval(
     print(f"\njoint hurdle NLL: {metrics['joint_nll']:.4f} nats/row "
           f"(bernoulli {metrics['bernoulli_nll']:.4f} + "
           f"dirichlet {metrics['dirichlet_nll']:.4f})")
+    print(f"dirichlet on sampled supports: "
+          f"{metrics['dirichlet_nll_sampled_support']:.4f} "
+          f"(exposure bias delta {metrics['exposure_bias_nll_delta']:+.4f})")
     print("by rung:", {k: round(v["mean"], 4)
                        for k, v in metrics["joint_nll_by_rung"].items()})
     print(f"fp mass mean={metrics['fp_mass']['mean']:.4f} "

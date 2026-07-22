@@ -99,12 +99,16 @@ trial-21 winner adopted), architecture mini-sweeps (#36: comp keeps
 the sweep cell exactly; alpha0 compression and the closure signed bias
 CURED, cond teacher-forced calibration honest). Per-head evals run
 behind the single `scripts/eval/joint_heads.py` entry point (standalone
-ModeHead pipeline deleted 2026-07-21). Confirmed structural, next in
-order: accessory over-prediction (#41, post-hoc hurdle recalibration on
-the new reliability instrument) then the staged amp magnitude fixes
-(#25, mixture branch); cond exposure bias measured wider post-tuning
-(#31, stays P3 per mineralogy-first). #38/#39 closed on the readout
-evidence; journal 2026-07-21 has the full record.
+ModeHead pipeline deleted 2026-07-21). #41 resolved 2026-07-22: the
+ceiling probe measured the corpus, not the architecture, as the
+presence-discrimination limit -- presence-side architecture work
+stopped. Support-conditioned magnitude branch (#25 stage 1) adopted
+2026-07-22: joint hurdle NLL -1.16 -> -2.46, amp magnitude r
+0.715 -> 0.876; the remaining within-support humps are the deferred
+mixture-parameterization candidate. Cond exposure bias measured wider
+post-tuning (#31, stays P3 per mineralogy-first). #38/#39 closed on the
+readout evidence; journal 2026-07-21 and 2026-07-22 have the full
+record.
 
 v2 cell-c baseline to beat: CondHead conditions T 14.8 °C MAE,
 P 1.73 kbar, H2O 0.51 wt%; the per-phase R²_bulk gains cell-c booked

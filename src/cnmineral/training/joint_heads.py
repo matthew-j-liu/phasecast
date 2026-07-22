@@ -212,7 +212,7 @@ def evaluate_mode_head(
             presence = dataset.presence[idx].to(device)
             magnitude = dataset.magnitude[idx].to(device)
             h = latents[dataset.row_bulk_idx[idx].to(device)]
-            logits, alpha = head(h)
+            logits, alpha = head(h, presence)
 
             bern = F.binary_cross_entropy_with_logits(
                 logits, presence, reduction="none"
@@ -358,7 +358,7 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         (bidx, presence, magnitude, comp_target, cond_target,
          f_liq, f_fl, c_liq, c_fl, bulk_11) = (t.to(device) for t in batch)
         h = latents[bidx]
-        mode_logits, mode_alpha = mode_head(h)
+        mode_logits, mode_alpha = mode_head(h, presence)
         comp_alpha = comp_head(h)
         cond_params = cond_head(h, presence)
         return joint_heads_loss(

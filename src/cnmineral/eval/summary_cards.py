@@ -24,15 +24,27 @@ from ..models.cond_head import COND_AXES
 COND_LABELS = {"T": "temperature (C)", "P_kbar": "pressure (kbar)", "H2O": "water (wt%)"}
 
 
-def sample_assemblages(p, alpha, n, rng):
-    """Sample `n` assemblages: Bernoulli support from `p`, Dirichlet slice of `alpha`."""
-    modes = np.zeros((n, len(p)))
+def sample_assemblages(p, alpha_fn, n, rng):
+    """Sample `n` assemblages: Bernoulli support from `p`, Dirichlet from `alpha_fn`.
+
+    Two-step ancestral sampling: the magnitude alphas depend on the drawn
+    support, so `alpha_fn` (unique supports [U, P] -> alphas [U, P]) is
+    called once on the deduplicated support patterns and each sample's
+    Dirichlet is drawn from its own support's alphas.
+    """
+    supports = np.zeros((n, len(p)), dtype=bool)
     for s in range(n):
         for _ in range(100):
             z = rng.random(len(p)) < p
             if z.any():
                 break
-        modes[s, z] = rng.dirichlet(alpha[z])
+        supports[s] = z
+    uniq, inverse = np.unique(supports, axis=0, return_inverse=True)
+    alphas = alpha_fn(uniq.astype(np.float64))
+    modes = np.zeros((n, len(p)))
+    for s in range(n):
+        z = supports[s]
+        modes[s, z] = rng.dirichlet(alphas[inverse[s]][z])
     return modes
 
 

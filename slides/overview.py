@@ -246,8 +246,11 @@ def s_scenarios(prs):
              "scenarios (CompHead reads h only), no inference-time mass-balance checkmark (closure "
              "is teacher-forced at training; the inference residual as OOD signal is an open "
              "rethink). Marginal view = projection of these scenarios; scenarios are the primary "
-             "object. Open mechanism detail for #10/#13: coupling conditions to assemblage in a "
-             "sampled scenario requires joint sampling across heads. Numbers illustrative.")
+             "object. The joint-sampling mechanism exists (two-step ancestral sampling: presence "
+             "Bernoullis -> support, then the support-conditioned magnitude Dirichlet and "
+             "CondHead both condition on it -- scripts/view/scenario_view.py); per-scenario "
+             "mode shares and conditions are genuinely re-predicted per support. "
+             "Numbers illustrative.")
 
 
 def s_title(prs):
@@ -636,26 +639,31 @@ def head_anatomy_slide(prs, *, title, intro, input_note, trunk, branches,
 def s_mode_head_anatomy(prs):
     head_anatomy_slide(
         prs,
-        title="Inside ModeHead: a small MLP on the frozen h",
+        title="Inside ModeHead: two small MLPs on the frozen h",
         intro="ModeHead, the first head trained end-to-end -- two clean factors of "
-              "the hurdle likelihood P(modal) = P(present) x P(modal | present)",
+              "the hurdle likelihood P(modal) = P(present) x P(modal | present), "
+              "each with its own trunk: presence reads h alone; magnitude reads "
+              "h + the mineral set it is sizing",
         input_note="from the frozen encoder (3.23M params, not trained here)",
-        trunk=(["shared trunk", ("3 x [Linear -> 256]",), ("GELU + dropout each",),
-                ("197,376 params",)], PURPLE),
+        trunk=(["two parallel trunks", ("presence: 3 x [Linear -> 256] on h",),
+                ("magnitude: 3 x [Linear -> 256]",),
+                ("on [h, support(21)] -- chain rule",),
+                ("197,376 + 202,752 params",)], PURPLE),
         branches=[
             {"box": ["presence branch", ("Linear 256 -> 21, sigmoid",),
                      ("p_i = P(phase i present)",), ("5,397 params",)],
              "out": ["21 Bernoullis", ("which minerals",), ("BCE loss",)],
              "color": GREEN},
             {"box": ["magnitude branch", ("Linear 256 -> 21, softplus",),
-                     ("alpha_i, Dirichlet concentration",), ("5,397 params",)],
-             "out": ["cond. Dirichlet", ("how much of each,",),
-                     ("on the present set (NLL)",)],
+                     ("alpha_i, support-conditioned",), ("5,397 params",)],
+             "out": ["cond. Dirichlet", ("how much, GIVEN",),
+                     ("this mineral set (NLL)",)],
              "color": ORANGE},
         ],
-        params_line="208,170 trainable params (trunk 197,376 + 2 x 5,397) -- ~6.4% of the "
-                    "frozen encoder; the 256 x 3 trunk is the joint-HPO winner (untuned "
-                    "128 x 1 gave up 0.105 nats of assemblage NLL).",
+        params_line="410,922 trainable params (trunks 197,376 + 202,752, outputs 2 x 5,397) "
+                    "-- ~12.7% of the frozen encoder; 256 x 3 per trunk is the joint-HPO "
+                    "winner, kept unchanged when the support-conditioned trunk was added "
+                    "(isolation, #25).",
         dials_line="dials (configs/heads/joint_heads.yaml): mode_hidden 256 . mode_layers 3 . "
                    "dropout 0.348 . magnitude_weight 0.25 . alpha_eps 1e-6 . lr 2.15e-4 . "
                    "weight_decay 1.04e-5 . batch 1024 . epochs 120 / per-head patience 10 -- "
@@ -668,28 +676,36 @@ def s_mode_head_anatomy(prs):
               ("Dirichlet NLL scored only on the present set S -- "
                "absent phases belong to the Bernoullis",)], ORANGE),
             (["L = L_presence + λ_mag · L_magnitude",
-              ("trained jointly: one backward pass; each branch gets only its "
-               "own term's gradient, the shared trunk gets the SUM of both -- "
-               "∇L(trunk) = ∇L_pres + λ_mag ∇L_mag",)], PURPLE),
+              ("one backward pass; the trunks are param-disjoint, so λ_mag "
+               "no longer arbitrates a shared trunk -- it balances the "
+               "Dirichlet term against the mass-balance closure on the "
+               "magnitude trunk",)], PURPLE),
         ],
-        notes_text="Anatomy of the trained ModeHead (checkpoints/joint_heads_seed0): shared trunk "
-             "3 stacked Linear(->256)+GELU+dropout blocks, then two parallel linear branches -- "
-             "presence logits (sigmoid -> per-phase Bernoulli, BCE) and concentrations (softplus + eps "
-             "-> conditional Dirichlet, masked NLL on the true support). Param counts are "
-             "pulled from the checkpoint (mode_hidden 256, mode_layers 3, the joint-HPO "
-             "winner; fANOVA put architecture near zero, the gain came with the tuned "
-             "environment). Loss boxes mirror the SSL slide: BCE is a proper "
+        notes_text="Anatomy of the trained ModeHead (checkpoints/joint_heads_supportmag_seed0): "
+             "two parallel trunks of 3 stacked Linear(->256)+GELU+dropout blocks. The presence "
+             "trunk reads h alone (it predicts the support, so it must not see it) -> logits "
+             "(sigmoid -> per-phase Bernoulli, BCE). The magnitude trunk reads h concatenated "
+             "with the 21-dim support vector -> concentrations (softplus + eps -> conditional "
+             "Dirichlet, masked NLL on the same support) -- the chain rule CondHead already "
+             "uses: teacher-forced true mask at train, sampled from the presence Bernoullis at "
+             "inference. Support-conditioning (adopted 2026-07-22, #25) exists because the "
+             "conditional truth is bimodal by support for path-sensitive phases (deep-wet-much-"
+             "amp vs shallow-dry-little); a support-blind Dirichlet could only average the "
+             "humps -- amp magnitude parity r went 0.715 -> 0.876. Param counts are pulled "
+             "from the checkpoint (mode_hidden 256, mode_layers 3 per trunk, the joint-HPO "
+             "winner kept for isolation). Loss boxes mirror the SSL slide: BCE is a proper "
              "scoring rule (per-rock minimum = within-bulk presence frequency, which is why "
              "intermediate p is signal); the Dirichlet NLL is masked to the label's present "
              "set (sub-composition property keeps it a proper density); λ_mag is the "
              "loss-weighting coefficient (config key magnitude_weight, 0.25 tuned) -- "
              "λ chosen over w to avoid clashing with layer weights and to match the "
-             "λ_balance / λ_comp family. 'Trained jointly' is literal chain-rule math: L is "
-             "one scalar, so one backward pass and one AdamW step update all params at once. "
-             "Each branch's weights appear in only its own term (the other term's gradient "
-             "is exactly zero there); the trunk appears in both, so its gradient is the sum "
-             "-- λ_mag is the exchange rate between the two error signals shaping the shared "
-             "features. NOT alternating epochs, NOT separate optimizers, NOT staged "
+             "λ_balance / λ_comp family. 'Trained jointly' is one scalar L, one backward "
+             "pass, one AdamW step; with the trunks split, the two ModeHead terms touch "
+             "disjoint params -- λ_mag no longer arbitrates a shared trunk; its remaining "
+             "role is balancing the Dirichlet term against the mass-balance closure (which "
+             "also reads the magnitude alphas), with a second-order coupling via the "
+             "per-head gradient clip pooling both trunks' norms. "
+             "NOT alternating epochs, NOT separate optimizers, NOT staged "
              "pretraining of one branch. The hurdle split exists because one full-simplex "
              "Dirichlet cannot be simultaneously confident about absences and honest about "
              "present-phase spread (shared concentration). CompHead/CondHead follow the same "
@@ -780,9 +796,9 @@ def s_mode_head_dirichlet(prs):
             "scoring step -- are the means right, and is the claimed spread honest "
             "(PIT)?", 13, GRAYT, align=PP_ALIGN.LEFT)
     box(s, 0.55, 1.95, 2.8, 1.5, ["head output for bulk X",
-        ("alpha for all 21 phases,",),
-        ("computed from the latent --",),
-        ("truth is not an input",)], ORANGE, size=11)
+        ("alpha for all 21 phases, from",),
+        ("the latent + the row's support --",),
+        ("the true MODES are not an input",)], ORANGE, size=11)
     flow_arrow(s, 3.45, 2.55, 0.35, 0.3)
     box(s, 3.85, 1.95, 2.8, 1.5, ["alpha sliced to the support",
         ("plag 12.0    cpx 7.0",),
@@ -825,25 +841,26 @@ def s_mode_head_dirichlet(prs):
             "PIT histogram means the spread is honest; a U means overconfident (truth keeps "
             "escaping the claimed range), a hump means underconfident.",
             11, INK, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 6.0, 12.2, "the truth plays two roles, never as a model input: its "
-            "support slices alpha (teacher-forced at train/eval, sampled from the presence "
-            "branch at inference; a Dirichlet sub-composition is itself a Dirichlet, so the "
-            "sliced score is a proper density), and its modes appear only at the scoring "
-            "step.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.0, 12.2, "the truth's modes never enter the model; its support "
+            "enters twice -- it CONDITIONS alpha (the magnitude trunk reads [h, support]; "
+            "teacher-forced at train/eval, sampled from the presence branch at inference) "
+            "and it slices the score to the present set (a Dirichlet sub-composition is "
+            "itself a Dirichlet, so the sliced score is a proper density).",
+            11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.85, 12.2, "population: only truly-present (row, phase) pairs are "
             "scored -- ~41k pairs for plag down to ~240 for andalusite; single-phase rows "
-            "are excluded (nothing to size). current limits (tuned model): amphibole stays "
-            "the flagship miss -- 65% of its (rock, support) PIT groups are mean-shifted "
-            "(within-bulk bimodality collapses to the mean; mixture fix staged, #25) and "
-            "tuning did not move its magnitude error; plag/afs/q are majority-shifted too "
-            "(the support-conditioning signal, heads.md). full report: "
-            "runs/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
+            "are excluded (nothing to size). current limits (support-conditioned model): "
+            "amp parity r 0.876 (was 0.715 support-blind) and its mean-shifted PIT groups "
+            "fell 65% -> 41%; the surviving miss is the ~11% of amp groups bimodal WITHIN "
+            "one support (mixture parameterization is the staged candidate, #25). "
+            "full report: runs/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "
              "branch's reliability worked example. Laid out as two tracks converging "
              "at a scoring node: the prediction track never sees the truth's modes; "
-             "the truth contributes only its support to the slice (teacher-forced) "
-             "and meets the prediction at scoring. Numbers illustrative but to scale: "
+             "the truth contributes its support twice (conditioning input to the "
+             "magnitude trunk + the score's slice, both teacher-forced) and its modes "
+             "meet the prediction only at scoring. Numbers illustrative but to scale: "
              "alpha sliced to the true 4-phase support gives Dirichlet means "
              "alpha_i/alpha0 and Beta marginals Beta(alpha_i, alpha0 - alpha_i); plag "
              "Beta(12,13) has mean 0.48, sd ~0.10, and truth 0.44 lands at CDF 0.34. "
@@ -855,7 +872,10 @@ def s_mode_head_dirichlet(prs):
              "scores -4.34 nats (normalizer -28.37 + shape +24.03); scaling alpha x4 "
              "improves to -5.26 when truth is near the peak but explodes to +17.9 when "
              "truth swaps to the other hump (plag/amp values exchanged) -- the mechanism "
-             "that pins amphibole's alpha0 low and its mean in the middle.")
+             "that pinned the support-blind head's amphibole alpha0 low and its mean in "
+             "the middle. Support-conditioning resolves the between-support humps; the "
+             "within-support ones still punish confidence the same way (the mixture "
+             "candidate's target).")
 
 
 def s_comp_head_anatomy(prs):

@@ -240,11 +240,13 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_mode_head.py
 
-1. `test_output_shapes` -- forward returns presence logits and alphas, both `[B, N_PHASES]`.
+1. `test_output_shapes` -- forward on (latent, support) returns presence logits and alphas, both `[B, N_PHASES]`.
 2. `test_alpha_strictly_positive` -- alphas respect the softplus + `alpha_eps` floor even on extreme inputs.
-3. `test_default_hidden_is_half_d_model` -- the trunk width defaults to `d_model // 2` and honors an explicit `hidden`.
-4. `test_layers_stack_the_trunk` -- `layers` stacks trunk blocks (shapes hold, params grow) and `layers < 1` raises.
-5. `test_gradients_flow_to_all_parameters` -- every head parameter receives gradient from a combined logits+alpha objective.
+3. `test_default_hidden_is_half_d_model` -- both trunk widths default to `d_model // 2` and honor an explicit `hidden`.
+4. `test_layers_stack_the_trunk` -- `layers` stacks blocks in both trunks (shapes hold, params grow) and `layers < 1` raises.
+5. `test_support_changes_alpha` -- flipping one support bit moves the magnitude alphas (the support conditioning is live).
+6. `test_presence_logits_ignore_support` -- presence logits are identical across support inputs and match `presence_logits` (the presence branch never sees the support it predicts).
+7. `test_gradients_flow_to_all_parameters` -- every head parameter receives gradient from a combined logits+alpha objective.
 
 ### test_comp_head.py
 
@@ -390,14 +392,16 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_conditional_mean` -- Dirichlet mean restricted to a mask renormalizes over it; an empty mask returns all zeros instead of dividing by zero.
 7. `test_beta_pit_matches_scipy_and_masks_degenerates` -- PIT values equal `scipy.stats.beta.cdf` under the Beta marginal of the support Dirichlet; absent phases and single-phase supports are NaN.
 8. `test_fp_fn_mass_hand_case` -- FP-mass is the predicted-support conditional mean on truly-absent phases and FN-mass the true mass below threshold, per a hand-computed 3-phase row.
-9. `test_presence_scores_nan_when_undefined` -- per-phase recall/precision at 0.5, NaN for never-present / never-predicted phases.
-10. `test_recall_by_band_separates_intermediate_frequencies` -- recall stratified by the bulk's own presence-frequency band splits the intermediate (path-sensitive) misses from the high-frequency hits.
-11. `test_hurdle_nll_rows_matches_reference_assembly` -- per-row joint hurdle NLL equals summed Bernoulli log-likelihood plus `torch.distributions.Dirichlet` NLL on the sliced support, and the per-phase BCE decomposition sums back to the Bernoulli term.
-12. `test_stratified_mean` -- values grouped by label report the right per-group mean and count.
-13. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
-14. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
-15. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
-16. `test_run_mode_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("mode",))` on a test-trained joint checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, and figures land under `runs/mode_head/<tag>/`.
+9. `test_sample_supports_deterministic_extremes` -- p=0/1 presence probabilities sample deterministically.
+10. `test_magnitude_parity_stats_hand_case` -- per-phase conditional-magnitude MAE/r on truly-present rows match a hand case; never-present phases are NaN.
+11. `test_presence_scores_nan_when_undefined` -- per-phase recall/precision at 0.5, NaN for never-present / never-predicted phases.
+12. `test_recall_by_band_separates_intermediate_frequencies` -- recall stratified by the bulk's own presence-frequency band splits the intermediate (path-sensitive) misses from the high-frequency hits.
+13. `test_hurdle_nll_rows_matches_reference_assembly` -- per-row joint hurdle NLL equals summed Bernoulli log-likelihood plus `torch.distributions.Dirichlet` NLL on the sliced support, and the per-phase BCE decomposition sums back to the Bernoulli term.
+14. `test_stratified_mean` -- values grouped by label report the right per-group mean and count.
+15. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
+16. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
+17. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
+18. `test_run_mode_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("mode",))` on a test-trained joint checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, and figures land under `runs/mode_head/<tag>/`.
 
 ### test_comp_head_eval.py
 
@@ -416,8 +420,7 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_central_coverage_hand_case` -- a 3-value hand case lands the right central-interval fraction.
 5. `test_effective_components_limits` -- exp-entropy of one-hot weights is 1 and of uniform weights is K.
 6. `test_mass_below_zero` -- mixture mass below zero is 0.5 for a zero-centered unit normal and ~0 far above zero.
-7. `test_sample_supports_deterministic_extremes` -- p=0/1 presence probabilities sample deterministically.
-8. `test_run_cond_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("cond",))` on a test-trained joint checkpoint (roster and results root monkeypatched): per-axis metrics incl. the exposure-bias delta are finite and PIT/component figures land.
+7. `test_run_cond_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("cond",))` on a test-trained joint checkpoint (roster and results root monkeypatched): per-axis metrics incl. the exposure-bias delta are finite and PIT/component figures land.
 
 ### test_joint_heads_eval.py
 
@@ -428,10 +431,11 @@ rename, or repurpose a test) updates this file in the same change.**
 ### test_summary_cards.py
 
 1. `test_sample_assemblages_rows_on_simplex` -- every sampled assemblage sums to 1 on its support, zero-probability phases never enter, and sampling is seed-deterministic.
-2. `test_pick_ambiguous_bulk_prefers_even_split` -- a 50/50 two-pattern bulk beats 90/10 and unimodal bulks; the score is the second-pattern share.
-3. `test_pick_ambiguous_bulk_unimodal_fallback` -- an all-unimodal roster returns the first bulk with score 0.
-4. `test_pick_bulk_by_nll_median_and_best` -- per-bulk mean NLL selection respects the rung filter; best = lowest mean, median = middle rank; bad `pick` and empty rung raise.
-5. `test_top_support_patterns_groups_and_shares` -- hand-built samples with two patterns return correct shares, patterns, and per-pattern mean modes.
+2. `test_sample_assemblages_alpha_fn_sees_unique_supports` -- `alpha_fn` is called once with deduplicated support patterns, and each sample draws from its own support's alphas (a support-dependent alpha shows up in the drawn shares).
+3. `test_pick_ambiguous_bulk_prefers_even_split` -- a 50/50 two-pattern bulk beats 90/10 and unimodal bulks; the score is the second-pattern share.
+4. `test_pick_ambiguous_bulk_unimodal_fallback` -- an all-unimodal roster returns the first bulk with score 0.
+5. `test_pick_bulk_by_nll_median_and_best` -- per-bulk mean NLL selection respects the rung filter; best = lowest mean, median = middle rank; bad `pick` and empty rung raise.
+6. `test_top_support_patterns_groups_and_shares` -- hand-built samples with two patterns return correct shares, patterns, and per-pattern mean modes.
 
 ### test_trajectory.py
 

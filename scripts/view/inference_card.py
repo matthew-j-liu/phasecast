@@ -26,7 +26,11 @@ import torch
 
 from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.mode_head import hurdle_nll_rows
+from cnmineral.eval.mode_head import (
+    hurdle_nll_rows,
+    magnitude_alpha_rows,
+    support_alpha_fn,
+)
 from cnmineral.eval.summary_cards import (
     inference_card,
     pick_bulk_by_nll,
@@ -70,11 +74,12 @@ def main() -> None:
     row_bulk = ds.row_bulk_idx.numpy()
     rung = ds.rung.numpy()
     with torch.no_grad():
-        logits_all, alpha_all = mode_head(latents)
+        logits_all = mode_head.presence_logits(latents)
 
     if args.bulk is None:
+        alpha_rows = magnitude_alpha_rows(mode_head, latents, row_bulk, ds.presence)
         nll_rows = hurdle_nll_rows(
-            logits_all[row_bulk], alpha_all[row_bulk], ds.presence, ds.magnitude
+            logits_all[row_bulk], alpha_rows, ds.presence, ds.magnitude
         )["joint"]
         bpos = pick_bulk_by_nll(nll_rows, row_bulk, rung, args.rung, args.pick)
         bulk = int(ds.bulk_ids[bpos])
@@ -94,7 +99,9 @@ def main() -> None:
 
     rng = np.random.default_rng(args.seed)
     p = torch.sigmoid(logits_all[bpos]).numpy()
-    pred_modes = sample_assemblages(p, alpha_all[bpos].numpy(), args.n_samples, rng)
+    pred_modes = sample_assemblages(
+        p, support_alpha_fn(mode_head, latents[bpos]), args.n_samples, rng
+    )
 
     supports = torch.as_tensor((pred_modes > 0).astype(np.float32))
     with torch.no_grad():

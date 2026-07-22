@@ -66,6 +66,7 @@ def test_mode_head_loss_composition():
 
 
 def test_gradient_reaches_unfrozen_encoder():
+    from cnmineral.data.phase_vocab import N_PHASES
     from cnmineral.models.encoder import Encoder
     from cnmineral.models.mode_head import ModeHead
 
@@ -76,8 +77,8 @@ def test_gradient_reaches_unfrozen_encoder():
     frac = torch.tensor(
         [[0.5, 0.3, 0.2, 0.0, 0.0], [0.7, 0.3, 0.0, 0.0, 0.0]], dtype=torch.float32
     )
-    logits, alpha = head(encoder(src=src, frac=frac))
-    presence = torch.ones_like(logits)
+    presence = torch.ones(2, N_PHASES)
+    logits, alpha = head(encoder(src=src, frac=frac), presence)
     magnitude = torch.full_like(logits, 1.0 / logits.shape[-1])
     mode_head_loss(logits, alpha, presence, magnitude)["total"].backward()
     grads = [p.grad for p in encoder.parameters() if p.grad is not None]
