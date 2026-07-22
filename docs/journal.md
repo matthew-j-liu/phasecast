@@ -3902,3 +3902,69 @@ standalone-era record (checkpoint on disk at
 
 **Next.** Skill-score reference + ledger schema + inference-card and
 scenario-view builders (this session), writing into the new layout.
+
+## 2026-07-21 -- Headline reporting layer: ledger + trajectory + two per-model figures; results/ goes untracked with a role split
+
+**Q.** What does "show the model is good and getting better" look like as
+a small, repeatable artifact set -- and where does it live?
+
+**Context.** 20+ diagnostic figures per version is an instrument panel,
+not a report. Presentations need a fixed format an audience can re-read
+across versions; iteration needs a pithy per-version summary the owner
+can judge in a minute.
+
+**Considered.** Skill scores over an input-blind climatology baseline
+(built, validated, then REMOVED -- a constructed reference invites
+"baseline shopping" suspicion and cancels out of every version-to-version
+delta anyway; raw NLL says the same thing without a defendable choice).
+Per-dimension NLL normalization for a shared cross-head axis (rejected:
+mode's divisor is arbitrary within ~3x). Teacher-forced condition panels
+in the card (rejected: the card is the product demo; every panel now
+conditions on the model's own predictions). Tracked results/ (adopted in
+the morning, REVERSED by evening: headline artifacts stay private;
+tracking them bought durability at the cost of publishing dev history).
+
+**Decision.** Reporting layer: `results/ledger.yaml` (append-only, one
+entry per shipped version, metrics always re-measured on the current
+instrument; three entries backfilled: standalone-modehead 07-15,
+joint-baseline 07-18, joint-tuned 07-21) + `results/trajectory.png`
+(per-head raw-NLL small multiples, y inverted) + per-model
+`results/<checkpoint-tag>/` holding the inference card
+(`scripts/view/inference_card.py`: hurdle split into is-it-there /
+how-much-when-there panels, false positives rate-panel-only, no teacher
+forcing anywhere; bulk = median per-bulk mode NLL, `--pick best` for the
+internal showcase) and the scenario view (`scripts/view/scenario_view.py`:
+truth-bimodality auto-pick, top-2 sampled assemblages + per-scenario
+conditions). truth_vs_pred stays a runs/summary diagnostic. Repo rule:
+results/ = headline summaries, runs/ = transient snapshots, both
+untracked; explorations/*/results/ stay tracked. One-command ship
+consolidation deferred to #44 until the manual flow has been exercised.
+
+**Next.** #41 opens with a new observation from the median-NLL card:
+ilmenite presence UNDER-predicted (truth 0.65 of draws vs 0.15 predicted)
+-- accessory miscalibration may be two-sided, check the reliability
+tables both ways.
+
+## 2026-07-21 -- Instrument correction: pre-study baseline eval dirs scored the joint-ep6 checkpoint, not per-head bests
+
+**Q.** Why did regenerating `runs/{comp,cond}_head/joint_heads_seed0_baseline/`
+move the numbers (comp -50.2508 -> -50.9005, cond 8.6023 -> 8.4653)?
+
+**Context.** The ledger backfill required current-instrument stamps; the
+relic dirs carried rotted absolute-path stamps predating the eval
+consolidation.
+
+**Decision (root cause).** Not eval code (consolidation reproduced comp
+bit-identically) and not the roster (both post-swap). The per-head best
+checkpointing change landed after the baseline's original evals: the old
+dirs scored comp/cond at the joint-best epoch 6, today's heads_best.pt
+holds each head at its own best epoch. Both heads improve under their own
+best -- exactly the direction expected. Consequence: the 07-21 readout's
+tuned-vs-baseline deltas were inflated by a selection-rule mismatch
+(cond gain is ~0.15 nats, not ~0.28; comp -50.90 -> -53.85; baseline
+closure L2 0.0161, coverage_68 0.650-0.661). All conclusions survive
+directionally. Ledger and all six runs/ metric dirs now carry
+current-instrument, per-head-best numbers; the mode dirs were already
+correct (regenerated during consolidation backfill).
+
+**Next.** None -- recorded so nobody re-derives the discrepancy.
