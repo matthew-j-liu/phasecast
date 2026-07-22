@@ -10,7 +10,7 @@ shows the two dominant scenarios with their probabilities, plus CondHead's
 
 Omitting `--bulk` auto-picks the val-roster bulk whose truth draws split
 most evenly between two support patterns (the most measurably ambiguous
-rock). The figure lands in `runs/summary/<checkpoint-dir-name>/` unless
+rock). The figure lands in `results/<checkpoint-dir-name>/` unless
 `--out-dir` says otherwise.
 """
 
@@ -51,7 +51,7 @@ def main() -> None:
                         help="condition samples per scenario")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out-dir", type=Path, default=None,
-                        help="output dir (default runs/summary/<checkpoint dir>)")
+                        help="output dir (default results/<checkpoint dir>)")
     args = parser.parse_args()
 
     ckpt = JointHeadCheckpoint.load(args.checkpoint)
@@ -115,7 +115,7 @@ def main() -> None:
 
     out_dir = args.out_dir
     if out_dir is None:
-        out_dir = Path("runs/summary") / args.checkpoint.parent.name
+        out_dir = Path("results") / args.checkpoint.parent.name
     out_dir.mkdir(parents=True, exist_ok=True)
     title = (
         f"{ds.bulk_qap_names[bpos]} (bulk {bulk}) -- top-2 predicted "

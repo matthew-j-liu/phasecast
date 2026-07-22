@@ -1,7 +1,10 @@
 import numpy as np
 
+import pytest
+
 from cnmineral.eval.summary_cards import (
     pick_ambiguous_bulk,
+    pick_bulk_by_nll,
     sample_assemblages,
     top_support_patterns,
 )
@@ -57,6 +60,20 @@ def test_pick_ambiguous_bulk_unimodal_fallback():
     bulk, score = pick_ambiguous_bulk(presence, row_bulk, rung, bulk_ids, 50)
     assert bulk == 7
     assert score == 0.0
+
+
+def test_pick_bulk_by_nll_median_and_best():
+    #                bulk 0 (mean 5)   bulk 1 (mean 1)   bulk 2 (mean 3)
+    nll = np.array([4.0, 6.0,          1.0, 1.0,          3.0, 3.0,
+                    99.0])  # bulk 0 row at the wrong rung, must be ignored
+    row_bulk = np.array([0, 0, 1, 1, 2, 2, 0])
+    rung = np.array([50, 50, 50, 50, 50, 50, 30])
+    assert pick_bulk_by_nll(nll, row_bulk, rung, 50, "best") == 1
+    assert pick_bulk_by_nll(nll, row_bulk, rung, 50, "median") == 2
+    with pytest.raises(ValueError, match="pick must be"):
+        pick_bulk_by_nll(nll, row_bulk, rung, 50, "worst")
+    with pytest.raises(ValueError, match="no bulk has rows"):
+        pick_bulk_by_nll(nll, row_bulk, rung, 99, "best")
 
 
 def test_top_support_patterns_groups_and_shares():

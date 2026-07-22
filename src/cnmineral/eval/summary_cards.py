@@ -1,10 +1,10 @@
 """Headline qualitative figures for a joint checkpoint: inference card + scenario view.
 
-Two of the four canonical per-version figures (results/README.md): the
-inference card shows one rock end to end (bulk chemistry in, assemblage
-posterior and condition posteriors out, truth overlaid), the scenario view
-shows the top-2 predicted assemblages of an ambiguous rock with their
-condition posteriors. Pure figure/statistic functions; the thin CLIs are
+The two per-model headline figures (results/README.md): the inference card
+shows one rock end to end (bulk chemistry in, assemblage posterior and
+condition posteriors out, truth overlaid), the scenario view shows the
+top-2 predicted assemblages of an ambiguous rock with their condition
+posteriors. Pure figure/statistic functions; the thin CLIs are
 `scripts/view/inference_card.py` and `scripts/view/scenario_view.py`.
 `sample_assemblages` is the shared posterior sampler, also used by
 `scripts/view/truth_vs_pred.py`.
@@ -15,6 +15,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.lines import Line2D
 
 from ..data.magemin_corpus import COMP_OXIDES
 from ..data.phase_vocab import SOLID_PHASES
@@ -82,75 +83,129 @@ def top_support_patterns(sampled_modes, k=2):
     return out
 
 
-def _bar_with_whiskers(ax, y, values, color, hatch=None):
-    """Horizontal bar at `y` = mean of `values`, whiskers = p10-p90.
+def pick_bulk_by_nll(joint_nll_rows, row_bulk_idx, rung, rung_sel, pick):
+    """Bulk position by per-bulk mean hurdle NLL at `rung_sel`.
 
-    Whisker arms clamp at 0: a mostly-zero sample (rare phase) puts the
-    mean outside [p10, p90], which matplotlib rejects as negative error.
+    `pick` = "best" (lowest mean NLL) or "median" (middle of the sorted
+    order) -- median is the representative public-card choice, best the
+    internal showcase. Bulks with no rows at the rung are excluded.
     """
-    mean = values.mean()
-    lo, hi = np.quantile(values, [0.1, 0.9])
-    ax.barh(y, mean, height=0.36, color=color, alpha=0.7, hatch=hatch,
-            edgecolor="white" if hatch else None)
-    ax.errorbar(mean, y, xerr=[[max(mean - lo, 0.0)], [max(hi - mean, 0.0)]],
-                fmt="none", ecolor="black", lw=0.9, capsize=2)
+    n_bulks = int(row_bulk_idx.max()) + 1
+    means = np.full(n_bulks, np.nan)
+    for b in range(n_bulks):
+        m = (row_bulk_idx == b) & (rung == rung_sel)
+        if m.any():
+            means[b] = joint_nll_rows[m].mean()
+    order = np.argsort(means)
+    order = order[~np.isnan(means[order])]
+    if len(order) == 0:
+        raise ValueError(f"no bulk has rows at rung {rung_sel}")
+    if pick == "best":
+        return int(order[0])
+    if pick == "median":
+        return int(order[len(order) // 2])
+    raise ValueError(f"pick must be `median` or `best`, got {pick!r}")
 
 
 def inference_card(
     bulk_11_rows, truth_modes, pred_modes, cond_samples, cond_truth,
-    presence_cutoff, title, out_path,
+    title, out_path,
 ):
-    """One rock end to end: chemistry in, posteriors out, truth overlaid.
+    """One rock end to end, no teacher forcing anywhere.
 
-    `bulk_11_rows` [R, 11] input oxides across the bulk's draws (H2O varies
-    per draw, hence whiskers); `truth_modes` [R, P]; `pred_modes` [S, P]
-    sampled assemblages; `cond_samples`/`cond_truth` [*, A] pooled posterior
-    samples and the bulk's truth draws.
+    `bulk_11_rows` [R, 11] input oxides across the bulk's draws; `truth_modes`
+    [R, P] hurdle magnitude targets; `pred_modes` [S, P] assemblages sampled
+    from the model's own presence probabilities; `cond_samples` [S, A] from
+    CondHead conditioned on the model's own sampled mineral lists;
+    `cond_truth` [R, A]. The hurdle renders as two panels -- presence rate,
+    then share-when-present -- so absences never dilute the share statistics.
     """
-    fig = plt.figure(figsize=(13, 4.6))
-    gs = fig.add_gridspec(1, 3, width_ratios=[0.9, 1.3, 1.1], wspace=0.35)
+    fig = plt.figure(figsize=(14, 4.8))
+    gs = fig.add_gridspec(1, 4, width_ratios=[0.85, 0.55, 1.1, 1.05], wspace=0.42)
 
     ax = fig.add_subplot(gs[0])
-    for i in range(len(COMP_OXIDES)):
-        _bar_with_whiskers(ax, i, bulk_11_rows[:, i], "tab:gray")
+    med = np.median(bulk_11_rows, axis=0)
+    ax.barh(range(len(COMP_OXIDES)), med, color="tab:gray", alpha=0.8, height=0.6)
+    h2o = COMP_OXIDES.index("H2O")
+    lo, hi = np.quantile(bulk_11_rows[:, h2o], [0.1, 0.9])
+    ax.errorbar(med[h2o], h2o, xerr=[[med[h2o] - lo], [hi - med[h2o]]],
+                fmt="none", ecolor="black", lw=0.9, capsize=2)
     ax.set_yticks(range(len(COMP_OXIDES)), COMP_OXIDES, fontsize=8)
     ax.invert_yaxis()
     ax.set_xscale("log")
-    ax.set_xlabel("mass fraction of the rock (log)")
-    ax.set_title("input: bulk chemistry", fontsize=10)
+    ax.set_xlabel("mass fraction of the rock (log)", fontsize=9)
+    ax.set_title("input: bulk chemistry\n(whiskers: H2O varies by draw)", fontsize=9)
 
-    ax = fig.add_subplot(gs[1])
     show = [
         k for k in range(len(SOLID_PHASES))
         if truth_modes[:, k].mean() > 1e-3 or pred_modes[:, k].mean() > 1e-3
     ]
     show.sort(key=lambda k: -truth_modes[:, k].mean())
-    for i, k in enumerate(show):
-        _bar_with_whiskers(ax, i - 0.19, pred_modes[:, k], "tab:orange", hatch="//")
-        _bar_with_whiskers(ax, i + 0.19, truth_modes[:, k], "tab:blue")
-    ax.set_yticks(range(len(show)), [SOLID_PHASES[k] for k in show], fontsize=8)
-    ax.invert_yaxis()
-    ax.set_xlabel("mean share of the solids (whiskers p10-p90)")
-    ax.set_title("output: assemblage posterior vs truth", fontsize=10)
-    ax.legend(handles=[
-        plt.Rectangle((0, 0), 1, 1, facecolor="tab:orange", alpha=0.7, hatch="//"),
-        plt.Rectangle((0, 0), 1, 1, facecolor="tab:blue", alpha=0.7),
-    ], labels=["prediction", "truth"], fontsize=8, loc="lower right")
+    genuine = [k for k in show if (truth_modes[:, k] > 0).any()]
 
-    inner = gs[2].subgridspec(len(COND_AXES), 1, hspace=0.55)
+    ax_rate = fig.add_subplot(gs[1])
+    for i, k in enumerate(show):
+        false_positive = k not in genuine
+        ax_rate.plot((pred_modes[:, k] > 0).mean(), i - 0.15, "o", ms=4,
+                     color="0.55" if false_positive else "tab:orange",
+                     mfc="white")
+        ax_rate.plot((truth_modes[:, k] > 0).mean(), i + 0.15, "o", ms=4,
+                     color="tab:blue")
+    ax_rate.set_yticks(range(len(show)), [SOLID_PHASES[k] for k in show], fontsize=8)
+    ax_rate.invert_yaxis()
+    ax_rate.set_xlim(-0.05, 1.05)
+    ax_rate.set_xticks([0, 0.5, 1])
+    ax_rate.grid(axis="x", lw=0.3, alpha=0.5)
+    ax_rate.set_xlabel("fraction of draws\ncontaining the mineral", fontsize=8)
+    ax_rate.set_title("is it there?", fontsize=9)
+
+    ax_share = fig.add_subplot(gs[2])
+    for i, k in enumerate(genuine):
+        for vals, off, color, filled in (
+            (pred_modes[:, k], -0.19, "tab:orange", False),
+            (truth_modes[:, k], +0.19, "tab:blue", True),
+        ):
+            present = vals[vals > 0]
+            if len(present):
+                m = present.mean()
+                q25, q75 = np.quantile(present, [0.25, 0.75])
+                ax_share.errorbar(
+                    m, i + off, xerr=[[max(m - q25, 0)], [max(q75 - m, 0)]],
+                    fmt="o", ms=5, color=color, mfc=color if filled else "white",
+                    ecolor=color, lw=1.2, capsize=2.5,
+                )
+    ax_share.set_yticks(range(len(genuine)),
+                        [SOLID_PHASES[k] for k in genuine], fontsize=8)
+    ax_share.invert_yaxis()
+    ax_share.set_xscale("log")
+    ax_share.set_xlim(5e-4, 1.0)
+    ax_share.grid(axis="x", lw=0.3, alpha=0.5)
+    ax_share.set_xlabel("share of solids when present (log)\nwhiskers p25-p75",
+                        fontsize=9)
+    ax_share.set_title("how much, when there?", fontsize=9)
+    ax_share.legend(handles=[
+        Line2D([], [], marker="o", ls="", color="tab:orange", mfc="white",
+               label="prediction"),
+        Line2D([], [], marker="o", ls="", color="tab:blue", label="truth"),
+        Line2D([], [], marker="o", ls="", color="0.55", mfc="white",
+               label="predicted but never in truth\n(rate panel only)"),
+    ], fontsize=7, loc="lower right")
+
+    inner = gs[3].subgridspec(len(COND_AXES), 1, hspace=0.55)
     for a, axis_name in enumerate(COND_AXES):
-        ax = fig.add_subplot(inner[a])
+        axc = fig.add_subplot(inner[a])
         bins = np.histogram_bin_edges(
             np.concatenate([cond_truth[:, a], cond_samples[:, a]]), bins=35
         )
-        ax.hist(cond_truth[:, a], bins=bins, density=True, color="tab:blue",
-                alpha=0.35, label="truth draws")
-        ax.hist(cond_samples[:, a], bins=bins, density=True, color="tab:orange",
-                alpha=0.6, histtype="step", lw=1.4, label="posterior")
-        ax.set_yticks([])
-        ax.set_title(COND_LABELS[axis_name], fontsize=8, pad=2)
+        axc.hist(cond_truth[:, a], bins=bins, density=True, color="tab:blue",
+                 alpha=0.35, label="truth draws")
+        axc.hist(cond_samples[:, a], bins=bins, density=True, color="tab:orange",
+                 alpha=0.6, histtype="step", lw=1.4,
+                 label="posterior (own mineral lists)")
+        axc.set_yticks([])
+        axc.set_title(COND_LABELS[axis_name], fontsize=8, pad=2)
         if a == 0:
-            ax.legend(fontsize=7)
+            axc.legend(fontsize=6)
     fig.suptitle(title, fontsize=10)
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
