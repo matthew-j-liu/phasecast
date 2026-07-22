@@ -25,7 +25,9 @@ for the supervised posterior.
 this repo** (`conda run -n alignn_fix ...` or activate first) — unless an
 untracked `CLAUDE.local.md` at repo root overrides the env name.  That override
 exists so sibling clones of this repo can install their own editable copy
-without colliding on `pip install -e .`.
+without colliding on `pip install -e .`.  When handing the owner a command to
+run themselves, assume `alignn_fix` is already activated in their terminal —
+plain `python ...`, no `conda run` wrapper.
 
 **Run the unit tests with** `pytest tests/`.  Single-threaded — cleaner stdout /
 tracebacks beats any speed win from parallel workers at this suite size.
