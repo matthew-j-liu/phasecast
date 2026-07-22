@@ -33,6 +33,7 @@ from cnmineral.data.magemin_corpus import COMP_OXIDES
 from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
 from cnmineral.data.phase_vocab import SOLID_PHASES
 from cnmineral.eval.latent import load_encoder_from_checkpoint
+from cnmineral.eval.summary_cards import sample_assemblages
 from cnmineral.models.cond_head import COND_AXES
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.eval.latent import bulk_latents
@@ -56,17 +57,6 @@ def _pair_boxes(ax, vals_truth, vals_pred, x):
             patch_artist=True, medianprops={"color": "black"},
         )
         bp["boxes"][0].set(facecolor=color, alpha=0.7, hatch=hatch)
-
-
-def sample_assemblages(p, alpha, n, rng):
-    modes = np.zeros((n, len(p)))
-    for s in range(n):
-        for _ in range(100):
-            z = rng.random(len(p)) < p
-            if z.any():
-                break
-        modes[s, z] = rng.dirichlet(alpha[z])
-    return modes
 
 
 def mode_figure(truth, pred, cutoff, title, out_path):

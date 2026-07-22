@@ -425,6 +425,18 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_run_joint_eval_rejects_unknown_head` -- an unrecognized head name raises before any checkpoint loading.
 3. `test_stale_label_config_raises` -- `val_dataset_and_latents` raises on a checkpoint whose `label_config` lacks `comp_eps` (predates the current joint trainer).
 
+### test_summary_cards.py
+
+1. `test_sample_assemblages_rows_on_simplex` -- every sampled assemblage sums to 1 on its support, zero-probability phases never enter, and sampling is seed-deterministic.
+2. `test_pick_ambiguous_bulk_prefers_even_split` -- a 50/50 two-pattern bulk beats 90/10 and unimodal bulks; the score is the second-pattern share.
+3. `test_pick_ambiguous_bulk_unimodal_fallback` -- an all-unimodal roster returns the first bulk with score 0.
+4. `test_top_support_patterns_groups_and_shares` -- hand-built samples with two patterns return correct shares, patterns, and per-pattern mean modes.
+
+### test_trajectory.py
+
+1. `test_load_ledger_validates_schema` -- a well-formed ledger loads in order; missing keys, unknown head names, and a head lacking its headline NLL each raise.
+2. `test_build_trajectory_figure_smoke` -- a 2-entry ledger (one version missing comp/cond) renders a nonempty PNG.
+
 ### test_training_curves.py
 
 1. `test_plot_run_loss_returns_axes_with_two_lines` -- plotting a train+val monitor draws exactly two lines on the axes.
