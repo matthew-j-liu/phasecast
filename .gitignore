@@ -1,7 +1,10 @@
 # Data: input corpora (large, re-downloadable) + optuna sweep state
 /data/
 
-# Run artifacts (regenerable); top-level results/ is tracked (curated ledger + frozen reports)
+# Machine output, split by role: results/ = per-version headline summaries
+# (ledger, trajectory, frozen reports), runs/ = transient instrument
+# snapshots. Anchored so explorations/<name>/results/ stay tracked.
+/results/
 /runs/
 
 # Exploration scratch: large regenerable MAGEMin inputs/outputs (results/ stays tracked)
