@@ -3968,3 +3968,47 @@ current-instrument, per-head-best numbers; the mode dirs were already
 correct (regenerated during consolidation backfill).
 
 **Next.** None -- recorded so nobody re-derives the discrepancy.
+
+## 2026-07-22 -- Presence-fraction ceiling probe: the corpus is the ceiling; regen becomes the goalpost
+
+**Q.** The head hedges mid-range on spl/ilm/ru/sph because it can't tell
+which bulks are the high-presence ones (#41 reframe). Is the missing
+discrimination available anywhere -- raw chemistry, the frozen latent --
+or does it not exist in the corpus?
+
+**Context.** Per-bulk presence fraction is deterministic in chemistry up
+to binomial draw noise, so three predictors bound the failure:
+the production ModeHead, XGBoost on the 22-token log chemistry (input
+ceiling), and a 1-hidden MLP on the frozen pooled latent. All scored on
+the val roster against `within_bulk_frequency` truth
+(explorations/presence_fraction_ceiling, instrument verified by
+reproducing the #41 headline MAEs exactly).
+
+**Considered.** Post-hoc recalibration (dead by measurement: reliability
+already on-diagonal, isotonic worsens held-out). Per-phase BCE weighting
+/ head capacity (dead: latent probe ~ head). bulk_frac skip connection
+(dead: latent probe ~ raw ceiling, encoder drops nothing).
+
+**Decision.** Headline mean per-bulk MAE: head 0.106, raw-XGB 0.098,
+latent-MLP 0.102, all inside the 0.02 tie band; binomial floors
+0.016-0.024. Verdict: corpus is the ceiling, enrichment (more bulks AND
+more draws/bulk) is the lever, stop architecture work on presence
+discrimination. Two structural findings: (1) Cr is populated in 0% of
+train inputs (`include_cr2o3=False`; gard2019 coverage ~2%) and the
+MAGEMin inputs were effectively Cr-free too (2.1% nonzero, corr with
+f_spl +0.02) -- consistently Cr-blind, so Cr is NOT the spl gap;
+deferred until real-rock validation forces it. (2) The Fe3+/Fe2+ split
+(measured or Middlemost-class-assumed) is visible to the generator but
+absent from the input (total-Fe token only) -- the prime suspect for spl
+staying worst (0.159) even at the raw ceiling. Feature importances:
+ilm leans Ti (0.31, hypothesis confirmed); ru/sph lean Ca/alkalis (which
+Ti phase wins is Ca-controlled); spl leans Mg/Fe (Cr-free spinel
+physics). Direction locked with the owner: the next corpus regen is the
+goalpost; #45 is the pre-regen decision ledger (redox #46, sizing via
+#27, P/H2O proposal revisions, valtest instrument upgrade, rare-class
+rescue, Cr deferral); #25 (amphibole) and #18 (real-rock transfer,
+which also freezes the comparison instrument for current-vs-regen
+corpus) run first.
+
+**Next.** #25 amphibole magnitude. #46 redox measurements (provenance
+split + `bulk_11` true-input ceiling) before the fO2 design decision.

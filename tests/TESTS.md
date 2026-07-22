@@ -458,6 +458,15 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_build_raw_representations_shapes_and_absent_fill` -- the raw-frac and std-log test matrices are `[n_test, N_TOKENS]` and finite, and absent elements are filled with the neutral standardized 0.
 2. `test_build_raw_representations_standardization_matches_train_stats` -- std-log on populated positions equals `(log10(frac) - mean) / std` from the train-split stats, and raw-frac is the unmodified frac.
 
+### test_presence_fraction_ceiling.py
+
+1. `test_log_feature_matrix_nan_exactly_where_absent` -- populated entries map to log10(frac) and absent entries become NaN (XGBoost native-missing input feature).
+2. `test_binomial_floor_matches_halfnormal_mean` -- the per-phase floor equals the half-normal mean `sqrt(2/pi) * sqrt(f(1-f)/n)` and vanishes at degenerate rates.
+3. `test_score_arm_perfect_and_antiperfect` -- a perfect predictor scores MAE 0 / r 1 per phase; a constant predictor degrades to NaN r instead of crashing.
+4. `test_knn_frequency_recovers_cluster_means` -- on two separated latent clusters the cosine-kNN read returns each cluster's own mean f.
+5. `test_fraction_probe_output_shape` -- the 1-hidden-layer latent probe emits `[B, N_PHASES]` logits.
+6. `test_build_verdict_routes` -- the advisory verdict routes to corpus-ceiling / head-side-fix / skip-connection under the agreed MAE-margin criterion.
+
 ### test_magmadb_analogs.py
 
 1. `test_eight_majors_populated_cr_and_traces_padded` -- MagmaDB starting-bulk tokenization populates 8 major slots, padding Cr (production `include_cr2o3=False`) and all 13 traces.
