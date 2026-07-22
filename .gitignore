@@ -7,6 +7,9 @@
 /results/
 /runs/
 
+# Scratch (mockups, one-off previews)
+/tmp/
+
 # Exploration scratch: large regenerable MAGEMin inputs/outputs (results/ stays tracked)
 explorations/*/work/
 
