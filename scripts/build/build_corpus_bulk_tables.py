@@ -11,6 +11,12 @@ of the training table (`--max-chunks 5` on the orchestrator).
     conda run -n alignn_fix python scripts/build/build_corpus_bulk_tables.py
 
 Writes data/corpus/train_bulks.csv and data/corpus/valtest_bulks.csv.
+
+`--expand N` instead draws N new train bulks (excluding both existing tables)
+under temperature-smoothed rare-class quotas (`expansion_quotas`, quota ~
+pool^alpha) and writes data/corpus/train_bulks_expansion.csv; the existing
+tables are left untouched. Rationale and candidate comparison in
+explorations/rare_class_quota/.
 """
 
 import argparse
@@ -19,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from cnmineral.data.volcanic_subset import build_subset
+from cnmineral.data.volcanic_subset import build_subset, expansion_quotas
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -61,6 +67,25 @@ def draw_tier(pool, total, floor, rng):
     return out.iloc[rng.permutation(len(out))].reset_index(drop=True)
 
 
+def draw_expansion(df, budget, alpha, rng, out_dir):
+    train = pd.read_csv(out_dir / "train_bulks.csv")
+    valtest = pd.read_csv(out_dir / "valtest_bulks.csv")
+    used = set(train.sample_id) | set(valtest.sample_id)
+    rem = df[~df.sample_id.isin(used)]
+    pool = df.qap_name.value_counts()
+    have = train.qap_name.value_counts().reindex(pool.index).fillna(0).astype(int)
+    avail = rem.qap_name.value_counts().reindex(pool.index).fillna(0).astype(int)
+    quotas = expansion_quotas(pool, have, avail, budget, alpha)
+    picks = []
+    for qap, k in quotas.items():
+        if k == 0:
+            continue
+        g = rem[rem.qap_name == qap]
+        picks.append(g.iloc[rng.permutation(len(g))[:k]])
+    out = pd.concat(picks, ignore_index=True)
+    return out.iloc[rng.permutation(len(out))].reset_index(drop=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--train", type=int, default=10000)
@@ -68,6 +93,10 @@ def main():
     ap.add_argument("--train-floor", type=int, default=30)
     ap.add_argument("--valtest-floor", type=int, default=5)
     ap.add_argument("--seed", type=int, default=20260714)
+    ap.add_argument("--expand", type=int, default=None,
+                    help="draw N new train bulks under rare-class quotas "
+                         "instead of building fresh tiers")
+    ap.add_argument("--alpha", type=float, default=0.5)
     args = ap.parse_args()
 
     df = build_subset()
@@ -80,6 +109,16 @@ def main():
           f"{df.qap_name.nunique()} classes ({int(flagged.sum()):,} flagged out)")
 
     rng = np.random.default_rng(args.seed)
+    if args.expand:
+        out = REPO / "data" / "corpus"
+        expansion = draw_expansion(df, args.expand, args.alpha, rng, out)
+        path = out / "train_bulks_expansion.csv"
+        expansion[KEEP_COLS].to_csv(path, index=False)
+        print(f"\nexpansion (alpha={args.alpha:g}): {len(expansion)} bulks -> "
+              f"{path.relative_to(REPO)}")
+        print(expansion.qap_name.value_counts().to_string())
+        return
+
     valtest = draw_tier(df, args.valtest, args.valtest_floor, rng)
     remainder = df[~df.sample_id.isin(valtest.sample_id)]
     train = draw_tier(remainder, args.train, args.train_floor, rng)

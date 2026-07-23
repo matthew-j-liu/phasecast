@@ -236,6 +236,11 @@ techniques:
       - "setting_posterior"
       - "BulkProposal"
       - "draw_conditions_traced"
+  - name: temperature_smoothed_class_sampling
+    type: preprocessing
+    patterns:
+      - "expansion_quotas"
+      - "train_bulks_expansion"
   - name: feldspar_stoichiometric_routing
     type: preprocessing
     patterns:

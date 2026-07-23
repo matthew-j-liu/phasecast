@@ -8,7 +8,12 @@ import numpy as np
 import pandas as pd
 
 from cnmineral.data.magemin_oxides import FE2O3_TO_FEO_MASS
-from cnmineral.data.volcanic_subset import ALKALINE_QAP, VOLCANIC_QAP, total_fe_as_feo
+from cnmineral.data.volcanic_subset import (
+    ALKALINE_QAP,
+    VOLCANIC_QAP,
+    expansion_quotas,
+    total_fe_as_feo,
+)
 
 
 def _fe_frame(**cols):
@@ -40,3 +45,29 @@ def test_qap_vocabulary_invariants():
     assert len(VOLCANIC_QAP) == 25
     assert len(set(VOLCANIC_QAP)) == 25
     assert ALKALINE_QAP < set(VOLCANIC_QAP)   # proper subset; the rest is subalkaline
+
+
+def _quota_frame():
+    idx = ["big", "mid", "rare"]
+    pool = pd.Series([10000, 400, 20], index=idx)
+    have = pd.Series([100, 20, 5], index=idx)
+    avail = pd.Series([9900, 380, 15], index=idx)
+    return pool, have, avail
+
+
+def test_expansion_quotas_budget_caps_and_tail_saturation():
+    pool, have, avail = _quota_frame()
+    q = expansion_quotas(pool, have, avail, budget=1000, alpha=0.5)
+    assert q.sum() == 1000
+    assert (q <= avail).all()
+    assert q["rare"] == avail["rare"]
+
+    prop = expansion_quotas(pool, have, avail, budget=1000, alpha=1.0)
+    assert prop.sum() == 1000
+    assert prop["rare"] <= q["rare"] and prop["big"] >= q["big"]
+
+
+def test_expansion_quotas_budget_beyond_availability():
+    pool, have, avail = _quota_frame()
+    q = expansion_quotas(pool, have, avail, budget=20000, alpha=0.5)
+    assert (q == avail).all()

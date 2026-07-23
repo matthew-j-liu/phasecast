@@ -45,6 +45,39 @@ def total_fe_as_feo(df):
     return feo
 
 
+def expansion_quotas(pool, have, avail, budget, alpha=0.5):
+    """Per-class quotas for adding `budget` bulks to an existing tier.
+
+    Temperature-smoothed allocation (square-root sampling at the default
+    alpha, per Mahajan et al. 2018): each class targets a `pool**alpha` share
+    of the expanded tier, less what it already holds, capped by availability;
+    mass freed by capped classes respills to the open ones by the same
+    weights. `pool`/`have`/`avail` are aligned Series indexed by class;
+    returns integer quotas summing to min(budget, avail.sum()).
+    """
+    w = pool.astype(float) ** alpha
+    target = w / w.sum() * (float(have.sum()) + budget)
+    want = (target - have).clip(lower=0.0)
+    if want.sum() > budget:
+        want = want * (budget / want.sum())
+    grant = np.minimum(want, avail.astype(float))
+    while grant.sum() < budget - 1e-9:
+        headroom = avail - grant
+        open_ = headroom > 1e-9
+        if not open_.any():
+            break
+        add = w[open_] / w[open_].sum() * (budget - grant.sum())
+        grant[open_] = np.minimum(grant[open_] + add, avail[open_].astype(float))
+    total = int(round(grant.sum()))
+    quotas = grant.astype(int)
+    for qap in (grant - quotas).sort_values(ascending=False).index:
+        if quotas.sum() >= total:
+            break
+        if quotas[qap] < avail[qap]:
+            quotas[qap] += 1
+    return quotas
+
+
 def build_subset():
     df = pd.read_parquet(PARQUET)
     df = df[df.rock_group == "igneous"].copy()

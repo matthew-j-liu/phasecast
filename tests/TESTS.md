@@ -159,6 +159,8 @@ rename, or repurpose a test) updates this file in the same change.**
 3. `test_feo_tot_fallback_then_fe2o3_tot` -- with no measured species, `feo_tot` is used first, then `fe2o3_tot` converted.
 4. `test_no_iron_is_nan` -- no Fe column populated returns NaN, not 0.
 5. `test_qap_vocabulary_invariants` -- VOLCANIC_QAP holds exactly 25 distinct names and ALKALINE_QAP is a proper subset.
+6. `test_expansion_quotas_budget_caps_and_tail_saturation` -- temperature-smoothed quotas meet the budget exactly, respect availability, saturate the rare class at alpha=0.5, and shift head-ward at alpha=1.
+7. `test_expansion_quotas_budget_beyond_availability` -- a budget above total availability returns every class at its cap.
 
 ## build/
 
@@ -523,6 +525,11 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_isotropic_reference_is_nearly_isotropic` -- an isotropic Gaussian scores effective-rank fraction near 1 and mean random-pair cosine near 0 (both anisotropy metrics read "isotropic").
 2. `test_rank_one_matrix_collapses_to_effective_rank_one` -- a rank-1 cloud scores effective rank ~1 with >99% variance in the top component (second-order collapse detected).
 3. `test_mean_offset_creates_first_order_cone_removed_by_centering` -- a shared mean offset reads as first-order cone (high pair cosine) that centering removes, while the covariance spectrum stays full-rank.
+
+### test_rare_class_quota.py
+
+1. `test_hybrid_takes_all_tail_then_smooths_the_rest` -- the rejected hybrid candidate exhausts availability-bound classes and allocates the remaining budget by alpha=0.82 smoothing, meeting the budget exactly.
+2. `test_powerlaw_figure_fits_exact_law` -- an exact rank^-2 series recovers slope -2 with R2 ~ 1 and writes a nonempty PNG.
 
 ### test_corpus_scaling.py
 

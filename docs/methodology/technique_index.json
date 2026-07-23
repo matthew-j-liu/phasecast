@@ -357,6 +357,10 @@
     "standard_scaler": [
       "src/cnmineral/eval/probe/primitives.py"
     ],
+    "temperature_smoothed_class_sampling": [
+      "scripts/build/build_corpus_bulk_tables.py",
+      "src/cnmineral/data/volcanic_subset.py"
+    ],
     "trace_conditional_proposal": [
       "src/cnmineral/data/condition_proposal.py"
     ]

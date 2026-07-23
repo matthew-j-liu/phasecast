@@ -4366,3 +4366,49 @@ none).
 `draw_conditions_traced`. When the first post-regen eval lands, define the
 new instrument entry in `ledger.yaml` (measure its noise floor and tie
 band on the 256-draw roster rather than assuming the 1/sqrt(2) scaling).
+
+## 2026-07-23 -- Rare-class quotas locked: alpha=0.5 temperature smoothing
+
+**Q.** How should the regen's ~20k new train bulks divide across the 22
+qap classes, so the allocation is deliberate rather than an incidental
+replay of pool abundance?
+
+**Context.** Eligible pool 324,327 bulks; the big four hold 89%, the
+bottom ten classes have 116-508 bulks total. The current 10k left tail
+classes at 32-44 bulks each, and #27 measured rare-phase skill (garnet)
+still data-limited at 10k while #41 named corpus enrichment the
+remaining presence lever. Class abundance is power-law shaped
+(rank-frequency slope -2.59, R2 0.948), which makes temperature
+smoothing (quota ~ pool^alpha) the natural single-knob family: it maps
+a power-law pool to a power-law corpus with slope scaled by alpha.
+Analysis + candidate tables in `explorations/rare_class_quota/`.
+
+**Considered.** Proportional (alpha=1: tail gets literally zero new
+bulks). The marginal-utility optimum alpha = 1/(1+b) = 0.82 from the
+#27 scaling exponent under frequency-weighted loss (rejected: "optimal"
+for the headline but isolates the rare classes -- bottom ten get ~250
+new bulks, smallest class frozen at 32). Take-all-tail + alpha=0.82
+hybrid (rejected: the hard cutoff makes final counts non-monotone in
+abundance -- foid-bearing trachyte ends at 502 while the more abundant
+alkali feldspar rhyolite ends at 162). Uniform / alpha<0.5 (no benefit:
+tail is availability-bound below alpha ~ 0.5, the knob only reshuffles
+head vs middle).
+
+**Decision.** alpha = 0.5 (square-root sampling: published precedent in
+Mahajan et al. 2018; word2vec 0.75 / XLM-R 0.3 bracket it),
+availability-capped, monotone by construction, ~95% of the maximum
+possible tail rescue with saturation emergent rather than imposed.
+Owner condition: the paper appendix shows the candidate table and this
+reasoning. Landed: `expansion_quotas` in
+`cnmineral.data.volcanic_subset` (tested), `--expand` mode on
+`build_corpus_bulk_tables.py`, official table
+`data/corpus/train_bulks_expansion.csv` (20k at seed 20260714: big four
++10.3k, middle eight +7.6k, bottom ten +2.1k with 8/10 exhausted,
+smallest class 32 -> 111). The locked item is the rule (alpha=0.5 +
+caps); the budget flexes with actual weekend hours. Side checks:
+measured-Fe-pair share in the tail (22-58%) matches the head, and tail
+exhaustion costs no NERSC headroom -- gard2019 has no more of these
+classes at any scale.
+
+**Next.** #45 shape sign-off, then generator wiring
+(`draw_conditions_traced` + redox stamping) and launch.
