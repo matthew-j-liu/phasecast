@@ -111,9 +111,10 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_input_tokens_match_bulk_chemistry` -- the item's src/frac equal the `BulkChemistryDataset` row for the same sample id (inputs come from the original bulk chemistry, never per-draw oxides).
 3. `test_unresolvable_bulk_dropped` -- a corpus bulk id absent from the chemistry table is dropped with a printed count, not an error.
 4. `test_bulk_ids_filter_restricts_rows` -- the `bulk_ids` filter keeps only the requested bulks' label rows and raises when the filter empties the corpus.
-5. `test_joint_dataset_shapes_and_dtypes` -- `JointHeadDataset` items add comp/cond targets and closure fixings with the right shapes, float32 dtypes, and simplex comp rows.
-6. `test_joint_dataset_cond_join_matches_draws` -- per-row (T_end, P_kbar, H2O) targets join the correct draws-table row for each (draw, rung).
-7. `test_joint_dataset_rung50_closure_identity` -- true modes x comp targets plus teacher-forced melt/fluid fixings reconstruct `bulk_11` on rung-50 rows to eps-clip precision.
+5. `test_draw_limit_filter_restricts_rows` -- `draw_limit` keeps only rows with draw id below it (per-bulk draw subsample), leaves the bulk set intact, and raises when it empties the corpus.
+6. `test_joint_dataset_shapes_and_dtypes` -- `JointHeadDataset` items add comp/cond targets and closure fixings with the right shapes, float32 dtypes, and simplex comp rows.
+7. `test_joint_dataset_cond_join_matches_draws` -- per-row (T_end, P_kbar, H2O) targets join the correct draws-table row for each (draw, rung).
+8. `test_joint_dataset_rung50_closure_identity` -- true modes x comp targets plus teacher-forced melt/fluid fixings reconstruct `bulk_11` on rung-50 rows to eps-clip precision.
 
 ### test_valtest_split.py
 
@@ -513,3 +514,11 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_isotropic_reference_is_nearly_isotropic` -- an isotropic Gaussian scores effective-rank fraction near 1 and mean random-pair cosine near 0 (both anisotropy metrics read "isotropic").
 2. `test_rank_one_matrix_collapses_to_effective_rank_one` -- a rank-1 cloud scores effective rank ~1 with >99% variance in the top component (second-order collapse detected).
 3. `test_mean_offset_creates_first_order_cone_removed_by_centering` -- a shared mean offset reads as first-order cone (high pair cosine) that centering removes, while the covariance spectrum stays full-rank.
+
+### test_corpus_scaling.py
+
+1. `test_hash_order_deterministic_and_input_order_independent` -- the md5 roster order is a fixed permutation of the ids regardless of input order.
+2. `test_hash_order_prefixes_nest` -- a shorter prefix of the hash order is a strict subset of a longer one (the nested-subset ladder contract).
+3. `test_point_config_overrides_only_the_subset_keys` -- per-point configs change only checkpoint dir + subset knobs, drop stale subset keys from the base, and leave the base dict untouched.
+4. `test_point_record_parses_both_axes` -- `corpus_scaling_n*` / `corpus_scaling_d*` tags parse into bulk/draw axis coordinates with the right nominal row counts and per-phase metrics.
+5. `test_last_doubling_deltas` -- the slope table compares the two largest bulk points only (draw points excluded) and is empty with fewer than two.

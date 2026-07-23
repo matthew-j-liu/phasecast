@@ -68,7 +68,9 @@ class JointHeadDataset(Dataset):
     the CondHead (T_end, P_kbar, H2O) targets, and the teacher-forced
     mass-balance fixings from `load_joint_labels`. `bulk_ids` restricts label
     rows to those bulks (how the trainer and eval harness select a valtest
-    roster subset); default keeps every corpus bulk.
+    roster subset); `draw_limit` keeps only draws with id below it (draw ids
+    are 0..n-1 per bulk, so this is a per-bulk draw subsample); default keeps
+    every corpus row.
     """
 
     def __init__(
@@ -79,17 +81,26 @@ class JointHeadDataset(Dataset):
         comp_eps: float = 1e-4,
         data_kwargs: dict | None = None,
         bulk_ids: np.ndarray | None = None,
+        draw_limit: int | None = None,
     ) -> None:
         self.presence_cutoff = presence_cutoff
         self.comp_eps = comp_eps
         labels = load_joint_labels(corpus_dir, rungs, comp_eps)
         index = labels["index"]
+        # keep is our own buffer; in-place &= on a pandas .to_numpy() result
+        # can raise "output array is read-only"
         keep = np.ones(len(index), dtype=bool)
         if bulk_ids is not None:
-            keep = index["bulk"].isin({int(b) for b in bulk_ids}).to_numpy()
+            keep &= index["bulk"].isin({int(b) for b in bulk_ids}).to_numpy()
             if not keep.any():
                 raise ValueError(
                     f"no label rows for the requested bulk_ids under {corpus_dir}"
+                )
+        if draw_limit is not None:
+            keep &= (index["draw"] < int(draw_limit)).to_numpy()
+            if not keep.any():
+                raise ValueError(
+                    f"no label rows left under draw_limit={draw_limit} in {corpus_dir}"
                 )
 
         corpus_ids = np.sort(index["bulk"][keep].unique())

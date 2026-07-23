@@ -85,6 +85,23 @@ def test_bulk_ids_filter_restricts_rows(
         )
 
 
+def test_draw_limit_filter_restricts_rows(
+    corpus_subset_path, synthetic_joint_corpus, tmp_path
+):
+    chem = BulkChemistryDataset(
+        csv_path=str(corpus_subset_path), require_all_majors=False, **_DATA_KWARGS
+    )
+    bulk_ids = [int(s) for s in chem.sample_ids[:2]]
+    corpus_dir = synthetic_joint_corpus(tmp_path / "corpus", bulk_ids)
+    data_kwargs = {"csv_path": str(corpus_subset_path), **_DATA_KWARGS}
+    # draw 0 carries rungs 50+30; draw 1 only rung 50 -- limit keeps 2 rows/bulk
+    ds = JointHeadDataset(corpus_dir, data_kwargs=data_kwargs, draw_limit=1)
+    assert len(ds) == 2 * len(bulk_ids)
+    assert sorted(ds.bulk_ids.tolist()) == sorted(bulk_ids)
+    with pytest.raises(ValueError, match="draw_limit"):
+        JointHeadDataset(corpus_dir, data_kwargs=data_kwargs, draw_limit=0)
+
+
 def test_joint_dataset_shapes_and_dtypes(
     corpus_subset_path, synthetic_joint_corpus, tmp_path
 ):

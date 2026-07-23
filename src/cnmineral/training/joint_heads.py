@@ -259,7 +259,10 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
     `cond_sigma_eps`, the four loss weights, `weight_decay`,
     `early_stop_patience` (per-head: stop once every head is this many
     epochs past its own best), `seed`, `data_kwargs`,
-    `head_checkpoint_dir` + `head_checkpoint_filename`.
+    `head_checkpoint_dir` + `head_checkpoint_filename`, and the train-tier
+    subset knobs `train_bulk_ids` (path to a CSV with a `sample_id` column)
+    + `train_draw_limit` (keep draws with id below it) -- both stamped into
+    `label_config` when set.
     """
     encoder_ckpt_path = config["encoder_checkpoint"]
     encoder, enc_ckpt = load_encoder_from_checkpoint(encoder_ckpt_path)
@@ -277,12 +280,24 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         "presence_cutoff": config.get("presence_cutoff"),
         "comp_eps": float(config.get("comp_eps", 1e-4)),
     }
+    if config.get("train_bulk_ids"):
+        label_config["train_bulk_ids"] = str(config["train_bulk_ids"])
+    if config.get("train_draw_limit"):
+        label_config["train_draw_limit"] = int(config["train_draw_limit"])
     dataset_kwargs = {
         k: v for k, v in label_config.items()
-        if k != "valtest_corpus_dir" and v is not None
+        if k not in ("valtest_corpus_dir", "train_bulk_ids", "train_draw_limit")
+        and v is not None
     }
+    train_bulk_ids = None
+    if "train_bulk_ids" in label_config:
+        roster = pd.read_csv(label_config["train_bulk_ids"])
+        train_bulk_ids = roster["sample_id"].to_numpy(dtype=np.int64)
     train_ds = JointHeadDataset(
-        **dataset_kwargs, data_kwargs=config.get("data_kwargs")
+        **dataset_kwargs,
+        data_kwargs=config.get("data_kwargs"),
+        bulk_ids=train_bulk_ids,
+        draw_limit=label_config.get("train_draw_limit"),
     )
     label_config["presence_cutoff"] = float(train_ds.presence_cutoff)
     val_ds = JointHeadDataset(

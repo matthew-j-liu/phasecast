@@ -4183,3 +4183,57 @@ component of exposure bias remains separately tracked by
 **Next.** Per the pre-regen queue: #27, then the #47 build (pattern
 library + exact weights + coarsening and threshold-semantics decisions
 + prediction-set eval), #18, (#40), #48 dry run, close #45, regen.
+
+## 2026-07-23 -- N-scaling (#27): bulks are where the nats are; draws flat past ~24; regen re-shaped by NeurIPS deadline
+
+**Q.** How does joint-heads quality scale with training-bulk count, and
+does the bulks-vs-draws split justify the regen shape -- now under a
+changed constraint set: NERSC down for weeks, NeurIPS submission in ~5
+weeks, so the regen is a ~60 h laptop weekend (~875k draws at the
+measured ~4 draws/s), not the 10x HPC run.
+
+**Context.** `explorations/corpus_scaling/`: nested md5-hash bulk
+subsets (625/1250/2500/5000/10000, prefixes nest by construction),
+standard config retrained per point (joint heads + support-conditioned
+magnitude, 120 epochs, seed 0), scored on the committed 222-bulk val
+roster; plus draws-axis points at full bulks (24, 12 of the 48).
+Reusable knobs added to the trainer (`train_bulk_ids`,
+`train_draw_limit`, stamped into `label_config` when set). Full-N point
+reproduces production `joint_heads_supportmag_seed0` to 4 decimals --
+subset plumbing validated.
+
+**Considered.** Pure log-linear fit (rejected: misses by 0.06 nats;
+per-doubling gains shrink 0.42 -> 0.24) vs saturating power law
+`L_inf + a*N^-b` (adopted: fits within 0.02, b = 0.225, floor ~ -3.9
+but poorly constrained by 5 points / 1 seed -- planning-grade).
+Draws-heavy regen shapes 15k x 48 / 10k x 72 (rejected: draws axis
+measured flat -- 12/24/48 spans 0.08 nats non-monotonically while a
+bulk doubling is worth 0.25-0.3; at matched rows all-bulks-fewer-draws
+wins by 0.3-0.5 nats). 60k x 12 (rejected: 12 draws shows the one
+visible cost, CondHead ~0.06 nats/doubling -- draws are the (P, H2O)
+variation itself -- and thins the within-bulk multimodality margin).
+Reusing old broad-proposal draws next to new trace-conditional draws
+(rejected: the within-bulk distribution IS the proposal; mixing two
+proposals contaminates the posterior the regen is fixing). Dense-draw
+sub-tier insurance (~1k bulks x 96; deferred: two-tier bookkeeping in
+deadline crunch, insurance against a risk the narrower proposal should
+reduce).
+
+**Decision.** Per-phase verdicts: garnet data-limited (pf_r 0.66 ->
+0.83, still climbing); spinel weakly data-limited but structurally
+capped (~0.70 pf_r; #46 redox token is the lever); amphibole not
+data-limited (flat across the ladder; #25 mixture question); ilmenite
+saturated. Sizing input to #45: allocate to bulks at 24 draws/bulk --
+recommended weekend shape ~30k bulks x 24, keeping the existing 10k
+train bulks and the sealed 500-bulk valtest roster (regenerated under
+the new proposal, valtest at 256 draws), rare-class quotas on the new
+bulks. Caveat: the 24-draw knee was measured under the broad proposal;
+the #48 dry run checks it under the trace-conditional one. Owner locks
+the final shape on #45.
+
+**Next.** Compressed pre-Saturday queue: #48 dry run (proposal check,
+sampler-level, fast), valtest-256 instrument bookkeeping, rare-class
+quota list, lock #45 shape, launch generation. #47 build and #18 slip
+past the weekend (don't gate generation; val-roster NLL +
+interrogation harness are the frozen instrument). Redox token is
+model-side, rides the regen's encoder re-pretrain.
