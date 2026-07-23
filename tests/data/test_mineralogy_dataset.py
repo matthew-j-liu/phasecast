@@ -27,6 +27,7 @@ def test_rows_and_target_shapes(corpus_subset_path, synthetic_joint_corpus, tmp_
     ds, _, bulk_ids = _dataset(corpus_subset_path, synthetic_joint_corpus, tmp_path)
     # 3 label rows per bulk: draw 0 at rungs 50+30, draw 1 at rung 50
     assert len(ds) == 3 * len(bulk_ids)
+    assert ds.draws_per_bulk == 2.0
     item = ds[0]
     assert item["presence"].shape == (N_PHASES,)
     assert item["magnitude"].shape == (N_PHASES,)

@@ -186,7 +186,9 @@ def run_cond_head_eval(
     lc = ckpt.label_config
     cond_head = ckpt.build_cond_head().to(device)
     mode_head = ckpt.build_mode_head().to(device)
-    split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
+    split_tag = (
+        f"val ({len(dataset.bulk_ids)} bulks, {dataset.draws_per_bulk:.0f} draws/bulk)"
+    )
 
     row_bulk = dataset.row_bulk_idx.numpy()
     presence = dataset.presence.numpy()

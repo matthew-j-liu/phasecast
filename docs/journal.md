@@ -4325,3 +4325,44 @@ working, not a defect.
 **Next.** Remaining pre-Saturday queue: valtest-256 instrument
 bookkeeping, rare-class quota list, #45 shape lock, then wire
 `draw_conditions_traced` into the generator at the regen build.
+
+## 2026-07-23 -- Instrument bookkeeping: segmented trajectories, no cross-instrument re-measurement
+
+**Q.** The regen doubles valtest draws (128 -> 256, noise floor 0.024 ->
+~0.017) and replaces the broad proposal with the trace-conditional one, so
+every ledger number is measured on a ruler that is about to change. How
+does the version ledger survive the swap?
+
+**Context.** `results/ledger.yaml` held four versions measured on the
+current instrument, and its header promised the opposite convention
+(re-measure old versions whenever the instrument changes). Re-measuring
+would conflate distribution shift with model quality: old checkpoints were
+trained against old-proposal draws, and the within-bulk distribution IS
+the proposal.
+
+**Considered.** Re-measure the three readable checkpoints on the new
+valtest for one continuous trajectory (rejected: forces a comparison that
+is never apples-to-apples, and the standalone-modehead checkpoint is
+unreadable so the trajectory would lose its first point anyway). A one-off
+bridge eval of the production checkpoint on the new instrument to price
+the world-shift (withdrawn: the real-rock benchmark is the common test set
+that ultimately compares era-best models -- tuned on real data, judged on
+real data -- so no synthetic-corpus bridge is needed).
+
+**Decision.** Record which ruler measured what; never compare across
+rulers. `ledger.yaml` gains an `instruments:` block (roster, draws/bulk,
+proposal, noise floor, tie band -- the durable home for those constants)
+and a per-entry `instrument` stamp; entries are never re-measured on a
+later instrument. `eval/trajectory.py` validates the stamp and draws one
+disconnected segment per instrument (dotted boundary, per-era labels); the
+first post-regen model is point 1 of the new instrument's segment, not
+point 5 of the old one. Cross-instrument model comparison is the real-rock
+benchmark's job. Also un-hardcoded the "128 draws/bulk" eval figure tags:
+`JointHeadDataset` now exposes `draws_per_bulk` and the three head evals
+derive the tag from it (the only 128s found outside display strings were
+none).
+
+**Next.** Rare-class quota list, #45 shape sign-off, generator wiring of
+`draw_conditions_traced`. When the first post-regen eval lands, define the
+new instrument entry in `ledger.yaml` (measure its noise floor and tie
+band on the 256-draw roster rather than assuming the 1/sqrt(2) scaling).

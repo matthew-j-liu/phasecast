@@ -116,7 +116,7 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_mineralogy_dataset.py
 
-1. `test_rows_and_target_shapes` -- one item per (bulk, draw, rung) label row with 21-phase presence/magnitude targets; present magnitudes sum to 1, absent are exactly 0.
+1. `test_rows_and_target_shapes` -- one item per (bulk, draw, rung) label row with 21-phase presence/magnitude targets; present magnitudes sum to 1, absent are exactly 0; `draws_per_bulk` reports the fixture's 2 draws.
 2. `test_input_tokens_match_bulk_chemistry` -- the item's src/frac equal the `BulkChemistryDataset` row for the same sample id (inputs come from the original bulk chemistry, never per-draw oxides).
 3. `test_unresolvable_bulk_dropped` -- a corpus bulk id absent from the chemistry table is dropped with a printed count, not an error.
 4. `test_bulk_ids_filter_restricts_rows` -- the `bulk_ids` filter keeps only the requested bulks' label rows and raises when the filter empties the corpus.
@@ -449,8 +449,8 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_trajectory.py
 
-1. `test_load_ledger_validates_schema` -- a well-formed ledger loads in order; missing keys, unknown head names, and a head lacking its headline NLL each raise.
-2. `test_build_trajectory_figure_smoke` -- a 2-entry ledger (one version missing comp/cond) renders a nonempty PNG.
+1. `test_load_ledger_validates_schema` -- a well-formed two-instrument ledger loads in order; missing keys (including the instrument stamp), unknown head names, a head lacking its headline NLL, and an instrument absent from the `instruments:` block each raise.
+2. `test_build_trajectory_figure_smoke` -- a 3-entry ledger spanning two instruments (one version missing comp/cond) renders a nonempty PNG.
 
 ### test_training_curves.py
 

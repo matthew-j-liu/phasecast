@@ -1010,7 +1010,9 @@ def run_mode_head_eval(
     head = ckpt.build_mode_head().to(device)
     lc = ckpt.label_config
     val_bulk_ids = load_valtest_split("val")
-    split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
+    split_tag = (
+        f"val ({len(dataset.bulk_ids)} bulks, {dataset.draws_per_bulk:.0f} draws/bulk)"
+    )
 
     with torch.no_grad():
         logits_bulk = head.presence_logits(latents)

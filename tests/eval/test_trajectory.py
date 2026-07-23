@@ -4,22 +4,38 @@ import yaml
 from cnmineral.eval.trajectory import build_trajectory_figure, load_ledger
 
 GOOD = {
+    "instruments": {
+        "valtest128-broad": {"draws_per_bulk": 128, "tie_band_nats": 0.03},
+        "valtest256-traced": {"draws_per_bulk": 256},
+    },
     "versions": [
         {
             "version": "standalone-modehead", "date": "2026-07-18",
             "checkpoint_tag": "mode_head_seed0", "changes": "first head",
+            "instrument": "valtest128-broad",
             "heads": {"mode": {"joint_nll": -1.0}},
         },
         {
             "version": "joint-tuned", "date": "2026-07-20",
             "checkpoint_tag": "joint_heads_seed0", "changes": "tuned",
+            "instrument": "valtest128-broad",
             "heads": {
                 "mode": {"joint_nll": -1.2},
                 "comp": {"comp_nll": -53.9},
                 "cond": {"cond_nll": 8.3},
             },
         },
-    ]
+        {
+            "version": "regen-baseline", "date": "2026-07-28",
+            "checkpoint_tag": "joint_heads_regen_seed0", "changes": "new corpus",
+            "instrument": "valtest256-traced",
+            "heads": {
+                "mode": {"joint_nll": -1.1},
+                "comp": {"comp_nll": -52.0},
+                "cond": {"cond_nll": 8.0},
+            },
+        },
+    ],
 }
 
 
@@ -32,19 +48,30 @@ def _write(tmp_path, payload):
 
 def test_load_ledger_validates_schema(tmp_path):
     entries = load_ledger(_write(tmp_path, GOOD))
-    assert [e["version"] for e in entries] == ["standalone-modehead", "joint-tuned"]
+    assert [e["version"] for e in entries] == [
+        "standalone-modehead", "joint-tuned", "regen-baseline"
+    ]
 
-    bad = {"versions": [{**GOOD["versions"][0]}]}
+    bad = {**GOOD, "versions": [{**GOOD["versions"][0]}]}
     del bad["versions"][0]["heads"]
     with pytest.raises(ValueError, match="missing"):
         load_ledger(_write(tmp_path, bad))
 
-    bad = {"versions": [dict(GOOD["versions"][0], heads={"volume": {}})]}
+    bad = {**GOOD, "versions": [dict(GOOD["versions"][0], heads={"volume": {}})]}
     with pytest.raises(ValueError, match="unknown heads"):
         load_ledger(_write(tmp_path, bad))
 
-    bad = {"versions": [dict(GOOD["versions"][0], heads={"mode": {"nll": 1.0}})]}
+    bad = {**GOOD, "versions": [dict(GOOD["versions"][0], heads={"mode": {"nll": 1.0}})]}
     with pytest.raises(ValueError, match="lacks"):
+        load_ledger(_write(tmp_path, bad))
+
+    bad = {**GOOD, "versions": [{**GOOD["versions"][0]}]}
+    del bad["versions"][0]["instrument"]
+    with pytest.raises(ValueError, match="missing.*instrument"):
+        load_ledger(_write(tmp_path, bad))
+
+    bad = {**GOOD, "versions": [dict(GOOD["versions"][0], instrument="valtest9-x")]}
+    with pytest.raises(ValueError, match="not defined"):
         load_ledger(_write(tmp_path, bad))
 
 

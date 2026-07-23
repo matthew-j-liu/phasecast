@@ -299,7 +299,9 @@ def run_comp_head_eval(
     print(f"output:  {output_dir}")
 
     comp_head = ckpt.build_comp_head().to(device)
-    split_tag = f"val ({len(dataset.bulk_ids)} bulks, 128 draws/bulk)"
+    split_tag = (
+        f"val ({len(dataset.bulk_ids)} bulks, {dataset.draws_per_bulk:.0f} draws/bulk)"
+    )
 
     alpha_bulk = comp_head(latents).cpu().numpy()
     row_bulk = dataset.row_bulk_idx.numpy()

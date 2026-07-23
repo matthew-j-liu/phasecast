@@ -109,6 +109,7 @@ class JointHeadDataset(Dataset):
         )
         keep &= index["bulk"].isin(set(resolved.tolist())).to_numpy()
         self.bulk_ids = resolved
+        self.draws_per_bulk = float(index[keep].groupby("bulk")["draw"].nunique().mean())
 
         bulk_pos = {int(b): i for i, b in enumerate(resolved)}
         self.row_bulk_idx = torch.tensor(
