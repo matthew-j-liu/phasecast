@@ -135,13 +135,23 @@ Three corpora, all generated upstream of the model:
    `qap_name` in a class of >=25; see `bulk_chemistry.py` for the walk).
    Inputs only (no labels). Used for masked-element pretraining. An earlier
    ~474k figure corresponded to a looser pre-Fe-convention filter (JOURNAL
-   2026-06-04).
+   2026-06-04). Decided 2026-07-23 for the next re-pretrain (the one the
+   #46 redox token already forces): relax to the Fe fallback chain and
+   drop the igneous filter (~737k bulks, all rock types). Strict Fe pairs
+   matter for MAGEMin label generation, not for encoder pretraining --
+   the redox nuance the pair carries moves into the optional redox input
+   token, fed where measured and padded elsewhere. Guardrails and
+   stratification changes in #24; JOURNAL 2026-07-23.
 
-2. **Supervised corpus (v3)**: per-bulk × N FC paths with per-path
-   (T_FC_end, P, H2O, modal_18, per-phase composition, supergroup label,
-   optional G_sys). Generated via the v3 corpus regen that's behind the
-   pilot tests in `~/.claude/plans/sunny-weaving-nebula.md`. Approximate
-   shape: 22k bulks × 8 paths = 178k rows for the supervised loss.
+2. **Supervised corpus**: gard2019 bulks with MAGEMin FC labels, chunked
+   parquet under `data/corpus/{train,valtest}/`. Shipped shape (2026-07-17
+   regen): 10,000 train bulks × 48 draws + 500 valtest bulks × 128 draws;
+   each draw's ladder is read out at the locked rungs 50/30, one row per
+   (bulk, draw, rung) -> ~960k train / ~128k valtest rows for the
+   supervised loss. Per-row targets: T, P, H2O, solid modes over the
+   21-phase vocabulary, per-phase oxide composition. The committed
+   val/test roster (`cnmineral/data/valtest_split.csv`) covers 499 of the
+   valtest bulks, 221 val / 278 test.
 
 3. **Held-out evaluation corpora**: real-rock targets (mineralML grains at
    `data/grains/mineralml.csv` for CompHead evaluation; EDS maps if available)
