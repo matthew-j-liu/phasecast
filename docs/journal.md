@@ -4132,3 +4132,54 @@ eval layer's padded-redox calibration check + redox-availability-
 stratified reporting (real rocks mostly report total Fe, so the padded
 regime is the deployment regime). The input change rides the regen's
 encoder re-pretrain. Then #47 step 0 per the pre-regen queue.
+
+## 2026-07-22 -- Lineup coherence (#47 step 0): off-corpus mass is material, the observed-pattern restriction is nearly free
+
+**Q.** `sample_assemblages` draws each phase's presence Bernoulli
+independently, so it can compose lineups the corpus never pairs; the
+magnitude branch was trained teacher-forced on true supports only. How
+much sampled assemblage mass lands on patterns appearing zero times
+among the bulk's truth draws, and zero times corpus-wide -- and what
+would restricting to corpus-observed patterns cost?
+
+**Context.** `explorations/lineup_coherence/run_measurement.py`, val
+roster (222 bulks), production checkpoint
+`joint_heads_supportmag_seed0`. Off-menu mass computed exactly
+(closed-form Bernoulli products over a pattern library, renormalized
+for the sampler's empty-support rejection); 2000-draw MC cross-check
+agrees within binomial noise (max dev 0.030, sd 0.011). Libraries:
+bulk's own truth draws (pooled rungs, matching the rung-blind p),
+train-tier observed patterns (5763 unique across 10k bulks), train +
+val-truth union (5871).
+
+**Considered.** Monte-Carlo measurement (rejected: the exact sum over a
+finite library is cheaper and noise-free, and is itself the mitigation
+math). Coarsened pattern identity (deferred: #47 design decision 1 is
+downstream; this measurement is exact-21-phase by construction).
+
+**Decision.** Material, by the issue's pre-registered criterion. Mean
+10.7% of sampler mass (median 8.1%, p90 22.5%, max 48.4%) lands on
+patterns never observed in the train tier -- pure extrapolation for the
+support-conditioned magnitude branch and dead weight in a ranked
+scenario list; union library barely differs (10.5%). It concentrates
+where the product matters: off-train mass rises monotonically with the
+count of intermediate-probability phases (0.001 -> 0.028 -> 0.058 ->
+0.123), worst in rhyolites (top offenders 0.34-0.48). The mitigation
+cost is negligible: only 0.6% of truth-draw mass (mean; max 17.6%, one
+foid-bearing latite) sits outside the train library. Off-own-menu mass
+is much larger (mean 65%) but ~55 points of it is corpus-plausible
+patterns absent from the bulk's finite 128-draw menu -- accessory
+flicker territory, the coarsening decision's problem, not the
+coherence filter's. Bonus confirmed feasible: with a 5763-pattern
+library, scenario weights become exact (one [5763 x 21] matmul per
+bulk), removing MC noise from the #47 ranking. Adopting the heads.md
+mitigation for the #47 build: restrict sampled lineups to
+train-observed patterns and renormalize; report the per-bulk excluded
+truth share rather than hiding it. This realizes mitigation 1 on #31's
+ladder (incoherent sets removed exactly); the distribution-shift
+component of exposure bias remains separately tracked by
+`exposure_bias_nll_delta`.
+
+**Next.** Per the pre-regen queue: #27, then the #47 build (pattern
+library + exact weights + coarsening and threshold-semantics decisions
++ prediction-set eval), #18, (#40), #48 dry run, close #45, regen.
