@@ -85,3 +85,9 @@ noise the learners train against) and/or more bulks. Whether that enrichment is
 worth scheduling, and the residual hypothesis for spl (fO2 assigned
 class-conditionally injects variance the input cannot see), are owner calls
 recorded in the journal when this investigation closes.
+
+Follow-up (2026-07-22): the residual hypothesis was confirmed and priced by
+`explorations/fe_redox_attribution` -- the binding constraint was the input
+basis, not corpus size; the excess-oxygen column alone moves the spinel
+ceiling 0.159 -> 0.059. Verdict revision recorded on #41; the redox input
+token adopted on #45 supersedes the enrichment lever for this failure.
