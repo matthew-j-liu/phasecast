@@ -462,6 +462,15 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_build_raw_representations_shapes_and_absent_fill` -- the raw-frac and std-log test matrices are `[n_test, N_TOKENS]` and finite, and absent elements are filled with the neutral standardized 0.
 2. `test_build_raw_representations_standardization_matches_train_stats` -- std-log on populated positions equals `(log10(frac) - mean) / std` from the train-split stats, and raw-frac is the unmodified frac.
 
+### test_fe_redox_attribution.py
+
+1. `test_anhydrous_basis_drops_h2o_and_renormalizes` -- per-bulk features from `bulk_11` drop the per-draw H2O column, renormalize to sum 1, and recover the bulk-constant anhydrous vector.
+2. `test_anhydrous_basis_rejects_within_bulk_variation` -- anhydrous chemistry that varies across a bulk's rows raises instead of silently averaging (the feature basis contract).
+3. `test_without_excess_o_renormalizes_away_the_deficit` -- dropping the excess-O column renormalizes the remaining oxides so a tree can't read the redox column back off the row-sum deficit.
+4. `test_provenance_by_bulk_join_contract` -- the draws-table join returns one `fe_provenance` per bulk and raises on conflicting stamps.
+5. `test_group_slices_partitions_and_scores` -- group slicing partitions bulks by label and scores each group's MAE independently.
+6. `test_bootstrap_delta_ci_sign_and_null` -- the bootstrap CI on the MAE delta collapses to (0, 0) under zero error, hits the exact delta for constant errors, and stays off zero for a real gap.
+
 ### test_presence_fraction_ceiling.py
 
 1. `test_log_feature_matrix_nan_exactly_where_absent` -- populated entries map to log10(frac) and absent entries become NaN (XGBoost native-missing input feature).

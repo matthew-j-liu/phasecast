@@ -4068,3 +4068,67 @@ groups are 11% of groups vs 41% still shifted). #25 possibly contributes
 a regen line item to #45: narrower trace-conditional (P, H2O) sampling
 shrinks the within-support spread the mixture would chase. #46 redox and
 #18 real-rock transfer remain the queued measurements.
+
+## 2026-07-22 -- Fe redox attribution (#46): invisibility confirmed, one column recovers most of it
+
+**Q.** The ceiling probe left spinel worst at the raw-chemistry ceiling
+itself (per-bulk presence-fraction MAE 0.159 vs 0.024 binomial floor)
+with fO2 as the residual hypothesis: the generator saw an Fe3+/Fe2+
+split per bulk, the input carries only total Fe. Is redox invisibility
+the driver, and how much is recoverable?
+
+**Context.** Two measurements in `explorations/fe_redox_attribution`
+(reusing the ceiling probe's targets, XGB protocol, and scoring; new
+production checkpoint `joint_heads_supportmag_seed0`). (1) Per-bulk
+errors sliced by `fe_provenance` (measured vs Middlemost class-assumed,
+stamped in the corpus draws tables), on the val roster and a 2k-bulk
+train holdout. (2) The XGB ceiling arm re-run under the generator's own
+anhydrous 10-oxide basis with (`bulk10`) and without (`bulk9`) its
+excess-oxygen column, plus the current input with excess-O appended
+(`token22_xo`). Anchor reproduced (token22 spl 0.159).
+
+**Considered.** Class-composition confound (measured provenance skews
+old wet-chemistry mafic): ruled out -- the measured-group penalty
+persists within every supergroup with n >= 20 per side. Label-noise
+confound (measured labels merely noisier): ruled out -- per-group
+binomial floors are equal (0.038-0.041); the penalty is discrimination
+loss (r 0.54 vs 0.90). Base-rate confound: group mean f differs 0.59 vs
+0.53, far too small for a 2x MAE ratio.
+
+**Decision.** Redox invisibility confirmed as the spinel driver, and it
+is mostly recoverable from one scalar. Val spl MAE: token22 0.159,
+bulk9 0.158, bulk10 0.059 (r +0.94), token22_xo 0.072 -- removing
+excess-O from the generator basis reproduces the 22-token ceiling to
+0.001, and appending it to the current input recovers ~87% of the gap.
+Gains are corpus-wide across Fe-bearing phases (ilm 0.118 -> 0.072, ol
+0.040 -> 0.023, g 0.041 -> 0.027, plus ru/ep/cpx/opx), with bulk9 ~
+token22 throughout; excess-O is the rank-1 spl feature in both redox
+bases. Provenance split (holdout): measured +0.109 MAE over
+assumed_class under token22 (CI [+0.094, +0.122]), collapsing to +0.023
+under bulk10 on the identical bulks. Side finding: assumed_class bulks
+also improve (0.109 -> 0.053) -- the class ratio keys on `qap_name`,
+which chemistry does not fully determine, so even rule-assigned redox
+is partly input-invisible. Residual: measured group still ~2x floor
+under bulk10 (0.076 vs 0.039). Status-quo option is dead on these
+numbers; the input-vs-sampled-condition call is the owner's, recorded
+on #45. Also revises the ceiling probe's verdict: "the corpus is the
+ceiling" was true of the 22-token input, but the binding constraint was
+the input basis, not corpus size or draw noise.
+
+**Next.** Owner call, same day: promote Fe redox to an optional input
+token at the regen, uniform optional-token semantics -- fed where the
+generator saw a value, padded/masked otherwise, unknown-redox inference
+marginalizing implicitly through the probabilistic heads. No explicit
+inference-time redox path: imputation readout and pin-and-sweep fall
+out of the generic token machinery, and inference-time redox sampling
+would duplicate what calibrated heads carry in one pass (a special
+path would also imply redox outranks every other missing token, which
+nothing measured). The distinction that earns redox the slot at all:
+it is the only generator input that was not a model input; missing
+traces create no label-input inconsistency because MAGEMin never
+consumed them. Spec knobs deferred to #45: token parameterization,
+fed-vs-padded for class-assumed bulks, train-time mask rate, and the
+eval layer's padded-redox calibration check + redox-availability-
+stratified reporting (real rocks mostly report total Fe, so the padded
+regime is the deployment regime). The input change rides the regen's
+encoder re-pretrain. Then #47 step 0 per the pre-regen queue.

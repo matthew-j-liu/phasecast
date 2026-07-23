@@ -338,7 +338,7 @@ def run_ceiling_probe(
 
     mode_head = ckpt.build_mode_head().to(device)
     with torch.no_grad():
-        logits, _alpha = mode_head(val_lat)
+        logits = mode_head.presence_logits(val_lat)
     p_head = torch.sigmoid(logits).cpu().numpy()
 
     lc = ckpt.label_config
