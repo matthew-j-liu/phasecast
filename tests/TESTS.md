@@ -69,6 +69,15 @@ rename, or repurpose a test) updates this file in the same change.**
 8. `test_lhs_stratifies_p_marginal` -- with n draws, every one of the n equal P strata contains exactly one draw.
 9. `test_importance_weights_recover_support_area` -- `E_q[1/q]` recovers the area of the bounded region, tying sampler and density together.
 10. `test_draws_deterministic_under_seed` -- same seed, same draws.
+11. `test_setting_posterior_sums_to_one_and_orders` -- arc-like traces give arc-dominant setting weights, depleted give ridge-dominant, both summing to 1.
+12. `test_cascade_rung_selection` -- missing Th routes to the Ti-V rung, Nb/Y-only leaves subalkaline mass on fallback, no usable ratio yields `rung=None` all-fallback.
+13. `test_traced_draws_inside_support` -- every trace-conditional draw lands inside the broad support with positive mixture density.
+14. `test_traced_q_matches_closed_form` -- the q returned by `BulkProposal.draw` equals `BulkProposal.q` at the drawn points.
+15. `test_floor_keeps_old_support` -- the traced density is at least `eps * q_density` (and positive) everywhere the broad proposal has support.
+16. `test_traced_importance_weights_recover_area` -- `E_q[1/q]` under the mixture recovers the broad-support area (the floor makes the supports equal).
+17. `test_wet_box_p_floor` -- a wet box (`w_lo` = 3) never draws above the solubility bound even with the floor off.
+18. `test_fallback_covers_rosters` -- every qap_name in both corpus rosters resolves to a single fallback box.
+19. `test_traced_deterministic_under_seed` -- same seed, same traced draws.
 
 ### test_feldspar_rule.py
 

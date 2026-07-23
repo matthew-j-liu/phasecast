@@ -164,6 +164,7 @@
       "src/cnmineral/eval/mode_head.py"
     ],
     "supergroup_collapse": [
+      "src/cnmineral/data/condition_proposal.py",
       "src/cnmineral/eval/imputation.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/eval/probe/scoring.py",
@@ -355,6 +356,9 @@
     ],
     "standard_scaler": [
       "src/cnmineral/eval/probe/primitives.py"
+    ],
+    "trace_conditional_proposal": [
+      "src/cnmineral/data/condition_proposal.py"
     ]
   },
   "training_strategy": {
@@ -368,6 +372,7 @@
       "scripts/view/scenario_view.py",
       "scripts/view/truth_vs_pred.py",
       "src/cnmineral/data/bulk_chemistry.py",
+      "src/cnmineral/data/condition_proposal.py",
       "src/cnmineral/data/fe_redox.py",
       "src/cnmineral/data/magemin_corpus.py",
       "src/cnmineral/data/mineralogy_dataset.py",

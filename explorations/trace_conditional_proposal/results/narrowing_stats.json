@@ -1,0 +1,13 @@
+{
+  "n_bulks": 10500,
+  "trace_tier_frac": 0.585047619047619,
+  "median_area_shrink": 0.25978593882739076,
+  "p10_area_shrink": 0.12688864047918036,
+  "p90_area_shrink": 0.44006569536998613,
+  "frac_not_shrinking": 0.0,
+  "median_h2o_width_shrink": 0.5220957528869725,
+  "median_p_width_shrink": 0.5200371917129283,
+  "median_envelope24_shrink": 0.25161908906035746,
+  "n_barely_overlap": 354,
+  "median_entropy_trace_tier": 0.5907172399406355
+}

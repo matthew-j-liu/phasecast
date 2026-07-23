@@ -230,6 +230,12 @@ techniques:
       - "nl_rhyolite_solubility"
       - "draw_conditions"
       - "q_density"
+  - name: trace_conditional_proposal
+    type: preprocessing
+    patterns:
+      - "setting_posterior"
+      - "BulkProposal"
+      - "draw_conditions_traced"
   - name: feldspar_stoichiometric_routing
     type: preprocessing
     patterns:

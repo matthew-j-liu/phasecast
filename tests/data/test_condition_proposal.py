@@ -5,11 +5,18 @@ from cnmineral.data.condition_proposal import (
     P_HI,
     P_LO,
     W_CAP,
+    ProposalKnobs,
+    bulk_proposal,
     draw_conditions,
+    draw_conditions_traced,
     nl_rhyolite_solubility,
     q_density,
+    setting_posterior,
     w_max,
 )
+
+ARC_TRACES = {"th_ppm": 5.0, "nb_ppm": 8.0, "yb_ppm": 2.0}
+DEPLETED_TRACES = {"th_ppm": 0.12, "nb_ppm": 2.3, "yb_ppm": 3.0}
 
 
 def test_standard_state_anchor():
@@ -75,5 +82,85 @@ def test_importance_weights_recover_support_area():
 def test_draws_deterministic_under_seed():
     a = draw_conditions(64, np.random.default_rng(7))
     b = draw_conditions(64, np.random.default_rng(7))
+    for x, y in zip(a, b):
+        assert np.array_equal(x, y)
+
+
+def test_setting_posterior_sums_to_one_and_orders():
+    w_arc, rung = setting_posterior(ARC_TRACES, 0.15)
+    assert rung == "th_nb_yb"
+    assert sum(w_arc) == pytest.approx(1.0)
+    assert w_arc[0] > 0.9
+    w_dep, _ = setting_posterior(DEPLETED_TRACES, 0.15)
+    assert sum(w_dep) == pytest.approx(1.0)
+    assert w_dep[1] == max(w_dep)
+
+
+def test_cascade_rung_selection():
+    _, rung = setting_posterior({"tio2": 1.5, "v_ppm": 300.0}, 0.15)
+    assert rung == "ti_v"
+    w, rung = setting_posterior({"nb_ppm": 5.0, "y_ppm": 30.0}, 0.15)
+    assert rung == "nb_y"
+    assert w[3] > 0.9          # subalkaline Nb/Y mass falls to the class tables
+    w, rung = setting_posterior({"th_ppm": np.nan, "yb_ppm": 2.0}, 0.15)
+    assert rung is None
+    assert w == (0.0, 0.0, 0.0, 1.0)
+
+
+def test_traced_draws_inside_support():
+    bp = bulk_proposal("andesite", ARC_TRACES)
+    p, w, q = bp.draw(512, np.random.default_rng(4))
+    assert np.all((p >= P_LO) & (p <= P_HI))
+    assert np.all((w >= 0) & (w <= w_max(p) + 1e-12))
+    assert np.all(q > 0)
+
+
+def test_traced_q_matches_closed_form():
+    bp = bulk_proposal("basalt", DEPLETED_TRACES)
+    p, w, q = bp.draw(512, np.random.default_rng(5))
+    assert np.allclose(q, bp.q(p, w))
+
+
+def test_floor_keeps_old_support():
+    # anywhere the broad proposal has support, the traced q must be > 0
+    bp = bulk_proposal("rhyolite", ARC_TRACES)
+    p, w, _ = draw_conditions(512, np.random.default_rng(6))
+    assert np.all(bp.q(p, w) >= bp.floor * q_density(p, w))
+    assert np.all(bp.q(p, w) > 0)
+
+
+def test_traced_importance_weights_recover_area():
+    # support is the full broad region thanks to the floor, so E_q[1/q]
+    # recovers the same area as the broad sampler's test above
+    bp = bulk_proposal("andesite", ARC_TRACES)
+    p, w, q = bp.draw(8192, np.random.default_rng(8))
+    pg = np.linspace(P_LO, P_HI, 2001)
+    area = np.trapz(w_max(pg), pg)
+    assert np.mean(1.0 / q) == pytest.approx(area, rel=0.05)
+
+
+def test_wet_box_p_floor():
+    # arc-felsic box has w_lo = 3: no draws where solubility leaves no room
+    bp = bulk_proposal("rhyolite", ARC_TRACES, ProposalKnobs(eps=0.0))
+    p, w, q = bp.draw(512, np.random.default_rng(9))
+    assert np.all(w <= w_max(p) + 1e-12)
+    assert np.all(q > 0)
+
+
+def test_fallback_covers_rosters():
+    import pandas as pd
+    from pathlib import Path
+
+    corpus = Path(__file__).resolve().parents[2] / "data" / "corpus"
+    for roster in ("train_bulks.csv", "valtest_bulks.csv"):
+        for qap in pd.read_csv(corpus / roster).qap_name.dropna().unique():
+            bp = bulk_proposal(qap, {})
+            assert bp.tier == "fallback"
+            assert len(bp.boxes) == 1
+
+
+def test_traced_deterministic_under_seed():
+    a = draw_conditions_traced("andesite", ARC_TRACES, 64, np.random.default_rng(7))
+    b = draw_conditions_traced("andesite", ARC_TRACES, 64, np.random.default_rng(7))
     for x, y in zip(a, b):
         assert np.array_equal(x, y)

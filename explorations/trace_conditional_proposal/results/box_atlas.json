@@ -1,0 +1,13 @@
+{
+  "felsic|arc": 0.07164,
+  "felsic|ridge": 0.0155,
+  "felsic|intraplate": 0.04404,
+  "mafic|arc": 0.06764,
+  "mafic|ridge": 0.04495,
+  "mafic|intraplate": 0.07178,
+  "intermediate|arc": 0.11327,
+  "intermediate|ridge": 0.04052,
+  "intermediate|intraplate": 0.07031,
+  "floor": 0.08,
+  "fallback_total": 0.38036
+}

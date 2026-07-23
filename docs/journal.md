@@ -4237,3 +4237,91 @@ quota list, lock #45 shape, launch generation. #47 build and #18 slip
 past the weekend (don't gate generation; val-roster NLL +
 interrogation harness are the frozen instrument). Redox token is
 model-side, rides the regen's encoder re-pretrain.
+
+## 2026-07-23 -- SSL pretrain corpus: relax the Fe pair rule, open to all rock types
+
+**Q.** The #46 redox token already forces an encoder re-pretrain at the
+regen. Should that re-pretrain keep the strict FeO+Fe2O3 pair filter
+and the igneous-only filter on gard2019, or widen the corpus?
+
+**Context.** The strict pair requirement is the dominant attrition step
+in the SSL filter walk (544k rows with clean non-Fe majors -> 261k
+requiring feo -> 172k requiring fe2o3; 2026-06-04): most sources report
+total iron only, so the strict corpus keeps ~23% of the usable rows to
+preserve a redox nuance the 22-token input cannot represent anyway. The
+relaxed Fe fallback chain yields ~493k igneous / ~737k all-rock bulks
+vs the production 166,893, and the supervised corpus already ships on
+the relaxed loader (4497/4500 bulks recovered, 2026-07-15). #46
+resolved redox invisibility with an optional Fe-redox input token --
+measured-pair rows feed it, everything else pads it (implicit
+marginalization) -- so relaxing the filter no longer discards redox
+information; it moves into the optional token. Deployment argument:
+real rocks at inference report whatever their lab measured; pretraining
+only on strict-pair rows trains on a biased slice (sources that ran
+ferrous titration), the wrong match for few-shot transfer beyond the
+igneous corpus.
+
+**Considered.** Keep strict (167k; rejects ~75% of usable rows for
+nuance the input cannot see). Relax Fe only (~493k igneous). Relax Fe +
+all rock types (~737k; the non-null qap_name criterion must drop for
+the new rows -- QAPF is an igneous taxonomy, 0% non-null on sedimentary
+-- so stratification/probing moves to rock_group as the coarse label
+with qap probes restricted to the igneous slice, per #24).
+
+**Decision (owner).** Ingest as much data as the encoder can get: the
+next re-pretrain relaxes `require_all_majors` and drops the igneous
+filter. Strict Fe matters where labels are made, not where the encoder
+learns: MAGEMin generation wants measured speciation for label
+fidelity, with the class-conditional literature fallback
+(`fe_redox.py`, provenance stamped) covering unmeasured bulks.
+Guardrails from #24 stand: a 1-epoch strict-vs-relaxed smoke
+comparison, then the full scorecard cascade with no regression on the
+igneous slice (the mineralogy heads consume that region of the latent).
+
+**Next.** Batch with the regen-forced re-pretrain; spec knobs recorded
+on #45 next to the redox-token knobs; #24 part 1 becomes this decision.
+#24 part 2 (Andrews XRD sediment head) stays exploratory -- a cheap
+transfer probe, no expectations attached.
+
+## 2026-07-23 -- Trace-conditional (P, H2O) proposal dry run (#48): material shift, knee holds, adopted at default knobs
+
+**Q.** Before the regen commits ~60 h of MAGEMin to the trace-conditional
+proposal, does it change the per-bulk condition draws enough to justify
+adoption, which bulks change most, and does #27's 24-draw knee survive?
+
+**Context.** `explorations/trace_conditional_proposal/` (sampler-level, no
+MAGEMin; both rosters, 512 draws/bulk/proposal, ~25 s). Candidate sampler
+landed in `cnmineral.data.condition_proposal` beside the untouched broad
+one: immobile-ratio cascade (Pearce 2008 Th/Yb-Nb/Yb -> Shervais 1982 Ti-V
+-> Winchester & Floyd Nb/Y), soft logistic setting posterior, nine
+(maficity, setting) literature boxes, fallback to the recovered ADR 003
+Wallace/Plank H2O x Putirka P class tables, 8% broad floor; mixture density
+closed-form so stored-q reweighting survives. Pearce constants pinned to
+Sun & McDonough 1989 via pyrolite's data files; Shervais 20/50 and Nb/Y
+0.67 on textbook values.
+
+**Considered.** Routing felsic bulks to fallback (rejected: evolved melts
+inherit the ratios; kept in the cascade with doubled bandwidth -- the
+felsic-out variant drops trace-tier occupancy 0.585 -> 0.443). Knob
+variants: sigma x0.5/x2 near-inert on every headline; eps 0.04-0.16 spans
+median shrink 0.21-0.44 (the one real lever); all measured in
+`knob_sensitivity.csv`.
+
+**Decision.** Adopted for the regen at default knobs (sigma 0.15, eps
+0.08, felsic in) -- owner locked 2026-07-23; knob effects on holdout and
+real-rock transfer are speculative pre-regen, so tuning is deferred to a
+future regen with every knob kept off extremes. Measured: 63% of bulks
+reach a discriminant rung (30/26/7 by rung), median joint-envelope shrink
+0.26 (H2O and P widths ~0.52 each), zero bulks widen (floor is the widest
+component), 24-draw envelope contracts to 0.25 so the #27 knee holds with
+margin; 56% of trace-tier bulks keep >0.5 nats of setting ambiguity (the
+deep-wet/shallow-dry mass, preserved by design). 354 flags (3.4%; 324
+`basalt` reassigned wet-arc) reviewed and accepted: the per-rock trace
+evidence (published discriminant) overrules the hand-assembled class
+table's single dry-basalt range -- the arc/MORB conflation inside the
+`basalt` class is the gap the revision targets, so the flips are the fix
+working, not a defect.
+
+**Next.** Remaining pre-Saturday queue: valtest-256 instrument
+bookkeeping, rare-class quota list, #45 shape lock, then wire
+`draw_conditions_traced` into the generator at the regen build.
