@@ -4412,3 +4412,46 @@ classes at any scale.
 
 **Next.** #45 shape sign-off, then generator wiring
 (`draw_conditions_traced` + redox stamping) and launch.
+
+## 2026-07-23 -- Regen generator wiring: traced proposal in, nested-block expansion emit, redox needs no new column
+
+**Q.** Wire the adopted trace-conditional proposal (#48) into the corpus
+generator for tonight's launch (#45) without touching the orchestrator's
+fault-tolerance machinery, consume both bulk tables, and make an early
+stop preserve the alpha=0.5 quota shape.
+
+**Context.** The swap point is a single call inside
+`magemin_corpus.build_inputs` -- `bulk_proposal(...).draw()` replaces
+`draw_conditions()` -- one layer upstream of `run_group`'s bisection,
+`run_chunk`'s atomic flush, and the manifest resume, all untouched.
+Per-bulk seeding (`seed + sample_id`) carries over, so draws stay
+chunk-boundary-independent and a resumed chunk regenerates identical
+draws (bisection boundaries included). The sampler additionally needs
+`tio2` for the Ti/V rung, passed alongside the ppm traces.
+
+**Considered.** Stamping nothing from the proposal (rejected: tier/rung
+routing records what the generator actually did against future knob
+drift; two per-bulk categoricals, owner sign-off). A new redox column
+(rejected: `in_feo`/`in_fe2o3` are ratio-invariant under the H2O
+renormalization and, with `fe_provenance`, derive both #46 token
+parameterizations exactly -- stamping enough to defer the choice is the
+point). Draw order as returned (rejected: `BulkProposal.draw` groups
+draws by mixture box, so a draw-index prefix -- what `train_draw_limit`
+takes -- would be a single-box biased subset; draws are permuted
+per bulk after sampling).
+
+**Decision.** Landed: traced sampler + `proposal_tier`/`proposal_rung`
+stamps in `build_inputs`; orchestrator `--bulks` takes multiple tables
+(concat in order, duplicate-sample_id guard); `--expand-block M` on
+`build_corpus_bulk_tables.py` emits the expansion as two shuffled blocks
+(M-budget quota selection first, then the increment; per-class nested
+picks, min() against largest-remainder wobble) so stopping mid-window
+realizes ~alpha=0.5 at the achieved N. Nested emit provably reorders
+without changing the selection (tested). Also fixed the orchestrator
+test double, red since the solver-hang timeout landed (missing `timeout`
+kwarg) -- all four fault-tolerance tests were failing on HEAD.
+
+**Next.** Owner stamps the budget on #45, re-emits the expansion at the
+launch allocation (`--expand N --expand-block M`), runs valtest first
+(~9 h, early attrition read on the narrower boxes), then the train tier;
+during-regen track switches to #18 transfer/few-shot.

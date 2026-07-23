@@ -18,12 +18,19 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   (plutonic). Amends ADR 004, scoped to volcanic; no eq-vs-FC A/B (conceptual
   argument accepted).
 - **Conditions:** (P, H2O) are sampled; **T is derived** per sample by cooling
-  to the endpoint, not a sampled axis. The corpus is **prior-agnostic**: sample
-  (P, H2O) for broad *coverage* only, and defer all prior/weighting to
-  inference (see Output stance). Per bulk, Latin-Hypercube draws from the fixed
-  proposal `q = Uniform(P [0.5, 12] kbar x H2O [0, min(8, S(P))] wt%)`; store
-  `(P_i, H2O_i, q(C_i))` per row. Grid-density artifact confirmed real; MC
-  matches a balanced grid (`explorations/condition_sampling/`).
+  to the endpoint, not a sampled axis. REVISED 2026-07-23 (#48): draws come
+  from the per-bulk **trace-conditional proposal**
+  (`cnmineral.data.condition_proposal.bulk_proposal`) -- immobile-element
+  discriminants route each bulk to a posterior-weighted mixture of (maficity,
+  tectonic-setting) literature boxes, with a per-class fallback and 8% mass
+  always on the original broad proposal `Uniform(P [0.5, 12] kbar x H2O [0,
+  min(8, S(P))] wt%)`. The stored per-row `(P_i, H2O_i, q(C_i))` carries the
+  exact mixture density, so the reweighting machinery is unchanged: inference
+  substitutes `p(c)/q(c)` exactly as before (see Output stance); the draws
+  table additionally stamps the proposal's tier/rung routing. Dry-run
+  measurements and adoption reasoning:
+  `explorations/trace_conditional_proposal/`. Grid-density artifact confirmed
+  real; MC matches a balanced grid (`explorations/condition_sampling/`).
 - **Water bound `S(P)`:** the Newman & Lowenstern 2002 (VolatileCalc)
   rhyolite-curve H2O solubility — the more water-generous of their two
   published curves, since a composition-independent bound must cover all
@@ -71,14 +78,15 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   regen. The pre-screen runs at both 0.1 and 1 wt% once to confirm the rung
   choice is cutoff-insensitive (the near-solidus muscovite/cd trace-phase
   artifact largely dies with the endpoint move, so stakes are low).
-- **Scale, two tiers:** production **10k bulks x 48 draws** (stratified by
-  `qap_name` from the volcanic core, rare-class floors, ~480k rows per rung ~
-  v2 corpus scale) + a **high-precision tier ~500 bulks x 128 draws** assigned
-  to val/test (presence-frequency SE 0.04 vs 0.07 — the calibration/ablation
-  reference; training tolerates noise, measurement doesn't). A ~500-bulk
-  pilot (the first 5 chunks of the shuffled train table) gates production
-  launch. ~13M MAGEMin points total, ~2 days
-  accumulated laptop runtime at the measured ~4-6k points/min.
+- **Scale, two tiers:** REVISED 2026-07-23 (#45, sized by #27): production =
+  the existing 10k stratified train table plus a rare-class-quota expansion
+  (alpha=0.5 temperature smoothing, emitted nested-block so an early stop
+  realizes the quota shape at the achieved size; `explorations/rare_class_quota/`)
+  at **24 draws/bulk**, budget 80-100 h stamped on #45 at launch + a
+  **high-precision tier 500 bulks x 256 draws** assigned to val/test
+  (training tolerates noise, measurement doesn't). #27 measured the bulk axis
+  unsaturated (0.25-0.3 nats/doubling) and draws flat past 24, so the budget
+  goes to bulks. First generation (2026-07-14) was 10k x 48 + 500 x 128.
 - **Subset + QC:** volcanic core = the 25 aphanitic QAPF names in
   `cnmineral.data.volcanic_subset::VOLCANIC_QAP` (~335k bulks);
   plutonic-named rock_origin superset stays OUT. Foidite family excluded (`ig`
@@ -91,6 +99,11 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   inference-time OOD use).
 - **Fe/fO2:** class-conditional Middlemost Fe3+/SigmaFe split, fO2 fixed (not
   swept). Candioti's all-ferrous shortcut would distort the oxide phases we report.
+  The per-draw `in_feo`/`in_fe2o3` (ratio-invariant under H2O renormalization)
+  plus `fe_provenance` stamps are the complete source for the optional redox
+  input token decided on #46 -- both candidate parameterizations (excess-O
+  scalar, Fe3+/total-Fe ratio) derive exactly from them, so no extra column is
+  stamped and the token choice defers to the encoder re-pretrain.
 - **CompHead target:** per-phase oxide wt% (`Comp_wt`) for ALL phases. The
   endmember vector (`emFrac_wt`) is infeasible as a simplex target — recon on real
   volcanic bulks gave amphibole per-mineral endmember-sum median 2.3, worst
@@ -129,9 +142,10 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
 - The contribution is the **marginal posterior under an explicit empirical prior**
   — the integral MAGEMin doesn't compute. This is the spine and needs no external
   dataset.
-- Because the corpus is prior-agnostic (coverage `q` only), the inference-time
-  weight reweights each posterior sample by `p(c)/q(c)`: `q` (the corpus proposal)
-  cancels the arbitrary sampling prior, `p` substitutes an evidence-based one.
+- Because every draw stores its exact proposal density `q` (broad or
+  trace-conditional mixture alike), the inference-time weight reweights each
+  posterior sample by `p(c)/q(c)`: `q` cancels the sampling proposal, `p`
+  substitutes an evidence-based prior.
   Sources of `p`, weakest-to-strongest, used in combination:
   - **Wallace/Plank per-class H2O ranges** (ADR 003 migration) and
     **trace-ratio priors** (Sr/Y, La/Yb): volcanic-calibrated crustal-depth
@@ -177,12 +191,14 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
    **Rung pick made (owner, 2026-07-14): train on rungs 50 + 30** — 50 as the
    primary (best aggregate match), 30 because it is the only rung where
    intermediate biotite exists to be learned.
-5. **Production launch** — IN FLIGHT (launched 2026-07-14): 10k x 48 + 500 x
-   128 tiers, chunked, pausable (rerun the same orchestrator command to
-   resume). Train tier ~37/100 chunks as of 2026-07-15 morning; crash
-   containment added after one pathological bulk (976755, six draws dropped;
-   see Orchestration). After each tier: `report_corpus_health.py --corpus
-   <dir> --figures`.
+5. **Production launch** — first generation COMPLETE 2026-07-17 (10k x 48 +
+   500 x 128; crash containment added mid-run after one pathological bulk,
+   976755, six draws dropped; see Orchestration). Weekend regen launched
+   2026-07-23 (#45): traced proposal, 10k + expansion tables at 24 draws,
+   valtest at 256, into `data/corpus/train_traced` /
+   `data/corpus/valtest_traced`; same orchestrator, resume contract, and
+   health gate (`report_corpus_health.py --corpus <dir> --figures` after each
+   tier).
 
 Only 5 remains (1-4 landed).
 

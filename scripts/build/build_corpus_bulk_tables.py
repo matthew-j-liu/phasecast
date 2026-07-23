@@ -16,7 +16,10 @@ Writes data/corpus/train_bulks.csv and data/corpus/valtest_bulks.csv.
 under temperature-smoothed rare-class quotas (`expansion_quotas`, quota ~
 pool^alpha) and writes data/corpus/train_bulks_expansion.csv; the existing
 tables are left untouched. Rationale and candidate comparison in
-explorations/rare_class_quota/.
+explorations/rare_class_quota/. `--expand-block M` orders the emitted table as
+two shuffled blocks -- the M-budget quota selection first, then the increment
+-- so an orchestrator stopped mid-run still realizes the quota shape at the
+achieved size.
 """
 
 import argparse
@@ -67,7 +70,7 @@ def draw_tier(pool, total, floor, rng):
     return out.iloc[rng.permutation(len(out))].reset_index(drop=True)
 
 
-def draw_expansion(df, budget, alpha, rng, out_dir):
+def draw_expansion(df, budget, alpha, rng, out_dir, block=None):
     train = pd.read_csv(out_dir / "train_bulks.csv")
     valtest = pd.read_csv(out_dir / "valtest_bulks.csv")
     used = set(train.sample_id) | set(valtest.sample_id)
@@ -76,14 +79,22 @@ def draw_expansion(df, budget, alpha, rng, out_dir):
     have = train.qap_name.value_counts().reindex(pool.index).fillna(0).astype(int)
     avail = rem.qap_name.value_counts().reindex(pool.index).fillna(0).astype(int)
     quotas = expansion_quotas(pool, have, avail, budget, alpha)
-    picks = []
+    inner = (expansion_quotas(pool, have, avail, block, alpha)
+             if block is not None else None)
+    first, rest = [], []
     for qap, k in quotas.items():
         if k == 0:
             continue
         g = rem[rem.qap_name == qap]
-        picks.append(g.iloc[rng.permutation(len(g))[:k]])
-    out = pd.concat(picks, ignore_index=True)
-    return out.iloc[rng.permutation(len(out))].reset_index(drop=True)
+        picks = g.iloc[rng.permutation(len(g))[:k]]
+        # quotas are monotone in budget up to largest-remainder rounding;
+        # min() absorbs the +/-1 wobble
+        k1 = k if inner is None else min(int(inner[qap]), k)
+        first.append(picks.iloc[:k1])
+        rest.append(picks.iloc[k1:])
+    blocks = [pd.concat(fr, ignore_index=True) for fr in (first, rest)]
+    blocks = [blk.iloc[rng.permutation(len(blk))] for blk in blocks]
+    return pd.concat(blocks, ignore_index=True)
 
 
 def main():
@@ -97,7 +108,15 @@ def main():
                     help="draw N new train bulks under rare-class quotas "
                          "instead of building fresh tiers")
     ap.add_argument("--alpha", type=float, default=0.5)
+    ap.add_argument("--expand-block", type=int, default=None,
+                    help="nested-block size: the first rows of the expansion "
+                         "realize the quota shape at this smaller budget")
     args = ap.parse_args()
+    if args.expand_block is not None:
+        if not args.expand:
+            ap.error("--expand-block requires --expand")
+        if args.expand_block >= args.expand:
+            ap.error("--expand-block must be smaller than --expand")
 
     df = build_subset()
     df["qap_name"] = df.qap_name.astype(str)
@@ -111,11 +130,14 @@ def main():
     rng = np.random.default_rng(args.seed)
     if args.expand:
         out = REPO / "data" / "corpus"
-        expansion = draw_expansion(df, args.expand, args.alpha, rng, out)
+        expansion = draw_expansion(df, args.expand, args.alpha, rng, out,
+                                   block=args.expand_block)
         path = out / "train_bulks_expansion.csv"
         expansion[KEEP_COLS].to_csv(path, index=False)
-        print(f"\nexpansion (alpha={args.alpha:g}): {len(expansion)} bulks -> "
-              f"{path.relative_to(REPO)}")
+        note = (f", nested block {args.expand_block}"
+                if args.expand_block is not None else "")
+        print(f"\nexpansion (alpha={args.alpha:g}{note}): {len(expansion)} "
+              f"bulks -> {path.relative_to(REPO)}")
         print(expansion.qap_name.value_counts().to_string())
         return
 

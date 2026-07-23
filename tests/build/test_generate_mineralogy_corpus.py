@@ -27,7 +27,7 @@ def _inp(n_draws):
 
 
 def _runner(poison, calls=None, salvage=False):
-    def run(input_csv, output_jsonl, database):
+    def run(input_csv, output_jsonl, database, timeout=None):
         if calls is not None:
             calls.append(Path(input_csv).name)
         df = pd.read_csv(input_csv)

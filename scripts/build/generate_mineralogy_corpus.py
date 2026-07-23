@@ -27,10 +27,14 @@ distribution the ~29% of points below the stop cost about the same as the ~31
 extra Julia startups per chunk that adaptive per-step cooling would need, and
 one batch keeps the chunk a single clean unit of work.
 
-Tiers run as separate invocations (own --out, --draws):
+Tiers run as separate invocations (own --out, --draws). `--bulks` takes one or
+more tables, concatenated in the given order -- the train tier lists the base
+table then the expansion table, so chunk order follows the expansion's
+nested-block early-stop ordering:
 
     conda run -n alignn_fix python scripts/build/generate_mineralogy_corpus.py \\
-        --bulks data/corpus/train_bulks.csv --out data/corpus/train --draws 48
+        --bulks data/corpus/train_bulks.csv data/corpus/train_bulks_expansion.csv \\
+        --out data/corpus/train_traced --draws 24
 
 Pause anytime (ctrl-C); rerun the same command to continue.
 """
@@ -174,8 +178,9 @@ def run_chunk(idx, bulks, majors, args, out):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--bulks", required=True,
-                    help="bulk table CSV: sample_id + passthrough columns")
+    ap.add_argument("--bulks", required=True, nargs="+",
+                    help="bulk table CSVs (sample_id + passthrough columns), "
+                         "concatenated in the given order")
     ap.add_argument("--out", required=True)
     ap.add_argument("--draws", type=int, required=True, help="(P, H2O) draws per bulk")
     ap.add_argument("--seed", type=int, default=20260714)
@@ -190,7 +195,11 @@ def main():
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    bulks = pd.read_csv(args.bulks)
+    bulks = pd.concat([pd.read_csv(p) for p in args.bulks], ignore_index=True)
+    if not bulks.sample_id.is_unique:
+        dupes = bulks.sample_id[bulks.sample_id.duplicated()].unique()
+        raise SystemExit(f"duplicate sample_ids across --bulks tables "
+                         f"(would double-generate): {dupes[:5].tolist()}...")
     majors = pd.read_parquet(MAJORS).set_index("sample_id")
 
     chunks = [bulks.iloc[i:i + args.chunk_size]

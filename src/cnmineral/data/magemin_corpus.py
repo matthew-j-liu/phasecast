@@ -1,14 +1,15 @@
 """Input building and output parsing for the Track B MAGEMin label corpus.
 
-Sits between the bounded (P, H2O) proposal (`condition_proposal`) and the
-chunked orchestrator (`scripts/build/generate_mineralogy_corpus.py`). Per bulk:
-Fe-split the majors, draw N conditions, expand each draw over the cooling
-ladder into `run_magemin.jl` input rows; then parse the returned JSONL into the
-three corpus tables (corpus_regen_spec "Storage shape"):
+Sits between the trace-conditional (P, H2O) proposal (`condition_proposal`)
+and the chunked orchestrator (`scripts/build/generate_mineralogy_corpus.py`).
+Per bulk: Fe-split the majors, draw N conditions, expand each draw over the
+cooling ladder into `run_magemin.jl` input rows; then parse the returned JSONL
+into the three corpus tables (corpus_regen_spec "Storage shape"):
 
     draws  -- one row per (bulk, draw): passthrough bulk columns + traces, the
-              renormalized MAGEMin input oxides, (P, H2O, q), per-rung T_end /
-              G_sys / attrition, the oversaturation tag, failure counts.
+              renormalized MAGEMin input oxides, (P, H2O, q), the proposal's
+              tier/rung routing, per-rung T_end / G_sys / attrition, the
+              oversaturation tag, failure counts.
     ladder -- one row per converged ladder point x phase instance, modes only,
               truncated at the first point below the 30% residual-melt stop.
     rungs  -- one row per (draw, rung, phase instance) at the four re-picked
@@ -25,7 +26,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from .condition_proposal import draw_conditions
+from .condition_proposal import bulk_proposal
 from .fe_redox import ClassRatioStrategy
 from .magemin_oxides import bulk_to_magemin
 
@@ -65,8 +66,15 @@ def build_inputs(bulks, majors, n_draws, seed):
         anh_sum = sum(anh.values())
         traces = {c: float(row[c]) if pd.notna(row.get(c)) else np.nan
                   for c in TRACE_COLS if c in majors.columns}
+        bp = bulk_proposal(b.get("qap_name"),
+                           {**traces, "tio2": float(row["tio2"])
+                            if pd.notna(row.get("tio2")) else np.nan})
         rng = np.random.default_rng(seed + bid)
-        P, W, Q = draw_conditions(n_draws, rng)
+        P, W, Q = bp.draw(n_draws, rng)
+        # draw() returns draws grouped by mixture box; permute so a draw-index
+        # prefix stays an unbiased subsample (train_draw_limit takes prefixes)
+        order = rng.permutation(n_draws)
+        P, W, Q = P[order], W[order], Q[order]
         for draw, (p, w, q) in enumerate(zip(P, W, Q)):
             scale = (100.0 - w) / anh_sum
             ox = {k: v * scale for k, v in anh.items()}
@@ -76,7 +84,9 @@ def build_inputs(bulks, majors, n_draws, seed):
                                    P_kbar=float(p), h2o_tot=float(w), **ox))
                 meta.append(dict(sid=sid, bulk=bid, draw=draw, T_celsius=float(T)))
             draws.append(dict(bulk=bid, draw=draw, P_kbar=float(p), H2O=float(w),
-                              q=float(q), fe_provenance=base["fe_provenance"],
+                              q=float(q), proposal_tier=bp.tier,
+                              proposal_rung=bp.rung,
+                              fe_provenance=base["fe_provenance"],
                               **{f"in_{k}": ox[k] for k in OXIDE_KEYS},
                               **traces,
                               **{c: b[c] for c in passthrough}))

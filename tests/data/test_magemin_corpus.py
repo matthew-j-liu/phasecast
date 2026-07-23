@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from cnmineral.data.condition_proposal import w_max
+from cnmineral.data.condition_proposal import bulk_proposal, w_max
 from cnmineral.data.magemin_corpus import T_LADDER, build_inputs, parse_chunk
 
 
@@ -111,9 +111,27 @@ def test_build_inputs_h2o_injection_sums_to_100(tiny_bulks):
 def test_build_inputs_q_and_bounds(tiny_bulks):
     bulks, majors = tiny_bulks
     _, _, draws = build_inputs(bulks, majors, n_draws=8, seed=1)
-    assert np.allclose(draws.q, 1.0 / (11.5 * w_max(draws.P_kbar)))
+    for bid, qap in [(7, "andesite"), (11, "rhyolite")]:
+        d = draws[draws.bulk == bid]
+        row = majors.loc[bid]
+        bp = bulk_proposal(qap, dict(sr_ppm=float(row.sr_ppm),
+                                     tio2=float(row.tio2)))
+        assert np.allclose(d.q, bp.q(d.P_kbar.values, d.H2O.values))
     assert (draws.H2O.values <= w_max(draws.P_kbar.values) + 1e-9).all()
     assert draws.sr_ppm.tolist() == [400.0] * 8 + [100.0] * 8
+
+
+def test_build_inputs_stamps_proposal_routing(tiny_bulks):
+    bulks, majors = tiny_bulks
+    majors = majors.copy()
+    majors.loc[7, ["th_ppm", "nb_ppm", "yb_ppm"]] = [8.0, 4.0, 2.0]
+    _, _, draws = build_inputs(bulks, majors, n_draws=4, seed=1)
+    arc = draws[draws.bulk == 7]
+    fallback = draws[draws.bulk == 11]
+    assert (arc.proposal_tier == "trace").all()
+    assert (arc.proposal_rung == "th_nb_yb").all()
+    assert (fallback.proposal_tier == "fallback").all()
+    assert fallback.proposal_rung.isna().all()
 
 
 def test_build_inputs_draws_stable_across_chunk_boundaries(tiny_bulks):

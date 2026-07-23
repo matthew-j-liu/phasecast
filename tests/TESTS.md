@@ -101,8 +101,9 @@ rename, or repurpose a test) updates this file in the same change.**
 5. `test_oversaturated_tag_from_hottest_point` -- free fluid at the hottest converged point sets the draw's `oversaturated` tag.
 6. `test_em_json_matches_duplicate_instances_in_order` -- endmember records attach to duplicate solution-phase instances in `out.ph` order; pure phases get null.
 7. `test_build_inputs_h2o_injection_sums_to_100` -- injected H2O + renormalized anhydrous majors sum to exactly 100 wt% on every input row.
-8. `test_build_inputs_q_and_bounds` -- the draws table carries the closed-form proposal density, respects the solubility bound, and copies bulk traces.
+8. `test_build_inputs_q_and_bounds` -- the draws table carries the trace-conditional mixture density (recomputed via `bulk_proposal`), respects the solubility bound, and copies bulk traces.
 9. `test_build_inputs_draws_stable_across_chunk_boundaries` -- per-bulk seeding makes a bulk's draws identical whether built alone or inside a larger table (resume-stable chunking).
+10. `test_build_inputs_stamps_proposal_routing` -- arc-signature traces stamp `proposal_tier="trace"` / the Th-Nb-Yb rung on the draws table; a traces-free bulk stamps fallback with a null rung.
 
 ### test_magemin_oxides.py
 
@@ -163,6 +164,11 @@ rename, or repurpose a test) updates this file in the same change.**
 7. `test_expansion_quotas_budget_beyond_availability` -- a budget above total availability returns every class at its cap.
 
 ## build/
+
+### test_build_corpus_bulk_tables.py
+
+1. `test_nested_block_prefix_realizes_inner_quotas` -- `--expand-block` emits the expansion as two shuffled blocks: full-table class counts equal the launch-budget quotas and the block-1 prefix equals the smaller-budget quotas.
+2. `test_block_reorders_but_never_changes_the_selection` -- nested-block ordering permutes rows only; the selected sample_id set is identical to the single-shuffle emit at the same seed.
 
 ### test_generate_mineralogy_corpus.py
 
