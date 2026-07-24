@@ -11,14 +11,17 @@ The solubility solve is a direct port of the pure-H2O rhyolite branch of
 VolatileCalc (Redlich-Kwong H2O fugacity + Silver/Stolper melt speciation),
 evaluated at the model's 850 C rhyolite standard state.
 
-The second half of the module is the candidate trace-conditional proposal
-(#45/#48): an immobile-element discriminant cascade assigns each bulk a soft
-tectonic-setting posterior, and draws come from a posterior-weighted mixture
-of per-(maficity, setting) literature boxes -- falling back to per-class
-Wallace/Plank + Putirka ranges where traces are missing -- plus a broad floor
-of the proposal above so importance weights stay finite on its full support.
-Candidate until adopted at the corpus regen; `draw_conditions` above remains
-the production sampler until then.
+The second half of the module is the trace-conditional proposal (#45/#48),
+adopted as the production sampler at the 2026-07-23 regen and wired into
+`magemin_corpus.build_inputs`: an immobile-element discriminant cascade
+assigns each bulk a soft tectonic-setting posterior, and draws come from a
+posterior-weighted mixture of per-(maficity, setting) literature boxes --
+falling back to per-class Wallace/Plank + Putirka ranges where traces are
+missing -- plus a broad floor of the bounded proposal above so importance
+weights stay finite on its full support. `draw_conditions` above is now that
+floor component (and the sampler behind the pre-regen corpus); the stored `q`
+carries the exact mixture density either way, so the inference `p/q`
+reweighting is unchanged.
 """
 
 import math
