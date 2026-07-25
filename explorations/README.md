@@ -51,7 +51,7 @@ tests/explorations/test_<name>.py   mirrored tripwire test
 | [latent_anisotropy](latent_anisotropy/README.md) | How anisotropic is the canonical latent, in both the mean/cone (first-order) and covariance-shape (second-order) senses? |
 | [lepr_validation](lepr_validation/README.md) | Can LEPR lab experiments supply (bulk -> assemblage) validation pairs with *measured* (P, T, H2O)? Harvested, 2368 pairs; use not yet decided. |
 | [magmadb_analogs](magmadb_analogs/README.md) | Can MagmaDB anchor latent-neighbor analogs with measured conditions? Shelved: too sparse/narrow for single-sample duty. |
-| [real_mineralogy](real_mineralogy/README.md) | The validation-only benchmark: real volcanic rocks with measured modal mineralogy, harvested + EDA'd. Never train on it. |
+| [real_mineralogy](real_mineralogy/README.md) | The sim-to-real benchmark: real volcanic rocks with measured modal mineralogy, harvested + EDA'd. Zero-shot gap measured (10.404 nats over 635 rocks); split by stratigraphic unit and adapted on from there. |
 | [real_rock_mapping](real_rock_mapping/README.md) | Does any defensible reading of the benchmark's truth mapping (densities, trace bound, freshness cut, support forcing) change a sim-to-real conclusion? Robust where it encodes a measurement; the invented support rule is a 3.5-nat lever. |
 | [trace_signal_in_latent](trace_signal_in_latent/README.md) | Why does the frozen encoder+head impute majors well but fail on traces, and which layer should be fixed? |
 | [volcanic_proxy_definition](volcanic_proxy_definition/README.md) | Which moment of the simulated cooling story is the training label? Resolved: phenocryst regime, rungs 60/50/40/30, pre-screened against the real benchmark. |

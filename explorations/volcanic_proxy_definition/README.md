@@ -241,6 +241,9 @@ detail in `docs/corpus_regen_spec.md`:
   (`explorations/real_mineralogy/`, 730 samples) plus the experimental tier
   (LEPR 2,368 + MagmaDB 510). Fine-tuning on it would spend the only
   measurement of the sim-to-real gap.
+  *Superseded 2026-07-24*: that measurement was taken -- 10.404 nats over 635
+  rocks, zero-shot -- which released the condition this verdict rested on. The
+  set is split by stratigraphic unit and adapted on from there.
 
 Order of operations for what remains (regen agent): bounded sampler ->
 36-bulk water A/B -> pilot -> label-level pre-screen picks the rung ->

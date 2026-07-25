@@ -84,7 +84,10 @@ DROPPED_TRUTH_PHASES: frozenset[str] = frozenset({"groundmass"})
 # keyed by the as-reported mineral name, so a lumped "pyroxene" and a specific
 # "hypersthene" convert differently. Point counts and visual estimates are
 # volume fractions; MAGEMin modes are mass fractions, so truth converts before
-# it is coarsened. Only ratios matter -- the one with real leverage is Fe-Ti
+# it is coarsened. Volume is verified rather than assumed: du Bray's workbooks
+# never label the abundance block, but DS 764's publication text states the
+# units, and MSH's ch30 says "Optical modes, as volume percent". Only ratios
+# matter -- the one with real leverage is Fe-Ti
 # oxides against the silicates, roughly 1.8x. Solid-solution names take a
 # mid-series value (arc olivine near Fo80, andesine plagioclase), which is an
 # assumption, not a measurement.

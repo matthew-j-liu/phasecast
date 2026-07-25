@@ -1,13 +1,17 @@
 # real_mineralogy
 
-The validation-only benchmark for the mineralogy heads: real volcanic rocks with
+The sim-to-real benchmark for the mineralogy heads: real volcanic rocks with
 whole-rock chemistry + measured modal mineralogy. Tests the sim-to-real transfer
 claim (docs/heads.md, "The transfer-learning lens") -- does a head trained on
-MAGEMin reference-state labels predict the minerals a geologist counts? Eval-only
-until the zero-shot sim-to-real gap is measured on it intact -- fine-tuning on a
-set this small spends the only measurement of the gap we have. Whether to
-fine-tune afterward (and on what data) reopens once that number exists
-(journal 2026-07-14, fine-tuning stance).
+MAGEMin reference-state labels predict the minerals a geologist counts?
+
+The zero-shot answer is measured: **joint NLL 10.404** over 635 least-altered
+rocks, on heads that had never seen one (journal 2026-07-24). The set is a
+benchmark like any other from there -- split it, adapt on it, evaluate on
+held-out rocks, and compare models and strategies on the same test slice
+(`results/real_rock_ledger.yaml`, issue #52). Splits group by **stratigraphic
+unit**: 132 units over the 635 rocks, median 2 rocks each, largest 66, and the
+same eruption means near-identical chemistry, so a rock-level split leaks.
 
 Data lands in `data/real_mineralogy/` (gitignored: raw source files + the
 generated `samples.csv` / `modes.csv`). `harvest.py` regenerates the unified
@@ -110,8 +114,16 @@ cpx+opx), vol% converts to wt% by per-reported-name density
 (`MINERAL_DENSITY`) before coarsening, and groundmass drops so the truth
 vector renormalizes to the crystal cargo.
 
-Three data facts that surface only here, all encoded in the loader:
+Four data facts that surface only here, all encoded in the loader:
 
+- **The abundances are volume percent, verified against the publications, not
+  the files.** du Bray's workbooks never label the abundance block; DS 764's
+  publication text states the units, DS 1099's Appendix 10 point counts are
+  volume by construction (points / total), and MSH's ch30 says "Optical modes,
+  as volume percent". Settled -- do not re-open. It matters: skipping the
+  vol% -> wt% conversion moves the headline 2.4 nats, more than the entire
+  plausible density band, because the conversion is what exposes the Fe-Ti
+  oxide under-sizing (journal 2026-07-24).
 - **`TR` / `<1` rows carry no number** (~500 of 3245, a quarter of amphibole's
   appearances). They are present, and left-censored: the abundance is known
   only to sit below du Bray's 0.5 vol% reporting grid. Scored by that bound,

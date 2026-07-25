@@ -23,10 +23,12 @@ measures on the erupted rock -- and its labels are scarce to nonexistent (no
 public bulk + modal-mineralogy compilation exists). So we train earlier in the
 chain, where labels are simulable, and hypothesize the heads still predict on
 real rocks. That hypothesis is the central bet, and it is measured, not
-assumed: validate against a small real set (the eruption benchmark:
-point-counted phenocryst modes + bulk chemistry from well-studied eruptions),
-kept validation-only -- fine-tuning on it would spend the only measurement of
-the gap we have.
+assumed: score against a small real set (the eruption benchmark: phenocryst
+modes + bulk chemistry from well-studied eruptions). First measured
+2026-07-24 -- joint NLL 10.404 over 635 rocks, zero-shot, on heads that had
+never seen a real rock. The set is a benchmark like any other from there:
+split by stratigraphic unit, adapt on train/val, and compare models and
+strategies on the held-out test rocks (`results/real_rock_ledger.yaml`).
 
 Two transfer layers with different risk profiles:
 
@@ -45,9 +47,11 @@ Consequences to carry:
   driver). Score design choices by mineralogy value.
 - The label proxy is cheap to revise (frozen encoder; heads retrain in days),
   so v1 ships a defensible proxy, not a perfect one.
-- Upgrade path if a large real modal set ever materializes: fine-tune the
-  synthetic-trained heads on real modes; the architecture is already shaped
-  for it.
+- **Adaptation on real modes is an active path, not a someday**: a small
+  module fit on real labels over the frozen encoder + heads, with the learning
+  curve over labelled real rocks as the deliverable. Full head fine-tuning
+  stays the upgrade if a large real modal set ever materializes; the
+  architecture is already shaped for it.
 
 ## Architecture
 
