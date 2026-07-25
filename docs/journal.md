@@ -4528,3 +4528,74 @@ objective are held until there is a held-out number to beat. Still open: how
 `R_theta` is fit versus preserving a sealed estimate, and the benchmark's
 noise floor -- most of the set is visual estimates at +/-5-10 vol%, and 6
 point-counted rocks cannot pin it.
+
+## 2026-07-24 -- Truth-mapping audit: robust where it measures, fragile where it invents
+
+**Q.** The zero-shot headline (10.404 nats) and the residual shape build 2 will
+be designed against both pass through mapping choices nobody measured --
+mid-series densities, a 0.5 vol% trace bound, a leading-digit freshness parse, a
+rule for splitting group-level truth into cpx/opx. Does any defensible reading
+of those change a decision? Step 1 of the agreed sequencing, run before the
+adapter.
+
+**Context.** Framed as three decisions rather than a nats tolerance: the
+adapter's parameterization (per-group constants + SiO2 slopes on q and amp), the
+amphibole verdict (discrimination failure, AUROC 0.58), and the headline's
+quotability. `explorations/real_rock_mapping/run_sensitivity.py` re-scores one
+frozen checkpoint under ~30 variants across six knobs, always through the
+shipped loader and loss -- an audit of a reimplementation audits nothing.
+Production gained exactly two seams (`load_benchmark(densities=,
+trace_bound_vol_pct=)`, `truth_forced_support(member_threshold=)`); every other
+variant is derived in the exploration, including the imputed-trace policy, which
+is an exact algebraic transform of the loaded arrays rather than a second
+mapping. Nothing is fit, so the adapter's held-out estimate is untouched.
+
+**Considered.** A materiality-free sign test flagged amphibole's magnitude
+offset as flipping under seven variants; its shipped value is -0.002, so every
+perturbation reverses a correction that does not exist. The flip test now
+requires both sides to clear 0.05 of presence probability / 0.10 log units on at
+least 100 rocks. Also caught in review: `fill_between(x, v, v, step="mid")` does
+not render as zero height -- it fills the span between neighbouring groups, so
+the first figure drew a density uncertainty band onto the presence panel, where
+density provably has none. Per-group segments now.
+
+**Decision.** The mapping is robust where it encodes a measurement and fragile
+where it encodes an invention, so **build 2 proceeds on the shipped mapping and
+the residual shape as measured**.
+
+Two invariances are exact, not small: the Bernoulli term is bit-identical
+(5.708414604) across every density variant, and the headline is bit-identical
+across trace bounds from 0.1 to 1.0 vol%. So every presence-side conclusion --
+the amphibole verdict included -- cannot move with either, and both are asserted
+as tests. D1 holds: no presence-offset sign flips, one mechanical magnitude flip
+(px under `all_members`, which splits the group's concentration by
+construction), and the Monte Carlo pins every adapter constant to roughly ±0.06
+log units (opq +0.942..+1.027, bi +0.445..+0.568, q -0.541..-0.519). D2 holds
+outright -- amphibole AUROC spans 0.497-0.592 across every variant, never better
+than trivial, below chance under one. D3 holds for the measurements (densities
+±0.3 nats, alteration cutoff ±0.3, uncertain IDs and xenocrysts ±0.02) and
+**fails for the invented rule: support forcing spans 9.86-13.38**, a 3.5-nat
+lever, an order of magnitude more than any physical assumption.
+
+Two findings worth carrying. The vol%-to-mass conversion does real work in the
+conservative direction: skipping it improves the headline by 2.4 nats, more than
+the entire plausible density band, because it is what exposes the opq
+under-sizing (oxide offset +0.991 -> +0.583 in volume units). MAGEMin modes are
+mass fractions, so converting is correct and not converting would have flattered
+the model on a basis it does not predict -- and *which* density values are used
+matters ~8x less than the choice to convert. And the groundmass drop is what
+makes visual estimates commensurable with point counts: the 13 groundmass rows
+are exactly the 13 point-counted samples, dropping those rocks moves the
+headline +0.04 nats, and the literal "keep groundmass as an unscored denominator
+component" is not scoreable at all (no `liq` in the 21-phase vocabulary to pair
+it with, and a Dirichlet needs its components to renormalize).
+
+**Next.** Build 2, the thin per-group adapter under k-fold, unblocked. Two
+carry-forwards from this audit: treat the support-forcing rule as a modelling
+choice with a 3.5-nat lever rather than a mapping detail, and pin amphibole's
+magnitude constant at zero instead of fitting it, since its Monte Carlo band
+straddles zero and no density makes the sign recoverable. Left-censoring stands
+(imputing costs 2.2 nats, but at composition size 4.23 vs 3.61, so that is not a
+like-for-like read and is reported with the size stamped). Still open, unchanged:
+how `R_theta` is fit versus preserving a sealed estimate, and the benchmark's
+noise floor.

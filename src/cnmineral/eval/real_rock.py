@@ -187,7 +187,12 @@ def parse_alteration_grade(values: pd.Series) -> np.ndarray:
     return grade.fillna(-1).to_numpy(dtype=np.int64)
 
 
-def _truth_arrays(modes: pd.DataFrame, keys: np.ndarray) -> dict[str, np.ndarray]:
+def _truth_arrays(
+    modes: pd.DataFrame,
+    keys: np.ndarray,
+    densities: dict[str, float],
+    trace_bound_vol_pct: float,
+) -> dict[str, np.ndarray]:
     """Build the per-group truth arrays for `keys`, in that order.
 
     Volume percent converts to mass before coarsening (per-raw-name density),
@@ -216,12 +221,12 @@ def _truth_arrays(modes: pd.DataFrame, keys: np.ndarray) -> dict[str, np.ndarray
             continue
         j = GROUP_INDEX[TRUTH_TO_GROUP[magemin_phase]]
         presence[i, j] = 1.0
-        density = MINERAL_DENSITY[phase]
+        density = densities[phase]
         if pd.notna(abundance):
             mass[i, j] += abundance * density
         else:
             trace_row[i, j] = True
-            censor_mass[i, j] += TRACE_BOUND_VOL_PCT * density
+            censor_mass[i, j] += trace_bound_vol_pct * density
 
     # coarsening can put a quantified and a trace mineral in the same group
     # (a numeric hornblende beside a trace cummingtonite). The group then has
@@ -252,12 +257,23 @@ def _truth_arrays(modes: pd.DataFrame, keys: np.ndarray) -> dict[str, np.ndarray
     }
 
 
-def load_benchmark(benchmark_dir: Path | str = BENCHMARK_DIR) -> RealRockBenchmark:
+def load_benchmark(
+    benchmark_dir: Path | str = BENCHMARK_DIR,
+    *,
+    densities: dict[str, float] = MINERAL_DENSITY,
+    trace_bound_vol_pct: float = TRACE_BOUND_VOL_PCT,
+) -> RealRockBenchmark:
     """Every real rock carrying both whole-rock chemistry and modal mineralogy.
 
     Rocks without chemistry (Pinatubo, pending a table transcription) or
     without mode rows drop out here; the freshness cut is a mask on the
     result, not a filter, so the altered rocks stay available as a diagnostic.
+
+    `densities` and `trace_bound_vol_pct` default to the shipped mapping and
+    are parameters because neither is a measurement -- one is a mid-series
+    stand-in for a solid solution, the other is read off a reporting grid.
+    `explorations/real_rock_mapping` perturbs them to put an error bar on the
+    numbers this benchmark produces.
     """
     benchmark_dir = Path(benchmark_dir)
     samples = pd.read_csv(benchmark_dir / "samples.csv")
@@ -265,7 +281,7 @@ def load_benchmark(benchmark_dir: Path | str = BENCHMARK_DIR) -> RealRockBenchma
     for frame in (samples, modes):
         frame["key"] = frame["source"] + "|" + frame["sample_id"].astype(str)
 
-    unknown = set(modes["phase"]) - set(MINERAL_DENSITY) - {"groundmass"}
+    unknown = set(modes["phase"]) - set(densities) - DROPPED_TRUTH_PHASES
     if unknown:
         raise ValueError(
             f"modes.csv reports minerals with no density: {sorted(unknown)}; "
@@ -277,7 +293,7 @@ def load_benchmark(benchmark_dir: Path | str = BENCHMARK_DIR) -> RealRockBenchma
 
     src, frac = tokenize_bulk_frame(samples)
     keys = samples["key"].to_numpy()
-    truth = _truth_arrays(modes, keys)
+    truth = _truth_arrays(modes, keys, densities, trace_bound_vol_pct)
     grade = parse_alteration_grade(samples["alteration_extent"])
 
     return RealRockBenchmark(
@@ -329,19 +345,21 @@ def coarsen_alpha(
     return out, off_vocab
 
 
-def truth_forced_support(presence7: np.ndarray, p21: np.ndarray) -> np.ndarray:
+def truth_forced_support(
+    presence7: np.ndarray, p21: np.ndarray, *, member_threshold: float = 0.5
+) -> np.ndarray:
     """A 21-phase support consistent with the group-level truth.
 
     The magnitude branch is support-conditioned, but real modal data
     constrains only the group level -- "pyroxene is present" does not say
     whether that is cpx, opx, or both. So truth forces what it knows and the
     model resolves what it does not: within a truth-present group, the member
-    phases the model puts above even odds turn on (its most likely member if
-    none clears the bar); truth-absent groups turn fully off. The phases no
-    source reports are left to the model, since truth never asserted their
-    absence.
+    phases the model puts above `member_threshold` turn on (its most likely
+    member if none clears the bar); truth-absent groups turn fully off. The
+    phases no source reports are left to the model, since truth never asserted
+    their absence.
     """
-    support = (p21 > 0.5).astype(np.float64)
+    support = (p21 > member_threshold).astype(np.float64)
     for group, gi in GROUP_INDEX.items():
         members = [PHASE_INDEX[ph] for ph, g in MODEL_TO_GROUP.items() if g == group]
         present = presence7[:, gi] > 0

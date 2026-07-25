@@ -462,14 +462,18 @@ rename, or repurpose a test) updates this file in the same change.**
 12. `test_unknown_mineral_name_is_rejected` -- a mineral with no density entry raises rather than being silently skipped.
 13. `test_alteration_grade_masks_rather_than_filters` -- altered rocks stay loaded and are selected by the `clean` mask, so they remain available as a diagnostic.
 14. `test_truth_forced_support_respects_the_group_level_only` -- a truth-present group lets the model pick its members, a truth-absent group forces all members off, and phases no source reports are never forced absent.
-15. `test_truth_forced_support_turns_on_the_likeliest_member_when_none_clears` -- a truth-present group whose members all sit below even odds still gets its single most likely member.
-16. `test_nll_finite_when_coarsening_leaves_off_support_zeros` -- off-support groups coarsen to alpha 0, which would make the masked Dirichlet NLL evaluate `lgamma(0)` and return NaN; the assembled NLL stays finite and the Bernoulli term matches its closed form.
-17. `test_single_group_composition_contributes_no_dirichlet_term` -- a one-group composition is a degenerate point mass and scores exactly 0.
-18. `test_censored_consistency_rewards_predicting_a_small_share` -- a model keeping amphibole tiny scores above 0.9 on a trace report while one sizing it large scores below 0.1; non-censored groups stay NaN.
-19. `test_tokenize_bulk_frame_pads_rather_than_populating_a_zero` -- a reported-zero oxide pads its slot, preserving `src == 0 iff frac == 0`.
-20. `test_tokenize_bulk_frame_agrees_with_the_dataset` -- a frame carrying one corpus row tokenizes to that row's dataset tensors.
-21. `test_tokenize_bulk_frame_pads_when_iron_columns_are_absent` -- a table with only `feo_tot` resolves iron through the fallback and pads the oxides it never reports.
-22. `test_load_benchmark_invariants` -- on the shipped benchmark: magnitude is nonzero exactly where quantified, quantified and censored are disjoint, presence covers both, compositions sum to 1, and every array is length-aligned.
+15. `test_uniform_densities_reproduce_volume_shares` -- an all-equal density table makes the conversion the identity, so truth shares are the reported volume fractions.
+16. `test_presence_truth_is_invariant_to_the_density_table` -- density enters only the mass conversion, so presence / quantified / censored / has-magnitude are unchanged by it while the magnitude vector moves.
+17. `test_headline_arrays_are_invariant_to_the_trace_bound` -- the bound sizes a censored ceiling and nothing else, so the arrays the headline NLL reads are identical across bounds and only `censor_bound` moves.
+18. `test_member_threshold_controls_which_members_join_the_support` -- a lenient threshold admits a second member of a truth-present group, and a threshold nothing clears still falls back to the likeliest one.
+19. `test_truth_forced_support_turns_on_the_likeliest_member_when_none_clears` -- a truth-present group whose members all sit below even odds still gets its single most likely member.
+20. `test_nll_finite_when_coarsening_leaves_off_support_zeros` -- off-support groups coarsen to alpha 0, which would make the masked Dirichlet NLL evaluate `lgamma(0)` and return NaN; the assembled NLL stays finite and the Bernoulli term matches its closed form.
+21. `test_single_group_composition_contributes_no_dirichlet_term` -- a one-group composition is a degenerate point mass and scores exactly 0.
+22. `test_censored_consistency_rewards_predicting_a_small_share` -- a model keeping amphibole tiny scores above 0.9 on a trace report while one sizing it large scores below 0.1; non-censored groups stay NaN.
+23. `test_tokenize_bulk_frame_pads_rather_than_populating_a_zero` -- a reported-zero oxide pads its slot, preserving `src == 0 iff frac == 0`.
+24. `test_tokenize_bulk_frame_agrees_with_the_dataset` -- a frame carrying one corpus row tokenizes to that row's dataset tensors.
+25. `test_tokenize_bulk_frame_pads_when_iron_columns_are_absent` -- a table with only `feo_tot` resolves iron through the fallback and pads the oxides it never reports.
+26. `test_load_benchmark_invariants` -- on the shipped benchmark: magnitude is nonzero exactly where quantified, quantified and censored are disjoint, presence covers both, compositions sum to 1, and every array is length-aligned.
 
 ### test_summary_cards.py
 
@@ -569,3 +573,16 @@ rename, or repurpose a test) updates this file in the same change.**
 3. `test_point_config_overrides_only_the_subset_keys` -- per-point configs change only checkpoint dir + subset knobs, drop stale subset keys from the base, and leave the base dict untouched.
 4. `test_point_record_parses_both_axes` -- `corpus_scaling_n*` / `corpus_scaling_d*` tags parse into bulk/draw axis coordinates with the right nominal row counts and per-phase metrics.
 5. `test_last_doubling_deltas` -- the slope table compares the two largest bulk points only (draw points excluded) and is empty with fewer than two.
+
+### test_real_rock_mapping.py
+
+1. `test_density_ranges_bracket_the_shipped_table` -- the Monte Carlo ranges cover exactly the shipped minerals and each admits its shipped value, so the sampling is centered on a table the eval actually ships.
+2. `test_monte_carlo_and_endpoint_tables_stay_in_range` -- drawn and endpoint density tables never leave their declared per-mineral ranges.
+3. `test_endpoint_tables_pull_mafics_and_felsics_apart` -- the contrast corners move ferromagnesians and felsics in opposite directions, which is the mafic/felsic mass ratio the magnitude comparison turns on.
+4. `test_imputed_composition_matches_a_direct_recomputation` -- imputing traces at their bound gives compositions summing to 1, puts each censored group exactly on its bound, preserves the quantified groups' ratios, and leaves rocks with no quantified phase unscored so the row set stays the headline's.
+5. `test_coarse_support_rules_span_and_narrow_the_group` -- `all_members` turns on every member of a truth-present group and `single_member` only its likeliest; both force truth-absent groups off, leave unreported phases to the model, and reject an unknown rule.
+6. `test_score_reproduces_the_hurdle_nll_it_reports` -- the audit's scorer on the shipped mapping equals `real_rock_nll` assembled directly, so variants are measured against the number the eval reported.
+7. `test_alteration_masks_nest_from_strict_to_everything` -- the freshness cuts nest from grade-1-only up to all rocks, `grades_1_2` reproduces the shipped `clean` mask, and reading `+` as "worse" can only shrink the clean set.
+8. `test_row_index_maps_a_shortened_benchmark_back_onto_the_latents` -- a variant that drops a whole rock re-indexes onto the base latents, and an unknown id raises rather than silently misaligning.
+9. `test_sign_flips_ignores_offsets_too_small_to_correct` -- a near-zero shipped offset has no correction to reverse and small subsets are excluded, so only a materially reversed offset on enough rocks counts as a flip.
+10. `test_run_variants_covers_every_knob_and_reproduces_the_shipped_row` -- the tripwire: the whole audit runs over all six knobs, its `shipped` row equals the eval's own headline, and the trace-bound rows are identical to each other.

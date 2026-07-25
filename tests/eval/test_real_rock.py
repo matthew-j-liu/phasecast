@@ -19,7 +19,7 @@ from cnmineral.eval.real_rock import (
 )
 
 
-def _write_benchmark(tmp_path, sample_rows, mode_rows):
+def _write_benchmark(tmp_path, sample_rows, mode_rows, **mapping):
     """A two-table benchmark on disk with only the columns the loader reads."""
     samples = pd.DataFrame(sample_rows, columns=[
         "source", "sample_id", "alteration_extent", "sio2", "al2o3", "cao",
@@ -31,7 +31,7 @@ def _write_benchmark(tmp_path, sample_rows, mode_rows):
     )
     samples.to_csv(tmp_path / "samples.csv", index=False)
     modes.to_csv(tmp_path / "modes.csv", index=False)
-    return load_benchmark(tmp_path)
+    return load_benchmark(tmp_path, **mapping)
 
 
 def _sample(sample_id, sio2=60.0, alteration="1"):
@@ -220,6 +220,67 @@ def test_truth_forced_support_respects_the_group_level_only():
     assert support[0, PHASE_INDEX["afs"]] == 0.0
     # a phase no source reports is left to the model, never forced absent
     assert support[0, PHASE_INDEX["g"]] == 1.0
+
+
+def test_uniform_densities_reproduce_volume_shares(tmp_path):
+    """With every density equal the conversion is the identity, so the truth
+    shares are the reported volume fractions -- the bound on what converting
+    to mass can be worth."""
+    rows = [["src", "a", "plagioclase", "fsp", 30.0],
+            ["src", "a", "Fe-Ti oxides", "opq_unsplit", 10.0]]
+    b = _write_benchmark(tmp_path, [_sample("a")], rows,
+                         densities={"plagioclase": 1.0, "Fe-Ti oxides": 1.0})
+    assert b.magnitude[0, GROUP_INDEX["fsp"]] == pytest.approx(0.75)
+    assert b.magnitude[0, GROUP_INDEX["opq"]] == pytest.approx(0.25)
+
+
+def test_presence_truth_is_invariant_to_the_density_table(tmp_path):
+    """Density enters only the mass conversion, so which phases are there --
+    and which carry a number -- cannot move with it."""
+    rows = [["src", "a", "plagioclase", "fsp", 30.0],
+            ["src", "a", "olivine", "ol", 4.0],
+            ["src", "a", "hornblende", "amp", None]]
+    base = _write_benchmark(tmp_path, [_sample("a")], rows)
+    heavy = _write_benchmark(
+        tmp_path, [_sample("a")], rows,
+        densities={**MINERAL_DENSITY, "olivine": 9.0, "plagioclase": 1.1},
+    )
+    np.testing.assert_array_equal(base.presence, heavy.presence)
+    np.testing.assert_array_equal(base.numeric, heavy.numeric)
+    np.testing.assert_array_equal(base.censored, heavy.censored)
+    np.testing.assert_array_equal(base.has_magnitude, heavy.has_magnitude)
+    assert not np.allclose(base.magnitude, heavy.magnitude)
+
+
+def test_headline_arrays_are_invariant_to_the_trace_bound(tmp_path):
+    """The bound sizes a censored phase's ceiling and nothing else, so the
+    hurdle NLL the headline reports cannot move with it."""
+    rows = [["src", "a", "plagioclase", "fsp", 30.0],
+            ["src", "a", "quartz", "q", 5.0],
+            ["src", "a", "hornblende", "amp", None]]
+    tight = _write_benchmark(tmp_path, [_sample("a")], rows,
+                             trace_bound_vol_pct=0.1)
+    loose = _write_benchmark(tmp_path, [_sample("a")], rows,
+                             trace_bound_vol_pct=1.0)
+    np.testing.assert_array_equal(tight.magnitude, loose.magnitude)
+    np.testing.assert_array_equal(tight.numeric, loose.numeric)
+    np.testing.assert_array_equal(tight.presence, loose.presence)
+    assert (tight.censor_bound < loose.censor_bound)[0, GROUP_INDEX["amp"]]
+
+
+def test_member_threshold_controls_which_members_join_the_support():
+    presence7 = np.zeros((1, len(GROUPS)))
+    presence7[0, GROUP_INDEX["px"]] = 1.0
+    p21 = np.zeros((1, len(SOLID_PHASES)))
+    p21[0, PHASE_INDEX["cpx"]] = 0.8
+    p21[0, PHASE_INDEX["opx"]] = 0.4
+
+    lenient = truth_forced_support(presence7, p21, member_threshold=0.3)
+    strict = truth_forced_support(presence7, p21, member_threshold=0.9)
+    assert lenient[0, PHASE_INDEX["opx"]] == 1.0
+    # nothing clears 0.9, so the rule falls back to the likeliest member
+    assert strict[0, PHASE_INDEX["cpx"]] == 1.0
+    assert strict[0, PHASE_INDEX["opx"]] == 0.0
 
 
 def test_truth_forced_support_turns_on_the_likeliest_member_when_none_clears():
