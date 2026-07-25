@@ -129,6 +129,8 @@ def _resolve_iron(df: pd.DataFrame) -> pd.Series:
     bound regardless of which products get discarded).  Any "skip the
     unused branch" rewrite breaks SIMD packing and is measurably slower
     at our N.  Returns Fe cation wt%, NaN where no Fe source is available.
+    Expects every column in `IRON_SOURCE_COLS` to exist; `tokenize_bulk_frame`
+    is what guarantees that for frames reporting only some of them.
     """
     # primary path: feo + fe2o3 (treat individual NaN as 0 once at least
     # one is present, so partial measurements still contribute).
@@ -156,6 +158,63 @@ def _resolve_iron(df: pd.DataFrame) -> pd.Series:
         ),
     )
     return fe_cation
+
+
+def tokenize_bulk_frame(
+    df: pd.DataFrame, include_cr2o3: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Oxide wt% / trace ppm columns -> the `(src, frac)` token pair.
+
+    The single tokenization path: the SSL corpus dataset below and the
+    real-rock eval loader (`cnmineral.eval.real_rock`) both go through it, so
+    a user's rock is tokenized exactly as the training corpus was.  `df`
+    supplies the oxide columns named in `MAJOR_TOKEN_TO_COL` /
+    `TRACE_TOKEN_TO_COL` plus an iron source; missing columns read as all-NaN
+    and pad their slot, which is what lets a real-rock table reporting only
+    `feo_tot` (and no traces at all) go through unchanged.  Returns `src`
+    [N, 22] int64 and `frac` [N, 22] float32.
+    """
+    wanted = [
+        *MAJOR_TOKEN_TO_COL.values(), *IRON_SOURCE_COLS,
+        *TRACE_TOKEN_TO_COL.values(),
+    ]
+    df = df.reindex(columns=[*df.columns,
+                             *(c for c in wanted if c not in df.columns)])
+
+    # resolve Fe to a single cation-wt% column.  Under strict
+    # require_all_majors=True every row already has both feo and
+    # fe2o3, so _resolve_iron returns feo*0.7773 + fe2o3*0.6994.
+    # Under loose mode the fallback chain fires.
+    fe_cation_wt_pct = _resolve_iron(df)
+
+    # build the per-sample tensors.  Each row gets its own (src, frac)
+    # pair where src=0 marks padded slots.
+    n = len(df)
+    src = np.zeros((n, N_TOKENS), dtype=np.int64)
+    frac = np.zeros((n, N_TOKENS), dtype=np.float32)
+
+    for tok_idx, (sym, z) in enumerate(MAJORS):
+        if sym == "Cr" and not include_cr2o3:
+            continue
+        if sym == "Fe":
+            values = fe_cation_wt_pct.to_numpy(dtype=np.float32)
+        else:
+            csv_col = MAJOR_TOKEN_TO_COL[sym]
+            raw_oxide = df[csv_col].to_numpy(dtype=np.float32)
+            values = raw_oxide * OXIDE_TO_CATION_FACTOR[csv_col]
+        populated = np.isfinite(values) & (values > 0)
+        src[populated, tok_idx] = z
+        frac[populated, tok_idx] = values[populated] / 100.0
+
+    for trace_offset, (sym, z) in enumerate(TRACES):
+        tok_idx = len(MAJORS) + trace_offset
+        csv_col = TRACE_TOKEN_TO_COL[sym]
+        ppm = df[csv_col].to_numpy(dtype=np.float32)
+        populated = np.isfinite(ppm) & (ppm > 0)
+        src[populated, tok_idx] = z
+        frac[populated, tok_idx] = ppm[populated] / 1e6
+
+    return src, frac
 
 
 class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
@@ -274,40 +333,9 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
                 keep_classes = counts.index[counts >= min_class_count]
                 df = df[df["qap_name"].isin(keep_classes)]
 
-        # resolve Fe to a single cation-wt% column.  Under strict
-        # require_all_majors=True every row already has both feo and
-        # fe2o3, so _resolve_iron returns feo*0.7773 + fe2o3*0.6994.
-        # Under loose mode the fallback chain fires.
-        df = df.assign(_fe_cation_wt_pct=_resolve_iron(df))
-
-        # build the per-sample tensors.  Each row gets its own (src, frac)
-        # pair where src=0 marks padded slots.  Tensors are stacked into
-        # two big [N, 22] arrays at construction time so __getitem__ is a
-        # cheap slice.
-        n = len(df)
-        src = np.zeros((n, N_TOKENS), dtype=np.int64)
-        frac = np.zeros((n, N_TOKENS), dtype=np.float32)
-
-        for tok_idx, (sym, z) in enumerate(MAJORS):
-            if sym == "Cr" and not include_cr2o3:
-                continue
-            if sym == "Fe":
-                values = df["_fe_cation_wt_pct"].to_numpy(dtype=np.float32)
-            else:
-                csv_col = MAJOR_TOKEN_TO_COL[sym]
-                raw_oxide = df[csv_col].to_numpy(dtype=np.float32)
-                values = raw_oxide * OXIDE_TO_CATION_FACTOR[csv_col]
-            populated = np.isfinite(values) & (values > 0)
-            src[populated, tok_idx] = z
-            frac[populated, tok_idx] = values[populated] / 100.0
-
-        for trace_offset, (sym, z) in enumerate(TRACES):
-            tok_idx = len(MAJORS) + trace_offset
-            csv_col = TRACE_TOKEN_TO_COL[sym]
-            ppm = df[csv_col].to_numpy(dtype=np.float32)
-            populated = np.isfinite(ppm) & (ppm > 0)
-            src[populated, tok_idx] = z
-            frac[populated, tok_idx] = ppm[populated] / 1e6
+        # tensors are stacked into two big [N, 22] arrays at construction
+        # time so __getitem__ is a cheap slice.
+        src, frac = tokenize_bulk_frame(df, include_cr2o3=include_cr2o3)
 
         self._src = torch.from_numpy(src)
         self._frac = torch.from_numpy(frac)
