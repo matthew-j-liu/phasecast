@@ -336,7 +336,18 @@ metric:
 - **Credibility anchor:** the held-out **real-rock eval** (mineralML grains,
   EDS maps), never seen in training. Showing the right scenario carries
   meaningful weight on rocks whose true assemblage is known is the test that
-  this is a calibrated inverse model, not amortized MAGEMin.
+  this is a calibrated inverse model, not amortized MAGEMin.  The eruption
+  benchmark's instrument is `cnmineral.eval.real_rock` (CLI
+  `scripts/eval/real_rock.py`, output `runs/real_rock/<tag>/`): it coarsens
+  the 21-phase vocabulary onto the 7 groups modal data resolves and assembles
+  the same hurdle NLL there, zero-shot.  Both halves of the coarsening are
+  exact -- presence composes as a noisy-OR over independent Bernoulli
+  marginals, magnitude by Dirichlet aggregation -- so the gap it measures is
+  the model's, not the mapping's.  Scores land in
+  `results/real_rock_ledger.yaml`, deliberately separate from `ledger.yaml`:
+  corpus entries are stamped to a valtest instrument and never re-measured
+  across instruments, so the real rocks are what compares models from
+  different corpus eras.
 - **Checkpoint selection and HPO ranking (locked 2026-07-19):** each head is
   snapshotted at its own best raw val epoch (mode on the unweighted
   assemblage NLL `bce + Dirichlet`, comp/cond on their own NLLs) -- a single

@@ -446,6 +446,31 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_run_joint_eval_rejects_unknown_head` -- an unrecognized head name raises before any checkpoint loading.
 3. `test_stale_label_config_raises` -- `val_dataset_and_latents` raises on a checkpoint whose `label_config` lacks `comp_eps` (predates the current joint trainer).
 
+### test_real_rock.py
+
+1. `test_coarsen_presence_is_the_noisy_or` -- a group's presence probability is `1 - prod(1 - p_member)`; a group with no member maps to 0.
+2. `test_coarsen_alpha_sums_members_on_the_support_only` -- group concentrations sum only on-support members, and the phases no source reports come back as the separate off-vocabulary total.
+3. `test_coarsen_alpha_matches_dirichlet_aggregation` -- the coarsened feldspar share matches the mean of summed member shares over 200k Dirichlet draws, confirming the merge is exact rather than approximate.
+4. `test_parse_alteration_grade_reads_modifiers_and_fresh` -- `1+`/`2-` take their leading digit, `fresh` is grade 1, blanks are -1.
+5. `test_trace_row_is_present_and_censored_not_zero` -- a `TR` row counts as present, carries a censoring bound, and is excluded from the magnitude vector rather than treated as absent.
+6. `test_reported_zero_is_absence_not_presence` -- a phase reported at 0.0 was looked for and not found, so it is neither present nor censored.
+7. `test_groundmass_is_dropped_before_renormalizing` -- groundmass leaves the truth vector entirely, so the composition renormalizes to the crystal cargo.
+8. `test_volume_converts_to_mass_before_coarsening` -- equal volumes of feldspar and Fe-Ti oxide give unequal masses, in the density ratio.
+9. `test_group_densities_apply_per_reported_name` -- augite and hypersthene coarsening into one pyroxene group each convert with their own density.
+10. `test_quantified_and_trace_in_one_group_counts_as_quantified` -- a numeric hornblende beside a trace cummingtonite leaves amphibole observed, with its bound discarded, and the composition still sums to 1.
+11. `test_rock_without_chemistry_or_modes_is_not_scoreable` -- rocks missing either side drop out at load.
+12. `test_unknown_mineral_name_is_rejected` -- a mineral with no density entry raises rather than being silently skipped.
+13. `test_alteration_grade_masks_rather_than_filters` -- altered rocks stay loaded and are selected by the `clean` mask, so they remain available as a diagnostic.
+14. `test_truth_forced_support_respects_the_group_level_only` -- a truth-present group lets the model pick its members, a truth-absent group forces all members off, and phases no source reports are never forced absent.
+15. `test_truth_forced_support_turns_on_the_likeliest_member_when_none_clears` -- a truth-present group whose members all sit below even odds still gets its single most likely member.
+16. `test_nll_finite_when_coarsening_leaves_off_support_zeros` -- off-support groups coarsen to alpha 0, which would make the masked Dirichlet NLL evaluate `lgamma(0)` and return NaN; the assembled NLL stays finite and the Bernoulli term matches its closed form.
+17. `test_single_group_composition_contributes_no_dirichlet_term` -- a one-group composition is a degenerate point mass and scores exactly 0.
+18. `test_censored_consistency_rewards_predicting_a_small_share` -- a model keeping amphibole tiny scores above 0.9 on a trace report while one sizing it large scores below 0.1; non-censored groups stay NaN.
+19. `test_tokenize_bulk_frame_pads_rather_than_populating_a_zero` -- a reported-zero oxide pads its slot, preserving `src == 0 iff frac == 0`.
+20. `test_tokenize_bulk_frame_agrees_with_the_dataset` -- a frame carrying one corpus row tokenizes to that row's dataset tensors.
+21. `test_tokenize_bulk_frame_pads_when_iron_columns_are_absent` -- a table with only `feo_tot` resolves iron through the fallback and pads the oxides it never reports.
+22. `test_load_benchmark_invariants` -- on the shipped benchmark: magnitude is nonzero exactly where quantified, quantified and censored are disjoint, presence covers both, compositions sum to 1, and every array is length-aligned.
+
 ### test_summary_cards.py
 
 1. `test_sample_assemblages_rows_on_simplex` -- every sampled assemblage sums to 1 on its support, zero-probability phases never enter, and sampling is seed-deterministic.

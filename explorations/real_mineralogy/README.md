@@ -99,11 +99,35 @@ explorations/real_mineralogy/harvest.py`.
   liq-fraction vs real groundmass-fraction. Presence comparison needs none of
   this. See docs/heads.md output views.
 
+## Scoring this benchmark
+
+`cnmineral.eval.real_rock` is the instrument (CLI `scripts/eval/real_rock.py`,
+output `runs/real_rock/<tag>/`, scores in `results/real_rock_ledger.yaml`). It
+owns everything the "model compatibility" gaps above called for: the 21-phase
+vocabulary coarsens onto the 7 groups this data resolves (`MODEL_TO_GROUP` /
+`TRUTH_TO_GROUP`, so `opq_unsplit` meets spl+ilm and `px_unsplit` meets
+cpx+opx), vol% converts to wt% by per-reported-name density
+(`MINERAL_DENSITY`) before coarsening, and groundmass drops so the truth
+vector renormalizes to the crystal cargo.
+
+Three data facts that surface only here, all encoded in the loader:
+
+- **`TR` / `<1` rows carry no number** (~500 of 3245, a quarter of amphibole's
+  appearances). They are present, and left-censored: the abundance is known
+  only to sit below du Bray's 0.5 vol% reporting grid. Scored by that bound,
+  never imputed -- phenocryst totals are small enough that any imputed
+  constant lands inside the range of genuinely-reported values.
+- **A reported `0.0` is an absence**, not a presence (3 MSH `silica phases`
+  rows): the phase was looked for and not found.
+- **`alteration_extent` is a string with modifiers** (`1+`, `2-`), so the
+  freshness cut parses the leading digit; `fresh` is grade 1.
+
 ## TODOs before this is a locked benchmark
 
-- Pinatubo whole-rock chemistry (Table 7 transcription) -- 6 rows.
-- `opq_unsplit` / `px_unsplit` comparison rule vs the MAGEMin phase split.
-- vol% (point counts) vs wt% (MAGEMin modes) conversion via mineral densities.
-- freshness QC pass on du Bray (oxide totals / LOI thresholds), not just `AltExtnt`.
+- Pinatubo whole-rock chemistry (Table 7 transcription) -- 6 rows. Until they
+  land the precision tier is 6 scoreable rocks (MSH), not 13.
+- freshness QC beyond `AltExtnt` (oxide totals / LOI thresholds).
+- a noise floor: most of the set is visual estimates at +/-5-10 vol%, so part
+  of any measured gap is the measurement. 6 point-counted rocks cannot pin it.
 - more precision-tier eruptions (Unzen, Soufriere Hills, Colima, Mazama) if the
   benchmark needs weight beyond the coverage tier.

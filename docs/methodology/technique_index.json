@@ -56,6 +56,7 @@
       "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/eval/cond_head.py",
       "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/training/joint_heads.py"
     ],
@@ -132,6 +133,7 @@
     "joint_hurdle_nll_eval": [
       "scripts/view/inference_card.py",
       "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/eval/summary_cards.py",
       "src/cnmineral/eval/trajectory.py",
       "src/cnmineral/training/joint_heads.py"
@@ -140,6 +142,10 @@
       "src/cnmineral/eval/probe/__init__.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/eval/probe/scoring.py"
+    ],
+    "left_censored_magnitude_scoring": [
+      "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/eval/real_rock.py"
     ],
     "logreg_probe": [
       "src/cnmineral/eval/probe/__init__.py",
@@ -161,7 +167,12 @@
       "src/cnmineral/eval/mode_head.py"
     ],
     "presence_reliability_ece": [
-      "src/cnmineral/eval/mode_head.py"
+      "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/eval/real_rock.py"
+    ],
+    "sim_to_real_zero_shot_transfer": [
+      "scripts/eval/real_rock.py",
+      "src/cnmineral/eval/real_rock.py"
     ],
     "supergroup_collapse": [
       "src/cnmineral/data/condition_proposal.py",
@@ -174,6 +185,9 @@
     "umap_projection": [
       "src/cnmineral/eval/probe/scoring.py",
       "src/cnmineral/eval/umap_views.py"
+    ],
+    "vocabulary_coarsening": [
+      "src/cnmineral/eval/real_rock.py"
     ]
   },
   "hpo": {
@@ -230,6 +244,7 @@
   },
   "initialization": {
     "checkpoint_load": [
+      "scripts/eval/real_rock.py",
       "scripts/view/inference_card.py",
       "scripts/view/plot_training.py",
       "scripts/view/scenario_view.py",
@@ -273,6 +288,7 @@
     ],
     "joint_multihead_loss": [
       "scripts/eval/joint_heads.py",
+      "scripts/eval/real_rock.py",
       "scripts/view/inference_card.py",
       "scripts/view/scenario_view.py",
       "scripts/view/truth_vs_pred.py",
@@ -286,6 +302,7 @@
     ],
     "masked_dirichlet_nll": [
       "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/losses/mode_loss.py",
       "src/cnmineral/training/joint_heads.py"

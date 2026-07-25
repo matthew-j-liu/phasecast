@@ -228,10 +228,14 @@ def conditional_mean(alpha: np.ndarray, mask: np.ndarray) -> np.ndarray:
 def magnitude_parity_stats(
     cond_mean: np.ndarray, magnitude: np.ndarray, presence: np.ndarray
 ) -> dict[str, np.ndarray]:
-    """Per-phase conditional-magnitude MAE and Pearson r on truly-present rows."""
-    mae = np.full(len(SOLID_PHASES), np.nan)
-    r = np.full(len(SOLID_PHASES), np.nan)
-    for i in range(len(SOLID_PHASES)):
+    """Per-phase conditional-magnitude MAE and Pearson r on truly-present rows.
+
+    Sized from the arrays, not the phase vocabulary, so it also serves the
+    coarsened group space the real-rock eval scores in.
+    """
+    mae = np.full(magnitude.shape[1], np.nan)
+    r = np.full(magnitude.shape[1], np.nan)
+    for i in range(magnitude.shape[1]):
         m = presence[:, i] > 0
         true, pred = magnitude[m, i], cond_mean[m, i]
         if true.size:

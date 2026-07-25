@@ -4455,3 +4455,76 @@ kwarg) -- all four fault-tolerance tests were failing on HEAD.
 launch allocation (`--expand N --expand-block M`), runs valtest first
 (~9 h, early attrition read on the narrower boxes), then the train tier;
 during-regen track switches to #18 transfer/few-shot.
+
+## 2026-07-24 -- Sim-to-real zero shot: the gap is calibration, except for amphibole, where it is discrimination
+
+**Q.** Measure the transfer bet intact -- does a ModeHead trained on MAGEMin
+reference-state labels predict the minerals a geologist counts? -- and read
+the residual shape closely enough to specify the thin adapter (#18 build 2)
+rather than guess it.
+
+**Context.** Path A, zero-shot, nothing fit on real rocks: the benchmark
+stays eval-only until the gap is measured, since fine-tuning first spends the
+one honest transfer number we get. The model speaks 21 minerals; real modal
+data resolves ~7 groups. Both halves of the coarsening turn out exact --
+presence composes as a noisy-OR (the head emits independent Bernoulli
+marginals), magnitude by Dirichlet aggregation, and dropping the phases no
+source reports is the sub-composition property `masked_dirichlet_nll` already
+rests on -- so the measured gap is the model's, not the mapping's.
+
+**Considered.** Metric: the headline is the loss the adapter minimizes,
+evaluated at the identity correction (per-group Platt scaling *is*
+Bernoulli-NLL fitting), so build 2's gain reads as nats recovered on one
+scale. Trace rows: imputation rejected on measurement -- phenocryst totals
+are small (median 13.5 vol%), so renormalization puts any imputed constant
+inside the range of genuinely-reported values; left-censoring adopted
+instead. The censored term is reported beside the headline, never summed in:
+density-on-observed times a marginal tail probability is not a joint
+likelihood, because the Dirichlet couples the components. Ledger: a separate
+file, since corpus entries are per-head NLLs stamped to a valtest instrument
+and never re-measured across instruments -- which leaves the real rocks as
+the only cross-era comparison. No instrument stamp, but a `benchmark`
+version, since the roster itself will move.
+
+**Decision.** Landed `cnmineral.eval.real_rock` + `scripts/eval/real_rock.py`
++ `results/real_rock_ledger.yaml` (`eruption-v1`, entries pending), and
+`tokenize_bulk_frame` extracted so real rocks tokenize through the corpus's
+own path. Headline on `joint_heads_supportmag_seed0`: **joint NLL 10.404**
+over 635 least-altered rocks (bernoulli 5.708 + dirichlet 4.696).
+
+The read: **ranking transfers, absolute numbers do not.** Against an
+always-present baseline, four groups carry real signal (ol +0.32 F1, q +0.25,
+px +0.09, bi +0.06), two are saturated at ~95% base rate (fsp, opq -- nothing
+to discriminate), and **amphibole is no better than trivial** (+0.02, AUROC
+0.58) despite being the phase the transfer story turns on. Magnitude R2 is
+negative for four of seven while Pearson r runs 0.5-0.76: the model orders
+rocks correctly and reports on the wrong scale. Per-group offsets are large
+and structured (amp presence +0.39, q -0.41; opq under-sized ~2.7x), and the
+residual-vs-SiO2 read says the adapter needs a silica term on q and amp
+presence only. Off-vocabulary mass is ~0, so nothing is hallucinated.
+
+Three traps found and encoded: coarsening leaves exact-zero concentrations
+and `mask * lgamma(0)` is `0 * inf` = NaN (fixed at the call site, not in the
+shared loss); the Dirichlet term's scale moves with composition size, so a
+subset of simpler rocks scores "better" (every subset block now reports
+`mean_composition_size`); and a group receiving both a number and a trace
+counts as quantified, or the truth vector silently stops summing to 1.
+
+Retracted in review: per-group `r^2` was quoted as a recalibration ceiling.
+It is the R2 of an optimal affine map on shares, while the adapter is a
+multiplicative shift on concentrations plus renormalization -- a different
+model class that couples all groups -- it was fit with nothing held out, and
+it forecasts R2 for a thing that minimizes NLL. Not a bound. The only
+rigorous version is fitting the adapter under cross-validation.
+
+**Next.** Sequencing agreed with the owner: (1) mapping sensitivity audit --
+perturb densities, the 0.5 vol% trace bound, the alteration rule, the support
+forcing, and see how far the headline moves, since everything else rests on
+it; (2) the thin per-group adapter under k-fold, to establish an honest
+held-out baseline; (3) regen results as the separate track they already are.
+Group-coupled correction (the only form that can move ranking), hierarchical
+shrinkage across groups, and folding the 413 censored instances into the
+objective are held until there is a held-out number to beat. Still open: how
+`R_theta` is fit versus preserving a sealed estimate, and the benchmark's
+noise floor -- most of the set is visual estimates at +/-5-10 vol%, and 6
+point-counted rocks cannot pin it.

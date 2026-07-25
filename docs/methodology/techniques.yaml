@@ -360,6 +360,23 @@ techniques:
     type: evaluation
     patterns:
       - "fp_fn_mass"
+  - name: sim_to_real_zero_shot_transfer
+    type: evaluation
+    patterns:
+      - "run_real_rock_eval"
+      - "real_rock_nll"
+      - "load_benchmark"
+  - name: vocabulary_coarsening
+    type: evaluation
+    patterns:
+      - "coarsen_presence"
+      - "coarsen_alpha"
+      - "truth_forced_support"
+  - name: left_censored_magnitude_scoring
+    type: evaluation
+    patterns:
+      - "censored_consistency"
+      - "censor_bound"
       - "fp_mass"
 
   # ---- data_loading ----
