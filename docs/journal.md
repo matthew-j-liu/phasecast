@@ -4599,3 +4599,70 @@ straddles zero and no density makes the sign recoverable. Left-censoring stands
 like-for-like read and is reported with the size stamped). Still open, unchanged:
 how `R_theta` is fit versus preserving a sealed estimate, and the benchmark's
 noise floor.
+
+## 2026-07-24 -- Support density and magnitude calibration: backwards, and one metric is coverage-selected
+
+**Q.** Two readings off the real-rock eval suggested ModeHead's magnitude branch
+is better calibrated when the support it conditions on is *sparser* than truth:
+the forced-support ladder improved monotonically as it thinned (6.45 phases on
+support 13.38 nats, 4.92 10.40, 4.59 9.86), and the exposure probe went the
+"wrong" way, the model's own support beating the measured one by 0.31 nats. If
+the cause were a train/inference mismatch -- teacher forcing only ever shows the
+branch a true assemblage, while `sample_supports` draws from the presence
+marginals and over-calls -- then presence miscalibration would also be a
+mode-magnitude problem, and presence work would be justified by mode value.
+Testable entirely on the corpus.
+
+**Context.** Stratifying the observed penalty by support size cannot separate
+that from its rivals, since a row's support error correlates with how hard the
+row is. So the probe decomposed instead: perturb the conditioned support in two
+controlled directions from truth (pad with the most probable absent phases, drop
+the least probable present ones) while the evaluated mask stays the true support.
+`masked_dirichlet_nll` masks by truth, so the Dirichlet's dimension is fixed
+across rungs and density is the only moving part. Frozen
+`joint_heads_supportmag_seed0`, valtest val roster, 218 bulks / 55,576 rows,
+nothing fit.
+
+**Considered.** Two rival explanations, both corpus-testable. The exposure probe
+is defined only where the sampled support covers every measured group, and those
+are the rows whose presence the model got right, so its sign could be selection.
+And the forced-support ladder runs through a coarsening step that sums member
+concentrations into groups, inflating alpha0 and sharpening the density whether
+or not the branch is miscalibrated -- a mechanism with no corpus analogue.
+
+**Decision.** **The hypothesis is refuted and both rivals hold.** A denser
+conditioned support is monotonically *worse*, ~1.25 nats per extra phase
+(+1.26 / +2.60 / +3.87 / +5.40 at +1/+2/+3/+5), with share MAE degrading 0.042
+-> 0.098; padding *dilutes* alpha0 on the true support (45.9 -> 35.5) rather
+than sharpening it. The premise fails outright: expected sampled support size is
+4.79 against a true 4.81, so the presence head does not over-call in aggregate
+(largest per-phase bias bi +0.012; amphibole is *under*-called by 0.012).
+
+Restricting the corpus to covering supports moves the exposure penalty from
+**+5.865 to +1.635** -- 72% of it -- with no model output changed. Corpus
+coverage is 19% against the real-rock probe's 45% over 7 coarse groups instead
+of 21 phases, so the surviving subset there is more selected still, enough to
+carry a +1.6-style number past zero. The all-rows figure reproduces the shipped
+`exposure_bias_nll_delta` to the digit. The forced-support ladder is the
+coarsening artifact: on real rocks extra members are summed *into* the scored
+groups and sharpen; on the corpus extra phases sit outside the scored mask and
+dilute. Opposite signs. That ladder measures the invented support rule, not the
+head, consistent with the mapping audit's own verdict.
+
+What survives: support errors cost in both directions, misses ~2.1x spurious per
+phase (+2.71 vs +1.26), and a sampled support of exactly the right *size* but
+wrong membership costs +4.77 -- membership dominates, size barely matters.
+
+**Exploration deleted at the owner's call as fluff**; the probe, its tests, and
+its figures are gone and this entry is the record. The return did not justify a
+directory: one negative result and one metric correction.
+
+**Next.** The single actionable consequence, on #52: the exposure-bias
+instruction as filed ("adaptation that improves teacher-forced magnitude while
+degrading self-support magnitude is not a win") is not comparable across
+adapters, because the adapter changes presence and therefore changes which rocks
+are coverable. Freeze the coverage set at the zero-shot baseline's and score
+every adapter on those same rocks. Nothing else here informs the adaptation
+module: the miss/spurious asymmetry is already handled by minimizing the joint
+NLL, and it was measured in 21-phase space where the coarsening flips the
+density effect's sign, so it should not be assumed to transfer.
