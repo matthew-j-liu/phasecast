@@ -271,7 +271,7 @@ prioritization roughly:
 
 ## Relationship to the mineralogy track
 
-Both tracks share the same encoder. The mineralogy track (`v1-trained`,
+Both tracks share the same encoder. The mineralogy track (`v1.0-trained`,
 v2 cell-c) adds the ModeHead + CondHead and trains supervised against FC
 labels. The applications track in this doc adds zero or one small head
 per capability without retraining the encoder.
