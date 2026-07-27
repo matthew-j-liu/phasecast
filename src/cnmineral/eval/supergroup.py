@@ -7,7 +7,7 @@ IUGS Streckeisen classes; the 9-supergroup collapse is a stable color palette
 for UMAP and a cleaner secondary probe target.
 
 Ported verbatim from the v2 string-rule lookup in
-`v2-traces-ssl-final:src/cnmineral/data/unlabeled.py::_supergroup_of`, which
+`v2.0-traces-ssl-final:src/cnmineral/data/unlabeled.py::_supergroup_of`, which
 predates v3's CompHead work and has the historical name "other" for the
 catch-all bucket.
 """
