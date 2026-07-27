@@ -242,6 +242,7 @@ techniques:
     patterns:
       - "expansion_quotas"
       - "train_bulks_expansion"
+      - "draw_expansion"
   - name: feldspar_stoichiometric_routing
     type: preprocessing
     patterns:
@@ -366,6 +367,29 @@ techniques:
       - "run_real_rock_eval"
       - "real_rock_nll"
       - "load_benchmark"
+  - name: sim_to_real_adaptation
+    type: training_strategy
+    patterns:
+      - "RealRockAdapter"
+      - "fit_adapter"
+      - "pin_amp_magnitude"
+      - "adapter_nll"
+  - name: unit_grouped_split
+    type: preprocessing
+    patterns:
+      - "unit_grouped_split"
+      - "load_real_rock_split"
+      - "split_balance"
+  - name: cluster_bootstrap
+    type: evaluation
+    patterns:
+      - "paired_bootstrap"
+  - name: few_shot_learning_curve
+    type: evaluation
+    patterns:
+      - "draw_units"
+      - "select_weight_decay"
+      - "run_curve"
   - name: vocabulary_coarsening
     type: evaluation
     patterns:
