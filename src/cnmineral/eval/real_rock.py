@@ -25,13 +25,15 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 import torch
 import torch.nn.functional as F
-from scipy.special import betainc
+from scipy.special import betainc, betaincinv
 from scipy.stats import spearmanr
 from sklearn.metrics import roc_auc_score
 
 from cnmineral.data.bulk_chemistry import tokenize_bulk_frame
+from cnmineral.data.tokens import VOCAB
 # GROUPS / GROUP_INDEX / MODEL_TO_GROUP are defined in `phase_vocab` beside the
 # 21-phase vocabulary they coarsen, and re-exported here because this module is
 # where callers meet the benchmark.
@@ -783,6 +785,95 @@ def plot_gap_summary(p7, pred, benchmark, out_path: Path, subtitle: str) -> None
     _finish(fig, f"the corrections a thin adapter would learn -- {subtitle}", out_path)
 
 
+def share_interval(
+    alpha7: np.ndarray, mask: np.ndarray, q: tuple[float, float] = (0.1, 0.9)
+) -> tuple[np.ndarray, np.ndarray]:
+    """Central credible interval on each group's predicted share.
+
+    The magnitude branch emits a Dirichlet, not a point estimate, and the
+    Dirichlet's marginal for one component is `Beta(alpha_i, alpha_0 - alpha_i)`
+    on the conditioned support -- so the interval is closed-form, not sampled.
+
+    Worth plotting rather than reporting the mean alone: much of what the
+    sim-to-real correction does is widen this interval (alpha_0 on the scored
+    support drops 46 -> 25 under fitting), and a figure showing only the mean
+    cannot show that at all.
+    """
+    on = alpha7 * mask
+    alpha0 = on.sum(-1, keepdims=True)
+    beta = np.clip(alpha0 - on, 1e-9, None)
+    lo, hi = (
+        np.where(mask > 0, betaincinv(np.clip(on, 1e-9, None), beta, p), np.nan)
+        for p in q
+    )
+    return lo, hi
+
+
+def _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row: int,
+                 prefix: str = "", interval=None) -> None:
+    """Draw one rock's three card panels onto the given axes.
+
+    Split out of `real_rock_card` so the before/after comparison can stack two
+    of them on one figure without duplicating the panel logic.  `prefix` names
+    which model a row is showing, in the panel titles rather than only as an
+    axis label -- on a stacked figure the reader should not have to infer it.
+    """
+    if ax0 is not None:
+        src, frac = benchmark.bulk_src[row].numpy(), benchmark.bulk_frac[row].numpy()
+        populated = np.flatnonzero(src > 0)
+        symbol = {z: sym for sym, z in VOCAB}
+        ax0.barh(np.arange(len(populated)), frac[populated] * 100, color="tab:gray")
+        ax0.set_yticks(np.arange(len(populated)),
+                       [symbol[int(z)] for z in src[populated]], fontsize=10)
+        ax0.invert_yaxis()
+        ax0.set_xscale("log")
+        ax0.set_xlabel("cation wt% (log)", fontsize=10)
+        ax0.set_title("input: whole-rock chemistry", fontsize=11)
+
+    y = np.arange(len(GROUPS))
+    ax1.barh(y - 0.19, p7[row], 0.36, color="tab:orange", label="predicted")
+    ax1.barh(y + 0.19, benchmark.presence[row], 0.36, color="tab:blue",
+             label="measured")
+    ax1.set_yticks(y, GROUPS, fontsize=10)
+    ax1.invert_yaxis()
+    ax1.set_xlim(0, 1.05)
+    ax1.set_xlabel("presence probability", fontsize=10)
+    ax1.set_title(f"{prefix}is it there?", fontsize=11)
+    ax1.legend(fontsize=8)
+
+    for i in range(len(GROUPS)):
+        if benchmark.numeric[row, i]:
+            ax2.plot(benchmark.magnitude[row, i], i + 0.19, "o", ms=6,
+                     color="tab:blue")
+        elif benchmark.censored[row, i]:
+            ax2.annotate("", xy=(benchmark.censor_bound[row, i], i + 0.19),
+                         xytext=(1.0, i + 0.19),
+                         arrowprops={"arrowstyle": "->", "color": "tab:blue",
+                                     "lw": 0.9, "alpha": 0.7})
+        if interval is not None and np.isfinite(interval[0][row, i]):
+            ax2.plot(interval[0][row, i:i + 1].tolist()
+                     + interval[1][row, i:i + 1].tolist(),
+                     [i - 0.19] * 2, "-", color="tab:orange", lw=1.6, alpha=0.55)
+        ax2.plot(pred[row, i], i - 0.19, "o", ms=6, color="tab:orange", mfc="white")
+    handles = [
+        Line2D([], [], marker="o", ls="none", ms=6, color="tab:orange",
+               mfc="white", label="predicted"),
+        Line2D([], [], marker="o", ls="none", ms=6, color="tab:blue",
+               label="measured"),
+    ]
+    if interval is not None:
+        handles.append(Line2D([], [], color="tab:orange", lw=1.6, alpha=0.55,
+                              label="predicted 10-90%"))
+    ax2.legend(handles=handles, fontsize=8, loc="lower right", framealpha=0.9)
+    ax2.set_yticks(y, GROUPS, fontsize=10)
+    ax2.invert_yaxis()
+    ax2.set_xlim(0, 1.02)
+    ax2.set_xlabel("share of the crystal cargo", fontsize=10)
+    ax2.set_title(f"{prefix}how much?\n"
+                  "(arrow: measured only as a trace, so bounded above)",
+                  fontsize=11)
+
+
 def real_rock_card(
     p7, pred, benchmark, row: int, out_path: Path
 ) -> None:
@@ -790,45 +881,164 @@ def real_rock_card(
     fig, (ax0, ax1, ax2) = plt.subplots(
         1, 3, figsize=(13, 3.8), gridspec_kw={"width_ratios": [1.0, 0.9, 1.2]}
     )
-    src, frac = benchmark.bulk_src[row].numpy(), benchmark.bulk_frac[row].numpy()
-    populated = np.flatnonzero(src > 0)
-    ax0.barh(np.arange(len(populated)), frac[populated] * 100, color="tab:gray")
-    ax0.set_yticks(np.arange(len(populated)),
-                   [str(int(z)) for z in src[populated]], fontsize=7)
-    ax0.invert_yaxis()
-    ax0.set_xscale("log")
-    ax0.set_xlabel("cation wt% (log)", fontsize=8)
-    ax0.set_title("input: whole-rock chemistry\n(y: atomic number)", fontsize=9)
-
-    y = np.arange(len(GROUPS))
-    ax1.barh(y - 0.19, p7[row], 0.36, color="tab:orange", label="predicted")
-    ax1.barh(y + 0.19, benchmark.presence[row], 0.36, color="tab:blue",
-             label="measured")
-    ax1.set_yticks(y, GROUPS, fontsize=8)
-    ax1.invert_yaxis()
-    ax1.set_xlim(0, 1.05)
-    ax1.set_xlabel("presence probability", fontsize=8)
-    ax1.set_title("is it there?", fontsize=9)
-    ax1.legend(fontsize=7)
-
-    for i in range(len(GROUPS)):
-        if benchmark.numeric[row, i]:
-            ax2.plot(benchmark.magnitude[row, i], i + 0.19, "o", ms=5,
-                     color="tab:blue")
-        elif benchmark.censored[row, i]:
-            ax2.annotate("", xy=(benchmark.censor_bound[row, i], i + 0.19),
-                         xytext=(1.0, i + 0.19),
-                         arrowprops={"arrowstyle": "->", "color": "tab:blue",
-                                     "lw": 0.9, "alpha": 0.7})
-        ax2.plot(pred[row, i], i - 0.19, "o", ms=5, color="tab:orange", mfc="white")
-    ax2.set_yticks(y, GROUPS, fontsize=8)
-    ax2.invert_yaxis()
-    ax2.set_xlim(0, 1.02)
-    ax2.set_xlabel("share of the crystal cargo", fontsize=8)
-    ax2.set_title("how much?\n(arrow: measured only as a trace, so bounded above)",
-                  fontsize=9)
+    _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row)
     _finish(fig, f"{benchmark.bulk_ids[row]} -- SiO2 {benchmark.sio2[row]:.1f} wt%, "
                  "zero-shot (nothing fit on real rocks)", out_path)
+
+
+def real_rock_card_comparison(
+    before, after, benchmark, row: int, out_path: Path, subtitle: str
+) -> None:
+    """The same rock zero-shot and adapted, stacked, against one measurement.
+
+    `before` / `after` are `(p7, share, lo, hi)` tuples, the last two the
+    Beta credible bounds from `share_interval` (pass `None` to omit). Two rows
+    rather than two files
+    because the correction is only legible as a difference: a single adapted
+    card looks like any other card, and the reader has nothing to subtract.
+
+    Magnitude here is teacher-forced on the measured assemblage, as the
+    single-rock card is -- this panel answers "given we know which minerals are
+    present, how much of each?". The model standing on its own assemblage is
+    `real_rock_scenarios`.
+    """
+    fig = plt.figure(figsize=(13, 7.0))
+    # chemistry spans both rows: the input does not change between them, and
+    # two identical panels invite the eye to look for a difference there.
+    # `top` reserves room for a multi-line suptitle: the panel titles are two
+    # lines themselves, and tight_layout will not arbitrate between them.
+    gs = fig.add_gridspec(2, 3, width_ratios=[1.0, 0.9, 1.2], wspace=0.3,
+                          hspace=0.45, top=0.83, bottom=0.07)
+    ax_chem = fig.add_subplot(gs[:, 0])
+    rows = (("ZERO-SHOT (nothing fit)", before), ("ADAPTED", after))
+    for r, (label, (p7, share, lo, hi)) in enumerate(rows):
+        ax1, ax2 = fig.add_subplot(gs[r, 1]), fig.add_subplot(gs[r, 2])
+        _card_panels(ax_chem if r == 0 else None, ax1, ax2, p7, share,
+                     benchmark, row, prefix=f"{label}  --  ",
+                     interval=None if lo is None else (lo, hi))
+        ax1.legend(fontsize=8, loc="lower right", framealpha=0.9)
+        if r == 0:
+            ax1.set_xlabel("")
+            ax2.set_xlabel("")
+    # not `_finish`: its tight_layout would undo the reserved header space
+    fig.suptitle(f"{benchmark.bulk_ids[row]} -- SiO2 {benchmark.sio2[row]:.1f} wt%\n"
+                 f"{subtitle}", fontsize=10)
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"saved {out_path}")
+
+
+def real_rock_scenarios(
+    head,
+    latent: torch.Tensor,
+    p21: np.ndarray,
+    *,
+    correct_alpha7=None,
+    n_samples: int = 512,
+    top_k: int = 2,
+    seed: int = 0,
+) -> list[dict]:
+    """The top-K assemblages the model proposes for one rock, on its own support.
+
+    The card teacher-forces the measured assemblage and asks "how much of
+    each?". This asks the deployment question instead -- which minerals, and
+    how much -- by sampling supports from the presence marginals and letting
+    the magnitude branch condition on whatever it drew. Samples are grouped by
+    their coarsened 7-group pattern, so a scenario is a distinct mineral list
+    with a probability, not a smear over one.
+
+    `correct_alpha7` is the adapter's magnitude correction, applied per sample
+    because the coupled tiers read the sampled concentrations. Pass `p21`
+    already corrected if the adapter should also move which supports get drawn.
+    """
+    rng = np.random.default_rng(seed)
+    draws = (rng.random((n_samples, p21.shape[-1])) < p21).astype(np.float64)
+    with torch.no_grad():
+        alpha21 = head.magnitude_alpha(
+            latent.expand(n_samples, -1),
+            torch.as_tensor(draws, dtype=latent.dtype, device=latent.device),
+        ).cpu().numpy()
+    alpha7, _ = coarsen_alpha(alpha21, draws)
+    if correct_alpha7 is not None:
+        alpha7 = correct_alpha7(alpha7)
+
+    present = np.zeros((n_samples, len(GROUPS)), dtype=bool)
+    for phase, group in MODEL_TO_GROUP.items():
+        present[:, GROUP_INDEX[group]] |= draws[:, PHASE_INDEX[phase]] > 0
+    share = conditional_mean(alpha7, present.astype(np.float64))
+
+    patterns: dict[tuple, list[int]] = {}
+    for i, row in enumerate(present):
+        patterns.setdefault(tuple(row.tolist()), []).append(i)
+    ranked = sorted(patterns.items(), key=lambda kv: -len(kv[1]))[:top_k]
+    return [
+        {
+            "groups": tuple(g for g, on in zip(GROUPS, pattern) if on),
+            "present": np.array(pattern),
+            "prob": len(idx) / n_samples,
+            "share": share[idx].mean(0),
+            "share_p10": np.quantile(share[idx], 0.1, axis=0),
+            "share_p90": np.quantile(share[idx], 0.9, axis=0),
+        }
+        for pattern, idx in ranked
+    ]
+
+
+def real_rock_scenario_figure(
+    scenarios: list[dict], benchmark, row: int, out_path: Path, subtitle: str,
+    tp_samples: list[np.ndarray] | None = None,
+) -> None:
+    """One rock's top-K proposed assemblages against what was measured.
+
+    `tp_samples`, if given, is one [S, 2] array of (T, P) draws per scenario.
+    It is drawn separately because **no source in this benchmark measured
+    temperature or pressure**, so that panel has predictions and no truth --
+    and CondHead is not corrected by the adapter, so it is also the one part of
+    the figure still speaking the uncorrected model's language. Labelled as
+    such on the axes rather than left for the reader to infer.
+    """
+    n_panels = 2 if tp_samples else 1
+    fig, axes = plt.subplots(
+        1, n_panels, figsize=(6.4 * n_panels, 4.3), squeeze=False,
+    )
+    ax = axes[0][0]
+    y = np.arange(len(GROUPS))
+    width = 0.8 / max(len(scenarios), 1)
+    colors = ["tab:orange", "tab:green", "tab:purple", "tab:red"]
+    for i, sc in enumerate(scenarios):
+        offset = (i - (len(scenarios) - 1) / 2) * width
+        ax.barh(y + offset, sc["share"], width, color=colors[i % len(colors)],
+                alpha=0.85, label=f"scenario {i + 1} (p={sc['prob']:.2f})")
+    measured = np.where(benchmark.numeric[row], benchmark.magnitude[row], np.nan)
+    ax.plot(measured, y, "D", ms=6, color="tab:blue", label="measured",
+            ls="none", zorder=5)
+    for i in range(len(GROUPS)):
+        if benchmark.censored[row, i]:
+            ax.annotate("", xy=(benchmark.censor_bound[row, i], i),
+                        xytext=(1.0, i),
+                        arrowprops={"arrowstyle": "->", "color": "tab:blue",
+                                    "lw": 0.9, "alpha": 0.7})
+    ax.set_yticks(y, GROUPS, fontsize=9)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1.02)
+    ax.set_xlabel("share of the crystal cargo", fontsize=9)
+    ax.set_title("the model's own assemblages, vs measured", fontsize=10)
+    ax.legend(fontsize=7)
+
+    if tp_samples:
+        ax2 = axes[0][1]
+        for i, tp in enumerate(tp_samples):
+            ax2.scatter(tp[:, 0], tp[:, 1], s=5, alpha=0.3,
+                        color=colors[i % len(colors)], label=f"scenario {i + 1}")
+        ax2.set_xlabel("temperature (C)", fontsize=9)
+        ax2.set_ylabel("pressure (kbar)", fontsize=9)
+        ax2.set_title("conditions per scenario\n"
+                      "(NO measured T/P on this benchmark; and CondHead is "
+                      "uncorrected)", fontsize=9)
+        ax2.legend(fontsize=7)
+
+    _finish(fig, f"{benchmark.bulk_ids[row]} -- SiO2 {benchmark.sio2[row]:.1f} wt%\n"
+                 f"{subtitle}", out_path)
 
 
 def _headline(nll: dict, mask: np.ndarray, numeric: np.ndarray) -> dict:

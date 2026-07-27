@@ -93,7 +93,38 @@ The same curve re-run on post-regen heads is the regen's transfer evidence,
 since under the segmented-ledger convention this benchmark is the designated
 cross-instrument judge (#45).
 
+## The same result at the level a user meets it
+
+`run_cards.py` renders one held-out rock at a time instead of a curve: chemistry
+in, mineralogy out, measurement beside it, zero-shot over adapted on the same
+rock. Conditioned on 25 rocks / 10 eruptions, rendered on test-slice rocks only.
+The card teacher-forces the measured assemblage ("given these minerals are here,
+how much of each?"); the scenario view drops that and samples supports from the
+model's own corrected presence, which is the deployment question. Predicted
+shares carry their Beta 10-90% interval -- the Dirichlet marginal, closed-form --
+because widening that interval is most of what the correction does, and a
+mean-only card cannot show it.
+
+Two things the cards make concrete that the curve cannot. On the best-scoring
+rock the correction pushes quartz 0.90 -> 0.41 while quartz *is* measured
+present: one per-group correction applies to every rock identically, so it buys
+aggregate accuracy at the cost of rocks running against the trend. And the two
+top scenarios for the median rock differ precisely by amphibole present vs
+absent -- the ambiguity this project has been chasing, surfaced in a
+user-facing figure rather than a diagnostic.
+
+**Reading "best" needs care.** Ranking is by per-rock adapted joint NLL, and
+that score favours rocks spanning MORE mineral groups: a one-group composition
+is a degenerate point mass contributing exactly 0, while a five-group one has a
+higher-dimensional simplex on which a sharp Dirichlet earns strongly negative
+log-density. Measured on the test slice, mean adapted NLL runs 6.9 / 6.9 / 7.3 /
+1.4 / -2.0 at 1/2/3/4/5 groups, and every rock in the top 20 has at least four.
+Number of reported *elements* is unrelated (r = +0.006). Composition size is
+stamped on every card for this reason.
+
 ## Gotcha found here
+
+Two, both silent.
 
 The coupled tiers read `log(alpha)` as an input feature, and coarsening leaves
 exact zeros wherever a group has no member phase on the support. Clamping
@@ -102,6 +133,16 @@ the groups carrying no information, and `linear` / `mlp` diverge on it -- val
 NLL reaching 1e20, with an erratic non-monotone weight-decay curve that reads
 like "the coupled tiers do not help." They do; an off-support group's feature
 is the neutral 0. Worth knowing before adding any further input to this module.
+
+And the adapter judges groups while deployment needs a 21-phase support, so the
+group verdict has to be pushed back down. Shifting each member's *logit* by the
+group's logit shift is wrong, because the noisy-OR is not linear in logits: a
+group at 0.9999 corrected to 0.84 gives a -7.5 shift that drives both members
+to ~0, so the group vanishes from every sampled support. Caught only because a
+scenario view came back with no feldspar in a rock that is half feldspar. The
+exact transform raises each member's absence probability to a common power,
+`gamma = log(1 - P_target) / log(1 - P_now)`. That function also feeds the
+exposure probe, so this was never only a plotting bug.
 
 ## Files
 
