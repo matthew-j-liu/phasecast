@@ -4666,3 +4666,87 @@ every adapter on those same rocks. Nothing else here informs the adaptation
 module: the miss/spurious asymmetry is already handled by minimizing the joint
 NLL, and it was measured in 21-phase space where the coarsening flips the
 density effect's sign, so it should not be assumed to transfer.
+
+## 2026-07-25 -- Few-shot sim-to-real: eight eruptions buy most of the gap, and coupling pays
+
+**Q.** How many labelled real rocks bridge the sim-to-real gap while still
+generalizing to eruptions the adapter never saw (#52)? The deliverable is a
+learning curve, not a recovered-nats point estimate: per-rock joint NLL has sd
+13.8 against mean 10.4, so a level on a ~160-rock slice carries +/- 2 nats, and
+only the shape survives that.
+
+**Context.** Two decisions taken before any code. Pinatubo's chemistry was
+transcribed first so the curve and its baseline share one benchmark version.
+And overfitting is controlled by **one weight-decay constant per tier, chosen
+once on the fixed val slice** and shared across every budget and draw, rather
+than per-draw early stopping -- so every drawn rock on the x-axis is a fitted
+rock and "N rocks buys this much" is reproducible by harvesting N rocks. The
+val slice's entire contribution to the curve is three scalars.
+
+**Considered.** Transcription was made checkable rather than trusted: Table 7's
+majors are normalized volatile-free so each row's ten oxides sum to 100
+(asserted in the parser), and each block prints an Average the transcribed rows
+must reproduce. That caught a misread FeTO3 (6.98 could not reproduce the
+printed 9.01 block mean; it is 8.98). 5 of 6 rocks landed -- `CN6791-h` has no
+Table 7 row, the nearest being `CN6791d`, a different split of the same
+locality, and equating them would invent a measurement. Split feasibility got
+one constraint rather than a scored term: the test slice's silica range must
+sit inside train's, since the adapter carries SiO2 terms and scoring it beyond
+its fitted range measures extrapolation. The tails are too thin to balance on
+(6 rocks above 80 wt%, the largest at 90.2 against a 99th percentile of 80.0),
+so scoring the endpoints would hand split selection to an outlier.
+
+**Decision.** Landed `cnmineral.models.real_rock_adapter` (three nested tiers,
+diagonal in linear in mlp, the 23-param affine being the degenerate case),
+`cnmineral.training.real_rock_adapter` (fit, cluster bootstrap, weight-decay
+selection), the committed unit roster, and
+`explorations/real_rock_fewshot/`. Benchmark bumped to **eruption-v2** (724
+scoreable / 640 headline); the zero-shot headline moves 10.404 -> **10.406**,
+which is the transcription's first check.
+
+**Adaptation is cheap and steeply diminishing.** About **25 labelled rocks --
+eight eruptions -- recovers 3.4-3.8 of the 5.0 nats** that all 368 recover.
+Fourteen times more data buys the remaining third. At the full train slice the
+linear tier reaches +5.03 nats on the Dirichlet term (+8.06 joint, CI
+[+5.73, +10.49]) and share MAE 0.1068 -> 0.0876.
+
+**Coupling pays, nonlinearity does not.** `linear` wins at every budget from 50
+rocks up, and on 10 of 10 paired draws from 200 up; the MLP's extra capacity
+never repays itself. So the correction is genuinely group-coupled rather than
+seven independent constants. The MLP does take the better median at 25 rocks,
+but on the paired draws (all tiers see identical ones) it wins only 6 of 10 by
+a mean 0.22 nats against a 2.13-nat draw-to-draw spread, carried by one bad
+draw where its heavier shrinkage limits the damage -- a regularization
+robustness effect, not capacity paying off.
+
+**Much of the gap is over-confidence, not wrong means.** The fitted diagonal
+drops alpha0 on the scored support 46.2 -> 25.1, widening the Dirichlet by half.
+At 25 rocks it *worsens* share MAE (0.107 -> 0.114) while still improving the
+Dirichlet term: at that budget it buys calibration, not accuracy.
+
+Two corrections to my own plan. Its verification step said the fitted diagonal
+should recover the measured per-group offsets (opq +0.99, bi +0.51, q -0.53) --
+wrong, and the same confusion this journal already retracted once: those are
+share moments, while the adapter is a multiplicative shift on concentrations
+whose 7 dof split into 6 mean-directions plus one sharpness, and the NLL spends
+much of that budget on sharpness. And no adapter entry goes in
+`real_rock_ledger.yaml`: an adapter is scored on 161 held-out rocks against a
+zero-shot entry measured over 640, which is exactly the mismatched-row-set
+comparison that file's reading rules exist to prevent.
+
+**One bug worth carrying.** The coupled tiers read `log(alpha)` as an input, and
+coarsening leaves exact zeros where a group has no member on the support.
+Clamping to `1e-12` before the log hands the mixing matrix a **-27 spike** on
+precisely the groups carrying no information; `linear` and `mlp` diverged on it
+(val NLL 1e20, erratic non-monotone weight-decay curves) and the first read was
+"the coupled tiers do not help." They do -- an off-support feature is the
+neutral 0. The wrong finding was one sweep away from shipping.
+
+**Next.** HPO on train/val, now that the curve establishes adaptation works and
+what it costs. Re-run the same curve on post-regen heads: under the
+segmented-ledger convention this benchmark is the cross-instrument judge (#45),
+so that pre/post comparison is the regen's transfer evidence. Untouched by
+design: amphibole detection (a monotone per-group map cannot move AUROC --
+hands off to regen and #49) and the benchmark's noise floor, which ~11
+point-counted rocks still cannot pin. The curve's spread band is not a noise
+floor.

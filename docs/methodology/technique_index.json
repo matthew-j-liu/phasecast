@@ -39,7 +39,8 @@
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
       "src/cnmineral/models/mode_head.py",
-      "src/cnmineral/models/pretrain_head.py"
+      "src/cnmineral/models/pretrain_head.py",
+      "src/cnmineral/models/real_rock_adapter.py"
     ],
     "gmm_cond_head": [
       "configs/heads/joint_heads.yaml",
@@ -112,6 +113,10 @@
     ]
   },
   "evaluation": {
+    "cluster_bootstrap": [
+      "scripts/eval/real_rock.py",
+      "src/cnmineral/training/real_rock_adapter.py"
+    ],
     "comp_oxide_calibration": [
       "src/cnmineral/eval/comp_head.py"
     ],
@@ -127,6 +132,10 @@
       "src/cnmineral/eval/cond_head.py",
       "src/cnmineral/eval/mode_head.py"
     ],
+    "few_shot_learning_curve": [
+      "scripts/view/plot_training.py",
+      "src/cnmineral/training/real_rock_adapter.py"
+    ],
     "fp_mass_guardrail": [
       "src/cnmineral/eval/mode_head.py"
     ],
@@ -136,7 +145,8 @@
       "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/eval/summary_cards.py",
       "src/cnmineral/eval/trajectory.py",
-      "src/cnmineral/training/joint_heads.py"
+      "src/cnmineral/training/joint_heads.py",
+      "src/cnmineral/training/real_rock_adapter.py"
     ],
     "knn_label_purity": [
       "src/cnmineral/eval/probe/__init__.py",
@@ -171,8 +181,10 @@
       "src/cnmineral/eval/real_rock.py"
     ],
     "sim_to_real_zero_shot_transfer": [
+      "scripts/build/build_real_rock_split.py",
       "scripts/eval/real_rock.py",
-      "src/cnmineral/eval/real_rock.py"
+      "src/cnmineral/eval/real_rock.py",
+      "src/cnmineral/training/real_rock_adapter.py"
     ],
     "supergroup_collapse": [
       "src/cnmineral/data/condition_proposal.py",
@@ -305,7 +317,8 @@
       "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/losses/mode_loss.py",
-      "src/cnmineral/training/joint_heads.py"
+      "src/cnmineral/training/joint_heads.py",
+      "src/cnmineral/training/real_rock_adapter.py"
     ],
     "masked_element_log_mse": [
       "src/cnmineral/data/tokens.py",
@@ -381,6 +394,10 @@
     "trace_conditional_proposal": [
       "src/cnmineral/data/condition_proposal.py",
       "src/cnmineral/data/magemin_corpus.py"
+    ],
+    "unit_grouped_split": [
+      "scripts/build/build_real_rock_split.py",
+      "src/cnmineral/eval/real_rock.py"
     ]
   },
   "training_strategy": {
@@ -467,6 +484,11 @@
       "src/cnmineral/eval/joint_heads.py",
       "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/training/joint_heads.py"
+    ],
+    "sim_to_real_adaptation": [
+      "scripts/eval/real_rock.py",
+      "src/cnmineral/models/real_rock_adapter.py",
+      "src/cnmineral/training/real_rock_adapter.py"
     ],
     "stratified_split": [
       "scripts/build/build_valtest_split.py",
