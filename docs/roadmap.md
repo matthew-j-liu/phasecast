@@ -2,7 +2,7 @@
 
 Practical execution plan for the v3 rewrite. Distinct from
 `docs/encoder.md` (which crystallizes the architecture and value
-proposition); this doc covers track division, gate tables, and the
+proposition); this doc covers track division, track status, and the
 ownership split between you and agentic work.
 
 ## Track division: foundation model A, then mineralogy heads B
@@ -56,13 +56,12 @@ k-NN qap purity at k=5/10/50: 0.582 / 0.554 / 0.487 against a
 random baseline of 0.100 -- the encoder organizes rock chemistry
 into qap-coherent neighborhoods without ever seeing a label.
 
-Stops here: the encoder is the durable contribution.  Two parallel
-follow-up tracks: **Track A part 2** (`pretrain_applications.md`) and
-**Track B** (supervised mineralogy heads).  Track A part 2 is
-unblocked now; Track B is gated on the equilibrium corpus regen
-(`docs/corpus_regen_spec.md`; issue #9 tracks it).  The ~500-bulk
-pilot passed its health gate 2026-07-14; the training-rung pick and
-production launch are pending.
+Stops here: the encoder is the durable contribution.  Two follow-up
+tracks came out of it: **Track A part 2** (`pretrain_applications.md`)
+and **Track B** (below; its gating corpus regen shipped via
+`docs/corpus_regen_spec.md` / #9).  A re-pretrain on the ~737k
+all-rock relaxed-Fe bulk set (#24) is queued behind the corpus
+cascade -- see "Current status" at the end of this doc.
 
 A third thread, **Track A part 3** (epic #15, on the
 `encoder-representation` branch), pursues a *stronger* encoder via new
@@ -74,47 +73,38 @@ representation-geometry gap, not an epoch-budget one (JOURNAL
 forgery-detection (ELECTRA-style), and group-masking pretexts, judged
 on raw-latent probe + distance-weighted kNN rather than UMAP-2D.
 
-### Track B: supervised mineralogy heads (~4-6 weeks)
+### Track B: supervised mineralogy heads (built; first full version shipped 2026-07-22)
 
-| step | output | gate |
-|---|---|---|
-| pilot the equilibrium corpus regen (~500 bulks, done 2026-07-14) | pilot chunks in `data/corpus/train/` + health report + rung pre-screen | attrition/convergence/closure/coverage pass (they did); owner picks the training rung(s) |
-| run the production regen | `data/corpus/{train,valtest}/` (10k x 48 + 500 x 128 draws; modes, `Comp_wt`, `G_sys` per rung) | health report clean at scale |
-| build ModeHead (Dirichlet) | head module | predicted alpha positive; mean sums to 1 |
-| build CompHead (per-phase oxide wt% `Comp_wt`, resolved 2026-06-30) | head module | physically valid outputs (within oxide-sum constraints; endmember bonus heads loss-masked to clean phases) |
-| build CondHead (GMM per axis) | head module | NLL computable; sigmas positive; weights sum to 1 |
-| build optional ClassHead + G_sys head | head modules | each can be turned off without breaking joint loss |
-| write joint loss + mass-balance term | `losses.py` | each term has correct sign; backward works on a random batch; gradient flows to encoder |
-| train single seed on full v3 corpus | a checkpoint per ablation cell | matches or beats v2 cell-c per-phase R²_bulk |
-| K=5 ensemble + calibration | the deployment artifact | 1-sigma coverage closer to nominal 0.68 than v1's 0.88 / 0.64 / 0.76 |
+Every step of the original gate table landed; the architecture and
+posterior live in `docs/heads.md`, per-version numbers and their
+instruments in `results/ledger.yaml` (which supersedes the v2 cell-c
+acceptance bars written here as the running comparison). Terse trail,
+with the journal holding each record:
 
-Acceptance: per-phase R²_bulk improves over v2 cell-c on the hydrous
-phases (amp/bi/fl/mu/ne) that the corpus regen + CompHead were
-designed to help; CondHead calibration is honest.
+- Joint ModeHead + CompHead + CondHead on the frozen encoder:
+  heads-study epic #32 (main sweep, architecture mini-sweeps,
+  production retrain; journal 2026-07-21/22), then the
+  support-conditioned magnitude branch (#25: joint hurdle NLL
+  -1.16 -> -2.46, amp magnitude r 0.715 -> 0.876). Production
+  checkpoint `joint_heads_supportmag_seed0`; evals behind the single
+  `scripts/eval/joint_heads.py` entry point.
+- Presence-side architecture work stopped on evidence: the ceiling
+  probe measured the corpus, not the architecture, as the
+  discrimination limit (#41); redox input-invisibility attributed and
+  routed to the regen as an optional input token (#46).
+- Real rocks became a normal benchmark (eruption-v2: 724 scoreable /
+  640 headline; `results/real_rock_ledger.yaml`). Zero-shot joint NLL
+  10.406 -- ranking transfers, absolute scale does not (journal
+  2026-07-24) -- and the #52 few-shot curve: ~25 labelled rocks from
+  eight eruptions recover 3.4-3.8 of the 5.0 available nats via
+  post-hoc recalibration on the frozen heads (journal 2026-07-25).
+  Under the segmented-ledger convention this benchmark is the
+  cross-instrument judge.
 
-Status (2026-07-21): heads-study epic (#32) COMPLETE -- per-head best
-checkpointing (#33, gate #34 passed), main sweep (#35: 42 trials,
-trial-21 winner adopted), architecture mini-sweeps (#36: comp keeps
-128x1, cond adopts 512x2), production retrain + readout (#37: replicates
-the sweep cell exactly; alpha0 compression and the closure signed bias
-CURED, cond teacher-forced calibration honest). Per-head evals run
-behind the single `scripts/eval/joint_heads.py` entry point (standalone
-ModeHead pipeline deleted 2026-07-21). #41 resolved 2026-07-22: the
-ceiling probe measured the corpus, not the architecture, as the
-presence-discrimination limit -- presence-side architecture work
-stopped. Support-conditioned magnitude branch (#25 stage 1) adopted
-2026-07-22: joint hurdle NLL -1.16 -> -2.46, amp magnitude r
-0.715 -> 0.876; the remaining within-support humps are the deferred
-mixture-parameterization candidate. Cond exposure bias measured wider
-post-tuning (#31, stays P3 per mineralogy-first). #38/#39 closed on the
-readout evidence; journal 2026-07-21 and 2026-07-22 have the full
-record.
-
-v2 cell-c baseline to beat: CondHead conditions T 14.8 °C MAE,
-P 1.73 kbar, H2O 0.51 wt%; the per-phase R²_bulk gains cell-c booked
-over v1 on the hydrous + foid-bearing phases were bi +0.18, ne +0.22,
-mu +0.23, amp +0.08 -- the same phases the v3 corpus regen + CompHead
-target.
+Still open in this area, sequenced behind the corpus cascade: G_sys
+head (#43), prediction-set output (#47), amp within-support mixture
+(#49), K-seed ensemble + calibration (the one original-table row not
+yet built).
 
 ### Track C: end-to-end fine-tune (optional, last)
 
@@ -123,6 +113,31 @@ fine-tune with all heads end-to-end at a low encoder LR
 (`encoder_lr = 0.1 * head_lr`, same recipe as v2 cell-c). Run
 ablation against the Track-B frozen-encoder version. Ship whichever
 calibrates better.
+
+## Current status and next steps (2026-07-27)
+
+The traced train tier is generated (35k bulks x 24 draws,
+`data/corpus/train_traced`); valtest is extended 500 -> 2000 bulks x
+128 draws on a frozen-assignment roster (journal 2026-07-26) and
+finishes generating as this is written, instrument
+`valtest128-traced@2000`. Sequencing from here runs corpus first, then
+encoder, so each change is attributed separately:
+
+1. **Corpus cascade**: build the training corpus from the traced
+   tiers, retrain the heads, mini-HPO, re-score on the new
+   instrument. The real-rock benchmark judges the era transition --
+   the zero-shot ledger entry plus the #52 curve re-run are the
+   regen's transfer evidence.
+2. **Encoder re-pretrain** (#24): ~737k all-rock relaxed-Fe bulks
+   (strict Fe stays a label-generation concern). A second era
+   boundary: heads retrain again on the new latent, and the #53
+   fresh-head control decomposes encoder-vs-head contribution on the
+   real-rock benchmark.
+3. **Paper progression**: the real-rock benchmark is the cross-era
+   spine, plus a one-time table re-scoring archived era checkpoints
+   on the final valtest instrument. Era production checkpoints
+   (encoder + heads) therefore stay loadable and archived until that
+   table is measured.
 
 ## Ownership split: what you own vs what Claude brute-forces
 

@@ -4750,3 +4750,44 @@ design: amphibole detection (a monotone per-group map cannot move AUROC --
 hands off to regen and #49) and the benchmark's noise floor, which ~11
 point-counted rocks still cannot pin. The curve's spread band is not a noise
 floor.
+
+## 2026-07-26 -- Valtest grows by extension to 2000: aggregate precision is buyable, rare-class resolution is not
+
+**Q.** The traced train tier finished (35k bulks x 24 draws, 71.5 h, 0.306
+s/draw, `data/corpus/train_traced`) while the measurement instrument stayed at
+500 bulks. What valtest does the new instrument deserve?
+
+**Context.** A new instrument starts regardless -- the traced proposal changes
+the label distribution, so valtest numbers open a new ledger segment either way
+(the reading rules in `results/README.md`). The open question is only the
+roster: size, composition, draw budget.
+
+**Considered.** Three shapes. *Keep 500*: free, but nine mid classes sit at
+5-14 bulks -- anecdote, not measurement. *Redraw 2000 fresh* from the
+contamination-safe remainder: dead on arrival, because the +25k train expansion
+left 9 of the 22 classes with zero bulks outside train -- a fresh draw would
+carry only 13 classes, and the committed 500 is the sole holder of the other
+nine. *Extend to 2000*: keeps everything the 500 holds and grows where bulks
+still exist. Rare-class resolution is foreclosed at any budget -- that was
+spent, knowingly, when the expansion took the bulks. On draws, 128 rather than
+256: quadrupling rocks already averages per-rock noise 4x, while more draws buy
+only per-rock precision the aggregate does not need.
+
+**Decision.** Extension, never redraw (`build_valtest_split.py --extend`): the
+499 committed assignments are frozen -- growing a sealed roster must not move a
+bulk from test to val -- and only the added bulks get assigned, 1999 now 887
+val / 1112 test. Drawn at alpha=0.5, the same rule the 25k train expansion
+used, so the roster mix tracks the realized 35k train mix to ~1pp; an
+instrument weighted differently from the training distribution measures
+something the model was never asked to do (`expansion_quotas` targets the
+expanded tier's shape, so all 2000 carry it, not just the added 1500).
+Instrument stamp `valtest128-traced@2000`, noise floor left null until
+measured. Plumbing that fell out: `draw_expansion` takes have/used from the
+caller so one contamination-guard definition serves both tiers, and
+`report_corpus_health --bulks` accepts several tables (the train tier is two
+CSVs, which was silently skipping its representativeness plot).
+
+**Next.** Generation is ~22 h (lands 2026-07-27); then the cascade -- corpus
+build, head retrain on the traced tiers, mini-HPO, re-score on the new
+instrument -- with the real-rock benchmark judging the era transition
+(zero-shot entry + the #52 curve re-run, per the segmented-ledger convention).
