@@ -40,21 +40,21 @@ from cnmineral.eval.real_rock import (
     split_mask,
 )
 from cnmineral.models.cond_head import COND_AXES
-from cnmineral.models.real_rock_adapter import TIERS
+from cnmineral.models.real_rock_recalibrator import TIERS
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
-from cnmineral.training.real_rock_adapter import (
+from cnmineral.training.real_rock_recalibrator import (
     build_group_predictions,
     draw_units,
-    fit_adapter,
+    fit_recalibrator,
     lift_group_presence_to_phases,
-    score_adapter,
+    score_recalibrator,
 )
 
 RESULTS = Path(__file__).resolve().parent / "results"
 
-# the value selected on val for the linear tier; see run_curve.WEIGHT_DECAY
-WEIGHT_DECAY = {"diagonal": 0.1, "linear": 1.0, "mlp": 3.0}
+# the value selected on val for the matrix tier; see run_curve.WEIGHT_DECAY
+WEIGHT_DECAY = {"vector": 0.1, "matrix": 1.0, "mlp": 3.0}
 
 
 def sample_conditions(cond_head, latent, scenarios, n, rng):
@@ -88,7 +88,7 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--budget", type=int, default=25,
                         help="labelled rocks to condition on, drawn as whole units")
-    parser.add_argument("--tier", choices=TIERS, default="linear")
+    parser.add_argument("--tier", choices=TIERS, default="matrix")
     parser.add_argument("--draw-seed", type=int, default=0)
     parser.add_argument("--n-samples", type=int, default=1024,
                         help="assemblage samples for scenario extraction")
@@ -116,11 +116,11 @@ def main() -> None:
     print(f"conditioning on {n_rocks} rocks / {n_units} units "
           f"(seed {args.draw_seed}), tier {args.tier}")
 
-    adapter = fit_adapter(train.subset(drawn), tier=args.tier,
+    recalibrator = fit_recalibrator(train.subset(drawn), tier=args.tier,
                           weight_decay=WEIGHT_DECAY[args.tier])
 
     test = gp.subset(test_mask)
-    before, after = score_adapter(None, test), score_adapter(adapter, test)
+    before, after = score_recalibrator(None, test), score_recalibrator(recalibrator, test)
     print(f"test slice: joint {before['joint'].mean():.3f} -> "
           f"{after['joint'].mean():.3f}   "
           f"dirichlet {before['dirichlet'].mean():.3f} -> "
@@ -160,7 +160,7 @@ def main() -> None:
         )
 
         with torch.no_grad():
-            adj_logits, adj_alpha = adapter(
+            adj_logits, adj_alpha = recalibrator(
                 test.logits7[local:local + 1], test.alpha7[local:local + 1],
                 test.sio2[local:local + 1],
             )
@@ -189,13 +189,13 @@ def main() -> None:
         )
 
         p21 = lift_group_presence_to_phases(
-            adapter, test.logits7[local:local + 1], p21_all[row:row + 1],
+            recalibrator, test.logits7[local:local + 1], p21_all[row:row + 1],
             test.sio2[local:local + 1],
         )
 
         def correct(alpha7, _row=local):
             with torch.no_grad():
-                _, out = adapter(
+                _, out = recalibrator(
                     test.logits7[_row:_row + 1].expand(len(alpha7), -1),
                     torch.as_tensor(alpha7, dtype=torch.float64),
                     test.sio2[_row:_row + 1].expand(len(alpha7)),

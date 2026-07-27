@@ -1,10 +1,10 @@
-"""RealRockAdapter: identity at init, exact tier nesting, and the amp pin."""
+"""RealRockRecalibrator: identity at init, exact tier nesting, and the amp pin."""
 
 import pytest
 import torch
 
 from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS
-from cnmineral.models.real_rock_adapter import TIERS, RealRockAdapter
+from cnmineral.models.real_rock_recalibrator import TIERS, RealRockRecalibrator
 
 
 def _inputs(n=16, seed=0):
@@ -15,24 +15,24 @@ def _inputs(n=16, seed=0):
     return logits, alpha, sio2
 
 
-def _randomize(adapter, seed=0):
+def _randomize(recalibrator, seed=0):
     g = torch.Generator().manual_seed(seed)
     with torch.no_grad():
-        for p in adapter.parameters():
+        for p in recalibrator.parameters():
             p.copy_(torch.randn(p.shape, generator=g) * 0.3)
-        adapter.presence_scale.add_(1.0)
-    return adapter
+        recalibrator.presence_scale.add_(1.0)
+    return recalibrator
 
 
 @pytest.mark.parametrize("tier", TIERS)
-def test_adapter_is_the_identity_at_initialization(tier):
-    """An unfit adapter must reproduce the zero-shot number exactly.
+def test_recalibrator_is_the_identity_at_initialization(tier):
+    """An unfit recalibrator must reproduce the zero-shot number exactly.
 
-    That is what lets a fitted adapter's gain be read as nats recovered on the
+    That is what lets a fitted recalibrator's gain be read as nats recovered on the
     same scale the ledger reports.
     """
     logits, alpha, sio2 = _inputs()
-    out_logits, out_alpha = RealRockAdapter(tier)(logits, alpha, sio2)
+    out_logits, out_alpha = RealRockRecalibrator(tier)(logits, alpha, sio2)
     assert torch.allclose(out_logits, logits)
     assert torch.allclose(out_alpha, alpha)
 
@@ -46,28 +46,28 @@ def test_structural_zeros_survive_the_magnitude_correction(tier):
     """
     logits, alpha, sio2 = _inputs()
     alpha[:, GROUP_INDEX["ol"]] = 0.0
-    _, out_alpha = _randomize(RealRockAdapter(tier))(logits, alpha, sio2)
+    _, out_alpha = _randomize(RealRockRecalibrator(tier))(logits, alpha, sio2)
     assert (out_alpha[:, GROUP_INDEX["ol"]] == 0).all()
     assert torch.isfinite(out_alpha).all()
 
 
-@pytest.mark.parametrize("tier", ["linear", "mlp"])
-def test_richer_tiers_contain_the_diagonal_exactly(tier):
-    """diagonal in linear in mlp, so the 23-param affine is the degenerate case.
+@pytest.mark.parametrize("tier", ["matrix", "mlp"])
+def test_richer_tiers_contain_the_vector_tier_exactly(tier):
+    """vector in matrix in mlp, so the 23-param affine is the degenerate case.
 
-    Copying a fitted diagonal's parameters into a richer tier must reproduce it
-    to floating point -- otherwise the tiers are rivals rather than a nesting
+    Copying a fitted vector tier's parameters into a richer tier must reproduce
+    it to floating point -- otherwise the tiers are rivals rather than a nesting
     and the curve compares three different things.
     """
     logits, alpha, sio2 = _inputs()
-    diagonal = _randomize(RealRockAdapter("diagonal"))
-    richer = RealRockAdapter(tier)
+    vector = _randomize(RealRockRecalibrator("vector"))
+    richer = RealRockRecalibrator(tier)
     with torch.no_grad():
         target = dict(richer.named_parameters())
-        for name, p in diagonal.named_parameters():
+        for name, p in vector.named_parameters():
             target[name].copy_(p)
     for got, want in zip(richer(logits, alpha, sio2),
-                         diagonal(logits, alpha, sio2)):
+                         vector(logits, alpha, sio2)):
         assert torch.allclose(got, want, atol=1e-6)
 
 
@@ -81,9 +81,9 @@ def test_amphibole_magnitude_is_pinned_at_every_tier(tier):
     """
     logits, alpha, sio2 = _inputs()
     amp = GROUP_INDEX["amp"]
-    _, pinned = _randomize(RealRockAdapter(tier, pin_amp_magnitude=True))(
+    _, pinned = _randomize(RealRockRecalibrator(tier, pin_amp_magnitude=True))(
         logits, alpha, sio2)
-    _, free = _randomize(RealRockAdapter(tier, pin_amp_magnitude=False))(
+    _, free = _randomize(RealRockRecalibrator(tier, pin_amp_magnitude=False))(
         logits, alpha, sio2)
     assert torch.allclose(pinned[:, amp], alpha[:, amp])
     assert not torch.allclose(free[:, amp], alpha[:, amp])
@@ -93,23 +93,23 @@ def test_off_support_groups_contribute_a_neutral_log_feature():
     """An off-support alpha must not reach the coupled tiers as log(tiny).
 
     Clamping to 1e-12 before the log hands the mixing matrix a -27 spike on
-    groups carrying no information, and the linear / mlp fits diverge on it
+    groups carrying no information, and the matrix / mlp fits diverge on it
     (val NLL ~1e20). The feature is 0 there instead, so a zero column cannot
     move the correction.
     """
     logits, alpha, sio2 = _inputs()
     alpha[:, GROUP_INDEX["ol"]] = 0.0
-    adapter = _randomize(RealRockAdapter("linear"))
-    _, baseline = adapter(logits, alpha, sio2)
+    recalibrator = _randomize(RealRockRecalibrator("matrix"))
+    _, baseline = recalibrator(logits, alpha, sio2)
 
     # scaling the mixing weights that read the off-support column must be a
     # no-op, which only holds if that column enters as a constant zero
     with torch.no_grad():
-        adapter.magnitude_mix[GROUP_INDEX["ol"], :] *= 7.0
-    _, moved = adapter(logits, alpha, sio2)
+        recalibrator.magnitude_mix[GROUP_INDEX["ol"], :] *= 7.0
+    _, moved = recalibrator(logits, alpha, sio2)
     assert torch.allclose(baseline, moved)
 
 
 def test_unknown_tier_is_rejected():
     with pytest.raises(ValueError, match="unknown tier"):
-        RealRockAdapter("quadratic")
+        RealRockRecalibrator("quadratic")

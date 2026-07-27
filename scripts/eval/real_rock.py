@@ -8,7 +8,7 @@ coarsened onto the 7 groups real modal data resolves, and the same hurdle NLL
 the corpus eval reports is assembled against measured phenocryst modes.
 Figures + `metrics.json` land in `runs/real_rock/<checkpoint dir name>/`.
 
-`--fit-adapter` instead fits the sim-to-real adapter on the committed train
+`--fit-recalibrator` instead fits the sim-to-real recalibrator on the committed train
 roster and reports it on the test slice, paired against the zero-shot baseline
 on the same rocks. Encoder and heads stay frozen either way.
 """
@@ -25,19 +25,19 @@ import numpy as np
 
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.real_rock import load_benchmark, run_real_rock_eval, split_mask
-from cnmineral.models.real_rock_adapter import TIERS
+from cnmineral.models.real_rock_recalibrator import TIERS
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
-from cnmineral.training.real_rock_adapter import (
+from cnmineral.training.real_rock_recalibrator import (
     build_group_predictions,
-    fit_adapter,
+    fit_recalibrator,
     paired_bootstrap,
     per_group_offsets,
-    score_adapter,
+    score_recalibrator,
 )
 
 
-def report_adapter(ckpt, benchmark, latents, device, tier: str,
+def report_recalibrator(ckpt, benchmark, latents, device, tier: str,
                    weight_decay: float) -> None:
     """Fit on the train roster, report on test, paired on the same rocks.
 
@@ -53,10 +53,10 @@ def report_adapter(ckpt, benchmark, latents, device, tier: str,
     print(f"train {len(train)} rocks / {len(np.unique(train.unit))} units   "
           f"test {len(test)} rocks / {len(np.unique(test.unit))} units")
 
-    adapter = fit_adapter(train, tier=tier, weight_decay=weight_decay)
-    base, got = score_adapter(None, test), score_adapter(adapter, test)
+    recalibrator = fit_recalibrator(train, tier=tier, weight_decay=weight_decay)
+    base, got = score_recalibrator(None, test), score_recalibrator(recalibrator, test)
     print(f"\nmean composition size {base['mean_composition_size']:.3f} "
-          "(unchanged by the adapter -- same rocks, same truth)")
+          "(unchanged by the recalibrator -- same rocks, same truth)")
     for term in ("dirichlet", "joint", "bernoulli"):
         boot = paired_bootstrap(base[term], got[term], test.unit)
         print(f"{term:10s} {base[term].mean():7.3f} -> {got[term].mean():7.3f}   "
@@ -64,9 +64,9 @@ def report_adapter(ckpt, benchmark, latents, device, tier: str,
               f"[{boot['lo']:+.3f}, {boot['hi']:+.3f}] nats")
     print(f"share MAE  {base['share_mae_mean']:7.4f} -> "
           f"{got['share_mae_mean']:7.4f}")
-    if tier == "diagonal":
+    if tier == "vector":
         print("\nfitted per-group corrections:")
-        for group, v in per_group_offsets(adapter).items():
+        for group, v in per_group_offsets(recalibrator).items():
             print(f"  {group:4s} magnitude {v['magnitude_offset']:+.3f}   "
                   f"presence scale {v['presence_scale']:+.3f} "
                   f"offset {v['presence_offset']:+.3f}")
@@ -79,12 +79,12 @@ def main() -> None:
         help="JointHeadCheckpoint produced by scripts/training/joint_heads.py",
     )
     parser.add_argument(
-        "--fit-adapter", choices=TIERS, default=None,
-        help="fit the sim-to-real adapter on the train roster and report on test",
+        "--fit-recalibrator", choices=TIERS, default=None,
+        help="fit the sim-to-real recalibrator on the train roster and report on test",
     )
     parser.add_argument(
         "--weight-decay", type=float, default=1.0,
-        help="shrinkage; the value selected on val for the linear tier",
+        help="shrinkage; the value selected on val for the matrix tier",
     )
     args = parser.parse_args()
 
@@ -101,8 +101,8 @@ def main() -> None:
     print(f"rocks:   {len(benchmark)} with chemistry + modes "
           f"({int(benchmark.clean.sum())} least-altered)")
     latents = bulk_latents(encoder, benchmark, device)
-    if args.fit_adapter:
-        report_adapter(ckpt, benchmark, latents, device, args.fit_adapter,
+    if args.fit_recalibrator:
+        report_recalibrator(ckpt, benchmark, latents, device, args.fit_recalibrator,
                        args.weight_decay)
         return
     run_real_rock_eval(ckpt, benchmark, latents, device=device,

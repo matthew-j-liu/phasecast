@@ -370,10 +370,10 @@ techniques:
   - name: sim_to_real_adaptation
     type: training_strategy
     patterns:
-      - "RealRockAdapter"
-      - "fit_adapter"
+      - "RealRockRecalibrator"
+      - "fit_recalibrator"
       - "pin_amp_magnitude"
-      - "adapter_nll"
+      - "recalibrator_nll"
   - name: unit_grouped_split
     type: preprocessing
     patterns:

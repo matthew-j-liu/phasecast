@@ -296,11 +296,11 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_layers_stack_the_trunk` -- `layers` stacks trunk blocks; output shapes hold, params grow.
 7. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
 
-### test_real_rock_adapter.py
+### test_real_rock_recalibrator.py
 
-1. `test_adapter_is_the_identity_at_initialization` -- an unfit adapter reproduces the zero-shot outputs exactly, which is what lets a fitted one's gain read as nats recovered on the ledger's scale.
+1. `test_recalibrator_is_the_identity_at_initialization` -- an unfit recalibrator reproduces the zero-shot outputs exactly, which is what lets a fitted one's gain read as nats recovered on the ledger's scale.
 2. `test_structural_zeros_survive_the_magnitude_correction` -- coarsening leaves alpha 0 where a group has no member on the support; the correction is multiplicative so those stay 0 rather than becoming -inf.
-3. `test_richer_tiers_contain_the_diagonal_exactly` -- copying a fitted diagonal's parameters into `linear` / `mlp` reproduces it, so the 23-param affine is the degenerate case rather than a rival.
+3. `test_richer_tiers_contain_the_vector_tier_exactly` -- copying a fitted vector tier's parameters into `matrix` / `mlp` reproduces it, so the 23-param affine is the degenerate case rather than a rival.
 4. `test_amphibole_magnitude_is_pinned_at_every_tier` -- the pin holds through the mixing matrix and the MLP, not only the constant, since a coupled correction would be the same unidentifiable quantity reparameterized.
 5. `test_off_support_groups_contribute_a_neutral_log_feature` -- scaling the mixing weights that read an off-support column is a no-op, which only holds if that column enters as 0 rather than log(tiny).
 6. `test_unknown_tier_is_rejected` -- a mistyped tier raises rather than silently falling back.
@@ -382,7 +382,7 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_tiebreak_minisweep_requires_mode_within_band` -- comp-objective read-out admits only trials whose mode best stays within the band of `mode_reference`, returning None when none qualify.
 3. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
 
-### test_real_rock_adapter_train.py
+### test_real_rock_recalibrator_train.py
 
 1. `test_off_mask_zero_concentrations_do_not_make_the_loss_nan` -- coarsening's exact zeros would make `mask * lgamma(0)` evaluate `0 * inf`; the guard at this call site keeps every term finite.
 2. `test_gradients_survive_the_nan_guard` -- the guard does not detach the scored entries, and an off-mask group draws no gradient.
@@ -508,7 +508,7 @@ rename, or repurpose a test) updates this file in the same change.**
 26. `test_load_benchmark_invariants` -- on the shipped benchmark: magnitude is nonzero exactly where quantified, quantified and censored are disjoint, presence covers both, compositions sum to 1, and every array is length-aligned.
 27. `test_no_stratigraphic_unit_straddles_a_split_boundary` -- one eruption's rocks share nearly identical chemistry, so every unit lives in exactly one subset and the roster covers all of them.
 28. `test_committed_roster_covers_every_benchmark_rock_exactly_once` -- the three subsets partition the benchmark, with no rock dropped or double-counted.
-29. `test_test_silica_range_sits_inside_train` -- the adapter carries SiO2 terms, so a test rock more extreme than anything it was fit on would measure extrapolation rather than adaptation.
+29. `test_test_silica_range_sits_inside_train` -- the recalibrator carries SiO2 terms, so a test rock more extreme than anything it was fit on would measure extrapolation rather than adaptation.
 30. `test_unit_grouped_split_is_deterministic_given_a_seed` -- the carve-out is the board strategies get compared on, so the same seed reproduces it and a different seed does not.
 31. `test_split_balance_prefers_slices_that_match_the_population` -- the criterion ranks an even split above a lopsided one, and reads truth marginals only so selecting on it cannot leak a model output.
 32. `test_unknown_split_subset_is_rejected` -- a mistyped subset name raises rather than silently returning nothing.

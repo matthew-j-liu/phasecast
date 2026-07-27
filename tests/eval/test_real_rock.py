@@ -426,7 +426,7 @@ def test_committed_roster_covers_every_benchmark_rock_exactly_once():
 
 
 def test_test_silica_range_sits_inside_train():
-    """The adapter carries SiO2 terms on q and amp presence, so a test rock more
+    """The recalibrator carries SiO2 terms on q and amp presence, so a test rock more
     extreme than anything it was fit on measures extrapolation, not adaptation."""
     b = load_benchmark()
     scored = b.clean & b.has_magnitude

@@ -6,9 +6,9 @@ seven groups.  This module is the correction fit on real labels, and it acts
 on the seven groups real modal data resolves rather than the model's 21
 phases: that is where the labels live, where the residuals were measured, and
 where the three tiers nest exactly.  Encoder and heads stay frozen; fitting
-lives in `cnmineral.training.real_rock_adapter`.
+lives in `cnmineral.training.real_rock_recalibrator`.
 
-The tiers are `diagonal` in `linear` in `mlp`, so the ~23-parameter per-group
+The tiers are `vector` in `matrix` in `mlp`, so the ~23-parameter per-group
 affine is the degenerate case of the MLP rather than a rival to it.
 """
 
@@ -17,7 +17,7 @@ from torch import nn
 
 from ..data.phase_vocab import GROUP_INDEX, GROUPS
 
-TIERS: tuple[str, ...] = ("diagonal", "linear", "mlp")
+TIERS: tuple[str, ...] = ("vector", "matrix", "mlp")
 
 # The residual-vs-silica read gives a slope to q and amp presence and nothing
 # else: magnitude residuals are flat against silica for every group, and so is
@@ -31,7 +31,7 @@ SIO2_CENTER: float = 65.0
 SIO2_SCALE: float = 10.0
 
 
-class RealRockAdapter(nn.Module):
+class RealRockRecalibrator(nn.Module):
     """Correction on `(p7 logits, alpha7)` fit against measured modes.
 
     Presence is corrected in logit space, which is where a Platt scaling
@@ -52,7 +52,7 @@ class RealRockAdapter(nn.Module):
 
     def __init__(
         self,
-        tier: str = "diagonal",
+        tier: str = "vector",
         *,
         hidden: int = 32,
         pin_amp_magnitude: bool = True,
@@ -64,7 +64,7 @@ class RealRockAdapter(nn.Module):
         self.tier = tier
         self.pin_amp_magnitude = pin_amp_magnitude
 
-        # identity at initialization, so an unfit adapter reproduces the
+        # identity at initialization, so an unfit recalibrator reproduces the
         # zero-shot number exactly and any gain reads as nats recovered.
         self.presence_scale = nn.Parameter(torch.ones(n))
         self.presence_offset = nn.Parameter(torch.zeros(n))
@@ -81,7 +81,7 @@ class RealRockAdapter(nn.Module):
             ]),
         )
 
-        if tier in ("linear", "mlp"):
+        if tier in ("matrix", "mlp"):
             self.presence_mix = nn.Parameter(torch.zeros(n, n))
             self.magnitude_mix = nn.Parameter(torch.zeros(n, n))
         if tier == "mlp":
@@ -89,7 +89,7 @@ class RealRockAdapter(nn.Module):
                 nn.Linear(2 * n + 1, hidden), nn.GELU(), nn.Linear(hidden, 2 * n)
             )
             # zero the last layer so the MLP branch starts silent and the
-            # module is exactly its `linear` tier at initialization.
+            # module is exactly its `matrix` tier at initialization.
             nn.init.zeros_(self.trunk[-1].weight)
             nn.init.zeros_(self.trunk[-1].bias)
 
@@ -112,7 +112,7 @@ class RealRockAdapter(nn.Module):
         )
         d_magnitude = self.magnitude_offset.expand_as(alpha7)
 
-        if self.tier in ("linear", "mlp"):
+        if self.tier in ("matrix", "mlp"):
             d_presence = d_presence + logits7 @ self.presence_mix
             d_magnitude = d_magnitude + log_alpha @ self.magnitude_mix
         if self.tier == "mlp":

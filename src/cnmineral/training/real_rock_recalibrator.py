@@ -1,17 +1,17 @@
-"""Fit the sim-to-real adapter, and compare adapters honestly.
+"""Fit the sim-to-real recalibrator, and compare recalibrators honestly.
 
 The objective is `real_rock_nll` -- the same hurdle NLL the real-rock ledger
-reports -- so an adapter's gain over the identity correction reads directly as
+reports -- so a recalibrator's gain over the identity correction reads directly as
 nats recovered on one scale.  Encoder and heads are frozen throughout: this
-module only ever optimizes `RealRockAdapter` parameters against precomputed
+module only ever optimizes `RealRockRecalibrator` parameters against precomputed
 group-space predictions.
 
 Two measurement rules live here because getting them wrong is how this
 benchmark manufactures a win.  Comparisons are paired on the same rocks and
 bootstrapped over stratigraphic units, not rocks, since rocks inside a unit
-are near-identical chemistry.  And the exposure probe scores every adapter on
+are near-identical chemistry.  And the exposure probe scores every recalibrator on
 a frozen row set, because the coverage restriction that makes it computable
-depends on the presence probabilities the adapter modifies.
+depends on the presence probabilities the recalibrator modifies.
 """
 
 from dataclasses import dataclass
@@ -23,14 +23,14 @@ from ..data.phase_vocab import GROUP_INDEX, GROUPS, MODEL_TO_GROUP, PHASE_INDEX
 from ..eval.mode_head import conditional_mean, magnitude_parity_stats
 from ..eval.real_rock import coarsen_presence
 from ..losses.mode_loss import masked_dirichlet_nll
-from ..models.real_rock_adapter import RealRockAdapter
+from ..models.real_rock_recalibrator import RealRockRecalibrator
 
 
 @dataclass(frozen=True)
 class GroupPredictions:
     """Frozen-model outputs in group space, plus the truth they are scored on.
 
-    Everything the adapter sees, precomputed once: the encoder and heads never
+    Everything the recalibrator sees, precomputed once: the encoder and heads never
     run again during fitting.  `logits7` is the coarsened presence in logit
     space (that is where a Platt correction acts), `alpha7` the coarsened
     Dirichlet concentrations on the truth-forced support.
@@ -83,7 +83,7 @@ def build_group_predictions(
     )
 
 
-def adapter_nll(
+def recalibrator_nll(
     logits7: torch.Tensor,
     alpha7: torch.Tensor,
     presence: torch.Tensor,
@@ -113,18 +113,18 @@ def adapter_nll(
     return {"bernoulli": bern, "dirichlet": dirichlet, "joint": bern + dirichlet}
 
 
-def fit_adapter(
+def fit_recalibrator(
     train: GroupPredictions,
     *,
-    tier: str = "diagonal",
+    tier: str = "vector",
     weight_decay: float = 1e-2,
     epochs: int = 400,
     lr: float = 0.05,
     hidden: int = 32,
     pin_amp_magnitude: bool = True,
     seed: int = 0,
-) -> RealRockAdapter:
-    """Full-batch fit of one adapter on `train`, to convergence.
+) -> RealRockRecalibrator:
+    """Full-batch fit of one recalibrator on `train`, to convergence.
 
     There is no per-draw early stopping by design.  `weight_decay` is chosen
     once on the fixed val slice and shared across every point of the learning
@@ -136,35 +136,35 @@ def fit_adapter(
     dataloader here would be ceremony.
     """
     torch.manual_seed(seed)
-    adapter = RealRockAdapter(
+    recalibrator = RealRockRecalibrator(
         tier, hidden=hidden, pin_amp_magnitude=pin_amp_magnitude,
     ).to(train.logits7.dtype)
-    opt = torch.optim.Adam(adapter.parameters(), lr=lr, weight_decay=weight_decay)
+    opt = torch.optim.Adam(recalibrator.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(epochs):
         opt.zero_grad()
-        logits, alpha = adapter(train.logits7, train.alpha7, train.sio2)
-        loss = adapter_nll(
+        logits, alpha = recalibrator(train.logits7, train.alpha7, train.sio2)
+        loss = recalibrator_nll(
             logits, alpha, train.presence, train.magnitude, train.numeric,
         )["joint"].mean()
         loss.backward()
         opt.step()
-    return adapter
+    return recalibrator
 
 
 @torch.no_grad()
-def score_adapter(
-    adapter: RealRockAdapter | None, data: GroupPredictions
+def score_recalibrator(
+    recalibrator: RealRockRecalibrator | None, data: GroupPredictions
 ) -> dict[str, np.ndarray]:
-    """Per-rock NLL terms and per-group share error under `adapter`.
+    """Per-rock NLL terms and per-group share error under `recalibrator`.
 
-    `adapter=None` is the zero-shot baseline -- the same loss at the identity
+    `recalibrator=None` is the zero-shot baseline -- the same loss at the identity
     correction, which is what makes a difference read as nats recovered.
     """
-    if adapter is None:
+    if recalibrator is None:
         logits, alpha = data.logits7, data.alpha7
     else:
-        logits, alpha = adapter(data.logits7, data.alpha7, data.sio2)
-    nll = adapter_nll(
+        logits, alpha = recalibrator(data.logits7, data.alpha7, data.sio2)
+    nll = recalibrator_nll(
         logits, alpha, data.presence, data.magnitude, data.numeric,
     )
     numeric = data.numeric.numpy().astype(bool)
@@ -241,11 +241,11 @@ def select_weight_decay(
                 mask = draw_units(train, size, rng)
                 if not mask.any():
                     continue
-                adapter = fit_adapter(
+                recalibrator = fit_recalibrator(
                     train.subset(mask), tier=tier, weight_decay=weight_decay,
                     seed=draw, **fit_kwargs,
                 )
-                losses.append(score_adapter(adapter, val)["joint"].mean())
+                losses.append(score_recalibrator(recalibrator, val)["joint"].mean())
         records.append({
             "weight_decay": weight_decay,
             "val_joint_nll": float(np.mean(losses)) if losses else float("inf"),
@@ -294,12 +294,12 @@ def paired_bootstrap(
 
 
 def lift_group_presence_to_phases(
-    adapter: RealRockAdapter, logits7: torch.Tensor, p21: np.ndarray,
+    recalibrator: RealRockRecalibrator, logits7: torch.Tensor, p21: np.ndarray,
     sio2: torch.Tensor,
 ) -> np.ndarray:
-    """The adapter's corrected group presence, pushed back down onto 21 phases.
+    """The recalibrator's corrected group presence, pushed back down onto 21 phases.
 
-    The adapter judges groups, but deployment stands on a 21-phase support --
+    The recalibrator judges groups, but deployment stands on a 21-phase support --
     both the exposure probe and the scenario view need one -- so the group
     verdict has to be distributed over member phases.
 
@@ -319,7 +319,7 @@ def lift_group_presence_to_phases(
     whose feldspar is half the crystal cargo.
     """
     with torch.no_grad():
-        corrected, _ = adapter(logits7, torch.ones_like(logits7), sio2)
+        corrected, _ = recalibrator(logits7, torch.ones_like(logits7), sio2)
     target = torch.sigmoid(corrected).numpy()
     now = coarsen_presence(p21)
 
@@ -334,20 +334,20 @@ def lift_group_presence_to_phases(
     return out
 
 
-def per_group_offsets(adapter: RealRockAdapter) -> dict[str, dict[str, float]]:
+def per_group_offsets(recalibrator: RealRockRecalibrator) -> dict[str, dict[str, float]]:
     """The fitted constants, per group, for reading against the measured ones.
 
-    Only meaningful for the diagonal tier, where a group's correction is a
+    Only meaningful for the vector tier, where a group's correction is a
     constant; the higher tiers couple groups and their offsets are not
     separable this way.
     """
     with torch.no_grad():
         return {
             group: {
-                "presence_scale": float(adapter.presence_scale[i]),
-                "presence_offset": float(adapter.presence_offset[i]),
+                "presence_scale": float(recalibrator.presence_scale[i]),
+                "presence_offset": float(recalibrator.presence_offset[i]),
                 "magnitude_offset": float(
-                    adapter.magnitude_offset[i] * adapter.magnitude_free[i]
+                    recalibrator.magnitude_offset[i] * recalibrator.magnitude_free[i]
                 ),
             }
             for i, group in enumerate(GROUPS)

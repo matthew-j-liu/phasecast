@@ -1,6 +1,6 @@
 """How many labelled real rocks close the sim-to-real gap? (#52)
 
-Fits the frozen-head adapter on real modal labels drawn as whole stratigraphic
+Fits the frozen-head recalibrator on real modal labels drawn as whole stratigraphic
 units, and scores it on the fixed test slice, over a sweep of labelled-rock
 budgets.  The deliverable is the curve's shape: a point estimate on a
 ~160-rock slice carries roughly +/- 2 nats, but the shape survives that, and
@@ -26,16 +26,16 @@ import numpy as np
 from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.real_rock import load_benchmark, split_mask
-from cnmineral.models.real_rock_adapter import TIERS
+from cnmineral.models.real_rock_recalibrator import TIERS
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
-from cnmineral.training.real_rock_adapter import (
+from cnmineral.training.real_rock_recalibrator import (
     build_group_predictions,
     draw_units,
-    fit_adapter,
+    fit_recalibrator,
     paired_bootstrap,
     per_group_offsets,
-    score_adapter,
+    score_recalibrator,
     select_weight_decay,
 )
 
@@ -45,15 +45,15 @@ RESULTS = Path(__file__).resolve().parent / "results"
 # Chosen once on the val slice by `select_weight_decay`; see README. Recorded
 # rather than re-selected on every run so the curve is reproducible and the
 # val slice's contribution stays one scalar per tier.
-WEIGHT_DECAY: dict[str, float] = {"diagonal": 0.1, "linear": 1.0, "mlp": 3.0}
+WEIGHT_DECAY: dict[str, float] = {"vector": 0.1, "matrix": 1.0, "mlp": 3.0}
 
 BUDGETS: tuple[int, ...] = (25, 50, 100, 200, 400)
-TIER_COLOR = {"diagonal": "tab:blue", "linear": "tab:orange", "mlp": "tab:green"}
+TIER_COLOR = {"vector": "tab:blue", "matrix": "tab:orange", "mlp": "tab:green"}
 
 
 def run_curve(train, test, *, budgets, n_draws, weight_decay, seed=0):
     """One fit per (tier, budget, draw), each scored on the fixed test slice."""
-    baseline = score_adapter(None, test)
+    baseline = score_recalibrator(None, test)
     rows = []
     for tier in TIERS:
         for budget in budgets:
@@ -66,10 +66,10 @@ def run_curve(train, test, *, budgets, n_draws, weight_decay, seed=0):
                 if not mask.any():
                     continue
                 drawn = train.subset(mask)
-                adapter = fit_adapter(
+                recalibrator = fit_recalibrator(
                     drawn, tier=tier, weight_decay=weight_decay[tier], seed=draw,
                 )
-                got = score_adapter(adapter, test)
+                got = score_recalibrator(recalibrator, test)
                 boot = paired_bootstrap(
                     baseline["dirichlet"], got["dirichlet"], test.unit, seed=draw,
                 )
@@ -226,7 +226,7 @@ def main() -> None:
     # the full-data fit, whose per-group constants are what a reader compares
     # against the measured residual shape
     full = {tier: per_group_offsets(
-        fit_adapter(train, tier=tier, weight_decay=weight_decay[tier])
+        fit_recalibrator(train, tier=tier, weight_decay=weight_decay[tier])
     ) for tier in TIERS}
 
     payload = {

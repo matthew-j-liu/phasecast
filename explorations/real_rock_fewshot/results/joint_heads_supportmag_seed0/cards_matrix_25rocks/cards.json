@@ -1,6 +1,6 @@
 {
   "checkpoint": "checkpoints/joint_heads_supportmag_seed0/heads_best.pt",
-  "tier": "linear",
+  "tier": "matrix",
   "conditioning_rocks": 25,
   "conditioning_units": 10,
   "draw_seed": 0,

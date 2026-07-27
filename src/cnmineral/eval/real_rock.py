@@ -5,8 +5,8 @@ visually-estimated phenocryst modes with matching whole-rock chemistry) with
 nothing fit -- a fixed coarsening of the 21-phase vocabulary onto the 7 groups
 real modal data actually resolves, then the same hurdle NLL the corpus eval
 reports. That number is the sealed transfer gap and the blueprint for the thin
-real-world adapter that comes next: its residual shape decides which per-group
-corrections the adapter needs.
+real-world recalibrator that comes next: its residual shape decides which per-group
+corrections the recalibrator needs.
 
 The coarsening is exact, not an approximation. Presence composes as a noisy-OR
 because the head emits independent Bernoulli marginals; magnitude composes by
@@ -348,7 +348,7 @@ def split_balance(
     Two departures matter for this benchmark and both are checked: a slice
     whose group base rates are off scores a different task, and a slice that
     does not span the silica trend cannot exercise the q / amp corrections
-    that are the only silica-dependent part of the adapter.  Reads truth
+    that are the only silica-dependent part of the recalibrator.  Reads truth
     marginals only -- never a model output -- so selecting on it cannot leak.
 
     `SIO2_QUANTILES` stays interior on purpose.  The silica tails here are one
@@ -394,7 +394,7 @@ def unit_grouped_split(
 
     Candidates are drawn and scored by `split_balance`, and the best feasible
     one wins.  Feasible means the test slice's silica range sits inside the
-    train slice's: the adapter carries SiO2 terms on q and amp, and scoring it
+    train slice's: the recalibrator carries SiO2 terms on q and amp, and scoring it
     on rocks more extreme than anything it was fit on measures extrapolation
     rather than adaptation.  That constraint is what the tails are for --
     they are too thin to balance on (see `split_balance`).
@@ -522,14 +522,14 @@ def real_rock_nll(
     magnitude: np.ndarray,
     numeric: np.ndarray,
 ) -> dict[str, np.ndarray]:
-    """The hurdle NLL in group space -- the headline, and the adapter's loss.
+    """The hurdle NLL in group space -- the headline, and the recalibrator's loss.
 
     Assembled exactly as the corpus eval assembles it, on the coarsened
     vocabulary: presence BCE summed over groups, plus the Dirichlet NLL of the
-    observed sub-composition. The adapter that comes next rescales presence
+    observed sub-composition. The recalibrator that comes next rescales presence
     logits and magnitude concentrations per group, and both of those are fit
     by minimizing this -- Platt scaling *is* Bernoulli-NLL fitting -- so the
-    zero-shot value is that loss at the identity correction and the adapter's
+    zero-shot value is that loss at the identity correction and the recalibrator's
     gain reads as nats recovered on one scale.
 
     Rocks whose observed sub-composition has a single group contribute exactly
@@ -578,7 +578,7 @@ def censored_consistency(
     likelihood needs an integral over the censored region, and multiplying a
     density on the observed groups by a marginal tail probability is not a
     joint likelihood, because the Dirichlet couples the two. Returns the
-    per-instance probabilities and its own NLL, which is what an adapter would
+    per-instance probabilities and its own NLL, which is what a recalibrator would
     add to the objective if these instances should inform the fit.
     """
     alpha0 = (alpha7 * support).sum(-1, keepdims=True)
@@ -678,7 +678,7 @@ def plot_presence_calibration(
 
     The diagonal is what calibration on MAGEMin would buy if the simulator's
     phase frequencies matched a geologist's logs. Systematic departure is the
-    offset the adapter exists to absorb, so read the vertical gap, not just
+    offset the recalibrator exists to absorb, so read the vertical gap, not just
     the scatter.
     """
     fig, axes = _group_grid()
@@ -727,7 +727,7 @@ def plot_magnitude_parity(pred, magnitude, numeric, stats, out_path, subtitle) -
 def plot_residual_vs_sio2(
     p7, pred, benchmark, out_path: Path, subtitle: str
 ) -> None:
-    """Where the gap lives along the differentiation trend -- the adapter's blueprint.
+    """Where the gap lives along the differentiation trend -- the recalibrator's blueprint.
 
     A flat residual means one constant per group corrects it; a sloped one
     means the correction needs a silica term. The amphibole-pyroxene
@@ -760,7 +760,7 @@ def plot_residual_vs_sio2(
 
 
 def plot_gap_summary(p7, pred, benchmark, out_path: Path, subtitle: str) -> None:
-    """The two corrections an adapter would make, per group, on one axis."""
+    """The two corrections a recalibrator would make, per group, on one axis."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3.6))
     y = np.arange(len(GROUPS))
     presence_bias = benchmark.presence.mean(0) - p7.mean(0)
@@ -782,7 +782,7 @@ def plot_gap_summary(p7, pred, benchmark, out_path: Path, subtitle: str) -> None
     ax2.invert_yaxis()
     ax2.set_xlabel("log(mean measured share / mean predicted share)")
     ax2.set_title("magnitude scale offset (positive: model under-sizes)", fontsize=10)
-    _finish(fig, f"the corrections a thin adapter would learn -- {subtitle}", out_path)
+    _finish(fig, f"the corrections a thin recalibrator would learn -- {subtitle}", out_path)
 
 
 def share_interval(
@@ -947,9 +947,9 @@ def real_rock_scenarios(
     their coarsened 7-group pattern, so a scenario is a distinct mineral list
     with a probability, not a smear over one.
 
-    `correct_alpha7` is the adapter's magnitude correction, applied per sample
+    `correct_alpha7` is the recalibrator's magnitude correction, applied per sample
     because the coupled tiers read the sampled concentrations. Pass `p21`
-    already corrected if the adapter should also move which supports get drawn.
+    already corrected if the recalibrator should also move which supports get drawn.
     """
     rng = np.random.default_rng(seed)
     draws = (rng.random((n_samples, p21.shape[-1])) < p21).astype(np.float64)
@@ -993,7 +993,7 @@ def real_rock_scenario_figure(
     `tp_samples`, if given, is one [S, 2] array of (T, P) draws per scenario.
     It is drawn separately because **no source in this benchmark measured
     temperature or pressure**, so that panel has predictions and no truth --
-    and CondHead is not corrected by the adapter, so it is also the one part of
+    and CondHead is not corrected by the recalibrator, so it is also the one part of
     the figure still speaking the uncorrected model's language. Labelled as
     such on the axes rather than left for the reader to infer.
     """

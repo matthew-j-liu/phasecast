@@ -8,13 +8,13 @@ parse of a 1-4 grade, and the support forcing invents a rule for splitting
 "pyroxene is present" into cpx/opx.
 
 The question is not how many nats the headline moves.  It is whether any
-defensible mapping choice changes a decision: the adapter's parameterization
+defensible mapping choice changes a decision: the recalibrator's parameterization
 (per-group constants plus SiO2 slopes on q and amp), amphibole being a
 discrimination failure rather than a calibration miss, and the headline being
 quotable as the zero-shot gap.  Sign flips in the per-group offset vectors are
 what would invalidate the first; everything else is an error bar.
 
-Nothing here fits anything, so the adapter's held-out estimate is untouched.
+Nothing here fits anything, so the recalibrator's held-out estimate is untouched.
 
     conda run -n alignn_fix python explorations/real_rock_mapping/run_sensitivity.py \
         --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt
@@ -215,7 +215,7 @@ def score(
     `p7` is computed once by the caller; only the magnitude branch is re-run,
     because its concentrations are conditioned on the support the mapping
     forces.  The two offset vectors are the ones `plot_gap_summary` draws --
-    they are the adapter's blueprint, so they are what a sign flip would
+    they are the recalibrator's blueprint, so they are what a sign flip would
     invalidate.
     """
     with torch.no_grad():
@@ -435,12 +435,12 @@ def baseline_size(rows) -> float:
 
 
 def plot_offset_stability(rows, mc, out_path: Path) -> None:
-    """The adapter's blueprint under every mapping -- the figure that decides it.
+    """The recalibrator's blueprint under every mapping -- the figure that decides it.
 
-    The thin adapter is per-group constants plus two SiO2 slopes, fit to
+    The thin recalibrator is per-group constants plus two SiO2 slopes, fit to
     exactly these two vectors.  A variant that moves an offset a little rescales
     the correction; one that flips its sign says the correction points the wrong
-    way, which is the only outcome here that would change the adapter's design.
+    way, which is the only outcome here that would change the recalibrator's design.
     """
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.2))
     shipped = next(r for r in rows if r["variant"] == "shipped")
@@ -469,7 +469,7 @@ def plot_offset_stability(rows, mc, out_path: Path) -> None:
         ax.set_title(title, fontsize=10)
         ax.legend(fontsize=8)
     axes[0].set_ylabel("offset")
-    fig.suptitle("does the adapter's blueprint survive the mapping? "
+    fig.suptitle("does the recalibrator's blueprint survive the mapping? "
                  "grey: every variant; a sign flip is the only disqualifying move",
                  fontsize=11)
     fig.tight_layout()
@@ -481,12 +481,12 @@ def plot_offset_stability(rows, mc, out_path: Path) -> None:
 def sign_flips(
     rows, key: str, materiality: float, min_n: int = 100
 ) -> list[dict]:
-    """Groups where some variant reverses a correction the adapter would make.
+    """Groups where some variant reverses a correction the recalibrator would make.
 
     Both sides have to clear `materiality`, because a group whose shipped
     offset sits at zero has no correction to reverse -- amphibole's magnitude
     offset is -0.002, so every perturbation flips its sign while changing
-    nothing an adapter would do.  Subsets below `min_n` rocks are excluded
+    nothing a recalibrator would do.  Subsets below `min_n` rocks are excluded
     outright: a per-group offset estimated on a handful of rocks is sampling
     noise, not evidence about the parameterization.
     """
@@ -576,7 +576,7 @@ def main() -> None:
             for key in ("presence_offset", "magnitude_offset")
         },
         # materiality floors: 5 percentage points of presence probability, and
-        # a 10% magnitude rescale. Below those an adapter learns approximately
+        # a 10% magnitude rescale. Below those a recalibrator learns approximately
         # no correction, so the sign it learns is not a design question.
         "presence_offset_sign_flips": sign_flips(rows, "presence_offset", 0.05),
         "magnitude_offset_sign_flips": sign_flips(rows, "magnitude_offset", 0.10),

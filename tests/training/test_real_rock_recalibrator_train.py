@@ -1,4 +1,4 @@
-"""Adapter fitting: the NaN guard, unit-clustered inference, honest sampling."""
+"""Recalibrator fitting: the NaN guard, unit-clustered inference, honest sampling."""
 
 import numpy as np
 import pytest
@@ -8,15 +8,15 @@ from cnmineral.data.phase_vocab import (
     GROUP_INDEX, GROUPS, N_PHASES, PHASE_INDEX,
 )
 from cnmineral.eval.real_rock import coarsen_presence, real_rock_nll
-from cnmineral.training.real_rock_adapter import (
+from cnmineral.training.real_rock_recalibrator import (
     GroupPredictions,
-    adapter_nll,
+    recalibrator_nll,
     draw_units,
-    fit_adapter,
+    fit_recalibrator,
     lift_group_presence_to_phases,
     paired_bootstrap,
     per_group_offsets,
-    score_adapter,
+    score_recalibrator,
 )
 
 N_GROUPS = len(GROUPS)
@@ -53,7 +53,7 @@ def test_off_mask_zero_concentrations_do_not_make_the_loss_nan():
     """
     data = _predictions()
     assert (data.alpha7[:, GROUP_INDEX["ol"]] == 0).all()
-    out = adapter_nll(data.logits7, data.alpha7, data.presence, data.magnitude,
+    out = recalibrator_nll(data.logits7, data.alpha7, data.presence, data.magnitude,
                       data.numeric)
     for term in ("bernoulli", "dirichlet", "joint"):
         assert torch.isfinite(out[term]).all()
@@ -63,7 +63,7 @@ def test_gradients_survive_the_nan_guard():
     """The guard must not detach the entries that are actually scored."""
     data = _predictions()
     alpha = data.alpha7.clone().requires_grad_(True)
-    adapter_nll(data.logits7, alpha, data.presence, data.magnitude,
+    recalibrator_nll(data.logits7, alpha, data.presence, data.magnitude,
                 data.numeric)["joint"].mean().backward()
     scored = data.numeric > 0
     assert torch.isfinite(alpha.grad).all()
@@ -75,30 +75,30 @@ def test_gradients_survive_the_nan_guard():
 def test_torch_objective_matches_the_shipped_numpy_eval():
     """The fit's loss and the ledger's metric must be the same number.
 
-    If they drift, "nats recovered" compares an adapter against a baseline
+    If they drift, "nats recovered" compares a recalibrator against a baseline
     measured on a different scale.
     """
     data = _predictions()
     p7 = torch.sigmoid(data.logits7).numpy()
     want = real_rock_nll(p7, data.alpha7.numpy(), data.presence.numpy(),
                          data.magnitude.numpy(), data.numeric.numpy().astype(bool))
-    got = score_adapter(None, data)
+    got = score_recalibrator(None, data)
     for term in ("bernoulli", "dirichlet", "joint"):
         assert np.allclose(want[term], got[term], atol=1e-9)
 
 
 def test_fitting_reduces_the_loss_it_optimizes():
     data = _predictions()
-    before = score_adapter(None, data)["joint"].mean()
-    adapter = fit_adapter(data, tier="diagonal", weight_decay=1e-3, epochs=200)
-    assert score_adapter(adapter, data)["joint"].mean() < before
+    before = score_recalibrator(None, data)["joint"].mean()
+    recalibrator = fit_recalibrator(data, tier="vector", weight_decay=1e-3, epochs=200)
+    assert score_recalibrator(recalibrator, data)["joint"].mean() < before
 
 
 def test_pinned_amphibole_offset_reports_as_zero():
     """`per_group_offsets` reports the effective correction, not the raw parameter."""
     data = _predictions()
-    adapter = fit_adapter(data, tier="diagonal", epochs=50)
-    assert per_group_offsets(adapter)["amp"]["magnitude_offset"] == 0.0
+    recalibrator = fit_recalibrator(data, tier="vector", epochs=50)
+    assert per_group_offsets(recalibrator)["amp"]["magnitude_offset"] == 0.0
 
 
 def test_bootstrap_resamples_units_not_rocks():
@@ -123,7 +123,7 @@ def test_bootstrap_resamples_units_not_rocks():
 
 
 def test_lifting_the_group_correction_hits_the_target_noisy_or():
-    """The 21-phase support must reproduce the group probability the adapter set.
+    """The 21-phase support must reproduce the group probability the recalibrator set.
 
     Shifting each member's logit by the group's logit shift -- the obvious
     thing -- is badly wrong, since the noisy-OR is not linear in logits: a
@@ -133,17 +133,17 @@ def test_lifting_the_group_correction_hits_the_target_noisy_or():
     half feldspar.
     """
     data = _predictions(n=24)
-    adapter = fit_adapter(data, tier="linear", weight_decay=1e-2, epochs=100)
+    recalibrator = fit_recalibrator(data, tier="matrix", weight_decay=1e-2, epochs=100)
     rng = np.random.default_rng(0)
     p21 = rng.uniform(0.01, 0.99, (len(data), N_PHASES))
     # a group pinned near certainty is where the logit-shift version breaks
     p21[:, PHASE_INDEX["plag"]] = 0.995
     p21[:, PHASE_INDEX["afs"]] = 0.99
 
-    lifted = lift_group_presence_to_phases(adapter, data.logits7, p21, data.sio2)
+    lifted = lift_group_presence_to_phases(recalibrator, data.logits7, p21, data.sio2)
     with torch.no_grad():
         target = torch.sigmoid(
-            adapter(data.logits7, data.alpha7, data.sio2)[0]
+            recalibrator(data.logits7, data.alpha7, data.sio2)[0]
         ).numpy()
     assert np.allclose(coarsen_presence(lifted), target, atol=1e-6)
     assert ((lifted >= 0) & (lifted <= 1)).all()

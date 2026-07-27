@@ -4,8 +4,8 @@ import numpy as np
 import torch
 
 from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS
-from cnmineral.models.real_rock_adapter import TIERS
-from cnmineral.training.real_rock_adapter import GroupPredictions
+from cnmineral.models.real_rock_recalibrator import TIERS
+from cnmineral.training.real_rock_recalibrator import GroupPredictions
 
 from explorations.real_rock_fewshot.run_curve import (
     BUDGETS,

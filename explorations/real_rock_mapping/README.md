@@ -1,7 +1,7 @@
 # real_rock_mapping
 
 **Question.** The zero-shot real-rock eval reports 10.404 nats and a per-group
-residual shape that the thin sim-to-real adapter will be designed against. Both
+residual shape that the thin sim-to-real recalibrator will be designed against. Both
 pass through a truth mapping nobody measured: mineral densities are mid-series
 stand-ins for solid solutions, the 0.5 vol% trace bound is read off a reporting
 grid, the freshness cut is a leading-digit parse of a 1-4 grade, and the support
@@ -12,9 +12,9 @@ Three decisions are at stake, and only the third is about the nats:
 
 | | Decision | Robust iff |
 |---|---|---|
-| D1 | adapter = per-group constants + SiO2 slopes on q and amp presence | offset signs and rough magnitudes survive |
+| D1 | recalibrator = per-group constants + SiO2 slopes on q and amp presence | offset signs and rough magnitudes survive |
 | D2 | amphibole is a discrimination failure, not a calibration miss | AUROC stays ~0.58 |
-| D3 | 10.404 is quotable as the zero-shot gap | the spread is small next to what the adapter must recover |
+| D3 | 10.404 is quotable as the zero-shot gap | the spread is small next to what the recalibrator must recover |
 
 **Method.** `run_sensitivity.py` re-scores one frozen checkpoint under ~30
 mapping variants across six knobs, going through the shipped
@@ -27,7 +27,7 @@ cutoffs plus a reading where `+` means "worse than the digit"; the support
 forcing gets three member thresholds plus all-members and single-member; and two
 knobs the original plan did not name get audited too (13 uncertain-identification
 mode rows, and the reporting-basis conversion that only touches the
-point-counted rocks). Nothing is fit, so the adapter's held-out estimate is
+point-counted rocks). Nothing is fit, so the recalibrator's held-out estimate is
 untouched.
 
 Reading rules the audit enforces on itself: variants are compared like-for-like
@@ -36,7 +36,7 @@ Dirichlet term is a density over however many groups a rock spans. A sign flip
 counts only when both sides clear a materiality floor (0.05 of presence
 probability, 0.10 log units of magnitude) on a subset of at least 100 rocks --
 otherwise amphibole's magnitude offset of -0.002 "flips" under every
-perturbation while changing nothing an adapter would do.
+perturbation while changing nothing a recalibrator would do.
 
 ## Result
 
@@ -50,9 +50,9 @@ cannot move with either. Both are asserted as tests, then demonstrated.
 **D1 holds.** No presence-offset sign flips at all. One magnitude flip: px,
 under `all_members` only, which is mechanical rather than a mapping question
 (forcing both cpx and opx on splits the group's concentration). The Monte Carlo
-pins every adapter constant tightly -- opq +0.942..+1.027 (shipped +0.991), bi
+pins every recalibrator constant tightly -- opq +0.942..+1.027 (shipped +0.991), bi
 +0.445..+0.568, q -0.541..-0.519, fsp -0.138..-0.114. Amphibole's magnitude band
-straddles zero (-0.033..+0.045), so the adapter should learn ~0 there and the
+straddles zero (-0.033..+0.045), so the recalibrator should learn ~0 there and the
 sign is not recoverable from this benchmark at any density.
 
 **D2 holds outright.** Amphibole AUROC spans 0.497-0.592 across every variant --
@@ -94,7 +94,7 @@ to pair it with, and a Dirichlet needs its components to renormalize.
 
 The mapping is robust where it encodes a measurement and fragile where it
 encodes an invention. Densities, the trace bound, the freshness cut, uncertain
-identifications and the reporting basis all leave the adapter's design intact,
+identifications and the reporting basis all leave the recalibrator's design intact,
 so **build 2 proceeds on the shipped mapping and on the residual shape as
 measured**. The two things to carry forward: the support-forcing rule deserves
 to be treated as a modelling choice with a 3.5-nat lever rather than a mapping

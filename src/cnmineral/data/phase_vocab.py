@@ -31,7 +31,7 @@ PRESENCE_CUTOFF: float = 1e-3
 # into plagioclase / alkali feldspar the way the training labels do.
 #
 # Here rather than with the benchmark loader because both the eval and the
-# sim-to-real adapter predict over it, and a model has no business importing an
+# sim-to-real recalibrator predict over it, and a model has no business importing an
 # eval module to learn what it predicts over. The 11 phases absent from
 # `MODEL_TO_GROUP` (g, ru, sph, sill, cd, mu, ep, ne, ky, and, cor) are
 # unscoreable against real modes: no source reports them. They are not forced
