@@ -34,8 +34,10 @@ def main():
     ap.add_argument("--corpus", required=True)
     ap.add_argument("--figures", action="store_true",
                     help="write EDA plots to <corpus>/figures/")
-    ap.add_argument("--bulks", help="full bulk table for the representativeness "
-                    "plot (default: <corpus>_bulks.csv next to the corpus dir)")
+    ap.add_argument("--bulks", nargs="+", help="full bulk table(s) for the "
+                    "representativeness plot; a tier split across several "
+                    "tables (train + expansion) takes them all "
+                    "(default: <corpus>_bulks.csv next to the corpus dir)")
     args = ap.parse_args()
     corpus = Path(args.corpus)
 
@@ -101,12 +103,12 @@ def main():
     print(f"\nwrote {corpus / 'health_phase_coverage.csv'}")
 
     if args.figures:
-        bulks = Path(args.bulks) if args.bulks else \
-            corpus.parent / f"{corpus.name}_bulks.csv"
+        bulks = ([Path(p) for p in args.bulks] if args.bulks
+                 else [corpus.parent / f"{corpus.name}_bulks.csv"])
         write_figures(draws, rungs, cov, corpus, bulks)
 
 
-def write_figures(draws, rungs, cov, corpus, bulks_path):
+def write_figures(draws, rungs, cov, corpus, bulks_paths):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -189,10 +191,12 @@ def write_figures(draws, rungs, cov, corpus, bulks_path):
     ax2.legend()
     save(fig, "assemblage_spread.png")
 
-    if not bulks_path.exists():
-        print(f"no bulk table at {bulks_path}; skipping representativeness plot")
+    missing = [p for p in bulks_paths if not p.exists()]
+    if missing:
+        print(f"no bulk table at {', '.join(map(str, missing))}; "
+              f"skipping representativeness plot")
         return
-    full = pd.read_csv(bulks_path)
+    full = pd.concat([pd.read_csv(p) for p in bulks_paths], ignore_index=True)
     got = draws.drop_duplicates("bulk")
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12, 5))
     freq = pd.DataFrame({

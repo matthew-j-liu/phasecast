@@ -6,7 +6,7 @@ from cnmineral.eval.trajectory import build_trajectory_figure, load_ledger
 GOOD = {
     "instruments": {
         "valtest128-broad": {"draws_per_bulk": 128, "tie_band_nats": 0.03},
-        "valtest256-traced": {"draws_per_bulk": 256},
+        "valtest128-traced@2000": {"draws_per_bulk": 128},
     },
     "versions": [
         {
@@ -28,7 +28,7 @@ GOOD = {
         {
             "version": "regen-baseline", "date": "2026-07-28",
             "checkpoint_tag": "joint_heads_regen_seed0", "changes": "new corpus",
-            "instrument": "valtest256-traced",
+            "instrument": "valtest128-traced@2000",
             "heads": {
                 "mode": {"joint_nll": -1.1},
                 "comp": {"comp_nll": -52.0},

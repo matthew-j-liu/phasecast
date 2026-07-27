@@ -128,9 +128,9 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_valtest_split.py
 
-1. `test_roster_partitions_and_excludes_dropped_bulk` -- the committed roster holds 499 unique bulks assigned val/test only, with the dropped bulk absent.
-2. `test_roster_counts_and_stratification` -- 221 val / 278 test, and every qap class appears in both subsets.
-3. `test_load_valtest_split_sorted_disjoint` -- both subsets load as sorted int64 arrays, disjoint, union 499.
+1. `test_roster_partitions_and_excludes_dropped_bulk` -- the committed roster holds 1999 unique bulks assigned val/test only, with the dropped bulk absent.
+2. `test_roster_counts_and_stratification` -- 887 val / 1112 test, and every qap class appears in both subsets.
+3. `test_load_valtest_split_sorted_disjoint` -- both subsets load as sorted int64 arrays, disjoint, union 1999.
 4. `test_load_valtest_split_unknown_subset_raises` -- a subset name other than val/test raises.
 
 ### test_mineralogy_labels.py
@@ -169,6 +169,17 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_nested_block_prefix_realizes_inner_quotas` -- `--expand-block` emits the expansion as two shuffled blocks: full-table class counts equal the launch-budget quotas and the block-1 prefix equals the smaller-budget quotas.
 2. `test_block_reorders_but_never_changes_the_selection` -- nested-block ordering permutes rows only; the selected sample_id set is identical to the single-shuffle emit at the same seed.
+3. `test_expansion_never_draws_a_bulk_another_tier_holds` -- the drawn bulks miss every sample_id in the train, expansion, and valtest tables (the contamination guard).
+4. `test_exhausted_class_keeps_its_held_count_and_budget_respills` -- a class with no bulks left gets quota 0 and the freed budget respills, so the table still totals the requested size.
+5. `test_valtest_expand_leads_with_the_held_roster` -- `--valtest-expand` rewrites valtest_bulks.csv with the held roster as block one, uncontaminated and unique, in KEEP_COLS order.
+6. `test_valtest_expand_carries_the_alpha_shape_for_the_whole_tier` -- the grown table's per-class counts equal held + `expansion_quotas`, i.e. the alpha-shape target for the expanded tier.
+
+### test_build_valtest_split.py
+
+1. `test_extend_freezes_committed_assignments` -- every bulk in the pre-extension roster keeps its original val/test subset.
+2. `test_extend_assigns_every_new_bulk_at_the_split_ratio` -- the added bulks all get assigned, at `TEST_FRACTION` (sklearn ceils the test count).
+3. `test_extend_refuses_a_table_the_roster_already_covers` -- `--extend` with nothing new to assign exits instead of rewriting the roster.
+4. `test_extend_rejects_a_class_too_thin_to_stratify` -- a single-member class exits with a readable message rather than a sklearn traceback.
 
 ### test_generate_mineralogy_corpus.py
 
@@ -285,6 +296,15 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_layers_stack_the_trunk` -- `layers` stacks trunk blocks; output shapes hold, params grow.
 7. `test_gradients_flow_to_all_parameters` -- every parameter receives gradient.
 
+### test_real_rock_adapter.py
+
+1. `test_adapter_is_the_identity_at_initialization` -- an unfit adapter reproduces the zero-shot outputs exactly, which is what lets a fitted one's gain read as nats recovered on the ledger's scale.
+2. `test_structural_zeros_survive_the_magnitude_correction` -- coarsening leaves alpha 0 where a group has no member on the support; the correction is multiplicative so those stay 0 rather than becoming -inf.
+3. `test_richer_tiers_contain_the_diagonal_exactly` -- copying a fitted diagonal's parameters into `linear` / `mlp` reproduces it, so the 23-param affine is the degenerate case rather than a rival.
+4. `test_amphibole_magnitude_is_pinned_at_every_tier` -- the pin holds through the mixing matrix and the MLP, not only the constant, since a coupled correction would be the same unidentifiable quantity reparameterized.
+5. `test_off_support_groups_contribute_a_neutral_log_feature` -- scaling the mixing weights that read an off-support column is a no-op, which only holds if that column enters as 0 rather than log(tiny).
+6. `test_unknown_tier_is_rejected` -- a mistyped tier raises rather than silently falling back.
+
 ## training/
 
 ### test_splits.py
@@ -361,6 +381,17 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_tiebreak_mode_ties_break_to_comp_then_cond` -- mode-objective read-out: trials within the tie band are ties broken by comp NLL then cond NLL; outside-band trials never win.
 2. `test_tiebreak_minisweep_requires_mode_within_band` -- comp-objective read-out admits only trials whose mode best stays within the band of `mode_reference`, returning None when none qualify.
 3. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
+
+### test_real_rock_adapter_train.py
+
+1. `test_off_mask_zero_concentrations_do_not_make_the_loss_nan` -- coarsening's exact zeros would make `mask * lgamma(0)` evaluate `0 * inf`; the guard at this call site keeps every term finite.
+2. `test_gradients_survive_the_nan_guard` -- the guard does not detach the scored entries, and an off-mask group draws no gradient.
+3. `test_torch_objective_matches_the_shipped_numpy_eval` -- the fit's loss equals `real_rock_nll`, so "nats recovered" is not measured against a baseline on a different scale.
+4. `test_fitting_reduces_the_loss_it_optimizes` -- a fit lowers the joint NLL it minimizes.
+5. `test_pinned_amphibole_offset_reports_as_zero` -- `per_group_offsets` reports the effective correction rather than the raw parameter.
+6. `test_bootstrap_resamples_units_not_rocks` -- declaring the same rocks to belong to fewer units widens the interval, since rocks within a unit are not independent draws.
+7. `test_draws_sample_whole_units_without_overshooting` -- draws take whole units, never split one, and stay within the overshoot tolerance.
+8. `test_a_unit_larger_than_the_budget_is_skipped_not_taken` -- otherwise one 66-rock unit would decide the low end of the curve.
 
 ## eval/
 
@@ -474,6 +505,12 @@ rename, or repurpose a test) updates this file in the same change.**
 24. `test_tokenize_bulk_frame_agrees_with_the_dataset` -- a frame carrying one corpus row tokenizes to that row's dataset tensors.
 25. `test_tokenize_bulk_frame_pads_when_iron_columns_are_absent` -- a table with only `feo_tot` resolves iron through the fallback and pads the oxides it never reports.
 26. `test_load_benchmark_invariants` -- on the shipped benchmark: magnitude is nonzero exactly where quantified, quantified and censored are disjoint, presence covers both, compositions sum to 1, and every array is length-aligned.
+27. `test_no_stratigraphic_unit_straddles_a_split_boundary` -- one eruption's rocks share nearly identical chemistry, so every unit lives in exactly one subset and the roster covers all of them.
+28. `test_committed_roster_covers_every_benchmark_rock_exactly_once` -- the three subsets partition the benchmark, with no rock dropped or double-counted.
+29. `test_test_silica_range_sits_inside_train` -- the adapter carries SiO2 terms, so a test rock more extreme than anything it was fit on would measure extrapolation rather than adaptation.
+30. `test_unit_grouped_split_is_deterministic_given_a_seed` -- the carve-out is the board strategies get compared on, so the same seed reproduces it and a different seed does not.
+31. `test_split_balance_prefers_slices_that_match_the_population` -- the criterion ranks an even split above a lopsided one, and reads truth marginals only so selecting on it cannot leak a model output.
+32. `test_unknown_split_subset_is_rejected` -- a mistyped subset name raises rather than silently returning nothing.
 
 ### test_summary_cards.py
 
@@ -586,3 +623,9 @@ rename, or repurpose a test) updates this file in the same change.**
 8. `test_row_index_maps_a_shortened_benchmark_back_onto_the_latents` -- a variant that drops a whole rock re-indexes onto the base latents, and an unknown id raises rather than silently misaligning.
 9. `test_sign_flips_ignores_offsets_too_small_to_correct` -- a near-zero shipped offset has no correction to reverse and small subsets are excluded, so only a materially reversed offset on enough rocks counts as a flip.
 10. `test_run_variants_covers_every_knob_and_reproduces_the_shipped_row` -- the tripwire: the whole audit runs over all six knobs, its `shipped` row equals the eval's own headline, and the trace-bound rows are identical to each other.
+
+### test_real_rock_fewshot.py
+
+1. `test_weight_decay_is_recorded_for_every_tier` -- the curve's only use of the val slice is one fixed scalar per tier; a missing one would silently take a default.
+2. `test_run_curve_produces_one_row_per_tier_budget_draw` -- the tripwire: the sweep runs end to end, every row carries a realized rock and unit count, and each paired interval brackets its own point estimate.
+3. `test_budgets_are_ascending_so_the_curve_reads_left_to_right` -- the budget grid is sorted.

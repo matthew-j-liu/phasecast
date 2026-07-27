@@ -172,7 +172,7 @@ a vendored padding heuristic.  Full story in [docs/encoder.md](docs/encoder.md).
 - **bulk** — one gard2019 composition; the MAGEMin input; the unit of
   splitting.  "Rock" is its informal synonym in slides/prose, never the name
   for an output.
-- **draw** — one sampled (P, H2O) path = one MAGEMin cooling run (48/bulk
+- **draw** — one sampled (P, H2O) path = one MAGEMin cooling run (24/bulk
   train, 128/bulk valtest).
 - **rung** — the melt-fraction depth a draw is read out at (50/30).
 - **row** — one (bulk, draw, rung): the atomic training example / label.
@@ -233,9 +233,11 @@ don't re-open the question.
 - **Bulk-level splits, not row-level.**  A bulk's FC paths share nearly identical
   inputs; all paths go to the same split or the model memorizes across train/val.
   64/16/20 stratified by `qap_name`; rare classes (<25 bulks) dropped.  Two-tier
-  mapping (locked 2026-07-16): all 10k train-tier bulks train; the 500 valtest
-  bulks divide 16:20 into ~222 val (early stopping, tuning, interrogation
-  figures) / ~278 test (sealed until final numbers).
+  mapping (locked 2026-07-16): all train-tier bulks train; the valtest bulks
+  divide 16:20 into val (early stopping, tuning, interrogation figures) / test
+  (sealed until final numbers).  The valtest roster grows by extension only
+  (`build_valtest_split.py --extend`) so committed assignments never move: 500
+  bulks -> 2000 on 2026-07-26, 1999 assigned 887 val / 1112 test.
 - **qap_name locked as stratification axis** (IUGS Streckeisen QAPF; 70 values,
   83% non-null in `data/bulks/gard2019.csv`).
 - **Hand-written stoichiometric rules kept** (from mineralML): training-time

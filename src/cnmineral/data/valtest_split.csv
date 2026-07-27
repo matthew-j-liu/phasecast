@@ -1,214 +1,982 @@
 sample_id,qap_name,subset
+3329,rhyolite,test
+6857,basalt,test
 7218,andesite,val
+7881,dacite,test
+8139,basalt,val
+8153,quartz latite,test
 8245,andesite,val
+8317,rhyolite,val
 8455,dacite,test
+8504,rhyolite,val
 8618,andesite,val
+9252,dacite,val
+10549,dacite,val
+11688,andesite,test
+11709,andesite,test
+11976,latite,test
+11977,latite,val
+12079,foid-bearing latite,val
+12494,andesite,val
+12943,dacite,val
+13389,andesite,val
+14154,dacite,val
 14248,phonolitic basanite,test
+14419,dacite,test
+16240,andesite,test
+16327,andesite,val
+16493,basalt,test
+16749,dacite,val
+17822,rhyolite,val
+18061,basalt,val
+18160,rhyolite,test
+18332,dacite,test
 18408,foid-bearing latite,val
+18669,andesite,test
+18701,rhyolite,val
+19027,dacite,val
 19199,dacite,val
 19456,dacite,val
+19637,phonolitic basanite,test
+19839,andesite,test
 20281,alkali feldspar trachyte,test
 20420,basalt,test
+20728,dacite,test
 20807,andesite,test
+20824,andesite,test
+20852,basalt,test
 20855,andesite,test
+21089,quartz latite,test
+21229,quartz latite,test
+21276,foid-bearing latite,val
 21341,phonolitic tephrite,test
+21405,dacite,test
+21409,andesite,test
+21642,andesite,val
 21726,silexite,val
+21978,andesite,val
 21986,quartz latite,test
+22006,quartz latite,test
+22031,foid-bearing latite,test
+22042,phonolitic basanite,test
+22206,phonolitic basanite,test
+22220,basalt,val
 22532,foid-bearing alkali feldspar trachyte,test
+22556,latite,test
 22558,foid-bearing trachyte,val
+22603,rhyolite,val
 22729,trachyte,test
 22822,foid-bearing trachyte,val
+22878,quartz latite,test
+23017,dacite,test
+23056,rhyolite,test
+23318,phonolitic tephrite,test
+23384,dacite,test
+23463,foid-bearing latite,test
+23483,foid-bearing latite,val
+23604,quartz latite,val
+23744,rhyolite,val
+23870,tephritic phonolite,test
+23934,phonolitic tephrite,test
+23997,dacite,val
+24245,foid-bearing latite,val
+24492,rhyolite,val
+24607,andesite,test
 24711,andesite,test
 25272,dacite,test
+25763,basalt,val
+25996,dacite,test
+26035,dacite,test
+26213,dacite,val
+26316,rhyolite,test
 26530,rhyolite,test
+26846,rhyolite,test
+27101,rhyolite,test
+27151,rhyolite,val
+27152,rhyolite,test
+27343,andesite,val
+27740,rhyolite,val
+27918,quartz latite,test
+28029,andesite,test
+28056,phonolitic basanite,val
+28736,dacite,test
 28836,dacite,test
+28942,rhyolite,test
 28951,dacite,test
+29105,andesite,test
+29518,basalt,test
+29596,quartz-rich rhyolite,val
+29859,dacite,test
+29894,rhyolite,test
 30202,rhyolite,val
+30261,andesite,test
+31518,rhyolite,test
+31671,dacite,test
+32014,andesite,test
+32317,dacite,val
 32932,rhyolite,test
 33215,andesite,test
+33483,andesite,test
+33646,rhyolite,test
+34299,andesite,test
+34382,andesite,test
+34568,dacite,test
+34575,andesite,val
+34592,dacite,val
+34640,andesite,val
+35088,dacite,val
 35358,andesite,val
+35375,phonolitic tephrite,test
+36082,phonolitic tephrite,test
+36193,quartz-rich rhyolite,val
+36414,quartz-rich rhyolite,test
+36553,phonolitic basanite,test
+36658,phonolitic basanite,test
+36671,phonolitic basanite,test
+37024,quartz latite,val
 37036,quartz latite,test
 37058,basalt,test
 37251,andesite,test
 37561,andesite,test
+38900,andesite,val
+39111,andesite,test
 39291,andesite,test
 39346,andesite,val
+39778,andesite,val
 39859,rhyolite,val
+41025,andesite,val
+41915,dacite,test
+42030,foid-bearing latite,val
+42136,tephritic phonolite,val
+42258,foid-bearing latite,test
+42413,foid-bearing latite,val
+42463,foid-bearing latite,test
 42494,phonolitic tephrite,val
+42542,latite,val
+42712,latite,test
+42716,foid-bearing latite,test
+42719,latite,val
+42748,foid-bearing latite,val
 42835,tephritic phonolite,val
 42852,foid-bearing latite,test
+42860,foid-bearing latite,test
+42920,foid-bearing latite,test
+42925,latite,test
+43079,foid-bearing latite,test
+43101,foid-bearing latite,test
+43102,foid-bearing latite,val
+43275,foid-bearing latite,val
+43310,foid-bearing latite,val
+43343,latite,val
+43364,foid-bearing latite,test
+43547,foid-bearing latite,test
+43847,foid-bearing latite,val
+43851,foid-bearing latite,val
+43868,foid-bearing trachyte,val
+43873,foid-bearing latite,val
+43983,foid-bearing trachyte,test
+44059,tephritic phonolite,val
+44161,foid-bearing latite,val
+44340,foid-bearing latite,test
+44518,foid-bearing latite,test
+44523,foid-bearing latite,test
+44624,foid-bearing latite,val
+44791,foid-bearing latite,val
+44833,latite,test
 44840,phonolitic tephrite,test
+44863,tephritic phonolite,test
+44929,foid-bearing latite,test
+44931,foid-bearing latite,test
+44996,rhyolite,test
 45030,latite,test
+45036,latite,test
+45275,foid-bearing latite,val
+45447,tephritic phonolite,val
+45562,tephritic phonolite,test
 45673,foid-bearing latite,val
+46166,foid-bearing latite,val
+46216,tephritic phonolite,test
+46271,tephritic phonolite,val
 46283,tephritic phonolite,test
+46347,tephritic phonolite,test
+46404,tephritic phonolite,val
+46425,tephritic phonolite,test
+46455,tephritic phonolite,test
+46589,tephritic phonolite,test
+46664,tephritic phonolite,test
+46894,tephritic phonolite,val
+47046,tephritic phonolite,test
+47140,tephritic phonolite,test
+47148,tephritic phonolite,val
+47252,tephritic phonolite,val
+47506,tephritic phonolite,val
+47528,tephritic phonolite,val
+47603,tephritic phonolite,val
 47695,tephritic phonolite,val
+47849,tephritic phonolite,test
+47869,tephritic phonolite,val
+47889,tephritic phonolite,test
+47952,tephritic phonolite,val
+47966,tephritic phonolite,test
+47979,tephritic phonolite,test
+48021,tephritic phonolite,test
+48026,tephritic phonolite,val
+48038,tephritic phonolite,val
+48069,tephritic phonolite,val
 48350,tephritic phonolite,test
+48359,tephritic phonolite,test
+48445,tephritic phonolite,test
 48524,tephritic phonolite,val
+48566,tephritic phonolite,val
+48785,foid-bearing trachyte,test
+48845,latite,test
 48861,foid-bearing latite,test
+48863,foid-bearing latite,val
+48985,foid-bearing latite,test
 49022,foid-bearing latite,val
+49116,foid-bearing trachyte,test
+49130,foid-bearing trachyte,val
+49144,latite,val
+49337,tephritic phonolite,test
+49342,tephritic phonolite,test
+49471,foid-bearing latite,val
+49509,foid-bearing latite,test
+49639,phonolitic tephrite,val
+49771,tephritic phonolite,val
+50011,basalt,val
+50460,tephritic phonolite,test
+50512,tephritic phonolite,test
+50575,tephritic phonolite,test
 50599,latite,val
 50661,foid-bearing latite,test
+50701,foid-bearing trachyte,val
+50752,foid-bearing trachyte,val
+50771,latite,val
+50832,latite,test
+50873,foid-bearing latite,val
+50952,latite,val
+51176,tephritic phonolite,val
+51256,phonolitic tephrite,test
 51378,quartz trachyte,val
+51447,tephritic phonolite,test
+51620,foid-bearing latite,test
+51660,latite,test
+52083,rhyolite,test
 52329,quartz latite,val
+52611,alkali feldspar rhyolite,val
+52722,quartz latite,test
+52744,basalt,test
 53275,quartz latite,val
+53363,quartz latite,test
 54291,andesite,test
+54373,dacite,val
+54573,dacite,val
+54597,alkali feldspar rhyolite,val
 54800,andesite,test
+55213,dacite,test
+55310,alkali feldspar rhyolite,test
+55491,latite,test
+55824,rhyolite,val
+56159,dacite,val
+56160,quartz latite,val
+56345,phonolitic basanite,val
 56395,phonolitic basanite,test
 56627,phonolitic basanite,val
+57557,basalt,val
 57860,basanite,val
+58096,latite,test
+58175,basalt,test
+58441,dacite,val
 58525,andesite,val
 58814,andesite,test
+58837,dacite,val
+58915,dacite,val
+59133,dacite,val
+59254,alkali feldspar rhyolite,val
+59681,dacite,test
+59738,andesite,test
+59939,rhyolite,test
+59956,alkali feldspar rhyolite,test
 60504,basanite,test
+60528,basalt,test
 60788,basanite,test
+60865,andesite,val
+61048,quartz latite,test
+61304,quartz latite,val
+61729,basalt,val
 61815,phonolitic tephrite,val
+62240,phonolitic tephrite,val
+62356,phonolitic tephrite,test
+62479,basalt,test
+63383,basalt,val
+63385,rhyolite,val
+63545,rhyolite,val
+63645,phonolitic basanite,test
+63790,phonolitic basanite,test
+63874,phonolitic basanite,val
+64403,tephritic phonolite,test
+64574,basalt,test
+64885,phonolitic basanite,val
+65252,basalt,test
+65624,alkali feldspar rhyolite,val
 65754,basalt,val
+65840,alkali feldspar rhyolite,test
+66268,rhyolite,test
+66987,phonolitic tephrite,test
+67196,phonolitic basanite,test
+67717,quartz latite,test
+67954,andesite,val
+68068,dacite,val
+68305,quartz-rich rhyolite,test
+68360,dacite,test
+68380,dacite,val
 68500,basalt,test
+68917,rhyolite,val
+70132,basalt,test
 70546,foid-bearing latite,val
+70563,foid-bearing latite,val
+70769,basalt,test
+71643,andesite,test
+72766,quartz-rich rhyolite,val
 73286,basalt,test
 73381,basalt,val
+73433,dacite,val
+74614,tephritic phonolite,test
 75399,basalt,test
+76327,andesite,val
+77987,rhyolite,val
+78145,basalt,val
 78176,andesite,test
 79566,quartz latite,val
+79664,rhyolite,test
+79867,rhyolite,test
+79949,rhyolite,val
+80390,andesite,test
+81015,rhyolite,val
+81114,quartz latite,test
+81213,phonolitic basanite,test
+81264,phonolitic basanite,test
+82173,phonolitic basanite,val
 82245,phonolitic basanite,val
+82247,phonolitic basanite,val
 82670,basalt,test
 82842,quartz latite,val
 83299,rhyolite,test
+83372,rhyolite,val
+83434,rhyolite,test
+83496,quartz-rich rhyolite,val
 83914,foid-bearing trachyte,test
 85211,basalt,val
+85387,andesite,test
+85446,dacite,test
 85460,foid-bearing alkali feldspar trachyte,test
+85504,quartz latite,test
 85505,quartz trachyte,test
 85832,foid-bearing alkali feldspar trachyte,test
 85847,alkali feldspar trachyte,val
+85915,rhyolite,test
+86229,rhyolite,val
 86520,basanite,test
+86720,dacite,val
+87332,dacite,test
+87437,dacite,val
+88119,dacite,val
+88173,dacite,test
+88647,phonolitic tephrite,test
+89398,foid-bearing latite,val
+89594,andesite,val
+90408,phonolitic tephrite,val
 90614,alkali feldspar trachyte,val
+90981,phonolitic tephrite,test
+91082,phonolitic tephrite,val
 91660,basalt,val
+91987,phonolitic tephrite,test
+92100,latite,test
 92697,basalt,val
+93023,latite,val
+93063,quartz latite,val
+93288,phonolitic tephrite,test
+93309,foid-bearing latite,test
+93476,phonolitic tephrite,test
+93511,phonolitic tephrite,val
+93919,phonolitic tephrite,val
+93981,phonolitic tephrite,val
+94372,basalt,test
+94489,basalt,val
+94702,phonolitic tephrite,test
+94747,foid-bearing latite,test
+95061,phonolitic tephrite,val
+95235,foid-bearing latite,test
+95299,phonolitic tephrite,val
+95323,phonolitic basanite,val
+95396,phonolitic tephrite,val
+95642,tephritic phonolite,val
+95644,tephritic phonolite,test
+95738,phonolitic tephrite,val
 95757,phonolitic tephrite,test
+95871,foid-bearing latite,test
+95913,phonolitic tephrite,val
+95968,phonolitic tephrite,test
+95974,foid-bearing latite,test
+96013,phonolitic tephrite,val
+96030,foid-bearing latite,val
 96138,andesite,test
+96241,tephritic phonolite,test
+96416,tephritic phonolite,test
+96422,tephritic phonolite,val
+96462,tephritic phonolite,test
+96496,tephritic phonolite,val
+96498,tephritic phonolite,val
+96563,tephritic phonolite,test
+96575,tephritic phonolite,test
+96903,tephritic phonolite,test
 96927,phonolitic tephrite,test
+96983,tephritic phonolite,val
+97004,phonolitic tephrite,test
+97282,phonolitic tephrite,test
+97426,tephritic phonolite,val
+97434,tephritic phonolite,val
+97508,tephritic phonolite,test
+97577,phonolitic tephrite,val
+97579,phonolitic tephrite,val
 97591,tephritic phonolite,test
 97617,tephrite,val
+97779,tephritic phonolite,val
+97897,tephritic phonolite,test
+97931,phonolitic tephrite,test
+97971,tephritic phonolite,test
+98041,phonolitic tephrite,test
+98086,phonolitic tephrite,test
+98148,tephritic phonolite,val
+98229,tephritic phonolite,test
+98554,tephritic phonolite,test
+98643,tephritic phonolite,val
+98969,basalt,val
+99184,phonolitic tephrite,val
+99231,tephritic phonolite,val
+99233,tephritic phonolite,test
+99365,tephritic phonolite,test
+99383,phonolitic tephrite,val
 99433,tephrite,test
+99457,phonolitic basanite,test
+100041,basalt,test
+100303,andesite,test
+100820,basalt,val
+101406,phonolitic basanite,val
+101797,foid-bearing latite,test
+102287,andesite,test
+102827,phonolitic basanite,test
+102849,andesite,test
+102879,phonolitic tephrite,val
+103002,phonolitic basanite,val
 103225,basanite,val
+103496,phonolitic tephrite,test
+103527,phonolitic tephrite,val
+103964,phonolitic basanite,test
+103986,andesite,test
+104167,phonolitic basanite,val
+104411,foid-bearing latite,test
 105591,basalt,test
+105615,andesite,test
 106245,basalt,test
+106304,basalt,test
 106588,dacite,val
+106612,dacite,val
 106834,dacite,test
+107160,dacite,test
+107713,dacite,val
+107741,rhyolite,test
+107967,andesite,val
 107977,andesite,val
 108017,andesite,test
+108156,andesite,val
+108342,andesite,test
 108650,basalt,test
+109450,quartz-rich rhyolite,val
+109849,andesite,val
 110420,andesite,test
+111207,andesite,test
+111533,basalt,test
 111627,dacite,val
 111710,basalt,test
+112210,phonolitic basanite,val
 112323,dacite,test
+112335,rhyolite,test
+112407,rhyolite,test
+112510,rhyolite,test
+112557,dacite,test
+112613,rhyolite,val
+113113,rhyolite,test
+113149,rhyolite,test
+113222,andesite,test
+113274,basalt,val
+113500,basalt,test
+113597,andesite,test
+113766,dacite,val
+113798,dacite,test
+113946,basalt,test
+114018,phonolitic tephrite,test
+114222,basalt,test
 114673,phonolitic basanite,test
+114840,basalt,test
+114929,andesite,test
+115124,andesite,val
+115240,phonolitic basanite,test
+115353,basalt,test
+115555,basalt,test
+115791,phonolitic basanite,val
+116380,phonolitic basanite,val
+116539,basalt,test
+116654,foid-bearing latite,test
+116733,phonolitic basanite,val
 116831,phonolite,test
+117534,tephritic phonolite,test
+117660,phonolitic basanite,test
+117672,phonolitic basanite,test
+117773,quartz latite,test
+117866,dacite,val
+117901,quartz latite,test
+117913,quartz latite,test
+118128,phonolitic basanite,val
+118312,rhyolite,val
+118705,quartz latite,test
+118750,foid-bearing latite,val
+118997,phonolitic basanite,val
+119289,andesite,val
+119329,phonolitic basanite,test
+119435,quartz latite,val
 119447,basalt,test
 119597,trachyte,val
 119602,latite,test
+119634,latite,val
 119810,quartz trachyte,val
 119821,quartz latite,test
+119823,foid-bearing trachyte,test
+119849,foid-bearing trachyte,test
+119971,foid-bearing trachyte,test
+119973,foid-bearing trachyte,val
+119982,foid-bearing latite,val
+120087,latite,test
+120254,quartz latite,val
 120256,trachyte,val
+120277,quartz latite,test
+120416,latite,test
+120482,quartz latite,test
+120668,dacite,test
+120817,quartz latite,test
 120882,quartz latite,test
+120906,latite,test
+121396,andesite,val
 121481,basalt,val
 121489,basalt,test
+121867,basalt,test
 121933,andesite,val
+122326,foid-bearing latite,test
 122452,basalt,test
+122538,phonolitic tephrite,val
 122550,foid-bearing latite,test
+122571,basalt,test
 122618,basalt,val
+122825,basalt,val
+123405,phonolitic basanite,test
+123912,foid-bearing latite,val
+123947,basalt,test
+123966,basalt,val
+124097,basalt,val
+124426,andesite,val
+124445,latite,test
+124461,foid-bearing trachyte,val
+124541,quartz-rich rhyolite,test
+124724,basalt,test
+124833,rhyolite,test
+125712,rhyolite,val
+125913,alkali feldspar rhyolite,test
+125933,rhyolite,test
+126056,rhyolite,val
+126185,phonolitic basanite,test
+126241,rhyolite,val
+126285,andesite,test
 126570,rhyolite,val
 126698,basalt,val
 126747,andesite,val
+127007,basalt,val
+127371,dacite,test
 127570,trachyte,test
+127941,latite,test
 127954,latite,val
+128170,andesite,val
 128315,alkali feldspar rhyolite,test
 128365,andesite,test
+128389,dacite,val
 128614,andesite,test
+128724,rhyolite,test
+129053,quartz latite,val
+129088,dacite,test
+129214,andesite,val
+130552,rhyolite,val
+130976,alkali feldspar rhyolite,test
 131619,rhyolite,val
 131740,dacite,test
+131789,andesite,val
 131917,andesite,test
+131920,andesite,test
 132875,rhyolite,test
 133187,basalt,val
+133430,dacite,val
 133766,basalt,test
+134101,basalt,test
+134395,dacite,test
 135006,basalt,test
+135126,dacite,test
+136054,rhyolite,test
+136239,quartz latite,test
+136256,andesite,val
+136713,dacite,val
+136728,alkali feldspar rhyolite,val
+138360,andesite,val
 138949,andesite,val
+141167,phonolitic tephrite,val
+141567,quartz latite,test
+142279,phonolitic tephrite,test
+142403,phonolitic basanite,test
 142426,basalt,test
 142868,basalt,test
+142945,phonolitic tephrite,test
+143491,rhyolite,test
+143698,basalt,val
+143780,phonolitic tephrite,test
 144135,dacite,test
+145287,basalt,test
+146786,dacite,val
+146863,andesite,val
+146937,quartz latite,test
+147047,basalt,val
+147378,basalt,test
+147485,andesite,val
+148791,basalt,test
 148889,andesite,test
 149329,dacite,val
 149568,dacite,test
+150087,quartz-rich rhyolite,test
 151416,basalt,val
+151419,rhyolite,val
+152264,tephritic phonolite,val
+152625,quartz latite,val
+152689,quartz latite,val
 153088,rhyolite,test
+153251,basalt,val
+153978,phonolitic tephrite,test
+154181,latite,test
 154375,basalt,test
+154569,phonolitic tephrite,test
+154663,phonolitic basanite,val
+154671,phonolitic basanite,test
 154744,basalt,test
 154758,tephritic phonolite,test
+154825,latite,test
+154900,rhyolite,val
 155100,rhyolite,val
+156391,phonolitic tephrite,val
+156466,phonolitic tephrite,test
+156585,basalt,test
+156815,phonolitic basanite,val
+156837,andesite,test
 156884,latite,val
+156991,phonolitic basanite,test
+157374,phonolitic basanite,test
+157411,phonolitic tephrite,test
+157621,foid-bearing latite,val
+157967,phonolitic tephrite,val
+158007,phonolitic tephrite,val
+158025,tephritic phonolite,test
+158332,tephritic phonolite,val
+158693,andesite,test
+159237,foid-bearing latite,test
+159290,foid-bearing latite,test
+159332,foid-bearing latite,test
+159448,andesite,test
+159478,andesite,test
+160409,basalt,test
+160898,rhyolite,test
+161598,foid-bearing latite,test
+162083,basalt,val
+163109,quartz latite,val
+163620,phonolitic tephrite,val
 163623,phonolitic tephrite,val
+163671,basalt,test
 163820,basalt,val
+163880,phonolitic tephrite,val
 164059,phonolitic tephrite,test
 164241,basalt,test
+164371,phonolitic tephrite,test
+164467,tephritic phonolite,val
+164476,phonolitic tephrite,val
+164529,phonolitic tephrite,test
+164572,phonolitic tephrite,test
 164999,basalt,val
 165587,basalt,val
+165734,phonolitic tephrite,test
+166277,andesite,test
+166378,phonolitic basanite,test
+166657,phonolitic basanite,val
+166848,phonolitic basanite,val
+167462,basalt,test
+167689,phonolitic tephrite,test
 167882,phonolitic basanite,test
 168363,tephritic phonolite,test
+168919,andesite,val
+169666,phonolitic tephrite,test
+169739,phonolitic tephrite,val
+169988,phonolitic tephrite,test
+169990,foid-bearing latite,test
 170005,tephrite,test
+170119,phonolitic tephrite,val
+171090,phonolitic basanite,val
+171294,quartz-rich rhyolite,test
+171415,phonolitic basanite,test
+171495,phonolitic tephrite,val
+171664,dacite,test
+172095,rhyolite,val
+172373,alkali feldspar rhyolite,test
 172531,alkali feldspar rhyolite,test
+172564,alkali feldspar rhyolite,test
 172740,rhyolite,test
+172866,rhyolite,val
+172912,rhyolite,val
 173054,quartz-rich rhyolite,test
+173303,phonolitic basanite,val
+173352,rhyolite,test
 173705,tephrite,val
+173980,alkali feldspar rhyolite,test
+173985,rhyolite,test
+174024,andesite,test
+174032,quartz-rich rhyolite,test
 174079,quartz trachyte,test
 174090,foid-bearing latite,test
+174294,foid-bearing trachyte,test
 174545,quartz trachyte,test
+175897,basalt,test
+175954,basalt,test
+176151,basalt,test
+176189,basalt,val
+176262,basalt,test
+177025,basalt,test
+177351,quartz latite,test
+177776,basalt,test
+178354,andesite,test
 178583,dacite,test
 179013,andesite,val
+179052,andesite,test
 179605,quartz latite,val
+179738,dacite,test
+179902,basalt,val
 180327,basalt,test
+180368,basalt,test
+180411,foid-bearing latite,val
+181356,basalt,val
+181866,basalt,test
+181899,basalt,val
+182166,basalt,test
+182292,basalt,val
+182322,basalt,val
+182388,basalt,val
+183886,basalt,test
+184819,basalt,test
+186046,basalt,val
 186068,basalt,test
+187099,basalt,val
+187230,andesite,test
 189214,basalt,val
 189610,basalt,val
+191247,phonolitic tephrite,test
+191250,phonolitic tephrite,val
+191254,phonolitic tephrite,val
+193050,basalt,val
+193555,basalt,val
+194220,basalt,test
+194592,phonolitic basanite,test
+194595,phonolitic basanite,val
+195604,andesite,val
+195664,andesite,val
+195797,dacite,test
 195912,andesite,test
+196638,andesite,test
 197209,foid-bearing latite,val
+197598,rhyolite,val
+199109,dacite,val
+199186,andesite,test
 199751,basalt,test
+200141,dacite,test
 200229,dacite,test
+200241,andesite,test
+200383,dacite,val
 200647,dacite,test
+200657,dacite,val
 200835,dacite,test
+200874,dacite,test
 201082,andesite,val
 201265,dacite,val
+201343,dacite,test
+201673,dacite,test
+201743,dacite,test
 201914,dacite,test
+202038,andesite,val
 202166,andesite,val
 202308,andesite,test
+202727,andesite,val
 202833,dacite,val
+203586,andesite,test
+203676,dacite,test
 203814,andesite,test
+204054,dacite,test
 204132,andesite,test
+204188,dacite,test
+204278,andesite,test
 204318,dacite,test
+204688,andesite,test
+205413,andesite,val
+205594,basalt,test
+206321,dacite,val
+206940,dacite,val
+207214,andesite,val
+207405,dacite,val
+207665,andesite,test
+207726,foid-bearing latite,test
+207980,andesite,test
+208586,rhyolite,test
+208835,quartz latite,val
+208909,rhyolite,test
+209299,dacite,val
 209310,andesite,test
+209632,rhyolite,test
 210431,andesite,val
+211370,basalt,test
+211473,basalt,test
+211841,basalt,val
+212523,andesite,val
 212620,basalt,test
+212898,phonolitic tephrite,test
+212949,andesite,test
+213538,dacite,val
 213570,basalt,test
+213661,quartz latite,val
+214377,andesite,test
+214458,dacite,val
+214889,andesite,test
+214951,andesite,test
+215170,phonolitic tephrite,test
+215558,phonolitic tephrite,val
+217804,basalt,test
+217818,basalt,test
 219145,basalt,test
+219930,basalt,val
+220042,dacite,test
+220749,dacite,val
 221376,dacite,val
+222124,andesite,val
+222276,basalt,val
+224115,basalt,test
+224149,basalt,test
+224182,basalt,test
+224733,andesite,test
+225644,basalt,val
+225654,basalt,test
+225843,dacite,test
+225925,dacite,val
+226167,dacite,val
+226846,andesite,val
+227546,basalt,val
 227777,basalt,test
+227842,andesite,test
+228058,andesite,test
+228099,andesite,test
+228238,dacite,val
 228241,dacite,test
+228472,basalt,val
 228559,andesite,test
+228884,dacite,test
+229323,dacite,val
+229582,andesite,val
+230955,basalt,val
+232560,dacite,test
+233743,andesite,val
 235287,alkali feldspar trachyte,test
+235566,rhyolite,test
+235951,rhyolite,val
+235967,quartz-rich rhyolite,test
+236786,dacite,val
+236900,andesite,test
+237479,basalt,test
+238337,andesite,val
 238343,andesite,test
+238640,andesite,val
+238773,dacite,test
+238805,dacite,val
+238894,andesite,val
 238940,dacite,val
+240804,andesite,val
+241236,rhyolite,val
+241645,basalt,test
 241748,basalt,val
+242639,latite,val
 242827,basalt,val
+243038,basalt,test
+243463,quartz latite,val
+243887,dacite,test
+243962,andesite,val
+244250,dacite,val
 244520,dacite,val
 244549,andesite,test
+244554,andesite,test
+244815,andesite,test
+244942,andesite,test
+245998,andesite,test
+246458,rhyolite,test
+246654,dacite,val
+246699,dacite,test
 247125,andesite,test
+247499,andesite,test
+247911,dacite,test
 247998,dacite,val
+248309,andesite,test
 249076,basalt,test
+249798,basalt,val
+250859,dacite,test
+250938,dacite,val
+251473,andesite,val
 251726,dacite,val
 251858,andesite,val
 251892,andesite,val
+252056,andesite,test
+252840,dacite,test
+252913,quartz-rich rhyolite,val
+252919,quartz-rich rhyolite,val
+253032,basalt,val
+253484,andesite,test
+253561,rhyolite,val
+253839,andesite,test
+254175,andesite,val
+254196,andesite,test
+254632,foid-bearing latite,val
 254930,andesite,val
+255488,dacite,test
+255519,andesite,val
+255601,dacite,test
 255639,dacite,val
+255799,rhyolite,val
+255867,rhyolite,test
+256217,basalt,val
+256831,basalt,test
+256952,basalt,test
+257509,phonolitic basanite,test
+257511,phonolitic basanite,test
 257813,basalt,test
 258246,basalt,test
+258585,phonolitic basanite,test
+258727,andesite,val
+259956,andesite,val
+259977,basalt,test
+260003,dacite,test
 260426,andesite,val
 260958,dacite,test
 261467,basalt,val
@@ -218,283 +986,1015 @@ sample_id,qap_name,subset
 263467,tephritic phonolite,val
 263497,tephrite,test
 263504,tephrite,val
+263649,andesite,test
 263709,basalt,val
 263923,basalt,test
+264287,basalt,val
+264421,basalt,val
+265956,andesite,test
+265962,andesite,val
+266017,dacite,test
+266151,dacite,test
+266960,rhyolite,val
+267029,rhyolite,test
+267592,dacite,test
+267615,dacite,test
+267881,rhyolite,test
+268173,basalt,val
+268808,andesite,test
+268943,andesite,test
+270178,quartz latite,val
+270570,andesite,val
+270724,andesite,test
+270745,andesite,test
 270831,andesite,val
+270858,andesite,val
 271030,andesite,val
+271118,andesite,val
+271180,dacite,val
+271762,andesite,test
 271779,andesite,test
 271858,andesite,test
+272076,basalt,test
+272374,dacite,test
 272667,basalt,test
+272891,basalt,test
+273292,dacite,test
 273434,basalt,test
+273748,dacite,test
+274233,quartz latite,val
+274329,phonolitic basanite,val
+274340,foid-bearing latite,test
 274420,basalt,test
 274708,basalt,test
+274915,quartz latite,test
 275239,phonolitic tephrite,val
+275520,foid-bearing trachyte,test
+276511,rhyolite,test
+277137,basalt,val
 277772,foid-bearing trachyte,test
 278269,basalt,val
+278652,latite,test
 278667,basalt,val
+278844,andesite,val
+279017,andesite,val
+279709,andesite,val
+279746,andesite,test
 279851,dacite,test
+280078,rhyolite,test
+280145,rhyolite,val
+280710,rhyolite,test
 281013,rhyolite,test
+281019,rhyolite,val
+281185,dacite,test
+281334,rhyolite,val
 281642,rhyolite,val
+281715,rhyolite,test
+281861,dacite,test
 283186,andesite,test
+283225,andesite,test
+283540,andesite,val
+284129,rhyolite,val
+285346,phonolitic tephrite,test
+285364,phonolitic basanite,val
 286192,basalt,test
 286475,phonolitic tephrite,val
+286643,phonolitic tephrite,test
 287327,andesite,val
+287424,foid-bearing latite,val
+287487,quartz latite,test
+287883,andesite,test
+288436,phonolitic basanite,val
+288652,rhyolite,test
+288713,tephritic phonolite,val
+289211,basalt,val
 289459,basalt,test
+289789,dacite,val
+289967,quartz latite,test
+290029,andesite,test
+290063,latite,val
+290683,dacite,val
+290763,quartz-rich rhyolite,test
+290764,rhyolite,val
+290979,foid-bearing latite,test
 291444,dacite,val
 292989,basalt,val
+293211,andesite,val
+295916,dacite,test
 296187,basalt,test
 296621,basalt,test
+296638,basalt,val
+297142,basalt,val
 297233,basalt,val
+297882,basalt,test
 299139,basalt,val
 299546,basalt,test
+299580,basalt,val
+299713,basalt,test
+300096,basalt,test
 300412,dacite,val
+300916,dacite,test
+301628,rhyolite,val
+302996,basalt,test
 303297,basalt,val
 303848,andesite,test
+304096,andesite,test
 304111,basalt,val
+304421,quartz latite,test
 304458,basalt,test
+304505,rhyolite,test
 304924,andesite,test
 305134,rhyolite,val
+306046,phonolitic tephrite,test
 306406,basalt,val
+306833,basalt,test
+307061,andesite,val
+307460,foid-bearing latite,test
+307613,phonolitic basanite,test
+308069,quartz latite,val
 308565,phonolitic basanite,val
+308857,andesite,val
+309035,phonolitic basanite,val
 309831,dacite,test
+309934,andesite,test
+310191,quartz latite,val
 310436,andesite,val
+310468,andesite,val
+311364,basalt,test
 311531,dacite,val
 313253,andesite,val
+313882,andesite,test
+314119,tephritic phonolite,test
+314183,basalt,val
+314667,alkali feldspar rhyolite,test
+315364,andesite,val
+315922,basalt,val
 316397,silexite,test
+317523,rhyolite,test
 317529,quartz-rich rhyolite,test
+318601,foid-bearing trachyte,test
+319350,basalt,val
+319383,basalt,val
 319589,rhyolite,val
+319665,basalt,test
+319757,quartz latite,test
+319808,rhyolite,val
 319820,basalt,val
+320046,andesite,test
+320353,basalt,test
+321277,phonolitic tephrite,test
+322895,basalt,val
+323077,andesite,val
+323080,andesite,val
 323306,basalt,val
 323369,foid-bearing latite,test
+323522,basalt,test
+323649,rhyolite,test
+323745,rhyolite,test
+323836,rhyolite,test
+323993,dacite,test
+324119,latite,val
+324139,andesite,test
+324400,basalt,val
 324658,basalt,val
 324670,andesite,test
+324844,phonolitic tephrite,val
+325942,andesite,val
+326110,andesite,val
+326242,andesite,test
 326311,andesite,test
+326881,rhyolite,test
 327176,silexite,val
+327191,quartz-rich rhyolite,test
 327223,quartz-rich rhyolite,val
+327402,rhyolite,test
+327407,quartz-rich rhyolite,val
+328793,dacite,test
 330082,dacite,test
+330574,andesite,test
+330949,dacite,test
+331113,quartz latite,val
 331328,basalt,test
 331963,andesite,val
+332057,andesite,test
 332756,basalt,test
+333441,dacite,val
+333471,rhyolite,test
+333633,quartz-rich rhyolite,val
 333803,andesite,val
+333906,andesite,test
+334240,foid-bearing latite,test
+334282,foid-bearing latite,test
+334370,basalt,test
 334595,basalt,test
+335480,basalt,test
 335499,andesite,test
 336141,andesite,val
+336469,andesite,test
+337524,dacite,test
+337860,basalt,test
+338182,quartz-rich rhyolite,val
+338356,basalt,val
+338804,phonolitic tephrite,val
+339154,dacite,val
+339566,phonolitic basanite,test
+340637,andesite,val
+340669,andesite,test
 340837,silexite,val
 340841,quartz-rich rhyolite,val
+341072,quartz-rich rhyolite,test
+342052,rhyolite,test
+343847,rhyolite,test
+344026,basalt,test
+345145,basalt,test
+345253,rhyolite,test
 345608,andesite,val
+345740,andesite,val
 345742,andesite,test
 345843,andesite,val
+345944,andesite,test
 346033,andesite,test
 346137,andesite,test
 346420,andesite,test
+346827,andesite,test
 347586,basalt,val
+347607,andesite,val
 348132,basalt,test
+348586,andesite,val
 348626,basalt,val
+349013,andesite,val
+349189,basalt,val
+349609,quartz latite,val
 350488,basalt,val
+350626,rhyolite,test
+350725,rhyolite,val
+350835,quartz latite,test
+351153,rhyolite,test
 351190,rhyolite,test
+351202,rhyolite,test
 351244,rhyolite,val
+351370,rhyolite,val
+351451,rhyolite,val
+351505,rhyolite,test
+351632,rhyolite,test
+351640,rhyolite,test
+352122,rhyolite,val
+353244,rhyolite,test
 353426,andesite,test
+353453,andesite,test
 353601,andesite,val
 354326,rhyolite,val
 354369,trachyte,test
+355097,basalt,test
 356270,basalt,test
+356564,basalt,val
 356566,basalt,test
+357916,basalt,val
+360919,basalt,test
+361340,basalt,test
+362264,dacite,test
+362288,andesite,val
 362871,basalt,test
+363399,phonolitic basanite,val
 363402,basalt,val
+363410,andesite,test
+363427,rhyolite,test
+364728,andesite,test
+365685,foid-bearing latite,val
+365740,basalt,val
 365972,basalt,test
 366071,basalt,test
+367367,basalt,test
+367724,basalt,test
+368000,basalt,val
 368640,basalt,test
 368797,basalt,val
 368911,basalt,test
+368952,basalt,val
+369342,basalt,test
 369594,basalt,val
+369598,rhyolite,val
+370045,basalt,val
+370843,basalt,test
 371036,basalt,test
+371363,rhyolite,test
+371478,andesite,test
 372040,dacite,test
 372041,andesite,test
+372107,dacite,val
+372154,dacite,test
 372753,andesite,val
+372909,basalt,val
+373226,basalt,test
+373473,phonolitic basanite,val
+373508,basalt,val
+373590,basalt,test
+373927,phonolitic tephrite,test
 373962,basalt,val
 374595,rhyolite,val
+374629,dacite,test
+374768,andesite,val
+374927,basalt,test
 375463,basalt,test
+376258,rhyolite,test
 376674,dacite,val
 377083,basalt,val
+377285,quartz latite,test
+379589,rhyolite,val
 379837,alkali feldspar rhyolite,val
+381239,quartz-rich rhyolite,val
+381537,andesite,val
+381546,andesite,test
+382236,andesite,val
+382481,foid-bearing latite,test
+382536,phonolitic tephrite,test
 382545,rhyolite,test
 382945,basalt,test
+382951,basalt,val
 383237,dacite,test
+383476,basalt,test
+383686,dacite,test
+383898,andesite,test
 384307,basalt,val
+384519,basalt,val
+384624,rhyolite,test
+384632,andesite,test
 385122,basalt,val
 385260,basalt,test
+385356,andesite,val
+385536,andesite,test
+385741,tephritic phonolite,test
+385761,andesite,val
+386970,basalt,val
 387262,andesite,val
+388098,basalt,val
 388209,basalt,val
+388403,basalt,val
+388692,foid-bearing latite,test
 389629,rhyolite,test
+390624,basalt,test
+391646,basalt,val
+393839,basalt,val
 394060,basalt,test
+394359,phonolitic tephrite,val
+394556,dacite,test
+395199,andesite,val
+395204,andesite,val
+397021,andesite,test
 397112,andesite,test
+397419,andesite,val
+397869,basalt,test
 398121,andesite,val
 398368,andesite,val
+398408,basalt,val
 398913,basalt,val
 399113,andesite,test
+399370,phonolitic basanite,test
+399438,andesite,test
+399522,basalt,val
 399738,rhyolite,test
 400258,basalt,val
+400774,rhyolite,test
+401119,basalt,test
 401343,andesite,test
 401467,andesite,val
+401768,andesite,test
+401946,andesite,val
+402856,tephritic phonolite,test
+402881,foid-bearing latite,val
+403030,andesite,test
 403620,rhyolite,val
+403649,rhyolite,test
 403686,basalt,test
+403983,basalt,val
+404011,basalt,val
+404432,basalt,test
 404770,basalt,val
 404830,andesite,val
+405240,rhyolite,val
+406900,latite,val
+406902,phonolitic tephrite,val
+406903,foid-bearing latite,test
+408038,basalt,test
+408078,andesite,test
+408182,andesite,val
 408206,basalt,val
+408526,basalt,val
 408734,basalt,test
 409616,basalt,test
+409703,basalt,val
+411376,basalt,test
 411395,basalt,val
 411467,rhyolite,val
+411665,latite,val
+411808,quartz-rich rhyolite,test
 411891,basalt,test
+414150,andesite,val
+414384,basalt,val
+414749,quartz-rich rhyolite,test
+415003,andesite,val
+415287,basalt,test
+415306,basalt,val
+415452,basalt,test
+416078,basalt,val
+416488,dacite,test
+416821,basalt,val
+417400,basalt,val
 417734,phonolitic basanite,val
+418281,basalt,val
+418343,andesite,test
+419841,rhyolite,test
+420097,andesite,val
+420111,andesite,val
 420609,rhyolite,test
+420816,dacite,test
 420850,basalt,test
 420884,dacite,test
+421316,basalt,test
+421503,basalt,val
+421533,quartz latite,val
+421538,latite,val
+422184,andesite,val
 422496,andesite,test
 422668,basalt,test
+423434,basalt,val
+423804,basalt,test
+423910,basalt,val
+424446,basalt,val
+424608,basalt,val
+425053,basalt,test
+425055,basalt,test
+425211,basalt,val
+426537,basalt,val
+426588,basalt,test
+426632,basalt,val
+427564,basalt,val
+428495,basalt,test
 428529,basalt,test
 428755,basalt,test
+429904,basalt,test
 430002,basalt,test
+430288,basalt,test
 430668,basalt,val
+430859,basalt,test
+430966,basalt,test
+431235,basalt,test
 431255,basalt,test
+431319,basalt,test
+431432,andesite,val
 431660,basalt,test
 432021,basalt,val
+432084,basalt,test
+432142,basalt,test
 432647,andesite,val
+433012,dacite,test
+433129,basalt,test
+433132,basalt,test
+434907,basalt,val
+435046,basalt,test
+435177,quartz latite,val
+436702,dacite,test
+436876,basalt,val
+437238,andesite,val
 437918,basalt,test
+438438,andesite,test
 439281,basalt,test
+439285,basalt,test
+439519,basalt,test
+439967,quartz latite,test
+440268,phonolitic tephrite,val
 440310,foid-bearing alkali feldspar trachyte,val
 440341,alkali feldspar quartz trachyte,val
 440344,alkali feldspar quartz trachyte,test
 440367,alkali feldspar trachyte,test
 440372,alkali feldspar quartz trachyte,val
+440463,phonolitic basanite,val
 440618,basalt,val
+440642,rhyolite,test
 440880,phonolitic tephrite,test
 440915,basalt,test
+441250,andesite,test
+441802,basalt,val
 442239,basalt,test
 442247,basalt,test
+443137,basalt,val
 443413,basalt,test
+443561,basalt,val
+444395,basalt,val
+444494,andesite,val
+444498,quartz latite,test
 444537,andesite,test
 444592,basalt,val
 445193,rhyolite,test
 445217,rhyolite,val
+445361,basalt,val
 445780,andesite,test
+445849,andesite,test
 446185,andesite,test
+446311,rhyolite,val
 446758,basalt,test
+447027,basalt,val
 447466,phonolite,val
+448243,andesite,val
+448635,rhyolite,test
+448692,quartz latite,val
+449041,basalt,val
+449841,basalt,test
+450446,basalt,val
+451522,basalt,test
+451633,basalt,test
+451955,dacite,test
+452156,dacite,test
 453774,andesite,val
 454023,basalt,test
+454056,basalt,val
+454257,basalt,val
+454315,basalt,val
+454374,basalt,val
 454570,basalt,val
+454725,alkali feldspar rhyolite,val
 454913,andesite,val
 455250,basalt,val
+455287,rhyolite,test
+455299,quartz latite,val
+455329,rhyolite,val
 455679,basalt,val
+455767,basalt,test
 455902,basalt,val
 455932,basalt,test
+456062,basalt,val
+456188,basalt,val
+456869,dacite,test
+457212,basalt,test
+457276,foid-bearing latite,test
+457282,tephritic phonolite,val
+458422,rhyolite,val
+458473,rhyolite,val
 458521,dacite,val
+458827,dacite,val
+458880,rhyolite,test
+458919,andesite,test
+459326,basalt,test
+459487,andesite,test
+459490,dacite,test
+459739,andesite,test
+459816,basalt,val
+459867,basalt,test
+460371,phonolitic basanite,test
+460495,basalt,test
+460559,basalt,test
+461565,quartz latite,test
 462203,foid-bearing trachyte,val
 462742,basalt,val
 462808,basalt,val
+463305,phonolitic basanite,val
+463576,andesite,test
 463799,basalt,test
+463937,dacite,val
+464820,tephritic phonolite,val
 465130,quartz latite,test
 465216,phonolite,test
 465225,alkali feldspar quartz trachyte,test
+466185,rhyolite,val
+466237,basalt,test
+466791,dacite,val
+466808,dacite,test
+466812,andesite,test
+467141,basalt,test
 467554,basalt,val
+467564,basalt,test
+468611,quartz latite,test
+468620,quartz latite,val
+468645,quartz latite,test
+468657,rhyolite,test
+468800,rhyolite,val
+468982,rhyolite,val
 469067,andesite,test
+469678,phonolitic tephrite,test
+470243,dacite,val
+470529,basalt,val
+470734,rhyolite,test
+471506,basalt,val
+471674,basalt,test
+471691,basalt,test
+472738,quartz latite,val
+472821,dacite,val
+472823,dacite,test
+473161,basalt,test
+473223,basalt,test
 473815,andesite,val
+473836,quartz-rich rhyolite,test
+473895,rhyolite,test
+474172,basalt,test
+475308,dacite,test
+475634,rhyolite,val
+475962,basalt,test
 476097,basalt,test
+476808,andesite,test
+476812,andesite,val
+745943,dacite,val
+745944,rhyolite,test
+746090,basalt,test
+746191,dacite,test
+746318,phonolitic basanite,val
+746398,andesite,test
+746442,andesite,val
+747390,basalt,test
+748788,phonolitic tephrite,test
+750065,dacite,test
+751307,andesite,val
+751357,basalt,test
+752411,quartz-rich rhyolite,test
+752595,andesite,test
+754920,basalt,val
 755532,basalt,val
+755561,rhyolite,val
 755915,basalt,test
+756543,andesite,val
+756749,rhyolite,test
+761744,dacite,val
+761786,quartz latite,test
+761916,basalt,test
+762220,basalt,val
+762459,andesite,test
 762497,andesite,val
+762782,andesite,test
 764032,basalt,test
+764888,basalt,test
+764892,andesite,test
+768493,quartz latite,val
+769991,rhyolite,test
 770115,basalt,test
+770413,basalt,test
+777726,basalt,test
+779591,quartz-rich rhyolite,val
+780970,basalt,test
+781001,basalt,test
+781891,rhyolite,test
+791470,basalt,test
+791577,alkali feldspar rhyolite,test
+791579,quartz latite,val
+791650,dacite,test
 791744,dacite,val
+792354,basalt,val
+792530,rhyolite,test
+792734,basalt,val
+792903,andesite,test
+793218,foid-bearing trachyte,test
 793360,latite,test
+793474,foid-bearing latite,test
+793950,phonolitic tephrite,val
+793955,basalt,val
 794089,phonolitic tephrite,test
+794157,basalt,test
+794306,basalt,val
+794555,dacite,test
 794701,quartz-rich rhyolite,val
+794982,basalt,val
 795096,basalt,val
+795245,basalt,test
+795315,andesite,val
+795366,dacite,test
+795840,dacite,test
+795852,rhyolite,val
 795904,rhyolite,test
+796107,quartz-rich rhyolite,test
 796260,alkali feldspar rhyolite,val
+796304,rhyolite,val
+796578,foid-bearing latite,val
+796692,tephritic phonolite,val
+796728,latite,val
+796739,phonolitic tephrite,test
+797176,phonolitic tephrite,val
+797186,phonolitic tephrite,test
+797271,phonolitic tephrite,test
+797316,phonolitic tephrite,val
+797348,phonolitic basanite,test
+797521,andesite,test
+797823,rhyolite,test
+798000,quartz-rich rhyolite,val
+804326,phonolitic tephrite,test
+805488,phonolitic basanite,test
+806562,basalt,val
+806602,basalt,test
 806606,latite,test
+806639,latite,test
+807435,basalt,test
+810120,rhyolite,val
+812813,dacite,val
+812891,rhyolite,val
+813051,alkali feldspar rhyolite,test
+813070,dacite,val
 813112,phonolite,val
 814321,andesite,val
+815148,andesite,test
+815182,dacite,val
 817525,rhyolite,test
+817721,latite,val
+817889,andesite,test
 818539,rhyolite,test
+818627,rhyolite,val
 818674,rhyolite,test
+818722,rhyolite,val
+819012,rhyolite,test
+819427,quartz latite,val
+819813,andesite,test
+819836,alkali feldspar rhyolite,val
 819874,foid-bearing trachyte,test
+827973,dacite,test
 828408,rhyolite,test
+829510,alkali feldspar rhyolite,test
 829543,silexite,test
+829552,quartz-rich rhyolite,test
+829710,quartz-rich rhyolite,val
+830421,foid-bearing latite,val
+832212,rhyolite,val
+832599,quartz latite,test
+832664,quartz latite,test
+833547,alkali feldspar rhyolite,test
+833554,alkali feldspar rhyolite,val
 833715,quartz-rich rhyolite,test
+833843,alkali feldspar rhyolite,test
+834192,basalt,test
 835925,rhyolite,test
 836674,basalt,val
+836713,basalt,val
 836748,rhyolite,val
+836756,quartz latite,val
+837211,alkali feldspar rhyolite,val
+837212,rhyolite,val
+837389,alkali feldspar rhyolite,val
 837407,alkali feldspar quartz trachyte,test
+838372,alkali feldspar rhyolite,val
+840339,rhyolite,test
+841729,alkali feldspar rhyolite,test
+842173,alkali feldspar rhyolite,test
+844378,rhyolite,test
 844460,basalt,test
+845343,latite,test
+845344,latite,val
+845469,phonolitic basanite,test
 845499,basalt,val
+845947,phonolitic basanite,test
+846345,phonolitic basanite,test
 846636,basalt,test
+846659,rhyolite,val
+847771,alkali feldspar rhyolite,test
+848296,dacite,val
 848792,andesite,test
+849232,dacite,val
+849271,quartz-rich rhyolite,val
+850270,rhyolite,val
+850304,rhyolite,test
+850464,alkali feldspar rhyolite,val
+850474,rhyolite,val
 851379,silexite,test
+852327,phonolitic tephrite,test
 852376,rhyolite,test
+855798,phonolitic basanite,test
+857853,phonolitic tephrite,val
+859829,latite,val
+859880,latite,test
+859997,alkali feldspar rhyolite,test
 860698,dacite,val
+861173,foid-bearing latite,test
+865245,rhyolite,val
+866489,andesite,test
+869852,rhyolite,val
+870118,basalt,val
+871200,dacite,test
+871383,andesite,test
+871574,andesite,test
+871652,dacite,val
 871666,rhyolite,test
 871826,basalt,val
+871850,phonolitic basanite,test
 871928,basalt,val
 872096,basalt,val
+874151,dacite,test
+874362,andesite,val
 875482,basalt,test
+880023,quartz-rich rhyolite,val
 880026,basalt,test
+880040,dacite,val
+880111,rhyolite,val
+880305,rhyolite,test
+880597,dacite,val
+880977,foid-bearing latite,val
 881146,basalt,val
+881585,dacite,test
 881689,dacite,test
+881769,dacite,val
 886869,dacite,val
+886903,rhyolite,test
+886907,rhyolite,test
+886916,dacite,test
+887592,dacite,test
 888190,dacite,test
+888566,dacite,val
+889003,basalt,test
+889129,dacite,test
+889499,foid-bearing trachyte,val
+895861,andesite,test
+897903,dacite,test
 900402,basalt,val
 900719,andesite,val
 903400,basalt,val
+903530,dacite,val
+903564,dacite,val
 903716,dacite,val
+904326,dacite,val
 905798,alkali feldspar rhyolite,test
+905938,dacite,val
+906478,dacite,val
 908987,dacite,test
 910701,basalt,val
+910745,andesite,val
+910843,andesite,val
+911165,phonolitic tephrite,test
+912042,basalt,val
+912253,basalt,test
+912255,basalt,test
 912374,dacite,test
 912549,andesite,test
 912664,andesite,val
+912725,quartz-rich rhyolite,val
+913139,quartz-rich rhyolite,val
+913240,dacite,test
+913431,quartz-rich rhyolite,test
+913445,rhyolite,val
 913610,andesite,test
+913761,andesite,test
+914171,quartz-rich rhyolite,test
+914617,andesite,val
+914841,andesite,val
 915519,andesite,test
 916117,tephritic phonolite,val
+916130,foid-bearing latite,test
+916286,tephritic phonolite,test
+916607,basalt,test
+916618,rhyolite,test
+916832,andesite,test
+917200,dacite,val
+917454,andesite,test
+918560,basalt,test
+918851,basalt,val
+919673,dacite,val
+920749,dacite,test
+921950,quartz latite,val
 924838,basalt,val
+925015,quartz-rich rhyolite,test
 925131,basalt,test
+925725,dacite,test
 926801,andesite,val
+926833,basalt,val
+926998,basalt,val
+927669,dacite,test
+927862,quartz-rich rhyolite,val
+927917,quartz-rich rhyolite,test
 927927,quartz-rich rhyolite,test
+929320,basalt,test
+929408,basalt,test
 929762,dacite,val
+929775,quartz-rich rhyolite,test
+929908,quartz-rich rhyolite,test
+929989,dacite,test
 929998,rhyolite,val
 930271,andesite,test
+930447,quartz-rich rhyolite,val
+930986,dacite,val
+931275,dacite,val
+933410,quartz-rich rhyolite,test
+933501,dacite,val
+933779,quartz-rich rhyolite,val
+933836,quartz-rich rhyolite,test
 934468,basalt,test
+935788,dacite,test
+936299,dacite,val
+936525,andesite,val
 936894,dacite,test
+937122,basalt,test
+938429,dacite,test
+939280,basalt,test
+941006,basalt,val
+941651,andesite,val
+941652,dacite,val
+943154,andesite,test
 944002,tephritic phonolite,test
 950467,andesite,val
+953640,basalt,val
+953854,dacite,val
 954410,rhyolite,test
 954439,andesite,test
 955398,andesite,val
+955854,rhyolite,val
+956204,basalt,test
 958222,basalt,val
 959308,dacite,val
+959487,foid-bearing latite,val
+959488,foid-bearing trachyte,test
+962508,dacite,test
+962509,dacite,test
+962518,dacite,test
 962917,tephritic phonolite,test
+963059,rhyolite,test
+964925,rhyolite,test
+965150,andesite,val
+965393,andesite,test
 965478,andesite,test
 965486,andesite,val
+965496,rhyolite,val
+966967,andesite,val
+967189,andesite,val
+969236,andesite,test
+969561,andesite,val
 969593,basalt,val
+969650,basalt,test
+969881,basalt,val
 970203,andesite,test
+970437,andesite,test
+970838,andesite,val
 971511,phonolite,test
+971517,tephritic phonolite,test
+971635,andesite,val
+971641,andesite,test
+971985,rhyolite,val
+972114,dacite,test
+972303,andesite,test
+972492,dacite,val
+973920,dacite,val
+974306,basalt,val
 974997,basalt,test
+976773,quartz-rich rhyolite,test
+977389,alkali feldspar rhyolite,val
 978027,andesite,val
+978162,basalt,test
+978610,andesite,val
 979143,basalt,val
+979146,basalt,test
+979181,andesite,test
+980050,quartz-rich rhyolite,val
+981957,andesite,test
+982839,phonolitic tephrite,val
 984775,basalt,test
+989669,dacite,test
+990304,dacite,test
 992263,phonolitic tephrite,test
+992785,andesite,val
+993048,quartz-rich rhyolite,test
+993630,dacite,test
+995262,quartz-rich rhyolite,test
+995601,andesite,test
 995679,andesite,test
+995689,andesite,val
+995938,andesite,test
 996879,rhyolite,val
+997078,basalt,val
+998196,andesite,test
+998256,latite,test
+998447,alkali feldspar rhyolite,val
+998450,rhyolite,val
+999218,dacite,test
+999284,andesite,test
+999376,basalt,test
+999534,dacite,test
+999551,dacite,test
 999931,dacite,val
+1001363,andesite,test
+1001544,andesite,val
+1001625,andesite,test
+1001918,andesite,val
 1001920,andesite,test
+1002783,andesite,val
+1006094,quartz latite,test
+1007249,rhyolite,test
 1008322,alkali feldspar rhyolite,val
 1009003,dacite,test
 1009263,dacite,test
+1009314,dacite,val
+1010193,foid-bearing trachyte,val
+1010384,dacite,val
+1011046,quartz latite,test
+1011566,rhyolite,test
+1011612,dacite,test
+1012143,latite,val
+1012766,quartz latite,val
+1013695,tephritic phonolite,val
+1015585,basalt,test
+1015610,andesite,test
 1015782,phonolitic tephrite,val
+1015947,phonolitic basanite,test
+1015953,basalt,test
+1016048,quartz latite,test
 1016340,foid-bearing latite,test
+1016378,phonolitic basanite,val
+1016432,phonolitic tephrite,test
+1017096,rhyolite,val
 1017151,foid-bearing alkali feldspar trachyte,val
+1017800,rhyolite,test
+1019727,basalt,test
 1019747,andesite,test
 1020000,andesite,test
 1020068,phonolitic basanite,test
 1020809,dacite,test
+1021375,basalt,val

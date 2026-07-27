@@ -83,10 +83,17 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   (alpha=0.5 temperature smoothing, emitted nested-block so an early stop
   realizes the quota shape at the achieved size; `explorations/rare_class_quota/`)
   at **24 draws/bulk**, budget 80-100 h stamped on #45 at launch + a
-  **high-precision tier 500 bulks x 256 draws** assigned to val/test
+  **high-precision tier 2000 bulks x 128 draws** assigned to val/test
   (training tolerates noise, measurement doesn't). #27 measured the bulk axis
   unsaturated (0.25-0.3 nats/doubling) and draws flat past 24, so the budget
   goes to bulks. First generation (2026-07-14) was 10k x 48 + 500 x 128.
+  The valtest tier grew 500 -> 2000 on 2026-07-26, spending the budget on
+  bulks rather than the earlier 500 x 256: rare-class resolution was already
+  foreclosed (the train expansion left 9 of 22 classes with zero bulks
+  available), so the reachable gain is aggregate + common/mid-class precision,
+  which averages per-rock noise over 4x the rocks. Drawn at alpha=0.5, the
+  roster mix tracks the realized train mix to ~1pp, making val/test an
+  unbiased estimator of training-distribution performance.
 - **Subset + QC:** volcanic core = the 25 aphanitic QAPF names in
   `cnmineral.data.volcanic_subset::VOLCANIC_QAP` (~335k bulks);
   plutonic-named rock_origin superset stays OUT. Foidite family excluded (`ig`
@@ -195,10 +202,11 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
    500 x 128; crash containment added mid-run after one pathological bulk,
    976755, six draws dropped; see Orchestration). Weekend regen launched
    2026-07-23 (#45): traced proposal, 10k + expansion tables at 24 draws,
-   valtest at 256, into `data/corpus/train_traced` /
-   `data/corpus/valtest_traced`; same orchestrator, resume contract, and
-   health gate (`report_corpus_health.py --corpus <dir> --figures` after each
-   tier).
+   into `data/corpus/train_traced`; COMPLETE 2026-07-26 (350 chunks, 35k
+   bulks, 71.5 h). Valtest follows at 2000 x 128 into
+   `data/corpus/valtest_traced`, ~22 h at the realized train throughput; same
+   orchestrator, resume contract, and health gate
+   (`report_corpus_health.py --corpus <dir> --figures` after each tier).
 
 Only 5 remains (1-4 landed).
 
