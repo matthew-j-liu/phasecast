@@ -32,7 +32,16 @@ from scipy.stats import spearmanr
 from sklearn.metrics import roc_auc_score
 
 from cnmineral.data.bulk_chemistry import tokenize_bulk_frame
-from cnmineral.data.phase_vocab import PHASE_INDEX, SOLID_PHASES
+# GROUPS / GROUP_INDEX / MODEL_TO_GROUP are defined in `phase_vocab` beside the
+# 21-phase vocabulary they coarsen, and re-exported here because this module is
+# where callers meet the benchmark.
+from cnmineral.data.phase_vocab import (  # noqa: F401
+    GROUP_INDEX,
+    GROUPS,
+    MODEL_TO_GROUP,
+    PHASE_INDEX,
+    SOLID_PHASES,
+)
 from cnmineral.eval.mode_head import (
     conditional_mean,
     magnitude_parity_stats,
@@ -44,27 +53,6 @@ from cnmineral.losses.mode_loss import masked_dirichlet_nll
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BENCHMARK_DIR = REPO_ROOT / "data" / "real_mineralogy"
 RUNS_ROOT = REPO_ROOT / "runs"
-
-# the vocabulary real modal data resolves. Coarser than the model's 21 solid
-# phases in three places, each forced by the truth side: du Bray reports
-# pyroxene and Fe-Ti oxides unsplit, and no source splits feldspar into
-# plagioclase / alkali feldspar the way the training labels do.
-GROUPS: tuple[str, ...] = ("fsp", "px", "amp", "bi", "ol", "opq", "q")
-GROUP_INDEX: dict[str, int] = {g: i for i, g in enumerate(GROUPS)}
-
-# model phase -> comparison group. The 11 phases absent from this map
-# (g, ru, sph, sill, cd, mu, ep, ne, ky, and, cor) are unscoreable: no source
-# reports them. They are not forced absent -- the model resolves them, and
-# their aggregate mass is reported as the off-vocabulary diagnostic.
-MODEL_TO_GROUP: dict[str, str] = {
-    "plag": "fsp", "afs": "fsp",
-    "cpx": "px", "opx": "px",
-    "amp": "amp",
-    "bi": "bi",
-    "ol": "ol",
-    "spl": "opq", "ilm": "opq",
-    "q": "q",
-}
 
 # `modes.csv` magemin_phase -> comparison group. `groundmass` is dropped
 # rather than mapped: the label is the crystals-renormalized solid assemblage,
@@ -151,6 +139,7 @@ class RealRockBenchmark:
     grade: np.ndarray
     clean: np.ndarray
     sio2: np.ndarray
+    unit: np.ndarray
 
     def __len__(self) -> int:
         return len(self.bulk_ids)
@@ -173,6 +162,7 @@ class RealRockBenchmark:
             grade=self.grade[mask],
             clean=self.clean[mask],
             sio2=self.sio2[mask],
+            unit=self.unit[mask],
         )
 
 
@@ -308,8 +298,157 @@ def load_benchmark(
         grade=grade,
         clean=np.isin(grade, list(CLEAN_GRADES)),
         sio2=samples["sio2"].to_numpy(dtype=np.float64),
+        unit=samples["unit"].to_numpy(),
         **truth,
     )
+
+
+SPLIT_SUBSETS: tuple[str, ...] = ("train", "val", "test")
+SPLIT_FRACTIONS: tuple[float, ...] = (0.60, 0.15, 0.25)
+SIO2_QUANTILES: tuple[float, ...] = (0.05, 0.5, 0.95)
+SPLIT_PATH = Path(__file__).resolve().parents[1] / "data" / "real_rock_unit_split.csv"
+
+
+def _unit_sizes(units: np.ndarray) -> list[tuple[str, int]]:
+    """Units paired with their rock counts, largest first, name-tiebroken."""
+    labels, counts = np.unique(units, return_counts=True)
+    return sorted(zip(labels, counts), key=lambda kv: (-kv[1], kv[0]))
+
+
+def _assign_units(
+    order: list[tuple[str, int]], fractions: tuple[float, ...],
+    total: int, rng: np.random.Generator,
+) -> dict[str, str]:
+    """Greedy size-balanced assignment of units to subsets.
+
+    Walks units largest-first and gives each to whichever subset is furthest
+    below its rock quota, so no single unit can decide a slice.  Ties break at
+    random, which is where candidate diversity comes from -- 73 of the 147
+    units are singletons, so most of the assignment is a tie.
+    """
+    targets = {s: f * total for s, f in zip(SPLIT_SUBSETS, fractions)}
+    filled = dict.fromkeys(SPLIT_SUBSETS, 0)
+    assignment: dict[str, str] = {}
+    for unit, size in order:
+        deficits = np.array([targets[s] - filled[s] for s in SPLIT_SUBSETS])
+        best = np.flatnonzero(deficits >= deficits.max() - 1e-9)
+        subset = SPLIT_SUBSETS[int(rng.choice(best))]
+        assignment[unit] = subset
+        filled[subset] += size
+    return assignment
+
+
+def split_balance(
+    subsets: np.ndarray, presence: np.ndarray, sio2: np.ndarray
+) -> dict[str, float]:
+    """How far each slice drifts from the whole population it is drawn from.
+
+    Two departures matter for this benchmark and both are checked: a slice
+    whose group base rates are off scores a different task, and a slice that
+    does not span the silica trend cannot exercise the q / amp corrections
+    that are the only silica-dependent part of the adapter.  Reads truth
+    marginals only -- never a model output -- so selecting on it cannot leak.
+
+    `SIO2_QUANTILES` stays interior on purpose.  The silica tails here are one
+    or two rocks -- 6 above 80 wt% with the largest at 90.2 against a 99th
+    percentile of 80.0, and 9 below 52.7 -- so scoring the endpoints hands the
+    whole split selection to an outlier.  What the endpoints are actually
+    needed for is the containment rule in `unit_grouped_split`, which is a
+    constraint rather than a term.
+    """
+    base = presence.mean(0)
+    span = max(float(sio2.max() - sio2.min()), 1e-9)
+    q_all = np.quantile(sio2, SIO2_QUANTILES)
+    rate_dev, sio2_dev = 0.0, 0.0
+    for subset in SPLIT_SUBSETS:
+        m = subsets == subset
+        if not m.any():
+            return {"rate_dev": np.inf, "sio2_dev": np.inf, "score": np.inf}
+        rate_dev = max(rate_dev, float(np.abs(presence[m].mean(0) - base).max()))
+        q = np.quantile(sio2[m], SIO2_QUANTILES)
+        sio2_dev = max(sio2_dev, float(np.abs(q - q_all).max() / span))
+    return {
+        "rate_dev": rate_dev,
+        "sio2_dev": sio2_dev,
+        "score": rate_dev + sio2_dev,
+    }
+
+
+def unit_grouped_split(
+    benchmark: RealRockBenchmark,
+    *,
+    seed: int = 0,
+    fractions: tuple[float, ...] = SPLIT_FRACTIONS,
+    n_candidates: int = 400,
+) -> np.ndarray:
+    """Assign every rock to train / val / test as whole stratigraphic units.
+
+    Rocks from one eruption share nearly identical chemistry, so a rock-level
+    split leaks -- the same call the corpus makes with bulk-level splits.  The
+    unit distribution is severely skewed (135 units over 640 scoreable rocks,
+    median 2, 65 singletons, largest 66), which is why units are assigned by
+    rock count rather than by count of units: otherwise which two large units
+    land in the test slice decides what the test slice measures.
+
+    Candidates are drawn and scored by `split_balance`, and the best feasible
+    one wins.  Feasible means the test slice's silica range sits inside the
+    train slice's: the adapter carries SiO2 terms on q and amp, and scoring it
+    on rocks more extreme than anything it was fit on measures extrapolation
+    rather than adaptation.  That constraint is what the tails are for --
+    they are too thin to balance on (see `split_balance`).
+
+    Altered rocks are assigned along with the rest so a unit never straddles a
+    boundary, but balance is scored on the rocks the headline actually scores.
+    """
+    rng = np.random.default_rng(seed)
+    order = _unit_sizes(benchmark.unit)
+    scored = benchmark.clean & benchmark.has_magnitude
+    total = int(scored.sum())
+
+    best, best_score, n_feasible = None, np.inf, 0
+    for _ in range(n_candidates):
+        assignment = _assign_units(order, fractions, total, rng)
+        subsets = np.array([assignment[u] for u in benchmark.unit])
+        train_sio2 = benchmark.sio2[scored & (subsets == "train")]
+        test_sio2 = benchmark.sio2[scored & (subsets == "test")]
+        if not train_sio2.size or not test_sio2.size:
+            continue
+        if test_sio2.min() < train_sio2.min() or test_sio2.max() > train_sio2.max():
+            continue
+        n_feasible += 1
+        balance = split_balance(
+            subsets[scored], benchmark.presence[scored], benchmark.sio2[scored]
+        )
+        if balance["score"] < best_score:
+            best, best_score = subsets, balance["score"]
+    if best is None:
+        raise ValueError(
+            f"no candidate of {n_candidates} put the test silica range inside "
+            "train's; raise n_candidates or revisit the fractions"
+        )
+    return best
+
+
+def load_real_rock_split(subset: str) -> np.ndarray:
+    """Bulk ids of the committed real-rock roster subset.
+
+    Generated once by `scripts/build/build_real_rock_split.py` and never
+    recomputed at load time: the whole point of a fixed carve-out is that
+    models and adaptation strategies are compared on a board that does not
+    move between runs.
+    """
+    if subset not in SPLIT_SUBSETS:
+        raise ValueError(
+            f"unknown real-rock subset {subset!r}; expected one of {SPLIT_SUBSETS}"
+        )
+    roster = pd.read_csv(SPLIT_PATH)
+    rows = roster[roster["subset"] == subset]
+    return (rows["source"] + "|" + rows["sample_id"].astype(str)).to_numpy()
+
+
+def split_mask(benchmark: RealRockBenchmark, subset: str) -> np.ndarray:
+    """Boolean mask selecting `benchmark` rows in the committed roster subset."""
+    return np.isin(benchmark.bulk_ids, load_real_rock_split(subset))
 
 
 def coarsen_presence(p: np.ndarray) -> np.ndarray:

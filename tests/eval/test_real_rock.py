@@ -9,13 +9,18 @@ from cnmineral.eval.real_rock import (
     GROUP_INDEX,
     GROUPS,
     MINERAL_DENSITY,
+    SPLIT_SUBSETS,
     coarsen_alpha,
     coarsen_presence,
     censored_consistency,
     load_benchmark,
+    load_real_rock_split,
     parse_alteration_grade,
     real_rock_nll,
+    split_balance,
+    split_mask,
     truth_forced_support,
+    unit_grouped_split,
 )
 
 
@@ -23,7 +28,7 @@ def _write_benchmark(tmp_path, sample_rows, mode_rows, **mapping):
     """A two-table benchmark on disk with only the columns the loader reads."""
     samples = pd.DataFrame(sample_rows, columns=[
         "source", "sample_id", "alteration_extent", "sio2", "al2o3", "cao",
-        "mgo", "feo_tot", "na2o", "k2o", "tio2",
+        "mgo", "feo_tot", "na2o", "k2o", "tio2", "unit",
     ])
     modes = pd.DataFrame(
         mode_rows, columns=["source", "sample_id", "phase", "magemin_phase",
@@ -34,8 +39,11 @@ def _write_benchmark(tmp_path, sample_rows, mode_rows, **mapping):
     return load_benchmark(tmp_path, **mapping)
 
 
-def _sample(sample_id, sio2=60.0, alteration="1"):
-    return ["src", sample_id, alteration, sio2, 16.0, 5.0, 3.0, 5.0, 4.0, 2.0, 0.8]
+def _sample(sample_id, sio2=60.0, alteration="1", unit=None):
+    # one rock per unit unless a test is exercising the grouping, which is the
+    # neutral choice: nothing shares a split assignment by accident.
+    return ["src", sample_id, alteration, sio2, 16.0, 5.0, 3.0, 5.0, 4.0, 2.0,
+            0.8, f"unit-{sample_id}" if unit is None else unit]
 
 
 def test_coarsen_presence_is_the_noisy_or():
@@ -394,3 +402,61 @@ def test_load_benchmark_invariants():
     np.testing.assert_allclose(b.magnitude[b.has_magnitude].sum(1), 1.0)
     assert b.bulk_src.shape == b.bulk_frac.shape
     assert len(b.bulk_ids) == len(b.presence) == b.bulk_src.shape[0]
+    assert len(b.unit) == len(b.bulk_ids)
+
+
+def test_no_stratigraphic_unit_straddles_a_split_boundary():
+    """One eruption's rocks share nearly identical chemistry, so a unit split
+    across train and test leaks the answer -- the same call the corpus makes
+    with bulk-level splits."""
+    b = load_benchmark()
+    seen: dict[str, str] = {}
+    for subset in SPLIT_SUBSETS:
+        for unit in set(b.unit[split_mask(b, subset)]):
+            assert unit not in seen, f"{unit} is in both {seen.get(unit)} and {subset}"
+            seen[unit] = subset
+    assert len(seen) == len(set(b.unit))
+
+
+def test_committed_roster_covers_every_benchmark_rock_exactly_once():
+    b = load_benchmark()
+    masks = [split_mask(b, s) for s in SPLIT_SUBSETS]
+    assert sum(int(m.sum()) for m in masks) == len(b)
+    assert (sum(m.astype(int) for m in masks) == 1).all()
+
+
+def test_test_silica_range_sits_inside_train():
+    """The adapter carries SiO2 terms on q and amp presence, so a test rock more
+    extreme than anything it was fit on measures extrapolation, not adaptation."""
+    b = load_benchmark()
+    scored = b.clean & b.has_magnitude
+    train = b.sio2[split_mask(b, "train") & scored]
+    test = b.sio2[split_mask(b, "test") & scored]
+    assert train.min() <= test.min() and test.max() <= train.max()
+
+
+def test_unit_grouped_split_is_deterministic_given_a_seed():
+    """The carve-out is the board strategies get compared on; it must not drift."""
+    b = load_benchmark()
+    first = unit_grouped_split(b, seed=0, n_candidates=20)
+    assert (first == unit_grouped_split(b, seed=0, n_candidates=20)).all()
+    assert (first != unit_grouped_split(b, seed=7, n_candidates=20)).any()
+
+
+def test_split_balance_prefers_slices_that_match_the_population():
+    """The criterion reads truth marginals only, so selecting on it cannot leak
+    a model output -- but it does have to rank a lopsided split as worse."""
+    n = 90
+    presence = np.zeros((n, len(GROUPS)))
+    presence[: n // 2, GROUP_INDEX["amp"]] = 1.0
+    sio2 = np.linspace(50, 75, n)
+    even = np.array(list(SPLIT_SUBSETS) * (n // 3))
+    lopsided = np.array(["train"] * 30 + ["val"] * 30 + ["test"] * 30)
+    assert split_balance(even, presence, sio2)["score"] < (
+        split_balance(lopsided, presence, sio2)["score"]
+    )
+
+
+def test_unknown_split_subset_is_rejected():
+    with pytest.raises(ValueError, match="unknown real-rock subset"):
+        load_real_rock_split("holdout")
