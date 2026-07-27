@@ -390,8 +390,9 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_fitting_reduces_the_loss_it_optimizes` -- a fit lowers the joint NLL it minimizes.
 5. `test_pinned_amphibole_offset_reports_as_zero` -- `per_group_offsets` reports the effective correction rather than the raw parameter.
 6. `test_bootstrap_resamples_units_not_rocks` -- declaring the same rocks to belong to fewer units widens the interval, since rocks within a unit are not independent draws.
-7. `test_draws_sample_whole_units_without_overshooting` -- draws take whole units, never split one, and stay within the overshoot tolerance.
-8. `test_a_unit_larger_than_the_budget_is_skipped_not_taken` -- otherwise one 66-rock unit would decide the low end of the curve.
+7. `test_lifting_the_group_correction_hits_the_target_noisy_or` -- pushing the corrected group presence down onto member phases reproduces the group probability exactly; shifting member logits by the group's logit shift does not, since the noisy-OR is not linear in logits, and it erases near-certain groups from every sampled support.
+8. `test_draws_sample_whole_units_without_overshooting` -- draws take whole units, never split one, and stay within the overshoot tolerance.
+9. `test_a_unit_larger_than_the_budget_is_skipped_not_taken` -- otherwise one 66-rock unit would decide the low end of the curve.
 
 ## eval/
 

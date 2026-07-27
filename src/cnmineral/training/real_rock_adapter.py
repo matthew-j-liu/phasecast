@@ -21,6 +21,7 @@ import torch
 
 from ..data.phase_vocab import GROUP_INDEX, GROUPS, MODEL_TO_GROUP, PHASE_INDEX
 from ..eval.mode_head import conditional_mean, magnitude_parity_stats
+from ..eval.real_rock import coarsen_presence
 from ..losses.mode_loss import masked_dirichlet_nll
 from ..models.real_rock_adapter import RealRockAdapter
 
@@ -292,25 +293,44 @@ def paired_bootstrap(
     }
 
 
-def lift_group_correction_to_phases(
-    adapter: RealRockAdapter, logits7: torch.Tensor, logits21: np.ndarray,
+def lift_group_presence_to_phases(
+    adapter: RealRockAdapter, logits7: torch.Tensor, p21: np.ndarray,
     sio2: torch.Tensor,
 ) -> np.ndarray:
-    """The adapter's presence correction pushed down onto the 21 phase logits.
+    """The adapter's corrected group presence, pushed back down onto 21 phases.
 
-    Needed only for the exposure probe.  Deployment stands on the model's own
-    assemblage, and the adapter changes what that assemblage is -- but it acts
-    on coarsened groups, so its verdict has to be pushed back down to decide a
-    21-phase support.  Each group's logit shift is applied uniformly to its
-    member phases, which leaves the within-group ranking the model chose
-    untouched and moves only the group's overall call.
+    The adapter judges groups, but deployment stands on a 21-phase support --
+    both the exposure probe and the scenario view need one -- so the group
+    verdict has to be distributed over member phases.
+
+    The transform is exact rather than approximate.  Raising each member's
+    absence probability to a common power, `1 - p_i' = (1 - p_i)^gamma`, sends
+    the group's noisy-OR to `1 - (1 - P)^gamma`, so
+    `gamma = log(1 - P_target) / log(1 - P_now)` hits the corrected group
+    probability on the nose while preserving the within-group ordering the
+    model chose.
+
+    Shifting each member's *logit* by the group's logit shift -- the obvious
+    thing -- is badly wrong, because the noisy-OR is not linear in logits.  A
+    group sitting at 0.9999 (logit 9.2) corrected to 0.84 (logit 1.7) gives a
+    -7.5 shift, and applying that to both members drives each to ~0, so the
+    group vanishes from every sampled support even though it was corrected
+    *upward* of absent.  That produced scenarios with no feldspar in a rock
+    whose feldspar is half the crystal cargo.
     """
     with torch.no_grad():
         corrected, _ = adapter(logits7, torch.ones_like(logits7), sio2)
-    shift = (corrected - logits7).numpy()
-    out = logits21.copy()
+    target = torch.sigmoid(corrected).numpy()
+    now = coarsen_presence(p21)
+
+    eps = 1e-9
+    gamma = np.log(np.clip(1.0 - target, eps, 1.0)) / np.log(
+        np.clip(1.0 - now, eps, 1.0 - eps)
+    )
+    out = p21.copy()
     for phase, group in MODEL_TO_GROUP.items():
-        out[:, PHASE_INDEX[phase]] += shift[:, GROUP_INDEX[group]]
+        absent = np.clip(1.0 - p21[:, PHASE_INDEX[phase]], eps, 1.0)
+        out[:, PHASE_INDEX[phase]] = 1.0 - absent ** gamma[:, GROUP_INDEX[group]]
     return out
 
 

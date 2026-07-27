@@ -4,13 +4,16 @@ import numpy as np
 import pytest
 import torch
 
-from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS
-from cnmineral.eval.real_rock import real_rock_nll
+from cnmineral.data.phase_vocab import (
+    GROUP_INDEX, GROUPS, N_PHASES, PHASE_INDEX,
+)
+from cnmineral.eval.real_rock import coarsen_presence, real_rock_nll
 from cnmineral.training.real_rock_adapter import (
     GroupPredictions,
     adapter_nll,
     draw_units,
     fit_adapter,
+    lift_group_presence_to_phases,
     paired_bootstrap,
     per_group_offsets,
     score_adapter,
@@ -117,6 +120,38 @@ def test_bootstrap_resamples_units_not_rocks():
     assert wide["hi"] - wide["lo"] > narrow["hi"] - narrow["lo"]
     assert wide["n_units"] == 12 and narrow["n_units"] == n
     assert wide["mean"] == pytest.approx(narrow["mean"])
+
+
+def test_lifting_the_group_correction_hits_the_target_noisy_or():
+    """The 21-phase support must reproduce the group probability the adapter set.
+
+    Shifting each member's logit by the group's logit shift -- the obvious
+    thing -- is badly wrong, since the noisy-OR is not linear in logits: a
+    group at 0.9999 corrected to 0.84 gives a -7.5 shift that drives both
+    members to ~0, and the group vanishes from every sampled support. Caught by
+    a scenario view whose top assemblages had no feldspar in a rock that is
+    half feldspar.
+    """
+    data = _predictions(n=24)
+    adapter = fit_adapter(data, tier="linear", weight_decay=1e-2, epochs=100)
+    rng = np.random.default_rng(0)
+    p21 = rng.uniform(0.01, 0.99, (len(data), N_PHASES))
+    # a group pinned near certainty is where the logit-shift version breaks
+    p21[:, PHASE_INDEX["plag"]] = 0.995
+    p21[:, PHASE_INDEX["afs"]] = 0.99
+
+    lifted = lift_group_presence_to_phases(adapter, data.logits7, p21, data.sio2)
+    with torch.no_grad():
+        target = torch.sigmoid(
+            adapter(data.logits7, data.alpha7, data.sio2)[0]
+        ).numpy()
+    assert np.allclose(coarsen_presence(lifted), target, atol=1e-6)
+    assert ((lifted >= 0) & (lifted <= 1)).all()
+
+    # phases no group claims are untouched
+    for phase in ("g", "ru", "cor"):
+        np.testing.assert_allclose(lifted[:, PHASE_INDEX[phase]],
+                                   p21[:, PHASE_INDEX[phase]])
 
 
 def test_draws_sample_whole_units_without_overshooting():
