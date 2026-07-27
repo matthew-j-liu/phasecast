@@ -38,9 +38,12 @@ Two tiers, by modal-measurement precision:
 **Precision tier -- formal point counts / image analysis, phenocryst-groundmass split:**
 - **Pinatubo 1991** (Pallister et al. 1996, USGS *Fire and Mud*). 6 samples,
   dacite -> andesite -> basalt inclusion, 400x point counts (1.6-3.2k points),
-  explicit groundmass. Modes from `table1.gif`. Chemistry (`table7p*.gif`) is a
-  dense multi-group image -- per-sample oxide transcription PENDING; rows carry
-  modes + rock class only (`chem_status=table7_transcription_pending`).
+  explicit groundmass. Modes from `table1.gif`, chemistry from `table7p*.gif`
+  (`chem_status=table7`). 5 of the 6 carry chemistry: Table 1's andesite lava
+  `CN6791-h` has no Table 7 row, and the nearest is `CN6791d`, a different
+  split of the same locality and date, so it keeps none rather than borrow one
+  (`chem_status=no_table7_row`). Y, Nb and V are absent from Table 7, so those
+  traces pad on these rows.
   https://pubs.usgs.gov/pinatubo/pallister/
 - **Mount St. Helens 2004-06** (Pallister et al. 2008, USGS PP1750 ch.30).
   7 dome samples, dacite, 1,000-1,300-pt optical modes, matrix=groundmass

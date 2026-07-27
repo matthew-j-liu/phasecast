@@ -138,9 +138,7 @@ def parse_msh():
 # Pinatubo 1991, Pallister et al. 1996 Table 1: modal point counts (400x mag,
 # vol%, phenocryst basis; Groundmass explicit). Transcribed from table1.gif.
 # tr/<1 -> present-but-trace (abundance NaN, qualifier kept); '-' -> absent (omitted).
-# Chemistry (Table 7, table7p*.gif) is a dense multi-group image; per-sample oxide
-# transcription is pending, so these rows carry modes + SiO2-class only. cummingtonite
-# is a Fe-Mg amphibole -> amp; bronzite -> opx; augite -> cpx.
+# cummingtonite is a Fe-Mg amphibole -> amp; bronzite -> opx; augite -> cpx.
 PIN_SAMPLES = ["EW910615-1", "EW910615-2", "PH13d", "7-1-91-1A", "CN6791-h", "CN6791-i"]
 PIN_ROCK = ["dacite", "dacite", "dacite", "andesite", "andesite", "basalt"]
 PIN_PTS = [3206, 1802, 1618, 1606, 2061, 2280]
@@ -158,15 +156,80 @@ PIN_MODES = {  # phase: (magemin, [six values]); "tr"/"<1"/"-" as strings
 }
 
 
+# Pinatubo chemistry, Pallister et al. 1996 Table 7, transcribed from
+# table7p1.gif (majors + Ni) and table7p2.gif (traces).  Keyed by Table 1's
+# sample name; the value is that sample's Table 7 lab number, which is what
+# identifies the row -- Table 7 groups by magma type and spells some names
+# differently (PH13d appears as PH13D).
+#
+# CN6791-h is absent: Table 1's andesite lava has no Table 7 row.  The nearest
+# is CN6791d, a different split of the same locality and date, and equating
+# them would invent a measurement rather than record one -- so this rock keeps
+# no chemistry and stays out of the benchmark.
+#
+# Replicate analyses (the `x`-suffixed lab numbers) are left aside; each
+# sample takes its primary row.  Y, Nb and V are not in Table 7 at all, so
+# they pad -- 10 of the tokenizer's 13 traces are populated here.
+#
+# `fe2o3_tot` is Table 7's FeTO3 column verbatim (footnote 1: total iron
+# expressed as Fe2O3).  The tokenizer already accepts it as an iron source and
+# converts it itself, so the source's own column is what gets recorded --
+# no hand conversion to the `feo_tot` the other sources report.  Pallister
+# also titrated Fe2O3 and FeO separately; those are a redox split, and the
+# encoder takes total Fe cation wt%, so the total is the faithful record.
+PIN_CHEM_COLS = ["sio2", "al2o3", "fe2o3_tot", "mgo", "cao", "na2o", "k2o",
+                 "tio2", "p2o5", "mno", "loi", "rb_ppm", "sr_ppm", "zr_ppm",
+                 "ba_ppm", "la_ppm", "ce_ppm", "nd_ppm", "yb_ppm", "th_ppm",
+                 "ni_ppm"]
+PIN_CHEM = {
+    "EW910615-1": ("D-379505", [64.8, 16.6, 4.30, 2.28, 5.28, 4.47, 1.52, .52,
+                                .19, .09, .97, 38.0, 569, 108, 455, 15.9, 34.4,
+                                14.3, 1.20, 4.69, 17.0]),
+    "EW910615-2": ("D-379506", [64.3, 16.6, 4.37, 2.53, 5.47, 4.42, 1.47, .50,
+                                .18, .09, 1.01, 39.9, 567, 102, 433, 15.1, 31.2,
+                                15.1, 1.32, 4.39, 17.0]),
+    "PH13d": ("D-500917", [64.1, 17.1, 4.28, 2.38, 5.28, 4.62, 1.47, .48,
+                           .19, .10, 1.32, 42.0, 590, 104, 454, 18.8, 40.2,
+                           16.7, 1.49, 4.97, 14.5]),
+    "7-1-91-1A": ("D-500918", [59.2, 16.1, 6.13, 4.86, 7.17, 3.91, 1.56, .64,
+                               .29, .12, 1.04, 39.0, 515, 101, 380, 17.5, 35.8,
+                               18.0, 1.44, 4.84, 43.6]),
+    "CN6791-i": ("D-504517", [50.5, 14.7, 9.32, 9.21, 10.55, 3.02, 1.34, .90,
+                              .37, .16, .17, 44.0, 592, 120, 313, 22.6, 49.4,
+                              26.3, 1.76, 5.96, 105.0]),
+}
+
+# Table 7's majors are normalized volatile-free, so each row's ten oxides sum
+# to 100 up to the printed rounding.  That makes the transcription checkable
+# rather than trusted, and a retranscription cannot regress silently.
+PIN_MAJORS = PIN_CHEM_COLS[:10]
+PIN_SUM_TOL = 0.15
+
+
+def _check_pinatubo_chem():
+    for sid, (lab, values) in PIN_CHEM.items():
+        row = dict(zip(PIN_CHEM_COLS, values))
+        total = sum(row[c] for c in PIN_MAJORS)
+        if abs(total - 100.0) > PIN_SUM_TOL:
+            raise ValueError(
+                f"pinatubo {sid} ({lab}) majors sum to {total:.2f}, not 100 "
+                f"+/- {PIN_SUM_TOL} -- check the table7p1.gif transcription"
+            )
+
+
 def parse_pinatubo():
+    _check_pinatubo_chem()
     samples, modes = [], []
     for i, sid in enumerate(PIN_SAMPLES):
+        chem = PIN_CHEM.get(sid)
         samples.append(dict(source="pinatubo_pallister1996", sample_id=sid,
                             unit=f"Pinatubo 1991 {PIN_ROCK[i]}", rock_class=PIN_ROCK[i],
                             total_crystals_pct=100 - PIN_MODES["groundmass"][1][i],
                             alteration_extent="fresh", texture="porphyritic",
                             mode_basis="optical_vol_pointcount",
-                            n_points=PIN_PTS[i], chem_status="table7_transcription_pending"))
+                            n_points=PIN_PTS[i],
+                            chem_status="table7" if chem else "no_table7_row",
+                            **(dict(zip(PIN_CHEM_COLS, chem[1])) if chem else {})))
         for name, (mgm, vals) in PIN_MODES.items():
             v = vals[i]
             if v == "-":

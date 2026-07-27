@@ -41,6 +41,6 @@ deeper crystallinity stop than mafic ones to reveal their diagnostic phenocrysts
 ## Caveats
 - du Bray modes are visual estimates (717 of 730 samples); presence is trustworthy, magnitudes coarse
   (see plot 6). MSH/Pinatubo are point counts but only 13 samples, dacite.
-- Pinatubo has no chemistry yet (`chem_status=table7_transcription_pending`), so the SiO2-axis plots
-  are du Bray + the 6 MSH dacites.
+- The EDA predates the Pinatubo chemistry transcription, so its SiO2-axis plots are du Bray + the
+  6 MSH dacites; 5 Pinatubo rocks now carry chemistry and would join them on a rerun.
 - "present" counts trace occurrences (`tr` / `<1`); ~490 mode rows are trace-level.
