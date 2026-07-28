@@ -47,6 +47,31 @@ from cnmineral.training.joint_heads import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+LEDGER_PATH = REPO_ROOT / "results" / "ledger.yaml"
+
+
+def ledger_tie_band(instrument: str, ledger_path: Path | str | None = None) -> float:
+    """The instrument's tie band from the results ledger's `instruments:`
+    stanza -- the single source of truth for that constant.  Raises while the
+    stanza is unfilled: the noise floor and band are measured at the
+    instrument's first eval, so a sweep cannot run against an unmeasured
+    instrument.
+    """
+    path = Path(ledger_path) if ledger_path else LEDGER_PATH
+    with open(path) as f:
+        instruments = yaml.safe_load(f).get("instruments") or {}
+    if instrument not in instruments:
+        raise KeyError(
+            f"instrument {instrument!r} not defined under `instruments:` in {path}"
+        )
+    band = instruments[instrument].get("tie_band_nats")
+    if band is None:
+        raise ValueError(
+            f"instrument {instrument!r} has tie_band_nats: null in {path}; "
+            "measure the noise floor at this instrument's first eval and fill "
+            "the stanza before sweeping"
+        )
+    return float(band)
 
 
 def tiebreak_best(
@@ -123,7 +148,9 @@ def run_hpo(
     """Sweep the joint heads per the YAML; write + return the summary.
 
     Expected config keys: `study_name`, `storage_path`, `output_dir`,
-    `objective` (mode | comp | cond), `tie_band`, `sampler_seed`,
+    `objective` (mode | comp | cond), `instrument` (tie band resolves from
+    the ledger's `instruments:` stanza via `ledger_tie_band`; optional
+    `ledger_path` overrides the file for tests), `sampler_seed`,
     `n_trials`, `n_startup_trials`, `base` (locked `train_joint_heads`
     keys), `search_space` (per-knob spec for `_sample_hyperparameter`;
     disjoint from `base`), `baseline` (search-space values enqueued as
@@ -138,7 +165,7 @@ def run_hpo(
         raise ValueError(
             f"objective must be one of {HEAD_NAMES}, got {objective_head!r}"
         )
-    tie_band = float(cfg["tie_band"])
+    tie_band = ledger_tie_band(cfg["instrument"], cfg.get("ledger_path"))
     mode_reference = cfg.get("mode_reference")
     device = device or pick_device()
 

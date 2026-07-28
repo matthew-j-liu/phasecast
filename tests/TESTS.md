@@ -405,7 +405,9 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_tiebreak_mode_ties_break_to_comp_then_cond` -- mode-objective read-out: trials within the tie band are ties broken by comp NLL then cond NLL; outside-band trials never win.
 2. `test_tiebreak_minisweep_requires_mode_within_band` -- comp-objective read-out admits only trials whose mode best stays within the band of `mode_reference`, returning None when none qualify.
-3. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
+3. `test_ledger_tie_band_reads_the_instrument_stanza` -- the tie band resolves from the ledger's instruments stanza, the single source of truth.
+4. `test_ledger_tie_band_refuses_unmeasured_instrument` -- a null `tie_band_nats` (unmeasured instrument) and an undefined instrument both raise instead of falling back to a default.
+5. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: tie band resolved from a ledger fixture (not a config copy), enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
 
 ### test_real_rock_recalibrator_train.py
 
@@ -463,21 +465,24 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_reliability_table_hand_case` -- fixed-width bins land counts/mean-p/empirical-frequency where a 4-point hand case says, and ECE equals the count-weighted |p - freq|.
 2. `test_reliability_table_edge_probabilities_bin` -- p=0.0 and p=1.0 fall into the first and last bins instead of overflowing.
 3. `test_within_bulk_frequency` -- per-bulk presence frequency over that bulk's rows; a bulk contributing no rows yields NaN, not zero.
-4. `test_within_bulk_conditional_sigma` -- pooled within-bulk std of conditional magnitude per phase (the parity-band summary width) matches a hand case; a never-present phase yields NaN.
-5. `test_within_bulk_sigma_profile` -- the level-binned band profile puts a low-scatter bulk and a high-scatter bulk in separate quantile bins with their own sd.
-6. `test_conditional_mean` -- Dirichlet mean restricted to a mask renormalizes over it; an empty mask returns all zeros instead of dividing by zero.
-7. `test_beta_pit_matches_scipy_and_masks_degenerates` -- PIT values equal `scipy.stats.beta.cdf` under the Beta marginal of the support Dirichlet; absent phases and single-phase supports are NaN.
-8. `test_fp_fn_mass_hand_case` -- FP-mass is the predicted-support conditional mean on truly-absent phases and FN-mass the true mass below threshold, per a hand-computed 3-phase row.
-9. `test_sample_supports_deterministic_extremes` -- p=0/1 presence probabilities sample deterministically.
-10. `test_magnitude_parity_stats_hand_case` -- per-phase conditional-magnitude MAE/r on truly-present rows match a hand case; never-present phases are NaN.
-11. `test_presence_scores_nan_when_undefined` -- per-phase recall/precision at 0.5, NaN for never-present / never-predicted phases.
-12. `test_recall_by_band_separates_intermediate_frequencies` -- recall stratified by the bulk's own presence-frequency band splits the intermediate (path-sensitive) misses from the high-frequency hits.
-13. `test_hurdle_nll_rows_matches_reference_assembly` -- per-row joint hurdle NLL equals summed Bernoulli log-likelihood plus `torch.distributions.Dirichlet` NLL on the sliced support, and the per-phase BCE decomposition sums back to the Bernoulli term.
-14. `test_stratified_mean` -- values grouped by label report the right per-group mean and count.
-15. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
-16. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
-17. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
-18. `test_run_mode_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("mode",))` on a test-trained joint checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block and val counts, and figures land under `runs/mode_head/<tag>/`.
+4. `test_bulk_frequency_targets_derives_draws_from_rungs` -- the noise-floor targets read per-bulk draw counts from the dataset itself (rows / n_rungs) alongside the presence fractions.
+5. `test_bulk_frequency_targets_raises_on_rowless_bulk` -- a bulk contributing no rows makes the targets undefined and raises instead of propagating NaN.
+6. `test_binomial_floor_hand_case` -- per-phase expected MAE of the finite-draw truth estimator matches the sqrt(2/pi)*sd hand computation; degenerate frequencies carry zero noise.
+7. `test_within_bulk_conditional_sigma` -- pooled within-bulk std of conditional magnitude per phase (the parity-band summary width) matches a hand case; a never-present phase yields NaN.
+8. `test_within_bulk_sigma_profile` -- the level-binned band profile puts a low-scatter bulk and a high-scatter bulk in separate quantile bins with their own sd.
+9. `test_conditional_mean` -- Dirichlet mean restricted to a mask renormalizes over it; an empty mask returns all zeros instead of dividing by zero.
+10. `test_beta_pit_matches_scipy_and_masks_degenerates` -- PIT values equal `scipy.stats.beta.cdf` under the Beta marginal of the support Dirichlet; absent phases and single-phase supports are NaN.
+11. `test_fp_fn_mass_hand_case` -- FP-mass is the predicted-support conditional mean on truly-absent phases and FN-mass the true mass below threshold, per a hand-computed 3-phase row.
+12. `test_sample_supports_deterministic_extremes` -- p=0/1 presence probabilities sample deterministically.
+13. `test_magnitude_parity_stats_hand_case` -- per-phase conditional-magnitude MAE/r on truly-present rows match a hand case; never-present phases are NaN.
+14. `test_presence_scores_nan_when_undefined` -- per-phase recall/precision at 0.5, NaN for never-present / never-predicted phases.
+15. `test_recall_by_band_separates_intermediate_frequencies` -- recall stratified by the bulk's own presence-frequency band splits the intermediate (path-sensitive) misses from the high-frequency hits.
+16. `test_hurdle_nll_rows_matches_reference_assembly` -- per-row joint hurdle NLL equals summed Bernoulli log-likelihood plus `torch.distributions.Dirichlet` NLL on the sliced support, and the per-phase BCE decomposition sums back to the Bernoulli term.
+17. `test_stratified_mean` -- values grouped by label report the right per-group mean and count.
+18. `test_support_group_pit_stats_classifies_hand_groups` -- per-(bulk, support)-group PIT stats split groups within one bulk by support, classify a piled-near-0 group as `shifted`, a both-extremes group as `two_sided`, a uniform grid as `flat`, drop groups below `min_rows` from coverage, and return the empty result for an all-NaN phase.
+19. `test_support_group_pit_stats_uniform_false_positive_rate` -- seeded calibrated-uniform groups at the minimum group size keep the `two_sided` misclassification rate below 0.2 and `shifted` below 0.1, pinning the tail/mean thresholds.
+20. `test_beta_overlay_exemplar_selection` -- the overlay exemplar picker returns the constructed support-separated bulk (dominant vs second support means apart) and the constructed within-support bimodal bulk (2-means split with minority-share floor) as unique winners.
+21. `test_run_mode_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("mode",))` on a test-trained joint checkpoint against a synthetic valtest corpus (roster and results root monkeypatched): metrics.json carries the roster split block, val counts, and the instrument binomial-floor block, and figures land under `runs/mode_head/<tag>/`.
 
 ### test_comp_head_eval.py
 

@@ -1,0 +1,113 @@
+# Real-rock benchmark ledger: one entry per model version scored on measured
+# volcanic mineralogy. Append-only. Numbers come from
+# runs/real_rock/<tag>/metrics.json.
+#
+# Separate from ledger.yaml, which cannot hold these: its entries are per-head
+# NLLs over the 21-phase corpus vocabulary, stamped with the valtest
+# instrument that measured them. This ledger scores 7 coarsened groups against
+# real measurements, so its values are not comparable to those in either
+# direction -- and that is the point. Corpus entries are never re-measured
+# across instruments, which leaves nothing to compare a model from one valtest
+# era against a model from the next. This file is that comparison: the rocks
+# do not change when the corpus does.
+#
+# No instrument stamp for the same reason. But the benchmark itself will move
+# (Pinatubo chemistry lands, more eruptions get harvested, the freshness rule
+# could change), which is the failure mode instrument stamping exists to
+# prevent -- so entries carry a `benchmark` version instead, and numbers
+# compare only within one.
+#
+# `joint_nll` is the headline: presence BCE summed over the seven groups plus
+# the Dirichlet NLL of the measured sub-composition, averaged per rock,
+# unweighted. It is exactly the loss the sim-to-real adapter minimizes,
+# evaluated at the identity correction, so an adapter entry's improvement over
+# its zero-shot entry reads directly as nats recovered.
+#
+# Two reading rules:
+#   - `mean_composition_size` moves the Dirichlet term's scale, since that
+#     term is a density over however many groups a rock spans. Compare
+#     entries only when their sizes match.
+#   - `censored_prob` is reported beside the headline, never inside it: a
+#     quarter of amphibole's real appearances are logged only as a trace, and
+#     the exact censored likelihood is not a product of the observed density
+#     and a tail probability.
+#
+# Adapted models do NOT get an entry here, despite the header above saying an
+# adapter's improvement reads as nats recovered. That holds only on a shared
+# row set, and it is not one: an adapter is fit on the train roster and can
+# only be scored on the 161 held-out test rocks, against a zero-shot entry
+# measured over all 640. Putting both in this file invites exactly the
+# comparison the two reading rules exist to prevent. Adapter numbers live in
+# `explorations/real_rock_fewshot/`, always paired on the same test rocks.
+# What belongs here is one zero-shot entry per model version -- the thing that
+# makes this benchmark the cross-instrument judge (#45).
+benchmarks:
+  eruption-v1:
+    sources: du Bray USGS DS 764 + DS 1099 (visual phenocryst estimates),
+      Mount St. Helens 2004-06 Pallister 2008 (optical point counts)
+    n_with_chemistry_and_modes: 719
+    n_headline: 635
+    freshness_rule: alteration grade 1-2 or fresh, leading digit of
+      `alteration_extent`; grade 3-4 and ungraded scored separately
+    groups: [fsp, px, amp, bi, ol, opq, q]
+    truth_units: volume percent converted to mass by per-mineral density,
+      groundmass dropped, renormalized over the quantified phases
+    pending: Pinatubo 1996 chemistry (6 rocks, table transcription)
+    decisions_informed:
+      - 2026-07-24 build 2 designed against the measured residual shape
+        (per-group constants + SiO2 slopes on q and amp) rather than a guess
+  eruption-v2:
+    supersedes: eruption-v1
+    sources: eruption-v1 plus Pinatubo 1991 Pallister 1996 chemistry
+      (Table 7, transcribed from table7p1/p2.gif; modes were already in
+      eruption-v1 from Table 1)
+    n_with_chemistry_and_modes: 724
+    n_headline: 640
+    changes: 5 point-counted Pinatubo rocks gain whole-rock chemistry and
+      enter the benchmark. The 6th, CN6791-h, has no Table 7 row -- the
+      nearest is CN6791d, a different split of the same locality and date,
+      and equating them would invent a measurement, so it stays out.
+      Y, Nb and V are absent from Table 7, so those three traces pad on
+      these rows; 10 of the tokenizer's 13 are populated.
+    transcription_checks: majors are normalized volatile-free, so each row's
+      ten oxides sum to 100 (asserted in the harvest parser); each Table 7
+      block prints an Average that the transcribed rows reproduce
+    freshness_rule: unchanged from eruption-v1
+    groups: [fsp, px, amp, bi, ol, opq, q]
+    truth_units: unchanged from eruption-v1
+    precision_tier: 11 rocks (5 Pinatubo + 6 MSH scoreable), up from 6
+versions:
+  - version: support-conditioned-magnitude
+    date: 2026-07-24
+    checkpoint_tag: joint_heads_supportmag_seed0
+    benchmark: eruption-v1
+    changes: first real-rock score. Zero-shot -- heads trained only on
+      MAGEMin labels, nothing in this project ever fit on a real rock, so
+      this is the sim-to-real gap at the identity correction. `version`
+      matches ledger.yaml's entry for the same checkpoint.
+    n: 635
+    joint_nll: 10.404
+    bernoulli_nll: 5.708
+    dirichlet_nll: 4.696
+    mean_composition_size: 3.611
+    censored_prob: 0.447
+  - version: support-conditioned-magnitude
+    date: 2026-07-25
+    checkpoint_tag: joint_heads_supportmag_seed0
+    benchmark: eruption-v2
+    changes: the same frozen checkpoint re-scored after Pinatubo chemistry
+      landed, so the few-shot adaptation curve (#52) and its zero-shot
+      baseline share one benchmark version. Still zero-shot. The headline
+      moves +0.002 nats over 5 more rocks, which is the transcription's
+      first check -- botched chemistry would move the magnitude branch.
+      Those 5 rocks score joint 10.649 against the benchmark's 10.406, with
+      a dirichlet term of -0.107 against 4.658: their modes are predicted
+      unusually well and the cost is all presence, which is where
+      point-counted rocks are expected to differ (they log trace phases a
+      visual estimate misses, composition size 4.00 against 3.61).
+    n: 640
+    joint_nll: 10.406
+    bernoulli_nll: 5.748
+    dirichlet_nll: 4.658
+    mean_composition_size: 3.614
+    censored_prob: 0.445

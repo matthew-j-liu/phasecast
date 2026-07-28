@@ -288,6 +288,7 @@ techniques:
     patterns:
       - "joint_heads_hpo"
       - "tiebreak_best"
+      - "ledger_tie_band"
       - "mode_reference"
       - "_sample_hyperparameter"
 
@@ -336,6 +337,11 @@ techniques:
     patterns:
       - "reliability_table"
       - "within_bulk_frequency"
+  - name: instrument_noise_floor
+    type: evaluation
+    patterns:
+      - "binomial_floor"
+      - "bulk_frequency_targets"
   - name: pit_magnitude_calibration
     type: evaluation
     patterns:

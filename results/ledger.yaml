@@ -1,0 +1,86 @@
+# Model-version ledger: one entry per shipped version, append-only.
+# `date` is when the version shipped (journal entry). Headline NLLs are
+# RAW nats (lower = better), pulled from
+# runs/<head>_head/<tag>/metrics.json. results/trajectory.png regenerates
+# from this file alone.
+#
+# Every entry is stamped with the `instrument` that measured it (defined
+# under `instruments:`). Entries are never re-measured on a later
+# instrument: when the valtest rows change (draw count, proposal, labels),
+# a new instrument is defined here and starts its own trajectory segment.
+# Numbers are comparable only within one instrument; cross-instrument
+# model comparison happens on the real-rock benchmark, not in this file.
+instruments:
+  valtest128-broad:
+    roster: committed val slice of the sealed valtest roster
+      (src/cnmineral/data/valtest_split.csv; 221 bulks, 218 with corpus rows)
+    draws_per_bulk: 128
+    proposal: broad uniform LHS over per-class (P, H2O) boxes
+      (condition_proposal.draw_conditions)
+    noise_floor: 0.024
+    tie_band_nats: 0.03
+  valtest128-traced@2000:
+    roster: committed val slice of the grown valtest roster
+      (src/cnmineral/data/valtest_split.csv; 887 val bulks, 871 with corpus rows)
+    draws_per_bulk: 128
+    proposal: trace-conditional per-bulk (P, H2O) sampling
+      (condition_proposal.bulk_proposal)
+    # 5-6 valtest bulks each, permanently (class pools exhausted at the 2000
+    # extension): per-class numbers for these are anecdote -- caveat wherever
+    # they appear, never uncaveated in ledger or paper tables
+    thin_classes: [alkali feldspar quartz trachyte, quartz trachyte,
+      phonolite, foid-bearing alkali feldspar trachyte, basanite, trachyte,
+      alkali feldspar trachyte, silexite, tephrite]
+    # both measured on this instrument at its first eval -- the 0.024 above is
+    # a 500-bulk/128-draw number and does not carry over. noise_floor is the
+    # binomial floor of the presence-frequency truth estimator, in
+    # presence-fraction MAE units (eval.mode_head.binomial_floor, stamped in
+    # every mode metrics.json); the tie band stays in nats -- it is
+    # adjudicated from the floor plus the seed-noise scale, not converted
+    noise_floor: null
+    tie_band_nats: null
+versions:
+  - version: standalone-modehead
+    date: 2026-07-15
+    checkpoint_tag: mode_head_seed0
+    instrument: valtest128-broad
+    changes: first supervised head -- standalone ModeHead on the frozen v3
+      encoder (training pipeline since deleted; checkpoint on disk but
+      unreadable by current code; runs/mode_head/mode_head_seed0/ is the
+      preserved eval record)
+    heads:
+      mode: {joint_nll: -1.0066, bernoulli_nll: 5.0241, dirichlet_nll: -6.0307}
+  - version: joint-baseline
+    date: 2026-07-18
+    checkpoint_tag: joint_heads_seed0_baseline
+    instrument: valtest128-broad
+    changes: three-head joint trainer (CompHead + support-conditioned
+      CondHead added) at pre-sweep hyperparameters; mode statistically
+      unchanged vs standalone (0.011 nats, inside the 0.03 tie band)
+    heads:
+      mode: {joint_nll: -0.9960, bernoulli_nll: 5.0255, dirichlet_nll: -6.0215}
+      comp: {comp_nll: -50.9005}
+      cond: {cond_nll: 8.4653, coverage_68: [0.661, 0.653, 0.650]}
+  - version: joint-tuned
+    date: 2026-07-21
+    checkpoint_tag: joint_heads_seed0
+    instrument: valtest128-broad
+    changes: joint HPO adopted (lr 2.15e-4, wd 1.04e-5, magnitude_weight
+      0.25, lambda_balance 54.5, dropout 0.348; mode 256x3, comp 128x1,
+      cond 512x2); all three heads lifted
+    heads:
+      mode: {joint_nll: -1.1621, bernoulli_nll: 4.9425, dirichlet_nll: -6.1046}
+      comp: {comp_nll: -53.8508}
+      cond: {cond_nll: 8.3175, coverage_68: [0.715, 0.671, 0.684]}
+  - version: support-conditioned-magnitude
+    date: 2026-07-22
+    checkpoint_tag: joint_heads_supportmag_seed0
+    instrument: valtest128-broad
+    changes: ModeHead magnitude branch conditioned on the assemblage support
+      (same chain rule as CondHead, own trunk on latent + support); amp
+      magnitude r 0.715 -> 0.876, PIT shifted-groups roughly halved across
+      the common phases; small presence cost (+0.055 bernoulli nats)
+    heads:
+      mode: {joint_nll: -2.4565, bernoulli_nll: 4.9973, dirichlet_nll: -7.4538}
+      comp: {comp_nll: -53.8954}
+      cond: {cond_nll: 8.3114, coverage_68: [0.710, 0.674, 0.679]}

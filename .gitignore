@@ -1,10 +1,9 @@
 # Data: input corpora (large, re-downloadable) + optuna sweep state
 /data/
 
-# Machine output, split by role: results/ = per-version headline summaries
-# (ledger, trajectory, frozen reports), runs/ = transient instrument
-# snapshots. Anchored so explorations/<name>/results/ stay tracked.
-/results/
+# Machine output: runs/ = transient instrument snapshots. results/ (the
+# per-version headline summaries, incl. the ledger HPO reads its tie band
+# from) is tracked. Anchored.
 /runs/
 
 # Scratch (mockups, one-off previews)

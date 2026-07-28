@@ -2,7 +2,9 @@
 
 `tiebreak_best` is unit-tested on fabricated trials (the locked winner
 read-out: mode ties break to comp then cond; mini-sweep admissibility under
-`mode_reference`).  The end-to-end test runs a 2-trial sweep on the
+`mode_reference`).  `ledger_tie_band` is unit-tested against a ledger
+fixture (the instruments stanza is the single source of truth; an unfilled
+stanza refuses to sweep).  The end-to-end test runs a 2-trial sweep on the
 synthetic joint corpus: enqueued baseline trial, per-head user attrs incl.
 the predicted-modes closure, tiebreak winner in the summary, journal +
 figures on disk.
@@ -12,13 +14,18 @@ import json
 
 import numpy as np
 import optuna
+import pytest
 import torch
 import yaml
 
 import cnmineral.eval.joint_heads as joint_heads_eval
 import cnmineral.training.joint_heads as joint_heads_train
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset
-from cnmineral.training.joint_heads_hpo import run_hpo, tiebreak_best
+from cnmineral.training.joint_heads_hpo import (
+    ledger_tie_band,
+    run_hpo,
+    tiebreak_best,
+)
 
 
 def _trial(value, *, mode=None, comp=0.0, cond=0.0):
@@ -62,7 +69,30 @@ def test_tiebreak_minisweep_requires_mode_within_band():
     )
 
 
-def _write_hpo_yaml(path, config, storage_dir, output_dir):
+def _write_ledger(path, tie_band=0.03):
+    """Ledger fixture carrying just the instruments stanza `ledger_tie_band`
+    reads."""
+    with open(path, "w") as f:
+        yaml.safe_dump(
+            {"instruments": {"test-instrument": {"tie_band_nats": tie_band}}}, f
+        )
+    return path
+
+
+def test_ledger_tie_band_reads_the_instrument_stanza(tmp_path):
+    ledger = _write_ledger(tmp_path / "ledger.yaml")
+    assert ledger_tie_band("test-instrument", ledger) == 0.03
+
+
+def test_ledger_tie_band_refuses_unmeasured_instrument(tmp_path):
+    ledger = _write_ledger(tmp_path / "ledger.yaml", tie_band=None)
+    with pytest.raises(ValueError, match="null"):
+        ledger_tie_band("test-instrument", ledger)
+    with pytest.raises(KeyError, match="not defined"):
+        ledger_tie_band("absent-instrument", ledger)
+
+
+def _write_hpo_yaml(path, config, storage_dir, output_dir, ledger_path):
     """Minimal hand-written HPO config so the test breaks on `run_hpo`
     mishandling the YAML, not on edits to the production config.  Absolute
     storage / output paths pass straight through the REPO_ROOT join."""
@@ -71,7 +101,8 @@ def _write_hpo_yaml(path, config, storage_dir, output_dir):
         "storage_path": str(storage_dir / "joint_heads_hpo_test.journal"),
         "output_dir": str(output_dir),
         "objective": "mode",
-        "tie_band": 0.03,
+        "instrument": "test-instrument",
+        "ledger_path": str(ledger_path),
         "sampler_seed": 7,
         "n_trials": 2,
         "n_startup_trials": 2,
@@ -116,14 +147,17 @@ def test_run_joint_heads_hpo_end_to_end(
     storage_dir = tmp_path / "optuna"
     storage_dir.mkdir()
     output_dir = tmp_path / "out"
+    ledger_path = _write_ledger(tmp_path / "ledger.yaml")
     cfg_path = _write_hpo_yaml(
-        tmp_path / "joint_hpo.yaml", base, storage_dir, output_dir,
+        tmp_path / "joint_hpo.yaml", base, storage_dir, output_dir, ledger_path,
     )
 
     summary = run_hpo(cfg_path, device=torch.device("cpu"))
 
     assert summary["n_trials_complete"] == 2
     assert summary["objective"] == "mode"
+    # resolved from the ledger fixture, not a config copy
+    assert summary["tie_band"] == 0.03
     winner = summary["tiebreak_winner"]
     assert winner is not None and "lr" in winner["params"]
     for key in ("mode_best", "mode_best_epoch", "comp_best", "cond_best",
