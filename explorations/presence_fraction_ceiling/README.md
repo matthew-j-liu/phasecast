@@ -91,3 +91,13 @@ Follow-up (2026-07-22): the residual hypothesis was confirmed and priced by
 basis, not corpus size; the excess-oxygen column alone moves the spinel
 ceiling 0.159 -> 0.059. Verdict revision recorded on #41; the redox input
 token adopted on #45 supersedes the enrichment lever for this failure.
+
+Reuse note (2026-07-27): every number in this file is stamped to the
+pre-regen corpus (train at 48 draws/bulk, the 500-bulk val roster) -- do not
+lift them for the traced corpus (24-draw train, 2000-bulk valtest). What
+transfers is the code: `binomial_floor` and `bulk_frequency_targets` in
+`run_probe.py` read per-bulk draw counts from whatever dataset they are
+handed, and are the designated pieces for measuring the new instrument's
+noise floor. The 0.02 tie margin above was this analysis's advisory routing
+margin only; no code reads it, and it is unrelated to the instrument tie
+band in the results ledger.
