@@ -86,5 +86,84 @@ def test_reserve_test_rejects_null_labels() -> None:
         def __len__(self) -> int:
             return len(self.qap_names)
 
-    with pytest.raises(ValueError, match="stratifiable qap_name labels"):
+    with pytest.raises(ValueError, match="stratifiable labels"):
         reserve_test(_NullLabelDataset(), {"seed": 0, "test_split": 0.25})
+
+
+def test_reserve_test_prefers_strat_labels() -> None:
+    """A dataset carrying `strat_labels` splits fine even when
+    `qap_names` has nulls -- the composite label is the stratification
+    source, so null-qap rows are no longer a rejection."""
+
+    class _CompositeDataset:
+        qap_names = ["granite", None, "basalt", None] * 4
+        strat_labels = ["granite", "sedimentary", "basalt", "sedimentary"] * 4
+
+        def __len__(self) -> int:
+            return len(self.qap_names)
+
+    splits = reserve_test(_CompositeDataset(), {"seed": 0, "test_split": 0.25})
+    assert len(splits["test"]) == 4
+    assert len(splits["trainval"]) == 12
+
+
+def test_reserve_test_pins_roster_rows(
+    corpus_subset_path: Path, tmp_path: Path,
+) -> None:
+    """Roster sample_ids that survive the corpus land in test; the
+    stratified draw tops test up to the test_split fraction; the split
+    stays deterministic."""
+    from cnmineral.data.bulk_chemistry import BulkChemistryDataset
+    dataset = BulkChemistryDataset(
+        csv_path=corpus_subset_path, min_class_count=5,
+    )
+    n = len(dataset)
+    pinned_ids = dataset.sample_ids[::10].tolist()
+    missing_id = int(dataset.sample_ids.max()) + 999  # not in corpus: ignored
+    roster = tmp_path / "roster.csv"
+    roster.write_text(
+        "sample_id\n" + "\n".join(str(s) for s in [*pinned_ids, missing_id]),
+    )
+
+    config = {"seed": 0, "test_split": 0.25, "test_roster_path": str(roster)}
+    splits_a = reserve_test(dataset, config)
+    splits_b = reserve_test(dataset, config)
+
+    test_ids = {int(dataset.sample_ids[i]) for i in splits_a["test"]}
+    assert set(pinned_ids) <= test_ids
+    assert len(splits_a["test"]) == round(n * 0.25)
+    assert set(splits_a["test"]).isdisjoint(splits_a["trainval"])
+    assert sorted(splits_a["test"] + splits_a["trainval"]) == list(range(n))
+    assert splits_a["test"] == splits_b["test"]
+
+
+def test_reserve_test_roster_matching_nothing_raises(
+    corpus_subset_path: Path, tmp_path: Path,
+) -> None:
+    from cnmineral.data.bulk_chemistry import BulkChemistryDataset
+    dataset = BulkChemistryDataset(
+        csv_path=corpus_subset_path, min_class_count=5,
+    )
+    roster = tmp_path / "roster.csv"
+    roster.write_text("sample_id\n999999999\n")
+    with pytest.raises(ValueError, match="matches no corpus row"):
+        reserve_test(
+            dataset,
+            {"seed": 0, "test_split": 0.25, "test_roster_path": str(roster)},
+        )
+
+
+def test_reserve_test_roster_with_zero_test_split_raises(
+    corpus_subset_path: Path, tmp_path: Path,
+) -> None:
+    from cnmineral.data.bulk_chemistry import BulkChemistryDataset
+    dataset = BulkChemistryDataset(
+        csv_path=corpus_subset_path, min_class_count=5,
+    )
+    roster = tmp_path / "roster.csv"
+    roster.write_text(f"sample_id\n{int(dataset.sample_ids[0])}\n")
+    with pytest.raises(ValueError, match="contradictory"):
+        reserve_test(
+            dataset,
+            {"seed": 0, "test_split": 0, "test_roster_path": str(roster)},
+        )

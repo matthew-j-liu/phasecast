@@ -1,7 +1,7 @@
 """Tests for `cnmineral.training.ssl_pretrain`: run_pretraining + run_single
 + the best/last checkpoint policy.
 
-Eleven contracts:
+Contracts:
 - One forward/backward/step actually updates the encoder.
 - The SSL log-space objective updates the encoder in one step.
 - run_pretraining returns the expected result-dict keys.
@@ -13,6 +13,9 @@ Eleven contracts:
 - Only best + last land in the store directory (no per-epoch files).
 - The store's best carries the minimum val loss seen across the run.
 - The store's last stays without test_loss after run_single.
+- early_stop_patience halts the loop before the epochs cap, with and
+  without a store, and epoch_last.pt still lands.
+- run_single stamps test_sample_ids alongside test_indices.
 """
 
 import json
@@ -365,6 +368,69 @@ def test_run_single_writes_to_configured_filenames(tmp_path: Path) -> None:
 
     landed = sorted(p.name for p in (tmp_path / "ckpts").glob("*.pt"))
     assert landed == ["attempt2_best.pt", "attempt2_last.pt"], landed
+
+
+def test_early_stop_patience_halts_before_cap() -> None:
+    """With min_delta set above any plausible improvement, the counter
+    starts at epoch 2 and patience=1 stops the run there -- well short
+    of the cap, with the monitor truncated to the epochs actually run."""
+    config = _tiny_config()
+    config["epochs"] = 6
+    config["early_stop_patience"] = 1
+    config["early_stop_min_delta"] = 10.0
+    dataset = create_dataset(config)
+    splits = reserve_test(dataset, config)
+    result = run_pretraining(
+        dataset, splits["trainval"], config, device=torch.device("cpu"),
+    )
+    assert result["final_epoch"] == 2
+    assert len(result["monitor"]["val"]) == result["final_epoch"]
+    # best tracking ran storeless (the hoist the patience counter needs)
+    assert result["best_epoch"] >= 1
+    assert torch.isfinite(torch.tensor(result["best_val_loss"]))
+
+
+def test_early_stop_still_writes_best_and_last(tmp_path: Path) -> None:
+    """An early-stopped run leaves the store in the same shape as a
+    full run: a best snapshot and a last snapshot at the stop epoch."""
+    config = _tiny_config()
+    config["epochs"] = 6
+    config["early_stop_patience"] = 1
+    config["early_stop_min_delta"] = 10.0
+    dataset = create_dataset(config)
+    splits = reserve_test(dataset, config)
+    store = CheckpointStore(
+        tmp_path,
+        best_filename="epoch_best.pt",
+        last_filename="epoch_last.pt",
+    )
+    result = run_pretraining(
+        dataset, splits["trainval"], config, device=torch.device("cpu"),
+        store=store,
+    )
+    assert store.best_exists() and store.last_exists()
+    assert store.load_last().epoch == result["final_epoch"] == 2
+
+
+def test_run_single_stamps_test_sample_ids(tmp_path: Path) -> None:
+    """The best checkpoint carries test_sample_ids parallel to
+    test_indices -- the durable row identity a later corpus pins on."""
+    config = _tiny_config(checkpoint_dir=str(tmp_path / "ckpts"))
+    config_path = _write_yaml(tmp_path / "cfg.yaml", config)
+    run_single(config_path, device=torch.device("cpu"))
+
+    store = CheckpointStore(
+        tmp_path / "ckpts",
+        best_filename="epoch_best.pt",
+        last_filename="epoch_last.pt",
+    )
+    best = store.load_best()
+    assert best.test_sample_ids is not None
+    assert len(best.test_sample_ids) == len(best.test_indices)
+    dataset = create_dataset(config)
+    assert best.test_sample_ids == [
+        int(dataset.sample_ids[i]) for i in best.test_indices
+    ]
 
 
 def test_log_loss_one_step_updates_encoder() -> None:

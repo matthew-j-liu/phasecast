@@ -115,6 +115,30 @@ def test_dropout_roundtrips_through_checkpoint(tiny_pretrain_checkpoint: Path) -
     assert legacy.build_head().dropout == 0.0
 
 
+def test_n_tokens_roundtrips_through_checkpoint(
+    tiny_pretrain_checkpoint: Path,
+) -> None:
+    """A redox-width (23-token) head stamps its width and rebuilds at it;
+    a pre-redox head_config without the key rebuilds at 22."""
+    head = LogImputationHead(d_model=16, hidden=8, n_tokens=N_TOKENS + 1)
+    ckpt = ImputationHeadCheckpoint.from_head(
+        head, str(tiny_pretrain_checkpoint), 0.1, 0.2,
+        {"train": [0.1], "val": [0.2]},
+    )
+    assert ckpt.head_config["n_tokens"] == N_TOKENS + 1
+    rebuilt = ckpt.build_head()
+    assert rebuilt.n_tokens == N_TOKENS + 1
+    assert rebuilt.target_mean.shape == (N_TOKENS + 1,)
+
+    legacy = ImputationHeadCheckpoint(
+        head_state=LogImputationHead(d_model=16, hidden=8).state_dict(),
+        head_config={"d_model": 16, "hidden": 8},
+        encoder_checkpoint=str(tiny_pretrain_checkpoint),
+        train_loss=0.1, val_loss=0.2, monitor={"train": [0.1], "val": [0.2]},
+    )
+    assert legacy.build_head().n_tokens == N_TOKENS
+
+
 def test_imputation_head_checkpoint_save_load(
     tiny_pretrain_checkpoint: Path, tmp_path: Path,
 ) -> None:
@@ -132,7 +156,7 @@ def test_imputation_head_checkpoint_save_load(
 
     loaded = ImputationHeadCheckpoint.load(path)
     assert loaded.head_config == {
-        "d_model": 16, "hidden": 8, "dropout": 0.0,
+        "d_model": 16, "hidden": 8, "dropout": 0.0, "n_tokens": N_TOKENS,
     }
     assert loaded.encoder_checkpoint == str(tiny_pretrain_checkpoint)
     assert torch.equal(
