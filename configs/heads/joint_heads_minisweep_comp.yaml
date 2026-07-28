@@ -9,13 +9,17 @@
 # (hidden null -> d_model // 2 = 128). The search space is 12 discrete
 # cells and seed is fixed, so duplicate trials just re-measure a cell;
 # n_trials is a ceiling, stop anytime, the journal resumes.
+#
+# STALE until the traced main sweep (joint_heads_traced_hpo) lands: runs
+# only under its escalation clause, and `base:` + `mode_reference:` must be
+# refreshed from that sweep's tiebreak winner before running.
 
-study_name: joint_heads_minisweep_comp
-storage_path: data/optuna/journals/joint_heads_minisweep_comp.journal
+study_name: joint_heads_traced_minisweep_comp
+storage_path: data/optuna/journals/joint_heads_traced_minisweep_comp.journal
 output_dir: runs/heads_hpo
 
 objective: comp
-tie_band: 0.03
+instrument: valtest128-traced@2000
 mode_reference: -5.838094660910693
 sampler_seed: 42
 n_trials: 20
@@ -23,14 +27,14 @@ n_startup_trials: 8
 
 base:
   encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
-  corpus_dir: data/corpus/train
-  valtest_corpus_dir: data/corpus/valtest
+  corpus_dir: data/corpus/train_traced
+  valtest_corpus_dir: data/corpus/valtest_traced
   rungs: [50, 30]
   comp_eps: 1.0e-4
   mode_hidden: 256
   mode_layers: 3
-  cond_hidden: null
-  cond_layers: 1
+  cond_hidden: 512
+  cond_layers: 2
   alpha_eps: 1.0e-6
   cond_n_components: 3
   cond_sigma_eps: 1.0e-3

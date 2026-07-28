@@ -1,36 +1,42 @@
-# Joint single-stage HPO for the three heads (ADR 006): shared training
-# environment + ModeHead architecture, ranked on the raw assemblage NLL at
-# ModeHead's own best epoch. Per-head best checkpointing in the trainer means
-# trials never arbitrate stopping; comp/cond bests ride along as user attrs.
-# comp/cond architecture is objective-invisible here and gets its own
-# conditional mini-sweeps (joint_heads_minisweep_{comp,cond}.yaml).
+# Joint HPO for the three heads (ADR 006) on the traced corpus: the shared
+# training environment only, ranked on the raw assemblage NLL at ModeHead's
+# own best epoch. Head sizes are locked in `base:` -- capacity answers are
+# properties of the frozen encoder latent, which a corpus change does not
+# touch, so only the training knobs are re-searched here. When the encoder
+# itself changes the full space re-opens: main sweep with ModeHead
+# architecture + comp/cond mini-sweeps (issue #54). Per-head best
+# checkpointing in the trainer means trials never arbitrate stopping;
+# comp/cond bests ride along as user attrs. The tie band resolves from the
+# named instrument's stanza in results/ledger.yaml, never written here.
 # Resumable via JournalStorage; n_trials is a ceiling, stop anytime.
 #
 # `base:` carries the locked knobs; `search_space:` the swept ones --
 # disjoint, same convention as configs/imputation/imputation_head_hpo.yaml.
-# `baseline:` is enqueued as trial 0 (the untuned reference: the pre-sweep
-# joint_heads.yaml values, weight_decay repointed to the log-range floor).
+# `baseline:` is enqueued as trial 0: the incumbent production dials
+# (configs/heads/joint_heads.yaml), fully comparable and a TPE seed point.
 
-study_name: joint_heads_hpo
-storage_path: data/optuna/journals/joint_heads_hpo.journal
+study_name: joint_heads_traced_hpo
+storage_path: data/optuna/journals/joint_heads_traced_hpo.journal
 output_dir: runs/heads_hpo
 
 objective: mode
-tie_band: 0.03        # nats; val-roster wobble scale -- differences under this are ties
+instrument: valtest128-traced@2000
 sampler_seed: 42
-n_trials: 42
-n_startup_trials: 20
+n_trials: 24
+n_startup_trials: 10
 
 base:
   encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
-  corpus_dir: data/corpus/train
-  valtest_corpus_dir: data/corpus/valtest
+  corpus_dir: data/corpus/train_traced
+  valtest_corpus_dir: data/corpus/valtest_traced
   rungs: [50, 30]
   comp_eps: 1.0e-4
+  mode_hidden: 256
+  mode_layers: 3
   comp_hidden: null
   comp_layers: 1
-  cond_hidden: null
-  cond_layers: 1
+  cond_hidden: 512
+  cond_layers: 2
   alpha_eps: 1.0e-6
   cond_n_components: 3
   cond_sigma_eps: 1.0e-3
@@ -47,14 +53,10 @@ search_space:
   magnitude_weight: {type: float, low: 0.1, high: 10.0, log: true}
   lambda_balance:   {type: float, low: 1.0e-3, high: 1.0e+4, log: true}
   dropout:          {type: float, low: 0.0, high: 0.4}
-  mode_hidden:      {type: categorical, choices: [64, 128, 256, 512]}
-  mode_layers:      {type: int, low: 1, high: 3}
 
 baseline:
-  lr: 1.0e-3
-  weight_decay: 1.0e-7
-  magnitude_weight: 1.0
-  lambda_balance: 1.0
-  dropout: 0.0
-  mode_hidden: 128
-  mode_layers: 1
+  lr: 2.1469012235795473e-04
+  weight_decay: 1.0397924477833218e-05
+  magnitude_weight: 0.2501388179331724
+  lambda_balance: 54.52629573235609
+  dropout: 0.3479155007864341

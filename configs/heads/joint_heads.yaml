@@ -1,8 +1,8 @@
 encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
 
 # labels (semantics stamped into the checkpoint; must match at re-eval)
-corpus_dir: data/corpus/train
-valtest_corpus_dir: data/corpus/valtest   # val roster of valtest_split.csv drives early stopping
+corpus_dir: data/corpus/train_traced
+valtest_corpus_dir: data/corpus/valtest_traced   # val roster of valtest_split.csv drives early stopping
 rungs: [50, 30]
 comp_eps: 1.0e-4      # hard-zero oxide clip before renormalizing comp targets
 
@@ -33,5 +33,5 @@ lr: 2.1469012235795473e-04
 weight_decay: 1.0397924477833218e-05
 seed: 0
 
-head_checkpoint_dir: checkpoints/joint_heads_supportmag_seed0
+head_checkpoint_dir: checkpoints/joint_heads_regen_seed0
 head_checkpoint_filename: heads_best.pt
