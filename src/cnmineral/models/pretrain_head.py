@@ -2,10 +2,11 @@
 SSL pretrain decoder head.
 
 A small MLP that reads the encoder's pooled latent `[B, d_model]` and
-predicts a `frac` value for every position in the 22-token vocabulary.
-The pretrain loss reads its targets at the originally-masked positions
-only; the other 20 predicted values are unsupervised side outputs that
-receive no gradient through the loss.
+predicts a `frac` value for every position in the token vocabulary
+(22, or 23 when the corpus carries the redox token).  The pretrain loss
+reads its targets at the originally-masked positions only; the other
+predicted values are unsupervised side outputs that receive no gradient
+through the loss.
 """
 
 import torch
@@ -34,14 +35,18 @@ class PretrainHead(nn.Module):
     d_model
         Latent dim of the encoder feeding this head.  Should match the
         encoder's d_model.
+    n_tokens
+        Vocabulary width to decode.  Default matches the 22-token
+        corpus; redox corpora pass 23.
     """
 
-    def __init__(self, d_model: int) -> None:
+    def __init__(self, d_model: int, n_tokens: int = N_TOKENS) -> None:
         super().__init__()
         hidden = d_model // 2
+        self.n_tokens = n_tokens
         self.fc1 = nn.Linear(d_model, hidden)
         self.activation = nn.GELU()
-        self.fc2 = nn.Linear(hidden, N_TOKENS)
+        self.fc2 = nn.Linear(hidden, n_tokens)
 
     def forward(self, pooled_latent: torch.Tensor) -> torch.Tensor:
         """

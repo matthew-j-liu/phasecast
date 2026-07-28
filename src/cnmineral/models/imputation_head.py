@@ -43,6 +43,9 @@ class LogImputationHead(nn.Module):
     dropout
         Dropout after the GELU in the MLP path; ignored for the linear head.
         `0.0` disables it.
+    n_tokens
+        Vocabulary width to impute.  Default matches the 22-token corpus;
+        redox corpora pass 23.
     """
 
     def __init__(
@@ -51,28 +54,30 @@ class LogImputationHead(nn.Module):
         *,
         hidden: int | None = None,
         dropout: float = 0.0,
+        n_tokens: int = N_TOKENS,
     ) -> None:
         super().__init__()
         self.d_model = d_model
         self.hidden = hidden
         self.dropout = dropout
+        self.n_tokens = n_tokens
 
         if hidden is None:
-            self.net = nn.Linear(d_model, N_TOKENS)
+            self.net = nn.Linear(d_model, n_tokens)
         else:
             self.net = nn.Sequential(
                 nn.Linear(d_model, hidden),
                 nn.GELU(),
                 nn.Dropout(dropout),
-                nn.Linear(hidden, N_TOKENS),
+                nn.Linear(hidden, n_tokens),
             )
 
         # Per-element log10(frac) center/scale, fit from the training split.
         # Identity until fit so an unfit head is a no-op transform.  Buffers
         # serialize in state_dict, so they travel with the checkpoint and are
         # encoder-version-agnostic.
-        self.register_buffer("target_mean", torch.zeros(N_TOKENS))
-        self.register_buffer("target_std", torch.ones(N_TOKENS))
+        self.register_buffer("target_mean", torch.zeros(n_tokens))
+        self.register_buffer("target_std", torch.ones(n_tokens))
 
     def forward(self, pooled_latent: torch.Tensor) -> torch.Tensor:
         """`[B, d_model]` -> `[B, N_TOKENS]` in standardized-log space.
@@ -101,9 +106,10 @@ class LogImputationHead(nn.Module):
         element with near-constant log-frac cannot blow up the standardized
         target.
         """
-        if target_mean.shape != (N_TOKENS,) or target_std.shape != (N_TOKENS,):
+        if (target_mean.shape != (self.n_tokens,)
+                or target_std.shape != (self.n_tokens,)):
             raise ValueError(
-                f"standardization stats must be [{N_TOKENS}]; got "
+                f"standardization stats must be [{self.n_tokens}]; got "
                 f"{tuple(target_mean.shape)} / {tuple(target_std.shape)}"
             )
         self.target_mean.copy_(target_mean.to(self.target_mean))

@@ -17,6 +17,7 @@ import torch
 from cnmineral.data.tokens import (
     MASK_TOKEN_ID,
     N_TOKENS,
+    REDOX_TOKEN_ID,
     ATOMIC_NUMBERS,
     assert_padding_convention,
     mask_for_ssl,
@@ -201,6 +202,56 @@ class TestEmbeddingTable:
         assert (encoder.element_embedding.weight[0] == 0).all(), (
             "padding row moved during training; padding_idx=0 contract broken"
         )
+
+
+class TestRedoxTokenWidth:
+    """`include_redox_token=True` widens the embedding table by one
+    learnable row for REDOX_TOKEN_ID; the default reproduces the
+    22-token table so pre-redox checkpoints load strictly."""
+
+    def test_default_table_is_120_rows(self) -> None:
+        encoder = Encoder(d_model=64, n_layers=1, n_heads=4)
+        assert encoder.element_embedding.weight.shape[0] == ELEMENT_EMBEDDING_ROWS
+
+    def test_redox_table_has_one_extra_row(self) -> None:
+        encoder = Encoder(
+            d_model=64, n_layers=1, n_heads=4, include_redox_token=True,
+        )
+        assert (
+            encoder.element_embedding.weight.shape[0]
+            == ELEMENT_EMBEDDING_ROWS + 1
+        )
+
+    def test_redox_row_reinitialized_nonzero(self) -> None:
+        encoder = Encoder(
+            d_model=64, n_layers=1, n_heads=4, include_redox_token=True,
+        )
+        assert encoder.element_embedding.weight[REDOX_TOKEN_ID].abs().sum() > 0
+
+    def test_redox_forward_pools_23_tokens(self) -> None:
+        encoder = Encoder(
+            d_model=64, n_layers=1, n_heads=4, include_redox_token=True,
+        )
+        src, frac = _make_batch(batch_size=4)
+        redox_src = torch.full((4, 1), REDOX_TOKEN_ID, dtype=src.dtype)
+        redox_frac = torch.full((4, 1), 0.2, dtype=frac.dtype)
+        out = encoder(
+            src=torch.cat([src, redox_src], dim=1),
+            frac=torch.cat([frac, redox_frac], dim=1),
+        )
+        assert out.shape == (4, 64)
+        assert torch.isfinite(out).all()
+
+    def test_width_mismatch_fails_loudly(self) -> None:
+        """A 22-token state dict must not load into a redox-width model:
+        strict load_state_dict is the guard against silently scoring a
+        checkpoint through the wrong-width table."""
+        old = Encoder(d_model=64, n_layers=1, n_heads=4)
+        new = Encoder(
+            d_model=64, n_layers=1, n_heads=4, include_redox_token=True,
+        )
+        with pytest.raises(RuntimeError):
+            new.load_state_dict(old.state_dict())
 
 
 def test_odd_d_model_raises() -> None:

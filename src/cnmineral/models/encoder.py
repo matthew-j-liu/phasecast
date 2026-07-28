@@ -30,7 +30,7 @@ import pandas as pd
 import torch
 from pathlib import Path
 from torch import nn
-from cnmineral.data.tokens import MASK_TOKEN_ID
+from cnmineral.data.tokens import MASK_TOKEN_ID, REDOX_TOKEN_ID
 from cnmineral.models.fractional_encoder import FractionalEncoder
 
 MAT2VEC_PATH = Path(__file__).resolve().parents[1] / "data" / "element_properties" / "mat2vec.csv"
@@ -143,6 +143,10 @@ class Encoder(nn.Module):
         Dropout in the attention/FFN sub-blocks.
     frac_resolution
         Discretization resolution for the FractionalEncoder bins.
+    include_redox_token
+        If True, reserve a learnable embedding row for `REDOX_TOKEN_ID`
+        (the optional 23rd input token).  Default False reproduces the
+        22-token table so pre-redox checkpoints load strictly.
     mat2vec_path
         Optional override for the mat2vec CSV path.
     """
@@ -154,6 +158,7 @@ class Encoder(nn.Module):
         n_heads: int,
         dropout: float = 0.0,
         frac_resolution: int = 5000,
+        include_redox_token: bool = False,
         mat2vec_path: Path | str = MAT2VEC_PATH,
     ) -> None:
         
@@ -167,12 +172,19 @@ class Encoder(nn.Module):
         self.d_model = d_model
         self.n_layers = n_layers
         self.n_heads = n_heads
+        self.include_redox_token = include_redox_token
 
         mat2vec = load_mat2vec_matrix(mat2vec_path)
         assert mat2vec.shape == (ELEMENT_EMBEDDING_ROWS, MAT2VEC_DIM), (
             f"unexpected mat2vec shape {mat2vec.shape}; expected "
             f"({ELEMENT_EMBEDDING_ROWS}, {MAT2VEC_DIM})"
         )
+        if include_redox_token:
+            # one extra learnable row for REDOX_TOKEN_ID (= 120),
+            # re-initialized below like the MASK row
+            mat2vec = torch.cat(
+                [mat2vec, torch.zeros(1, MAT2VEC_DIM)], dim=0,
+            )
 
         # the `embeddings` argument is a 2D FloatTensor of dimensions 
         # (num_embeddings) x (embedding_dim)
@@ -185,10 +197,14 @@ class Encoder(nn.Module):
         # Re-initialize the MASK row as a small random vector so it has
         # a non-degenerate starting point distinct from the (zeroed)
         # padding row.  The padding row stays at zero via padding_idx=0.
-        with torch.no_grad(): # use when we're not updating weights, to save memory 
+        with torch.no_grad(): # use when we're not updating weights, to save memory
             self.element_embedding.weight[MASK_TOKEN_ID].normal_(
                 mean=0.0, std=0.02,
             )
+            if include_redox_token:
+                self.element_embedding.weight[REDOX_TOKEN_ID].normal_(
+                    mean=0.0, std=0.02,
+                )
 
         # Project mat2vec dim to d_model.
         self.element_projection = nn.Linear(MAT2VEC_DIM, d_model)

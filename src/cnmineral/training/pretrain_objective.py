@@ -17,10 +17,10 @@ from typing import Callable
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
 
-from cnmineral.data.tokens import N_TOKENS
 from cnmineral.losses.pretrain_loss import masked_element_log_mse
 
 _LOG_FLOOR = 1e-12
+_STD_FLOOR = 1e-6
 
 LossFn = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
 
@@ -55,14 +55,17 @@ def log_frac_stats(
         dataset, indices, batch_size=batch_size, num_workers=num_workers,
     )
     log_frac = torch.log10(frac.clamp_min(_LOG_FLOOR))
-    mean = torch.zeros(N_TOKENS)
-    std = torch.ones(N_TOKENS)
-    for j in range(N_TOKENS):
+    n_tokens = frac.shape[1]
+    mean = torch.zeros(n_tokens)
+    std = torch.ones(n_tokens)
+    for j in range(n_tokens):
         col = log_frac[populated[:, j], j]
         if col.numel() > 0:
             mean[j] = col.mean()
             std[j] = col.std(unbiased=False) if col.numel() > 1 else 1.0
-    return mean, std
+    # floor: a near-constant column (possible for the bounded redox
+    # ratio) must not blow up the standardized target
+    return mean, std.clamp_min(_STD_FLOOR)
 
 
 def compute_loss_stats(
