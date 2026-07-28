@@ -1,0 +1,54 @@
+# All-rock + redox-token production encoder (spec locked 2026-07-27 on
+# issues #24 / #45).
+#
+# Optimization HPs ride the ADR 007 seed-0 winner unchanged, so the
+# corpus expansion + redox token are the only variables vs
+# pretrain_v3_logmse_std_seed0.  `epochs` is a cap, not a target:
+# patience early stopping on val loss is expected to fire first, and
+# hitting the cap with the curve still descending means re-examine the
+# specs, not deliver.  The test roster pins two row groups into this
+# corpus's test split: the previous encoder's surviving test rows (so
+# both encoders score on shared held-out rows) and the supervised
+# valtest bulks (so no bulk any eval is measured on enters SSL
+# training).  Regenerate via scripts/build/build_pretrain_test_roster.py.
+
+seed: 0
+
+batch_size: 32
+lr: 8.17949947521167e-05
+mask_prob: 0.28118910790805945
+weight_decay: 0.001976218934028009
+dropout: 0.058245828039608386
+d_model: 256
+n_layers: 4
+n_heads: 8
+
+epochs: 60
+early_stop_patience: 3
+early_stop_min_delta: 1.0e-3
+test_split: 0.20
+val_split: 0.20
+test_roster_path: src/cnmineral/data/pretrain_test_roster.csv
+
+num_workers: 0
+frac_resolution: 5000
+
+data_kwargs:
+  csv_path: data/bulks/gard2019.csv
+  rock_group: null
+  drop_zero_as_nan: true
+  require_all_majors: false
+  include_cr2o3: false
+  require_qap_name: false
+  include_redox: true
+  min_populated_tokens: 4
+  dedup_chemistry: true
+  drop_overrange_as_nan: true
+  # same file as test_roster_path: pinned rows must also win their
+  # dedup group, or an eval row's chemistry survives into training
+  # through an identical-chemistry duplicate
+  dedup_prefer_path: src/cnmineral/data/pretrain_test_roster.csv
+
+checkpoint_dir: checkpoints/pretrain_allrock_redox_seed0
+checkpoint_best_filename: epoch_best.pt
+checkpoint_last_filename: epoch_last.pt

@@ -44,6 +44,8 @@ rename, or repurpose a test) updates this file in the same change.**
 9. `test_zero_drops_row_under_strict` -- under the strict default, a zero major NaNs out and the whole row is dropped.
 10. `test_negative_drops_row` -- a negative major oxide discards the entire row as corrupt.
 11. `test_negative_trace_nans_out_only_that_slot` -- a negative trace pads only that trace slot; the row survives.
+11a. `test_overrange_magnitudes_nan_the_slot` -- under `drop_overrange_as_nan`, an oxide above 100 wt% or a trace above 1e6 ppm pads its slot; with the knob off (historical-corpus reproduction) the row drops via the unconditional frac-overflow guard.
+11b. `test_frac_overflow_row_dropped` -- a joint pathology (feo + fe2o3 summing past 100 wt% in the Fe slot) that survives per-column bounds drops the row unconditionally.
 12. `test_qap_name_attribute` -- `qap_names` is parallel-indexed to `__getitem__` and preserves the label string.
 13. `test_rock_group_filter_excludes_sedimentary` -- `rock_group="igneous"` drops rows labeled with other rock groups.
 14. `test_include_cr2o3_toggle` -- Cr stays padded by default and populates when `include_cr2o3=True`.
@@ -56,6 +58,14 @@ rename, or repurpose a test) updates this file in the same change.**
 21. `test_fixture_size_regression_pin` -- pins `len(dataset)` for the strict default filter on the fixture, catching fixture/filter/pandas drift.
 22. `test_petrological_axes_returns_finite_values` -- SiO2 / Mg# / alkalis reconstructed from `frac` land in sane wt% ranges.
 23. `test_petrological_axes_indices_subset_shape` -- passing `indices` returns arrays sized to the subset.
+24. `test_redox_token_populated_iff_measured_pair` -- the redox slot populates only where feo AND fe2o3 are measured (ratio = fe3/(fe2+fe3) in cation wt); fallback iron sources pad it.
+25. `test_redox_dataset_obeys_padding_convention` -- a redox corpus (populated and padded redox rows) passes `assert_padding_convention`.
+26. `test_redox_default_off_keeps_22_tokens` -- without `include_redox` the tensors stay 22-wide.
+27. `test_min_populated_tokens_drops_thin_rows` -- rows below the populated-token floor are dropped; full rows survive.
+28. `test_dedup_chemistry_keeps_first` -- exact tokenized duplicates collapse to the earliest row with attributes staying index-parallel.
+28a. `test_dedup_prefer_path_wins_duplicate_group` -- a row named in `dedup_prefer_path` survives its duplicate group even when not earliest (pinned-to-test eval chemistry cannot leak into training through a duplicate); unnamed groups keep first.
+29. `test_strat_labels_composite_and_rare_relabel` -- `strat_labels` is qap-else-rock_group; a rare qap class relabels to its rock_group instead of dropping rows.
+30. `test_strat_labels_still_rare_collapse_to_unknown` -- a label still rare after the rock_group collapse lands in the "unknown" bucket.
 
 ### test_condition_proposal.py
 
@@ -250,8 +260,13 @@ rename, or repurpose a test) updates this file in the same change.**
 21. `TestMaskingConvention::test_mask_token_distinguishable_from_padding` -- MASK_TOKEN_ID appears at exactly the masked positions, never colliding with padding.
 22. `TestMaskingConvention::test_masking_preserves_target` -- `target_frac` equals the original (uncorrupted) frac.
 23. `TestMaskingConvention::test_only_populated_positions_get_masked` -- absent tokens (src=0) are never selected for masking.
+24. `TestRedoxTokenWidth::test_default_table_is_120_rows` -- the default embedding table keeps the pre-redox 120 rows so old checkpoints load strictly.
+25. `TestRedoxTokenWidth::test_redox_table_has_one_extra_row` -- `include_redox_token=True` widens the table by exactly one row.
+26. `TestRedoxTokenWidth::test_redox_row_reinitialized_nonzero` -- the REDOX_TOKEN_ID row is re-initialized non-zero (learnable, distinct from padding).
+27. `TestRedoxTokenWidth::test_redox_forward_pools_23_tokens` -- a 23-token batch with a populated redox slot pools to a finite [B, d_model] latent.
+28. `TestRedoxTokenWidth::test_width_mismatch_fails_loudly` -- loading a 22-token state dict into a redox-width model raises (no silent wrong-width scoring).
 
-### test_splittional_encoder.py
+### test_fractional_encoder.py
 
 1. `test_output_shape_is_half_d_model` -- output is [B, T, d_model // 2] (two encoders concatenate to d_model downstream).
 2. `test_extreme_fracs_stay_finite` (x2, parametrized over linear/log10) -- encodings stay finite at frac 0 / 1e-6 / 1 bin / 0.5 / 1.0; the log10 branch survives `log2(0) = -inf` only via its clamp chain.
@@ -312,6 +327,10 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_reserve_test_split_sizes` -- `reserve_test` produces ceil(n * test_split) test rows, disjoint and covering all indices, identical across same-seed calls.
 2. `test_reserve_test_stratifies_when_qap_names_present` -- on the corpus fixture every qap class appears in both splits with a test ratio near test_split.
 3. `test_reserve_test_rejects_null_labels` -- a no-label corpus (None entries in qap_names) raises a clear `ValueError` pointing to the inference path, not a deep sklearn failure.
+4. `test_reserve_test_prefers_strat_labels` -- a dataset carrying `strat_labels` splits fine even with null qap_names (the composite label is the stratification source).
+5. `test_reserve_test_pins_roster_rows` -- surviving `test_roster_path` sample_ids land in test, the stratified draw tops test up to the test_split fraction, and the split stays deterministic; ids absent from the corpus are expected attrition.
+6. `test_reserve_test_roster_matching_nothing_raises` -- a roster matching zero corpus rows raises (wrong roster or wrong corpus), not a silent no-op.
+7. `test_reserve_test_roster_with_zero_test_split_raises` -- a roster combined with `test_split=0` is rejected as contradictory.
 
 ### test_ssl_pretrain.py
 
@@ -330,6 +349,9 @@ rename, or repurpose a test) updates this file in the same change.**
 13. `test_run_single_writes_to_configured_filenames` -- YAML-configured checkpoint filenames land on disk and the default names do not (two runs can share a dir safely).
 14. `test_log_loss_one_step_updates_encoder` -- the standardized log-space objective yields nonzero encoder gradients in one step (the trace-supervision fix trains the encoder, not just the head).
 15. `test_run_pretraining_returns_loss_stats` -- the objective runs end-to-end and returns matching-shaped `loss_stats` (mean+std over the train split).
+16. `test_early_stop_patience_halts_before_cap` -- with min_delta above any plausible improvement, patience stops the run at epoch 2 with the monitor truncated to the epochs actually run; best-val tracking runs storeless (the HPO path the hoist protects).
+17. `test_early_stop_still_writes_best_and_last` -- an early-stopped run leaves the store with a best snapshot and a last snapshot at the stop epoch.
+18. `test_run_single_stamps_test_sample_ids` -- the best checkpoint carries `test_sample_ids` mapping index-for-index onto `test_indices` (the durable row identity a later corpus pins on).
 
 ### test_pretrain_objective.py
 
@@ -337,6 +359,8 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_compute_loss_stats_returns_log_center_scale` -- `compute_loss_stats` returns the per-element log center/scale over the train split.
 3. `test_make_loss_fn_matches_underlying_loss` -- the built callable's value equals `masked_element_log_mse` on the same batch.
 4. `test_make_loss_fn_requires_stats` -- `make_loss_fn(None)` raises (the objective needs its corpus stats).
+5. `test_log_frac_stats_width_follows_frac` -- stats size from the batch width, not a global constant: a 23-wide (redox) corpus gets 23-element stats.
+6. `test_log_frac_stats_std_floor` -- a near-constant populated column keeps a floored std (1e-6) so the standardized target cannot blow up.
 
 ### test_hpo.py
 
@@ -365,6 +389,7 @@ rename, or repurpose a test) updates this file in the same change.**
 4. `test_dropout_roundtrips_through_checkpoint` -- `dropout` is stamped into head_config and rebuilds via `build_head`; a pre-dropout checkpoint (key absent) rebuilds at the 0.0 default.
 5. `test_imputation_head_checkpoint_save_load` -- `ImputationHeadCheckpoint` survives a disk round-trip with its head_config, encoder reference, and buffers intact.
 6. `test_run_single_trains_then_scores_test` -- the single entry trains, saves the head, and scores the test split in one pass: returns the train/val losses plus a `trace_summary` and writes the readout scorecard.
+7. `test_n_tokens_roundtrips_through_checkpoint` -- a redox-width (23-token) head stamps its width and rebuilds at it; a pre-redox head_config without the key rebuilds at 22.
 
 ### test_imputation_head_hpo.py
 
@@ -405,6 +430,7 @@ rename, or repurpose a test) updates this file in the same change.**
 5. `test_extract_latents_full_dataset_shape` -- extracting over the fixture dataset yields a finite [N, d_model] CPU tensor.
 6. `test_extract_latents_indices_subset_shape` -- passing `indices` returns latents sized to the subset.
 7. `test_extract_latents_deterministic_in_eval_mode` -- two extractions agree exactly (guards a forgotten `encoder.eval()` with dropout active).
+7a. `test_padded_redox_view_zeroes_the_slot` -- `PaddedRedoxView` pads exactly the redox slot, leaves the base dataset and other slots untouched, and refuses a 22-token corpus.
 8. `test_logreg_probe_runs_and_beats_random` -- the LR probe trains on separable latents and beats the random baseline.
 9. `test_mlp_probe_runs_and_beats_random` -- same contract for the MLP probe.
 10. `test_probe_metrics_to_dict_is_json_friendly` -- `ProbeMetrics.to_dict()` survives `json.dumps`.

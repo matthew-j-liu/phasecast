@@ -100,6 +100,11 @@ techniques:
     patterns:
       - "MASK_TOKEN_ID"
       - "ELEMENT_EMBEDDING_ROWS"
+  - name: redox_token
+    type: preprocessing
+    patterns:
+      - "REDOX_TOKEN_ID"
+      - "include_redox"
   - name: checkpoint_load
     type: initialization
     patterns:
@@ -130,8 +135,8 @@ techniques:
     type: training_strategy
     patterns:
       - "early_stop_patience"
-      - "best_val_loss"
-      - "bad_epochs"
+      - "early_stop_min_delta"
+      - "epochs_since_improve"
   - name: grad_clip
     type: training_strategy
     patterns:

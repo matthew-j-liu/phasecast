@@ -14,10 +14,10 @@
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
+      "configs/pretrain/pretrain_allrock_redox.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_production.yaml",
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/latent.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/models/comp_head.py",
       "src/cnmineral/models/cond_head.py",
@@ -71,6 +71,7 @@
       "src/cnmineral/eval/probe/primitives.py"
     ],
     "masked_mean_pool": [
+      "src/cnmineral/data/bulk_chemistry.py",
       "src/cnmineral/models/comp_head.py",
       "src/cnmineral/models/cond_head.py",
       "src/cnmineral/models/encoder.py",
@@ -381,6 +382,15 @@
       "src/cnmineral/data/bulk_chemistry.py",
       "src/cnmineral/eval/imputation.py"
     ],
+    "redox_token": [
+      "configs/pretrain/pretrain_allrock_redox.yaml",
+      "src/cnmineral/data/bulk_chemistry.py",
+      "src/cnmineral/data/tokens.py",
+      "src/cnmineral/eval/latent.py",
+      "src/cnmineral/models/encoder.py",
+      "src/cnmineral/training/build_from_config.py",
+      "src/cnmineral/training/imputation_head.py"
+    ],
     "solubility_bounded_lhs_proposal": [
       "src/cnmineral/data/condition_proposal.py"
     ],
@@ -403,6 +413,7 @@
   },
   "training_strategy": {
     "bulk_level_qap_stratification": [
+      "configs/pretrain/pretrain_allrock_redox.yaml",
       "configs/probe/probe_hpo.yaml",
       "scripts/build/build_corpus_bulk_tables.py",
       "scripts/build/build_test_fixture.py",
@@ -424,9 +435,7 @@
       "src/cnmineral/eval/supergroup.py",
       "src/cnmineral/eval/umap_views.py",
       "src/cnmineral/training/__init__.py",
-      "src/cnmineral/training/imputation_head.py",
-      "src/cnmineral/training/splits.py",
-      "src/cnmineral/training/ssl_pretrain.py"
+      "src/cnmineral/training/splits.py"
     ],
     "early_stopping": [
       "configs/heads/joint_heads.yaml",
@@ -435,6 +444,7 @@
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
+      "configs/pretrain/pretrain_allrock_redox.yaml",
       "configs/probe/probe_hpo.yaml",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
@@ -456,6 +466,7 @@
     "masked_element_modeling": [
       "configs/imputation/imputation_head.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
+      "configs/pretrain/pretrain_allrock_redox.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_production.yaml",
       "src/cnmineral/data/tokens.py",
