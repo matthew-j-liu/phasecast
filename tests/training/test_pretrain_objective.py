@@ -89,3 +89,25 @@ def test_make_loss_fn_matches_underlying_loss() -> None:
 def test_make_loss_fn_requires_stats() -> None:
     with pytest.raises(ValueError, match="needs stats"):
         make_loss_fn(None)
+
+
+def test_log_frac_stats_width_follows_frac() -> None:
+    """Stats size from the batch width, not a global constant: a redox
+    (23-wide) corpus gets 23-element stats."""
+    n = 4
+    src = torch.zeros(n, N_TOKENS + 1, dtype=torch.long)
+    frac = torch.zeros(n, N_TOKENS + 1, dtype=torch.float)
+    src[:, N_TOKENS] = 120
+    frac[:, N_TOKENS] = torch.tensor([0.1, 0.2, 0.3, 0.4])
+    ds = _FracDataset(src, frac)
+    mean, std = log_frac_stats(ds, list(range(n)), batch_size=8, num_workers=0)
+    assert mean.shape == (N_TOKENS + 1,) and std.shape == (N_TOKENS + 1,)
+    assert mean[N_TOKENS].item() != 0.0
+
+
+def test_log_frac_stats_std_floor() -> None:
+    """A near-constant populated column keeps a floored std so the
+    standardized target cannot blow up."""
+    ds = _single_element_dataset([0.25, 0.25, 0.25], token_pos=0)
+    _mean, std = log_frac_stats(ds, [0, 1, 2], batch_size=8, num_workers=0)
+    assert std[0].item() == pytest.approx(1e-6, rel=1e-3)
