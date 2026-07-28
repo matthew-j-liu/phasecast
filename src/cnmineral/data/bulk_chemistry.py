@@ -28,7 +28,10 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from pathlib import Path
-from cnmineral.data.tokens import MAJORS, TRACES, N_TOKENS
+from cnmineral.data.tokens import (
+    MAJORS, TRACES, N_TOKENS, N_TOKENS_REDOX,
+    REDOX_TOKEN_ID, REDOX_TOKEN_INDEX,
+)
 
 
 OXIDE_TO_CATION_FACTOR: dict[str, float] = {
@@ -161,7 +164,7 @@ def _resolve_iron(df: pd.DataFrame) -> pd.Series:
 
 
 def tokenize_bulk_frame(
-    df: pd.DataFrame, include_cr2o3: bool = False,
+    df: pd.DataFrame, include_cr2o3: bool = False, include_redox: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Oxide wt% / trace ppm columns -> the `(src, frac)` token pair.
 
@@ -173,6 +176,11 @@ def tokenize_bulk_frame(
     and pad their slot, which is what lets a real-rock table reporting only
     `feo_tot` (and no traces at all) go through unchanged.  Returns `src`
     [N, 22] int64 and `frac` [N, 22] float32.
+
+    `include_redox=True` appends the optional 23rd token ([N, 23]):
+    Fe3+/total-Fe cation ratio, populated only where the measured
+    `feo` + `fe2o3` pair exists (the fallback `*_tot` columns carry no
+    speciation, so they never populate it); padded elsewhere.
     """
     wanted = [
         *MAJOR_TOKEN_TO_COL.values(), *IRON_SOURCE_COLS,
@@ -190,8 +198,9 @@ def tokenize_bulk_frame(
     # build the per-sample tensors.  Each row gets its own (src, frac)
     # pair where src=0 marks padded slots.
     n = len(df)
-    src = np.zeros((n, N_TOKENS), dtype=np.int64)
-    frac = np.zeros((n, N_TOKENS), dtype=np.float32)
+    n_tokens = N_TOKENS_REDOX if include_redox else N_TOKENS
+    src = np.zeros((n, n_tokens), dtype=np.int64)
+    frac = np.zeros((n, n_tokens), dtype=np.float32)
 
     for tok_idx, (sym, z) in enumerate(MAJORS):
         if sym == "Cr" and not include_cr2o3:
@@ -213,6 +222,17 @@ def tokenize_bulk_frame(
         populated = np.isfinite(ppm) & (ppm > 0)
         src[populated, tok_idx] = z
         frac[populated, tok_idx] = ppm[populated] / 1e6
+
+    if include_redox:
+        fe2 = df["feo"].to_numpy(dtype=np.float32) * OXIDE_TO_CATION_FACTOR["feo"]
+        fe3 = df["fe2o3"].to_numpy(dtype=np.float32) * OXIDE_TO_CATION_FACTOR["fe2o3"]
+        populated = (
+            np.isfinite(fe2) & (fe2 > 0) & np.isfinite(fe3) & (fe3 > 0)
+        )
+        src[populated, REDOX_TOKEN_INDEX] = REDOX_TOKEN_ID
+        frac[populated, REDOX_TOKEN_INDEX] = (
+            fe3[populated] / (fe2[populated] + fe3[populated])
+        )
 
     return src, frac
 
@@ -255,7 +275,35 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
         samples in the filtered corpus.  Default 25 matches the
         CLAUDE.md mandate for production splits and guarantees
         sklearn's `train_test_split(stratify=...)` accepts every
-        class.  Only applied when `require_qap_name=True`.
+        class.  Only applied when `require_qap_name=True`; under
+        `require_qap_name=False` it instead collapses rare
+        `strat_labels` classes (see below) without dropping rows.
+    include_redox
+        If True, tokenize with the optional 23rd redox token
+        (Fe3+/total-Fe ratio; populated only where the measured
+        feo+fe2o3 pair exists).  Tensors become `[N, 23]`.
+    min_populated_tokens
+        Drop rows with fewer than this many populated tokens.  Default
+        0 keeps everything, including zero-token rows that would break
+        the encoder's masked-mean pool -- set >= 1 for any corpus built
+        without `require_all_majors`.
+    dedup_chemistry
+        If True, drop rows whose tokenized `(src, frac)` pair exactly
+        duplicates an earlier row (keep first).  Removes identical-
+        chemistry leakage across train/val/test splits.
+    dedup_prefer_path
+        Optional sample_id CSV; rows named there win their duplicate
+        group instead of the earliest row.  Point it at the split
+        roster so a pinned-to-test eval row's chemistry cannot survive
+        into training through a duplicate.  Groups without a named row
+        keep first as usual.
+    drop_overrange_as_nan
+        If True, treat an oxide above 100 wt% or a trace above 1e6 ppm
+        as missing (transcription garbage; would overflow `frac` past
+        1).  Default False so pre-knob configs reconstruct their
+        historical corpora bit-exact.  Rows whose Fe slot still
+        overflows past frac 1 (a joint feo+fe2o3 pathology) are dropped
+        unconditionally -- the fractional encoder cannot represent them.
 
     Attributes (populated at construction)
     --------------------------------------
@@ -267,6 +315,15 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
         every entry is a `str`; otherwise None entries mark unlabeled
         rows.  Carried so downstream split logic can stratify by rock
         class without rebuilding the dataset.
+    rock_groups : np.ndarray
+        Per-row coarse rock group (`igneous` / `sedimentary` /
+        `metamorphic`), `"unknown"` where the source column is null.
+    strat_labels : np.ndarray
+        Per-row stratification label: `qap_name` where present, else
+        `rock_group`.  Under `require_qap_name=False`, labels rarer
+        than `min_class_count` collapse (qap -> rock_group ->
+        `"unknown"`) so stratified splitting never drops a row over
+        label bookkeeping.
     """
 
     def __init__(
@@ -278,6 +335,11 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
         include_cr2o3: bool = False,
         require_qap_name: bool = True,
         min_class_count: int = 25,
+        include_redox: bool = False,
+        min_populated_tokens: int = 0,
+        dedup_chemistry: bool = False,
+        drop_overrange_as_nan: bool = False,
+        dedup_prefer_path: str | Path | None = None,
     ) -> None:
 
         # read the 28 relevant columns from the csv file
@@ -312,6 +374,20 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
         for c in trace_cols:
             df.loc[df[c] < 0, c] = np.nan
 
+        # over-range magnitudes: an oxide above 100 wt% or a trace above
+        # 1e6 ppm cannot be a mass fraction (transcription garbage; present
+        # in the all-rock pool, and `frac > 1` overflows the fractional
+        # encoder's lookup).  NaN the slot like zero-as-nan -- one corrupt
+        # column shouldn't discard an otherwise-good row.  Knobbed
+        # (default off) so pre-knob configs reconstruct their historical
+        # corpora bit-exact: the strict igneous corpus keeps its 38
+        # over-range-major rows and its recorded row order.
+        if drop_overrange_as_nan:
+            for c in oxide_cols:
+                df.loc[df[c] > 100.0, c] = np.nan
+            for c in trace_cols:
+                df.loc[df[c] > 1e6, c] = np.nan
+
         # required-major filter: in strict mode, require feo AND fe2o3
         # both non-null (the v1 convention).  In loose mode, fall back
         # to feo_tot / fe2o3_tot when both primary Fe oxides are missing.
@@ -333,9 +409,44 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
                 keep_classes = counts.index[counts >= min_class_count]
                 df = df[df["qap_name"].isin(keep_classes)]
 
-        # tensors are stacked into two big [N, 22] arrays at construction
-        # time so __getitem__ is a cheap slice.
-        src, frac = tokenize_bulk_frame(df, include_cr2o3=include_cr2o3)
+        # tensors are stacked into two big [N, n_tokens] arrays at
+        # construction time so __getitem__ is a cheap slice.
+        src, frac = tokenize_bulk_frame(
+            df, include_cr2o3=include_cr2o3, include_redox=include_redox,
+        )
+
+        # frac-domain guard: the fractional encoder is defined on [0, 1],
+        # and per-column bounds can't catch a joint pathology (feo + fe2o3
+        # each < 100 wt% but summing past it in the Fe slot).  A row that
+        # still overflows is corrupt; drop it.
+        overflow = (frac > 1.0).any(axis=1)
+        if overflow.any():
+            keep = ~overflow
+            src, frac, df = src[keep], frac[keep], df[keep]
+
+        if min_populated_tokens > 0:
+            keep = (src > 0).sum(axis=1) >= min_populated_tokens
+            src, frac, df = src[keep], frac[keep], df[keep]
+
+        if dedup_chemistry:
+            # keep-first on the exact tokenized chemistry.  src values
+            # (<= 120) are exact in float32, so one concatenated key
+            # array suffices; np.unique returns first-occurrence
+            # indices, re-sorted to preserve corpus order.  With
+            # `dedup_prefer_path`, rows named there win their duplicate
+            # group instead of the earliest row -- a pinned-to-test
+            # eval row excludes its chemistry from training only if the
+            # surviving copy is the pinned one.
+            key = np.concatenate([src.astype(np.float32), frac], axis=1)
+            if dedup_prefer_path is not None:
+                prefer = pd.read_csv(dedup_prefer_path)["sample_id"].to_numpy()
+                is_pref = np.isin(df["sample_id"].to_numpy(), prefer)
+                order = np.argsort(~is_pref, kind="stable")
+            else:
+                order = np.arange(len(key))
+            _, first_idx = np.unique(key[order], axis=0, return_index=True)
+            keep_idx = np.sort(order[first_idx])
+            src, frac, df = src[keep_idx], frac[keep_idx], df.iloc[keep_idx]
 
         self._src = torch.from_numpy(src)
         self._frac = torch.from_numpy(frac)
@@ -346,6 +457,47 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
             [q if isinstance(q, str) else None for q in df["qap_name"]],
             dtype=object,
         )
+        self.rock_groups: np.ndarray = np.array(
+            [g if isinstance(g, str) else "unknown" for g in df["rock_group"]],
+            dtype=object,
+        )
+        self.strat_labels: np.ndarray = self._build_strat_labels(
+            require_qap_name=require_qap_name, min_class_count=min_class_count,
+        )
+
+    def _build_strat_labels(
+        self, *, require_qap_name: bool, min_class_count: int,
+    ) -> np.ndarray:
+        """Composite stratification label per row (see class docstring).
+
+        Rows are corpus, labels are bookkeeping: a label too rare to
+        stratify collapses to a coarser one (qap -> rock_group ->
+        "unknown") instead of costing the row.  Under
+        `require_qap_name=True` the rare-class *drop* already ran, so
+        the composite equals `qap_names` and no collapse fires.
+        """
+        labels = np.array(
+            [q if q is not None else g
+             for q, g in zip(self.qap_names, self.rock_groups)],
+            dtype=object,
+        )
+        if not require_qap_name and min_class_count > 1:
+            counts = pd.Series(labels).value_counts()
+            rare = set(counts.index[counts < min_class_count])
+            if rare:
+                labels = np.array(
+                    [g if lab in rare else lab
+                     for lab, g in zip(labels, self.rock_groups)],
+                    dtype=object,
+                )
+                counts = pd.Series(labels).value_counts()
+                rare = set(counts.index[counts < min_class_count])
+                if rare:
+                    labels = np.array(
+                        ["unknown" if lab in rare else lab for lab in labels],
+                        dtype=object,
+                    )
+        return labels
 
     def __len__(self) -> int:
         return int(self._src.shape[0])

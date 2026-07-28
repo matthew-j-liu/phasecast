@@ -18,6 +18,9 @@ from torch.utils.data import DataLoader
 from cnmineral.data.tokens import (
     MASK_TOKEN_ID,
     N_TOKENS,
+    N_TOKENS_REDOX,
+    REDOX_TOKEN_ID,
+    REDOX_TOKEN_INDEX,
     assert_padding_convention,
 )
 from cnmineral.data.bulk_chemistry import (
@@ -204,6 +207,43 @@ def test_negative_trace_nans_out_only_that_slot(tmp_path: Path) -> None:
     assert ds[0]["frac"][sr_token_idx].item() == 0.0
 
 
+def test_overrange_magnitudes_nan_the_slot(tmp_path: Path) -> None:
+    """Under `drop_overrange_as_nan`, an oxide above 100 wt% or a trace
+    above 1e6 ppm pads its slot (transcription garbage would otherwise
+    overflow frac past 1); with the knob off the row drops instead via
+    the unconditional frac-overflow guard."""
+    csv = _write_csv(tmp_path / "tiny.csv", [
+        _clean_row(sample_id=1, sio2=405.0, sr_ppm=5e6),
+    ])
+    ds = BulkChemistryDataset(
+        csv_path=csv, require_all_majors=False, min_class_count=1,
+        drop_overrange_as_nan=True,
+    )
+    assert len(ds) == 1
+    assert ds[0]["src"][0].item() == 0    # Si padded
+    assert ds[0]["src"][9].item() == 0    # Sr padded
+    assert float(ds[0]["frac"].max()) <= 1.0
+
+    ds_off = BulkChemistryDataset(
+        csv_path=csv, require_all_majors=False, min_class_count=1,
+    )
+    assert len(ds_off) == 0
+
+
+def test_frac_overflow_row_dropped(tmp_path: Path) -> None:
+    """feo + fe2o3 each under 100 wt% but jointly overflowing the Fe
+    slot past frac 1 marks the row corrupt; clean rows survive."""
+    csv = _write_csv(tmp_path / "tiny.csv", [
+        _clean_row(sample_id=1, feo=95.0, fe2o3=95.0),
+        _clean_row(sample_id=2),
+    ])
+    ds = BulkChemistryDataset(
+        csv_path=csv, require_all_majors=False, min_class_count=1,
+    )
+    assert len(ds) == 1
+    assert ds[0]["sample_id"] == 2
+
+
 def test_qap_name_attribute(tmp_path: Path) -> None:
     """qap_names is parallel-indexed to __getitem__ and preserves the label."""
     csv = _write_csv(tmp_path / "tiny.csv", [
@@ -255,6 +295,163 @@ def test_trace_conversion_ppm_to_frac(tmp_path: Path) -> None:
 def test_missing_csv_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         BulkChemistryDataset(csv_path=tmp_path / "nope.csv")
+
+
+# ----- redox token + corpus-build knobs -----
+
+
+def test_redox_token_populated_iff_measured_pair(tmp_path: Path) -> None:
+    """Only rows with both feo and fe2o3 measured populate the redox slot;
+    fallback iron sources carry no speciation so they pad it."""
+    csv = _write_csv(tmp_path / "tiny.csv", [
+        _clean_row(sample_id=1, feo=7.0, fe2o3=2.0),
+        _clean_row(sample_id=2, feo=7.0, fe2o3=""),
+        _clean_row(sample_id=3, feo="", fe2o3="", feo_tot=9.0),
+    ])
+    ds = BulkChemistryDataset(
+        csv_path=csv, require_all_majors=False, min_class_count=1,
+        include_redox=True,
+    )
+    assert ds[0]["src"].shape == (N_TOKENS_REDOX,)
+
+    fe2 = 7.0 * OXIDE_TO_CATION_FACTOR["feo"]
+    fe3 = 2.0 * OXIDE_TO_CATION_FACTOR["fe2o3"]
+    assert ds[0]["src"][REDOX_TOKEN_INDEX].item() == REDOX_TOKEN_ID
+    assert ds[0]["frac"][REDOX_TOKEN_INDEX].item() == pytest.approx(
+        fe3 / (fe2 + fe3), rel=1e-5,
+    )
+    for i in (1, 2):
+        assert ds[i]["src"][REDOX_TOKEN_INDEX].item() == 0
+        assert ds[i]["frac"][REDOX_TOKEN_INDEX].item() == 0.0
+
+
+def test_redox_dataset_obeys_padding_convention(tmp_path: Path) -> None:
+    csv = _write_csv(tmp_path / "tiny.csv", [
+        _clean_row(sample_id=1),
+        _clean_row(sample_id=2, fe2o3=""),
+    ])
+    ds = BulkChemistryDataset(
+        csv_path=csv, require_all_majors=False, min_class_count=1,
+        include_redox=True,
+    )
+    loader = DataLoader(ds, batch_size=2)
+    for batch in loader:
+        assert_padding_convention(batch["src"], batch["frac"])
+
+
+def test_redox_default_off_keeps_22_tokens(tmp_path: Path) -> None:
+    csv = _write_csv(tmp_path / "tiny.csv", [_clean_row()])
+    ds = BulkChemistryDataset(csv_path=csv, min_class_count=1)
+    assert ds[0]["src"].shape == (N_TOKENS,)
+
+
+def test_min_populated_tokens_drops_thin_rows(tmp_path: Path) -> None:
+    """A row below the floor disappears; a full row survives."""
+    thin = _clean_row(
+        sample_id=1, al2o3="", cao="", mgo="", feo="", fe2o3="",
+        k2o="", na2o="", tio2="", sr_ppm="",
+    )
+    csv = _write_csv(tmp_path / "tiny.csv", [thin, _clean_row(sample_id=2)])
+    ds_all = BulkChemistryDataset(
+        csv_path=csv, require_all_majors=False, min_class_count=1,
+    )
+    assert len(ds_all) == 2
+    ds_floor = BulkChemistryDataset(
+        csv_path=csv, require_all_majors=False, min_class_count=1,
+        min_populated_tokens=4,
+    )
+    assert len(ds_floor) == 1
+    assert ds_floor[0]["sample_id"] == 2
+
+
+def test_dedup_chemistry_keeps_first(tmp_path: Path) -> None:
+    """Exact tokenized duplicates collapse to the earliest row; attributes
+    stay index-parallel with the surviving tensors."""
+    csv = _write_csv(tmp_path / "tiny.csv", [
+        _clean_row(sample_id=1),
+        _clean_row(sample_id=2),          # identical chemistry to 1
+        _clean_row(sample_id=3, sio2=60.0),
+    ])
+    ds = BulkChemistryDataset(
+        csv_path=csv, min_class_count=1, dedup_chemistry=True,
+    )
+    assert len(ds) == 2
+    assert ds.sample_ids.tolist() == [1, 3]
+    assert len(ds.qap_names) == len(ds) == len(ds.rock_groups)
+    assert ds[1]["sample_id"] == 3
+
+
+def test_dedup_prefer_path_wins_duplicate_group(tmp_path: Path) -> None:
+    """A row named in dedup_prefer_path survives its duplicate group even
+    when it is not the earliest; unnamed groups keep first as usual."""
+    csv = _write_csv(tmp_path / "tiny.csv", [
+        _clean_row(sample_id=1),
+        _clean_row(sample_id=2),            # identical chemistry to 1
+        _clean_row(sample_id=3, sio2=60.0),
+        _clean_row(sample_id=4, sio2=60.0),  # identical chemistry to 3
+    ])
+    prefer = tmp_path / "prefer.csv"
+    prefer.write_text("sample_id\n2\n")
+    ds = BulkChemistryDataset(
+        csv_path=csv, min_class_count=1, dedup_chemistry=True,
+        dedup_prefer_path=prefer,
+    )
+    assert ds.sample_ids.tolist() == [2, 3]
+
+
+def test_strat_labels_composite_and_rare_relabel(tmp_path: Path) -> None:
+    """qap where present, else rock_group; a qap class rarer than
+    min_class_count relabels to its rock_group instead of dropping rows."""
+    def _null_qap(row: str) -> str:
+        return row.replace(",basalt,", ",,")
+
+    rows = [
+        _clean_row(sample_id=1, qap_name="basalt"),
+        _clean_row(sample_id=2, qap_name="basalt"),
+        _clean_row(sample_id=3, qap_name="dunite"),  # rare: 1 member
+        _null_qap(_clean_row(sample_id=4)),
+        _null_qap(_clean_row(sample_id=5)),
+        _null_qap(_clean_row(sample_id=6)).replace(",igneous,", ",sedimentary,"),
+        _null_qap(_clean_row(sample_id=7)).replace(",igneous,", ",sedimentary,"),
+    ]
+    csv = _write_csv(tmp_path / "tiny.csv", rows)
+    ds = BulkChemistryDataset(
+        csv_path=csv, rock_group=None, require_all_majors=False,
+        require_qap_name=False, min_class_count=2,
+    )
+    assert len(ds) == 7
+    # dunite (1 member < 2) relabels to its rock_group, which the two
+    # null-qap igneous rows keep above the threshold
+    assert ds.strat_labels.tolist() == [
+        "basalt", "basalt", "igneous", "igneous", "igneous",
+        "sedimentary", "sedimentary",
+    ]
+    assert ds.rock_groups.tolist() == [
+        "igneous", "igneous", "igneous", "igneous", "igneous",
+        "sedimentary", "sedimentary",
+    ]
+
+
+def test_strat_labels_still_rare_collapse_to_unknown(tmp_path: Path) -> None:
+    """A label still below min_class_count after the rock_group collapse
+    lands in the catch-all bucket rather than costing the row."""
+    rows = [
+        _clean_row(sample_id=1, qap_name="basalt"),
+        _clean_row(sample_id=2, qap_name="basalt"),
+        _clean_row(sample_id=3, qap_name="dunite"),  # rare, lone igneous fallback
+        _clean_row(sample_id=4, qap_name="norite").replace(
+            ",igneous,", ",metamorphic,",
+        ),  # rare, lone metamorphic fallback
+    ]
+    csv = _write_csv(tmp_path / "tiny.csv", rows)
+    ds = BulkChemistryDataset(
+        csv_path=csv, rock_group=None, require_all_majors=False,
+        require_qap_name=False, min_class_count=2,
+    )
+    assert len(ds) == 4
+    assert ds.strat_labels.tolist() == [
+        "basalt", "basalt", "unknown", "unknown",
+    ]
 
 
 # ----- regression pin against the real corpus (skip if absent) -----

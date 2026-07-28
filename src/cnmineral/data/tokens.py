@@ -18,7 +18,11 @@ masked = `(src=MASK_TOKEN_ID, frac=0)` # distinguishable from padding!
 
 So suppose we have a rock sample where K2O says 0 wt% in `complete.csv` (1279 rows
 have these explicit 0's). We would treat this as a NaN entry, i.e.,
-drop K from the rock's tokens 
+drop K from the rock's tokens
+
+Corpora built with `include_redox=True` carry an optional 23rd token
+(`REDOX_TOKEN_ID`, Fe3+/total-Fe ratio in `frac`); everything above
+applies to it unchanged.
 """
 
 from dataclasses import dataclass
@@ -57,6 +61,17 @@ ATOMIC_NUMBERS: torch.Tensor = torch.tensor(
 # reserves one extra row for this id and treats it as a learnable
 # "[MASK]" embedding analogous to BERT's mask token.
 MASK_TOKEN_ID: int = 119
+
+# Optional 23rd token: Fe redox state.  `frac` carries the Fe3+/total-Fe
+# cation ratio, populated only where the measured FeO+Fe2O3 pair exists
+# and padded (src=0, frac=0) elsewhere -- unknown-redox inference
+# marginalizes implicitly.  `src` uses the next sentinel past MASK; the
+# encoder reserves a learnable embedding row for it when built with
+# `include_redox_token=True`.  A populated redox token is a full citizen
+# of SSL masking (`mask_for_ssl` sees `src > 0`).
+REDOX_TOKEN_ID: int = 120
+REDOX_TOKEN_INDEX: int = 22
+N_TOKENS_REDOX: int = N_TOKENS + 1
 
 
 @dataclass(frozen=True, slots=True)
