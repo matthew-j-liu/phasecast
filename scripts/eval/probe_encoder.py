@@ -36,12 +36,24 @@ def main() -> None:
         "--config", type=Path, default=None,
         help="probe HPO sweep YAML (required when --hpo is set)",
     )
+    parser.add_argument(
+        "--eval-roster", type=Path, default=None,
+        help="sample_id CSV restricting the scored test rows (shared-row "
+             "protocol for cross-corpus encoder comparison)",
+    )
+    parser.add_argument(
+        "--redox", choices=("populated", "padded"), default="populated",
+        help="redox-token view for latent extraction on a redox corpus; "
+             "padded is the head-to-head condition vs a 22-token encoder",
+    )
 
     args = parser.parse_args()
 
     if args.hpo:
         if args.config is None:
             parser.error("--hpo requires --config")
+        if args.eval_roster is not None or args.redox != "populated":
+            parser.error("--eval-roster/--redox only apply in single mode")
         run_hpo(
             checkpoint_path=args.checkpoint.resolve(),
             hpo_config_path=args.config.resolve(),
@@ -51,6 +63,10 @@ def main() -> None:
             parser.error("--config only applies in --hpo mode")
         run_scoring(
             checkpoint_path=args.checkpoint.resolve(),
+            eval_roster=(
+                args.eval_roster.resolve() if args.eval_roster else None
+            ),
+            redox=args.redox,
         )
 
 

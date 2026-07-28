@@ -25,8 +25,18 @@ def main() -> None:
         "--checkpoint", type=Path, required=True,
         help="imputation head checkpoint produced by scripts/training/imputation_head.py",
     )
+    parser.add_argument(
+        "--eval-roster", type=Path, default=None,
+        help="sample_id CSV restricting the scored test rows (shared-row "
+             "protocol for cross-corpus encoder comparison)",
+    )
     args = parser.parse_args()
-    run_imputation(args.checkpoint.resolve())
+    run_imputation(
+        args.checkpoint.resolve(),
+        eval_roster=(
+            args.eval_roster.resolve() if args.eval_roster else None
+        ),
+    )
 
 
 if __name__ == "__main__":

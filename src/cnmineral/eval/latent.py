@@ -27,8 +27,10 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
+from cnmineral.data.tokens import REDOX_TOKEN_INDEX
 from cnmineral.models.encoder import Encoder
 from cnmineral.models.pretrain_head import PretrainHead
+from cnmineral.training.build_from_config import create_encoder_and_head
 from cnmineral.training.checkpoint import Checkpoint
 
 
@@ -49,14 +51,9 @@ def load_encoder_and_head_from_checkpoint(
     head-less `load_encoder_from_checkpoint`, which discards it.
     """
     ckpt = Checkpoint.load(checkpoint_path)
-    encoder = Encoder(
-        d_model=ckpt.config["d_model"],
-        n_layers=ckpt.config["n_layers"],
-        n_heads=ckpt.config["n_heads"],
-        dropout=ckpt.config.get("dropout", 0.0),
-        frac_resolution=ckpt.config.get("frac_resolution", 5000),
-    )
-    head = PretrainHead(d_model=ckpt.config["d_model"])
+    # single source of construction truth, incl. the token-width
+    # derivation from data_kwargs.include_redox
+    encoder, head = create_encoder_and_head(ckpt.config)
     ckpt.apply_to(encoder, head)
     encoder.eval()
     head.eval()
@@ -69,6 +66,37 @@ def load_encoder_from_checkpoint(
     """Head-less variant for probes / UMAP, which only read pooled latents."""
     encoder, _head, ckpt = load_encoder_and_head_from_checkpoint(checkpoint_path)
     return encoder, ckpt
+
+
+class PaddedRedoxView(Dataset):
+    """Read-only view of a redox corpus with the redox token padded.
+
+    The head-to-head condition for comparing a redox encoder against a
+    22-token one: zeroing `(src, frac)` at the redox slot puts every row
+    in the padded regime the encoder trained on for ~78% of the corpus.
+    Wraps `__getitem__` only; consumers keep reading labels/attributes
+    off the base dataset.
+    """
+
+    def __init__(self, base: Dataset) -> None:
+        base_item = base[0]
+        if base_item["src"].shape[0] <= REDOX_TOKEN_INDEX:
+            raise ValueError(
+                "PaddedRedoxView needs a redox (23-token) corpus; "
+                f"got {base_item['src'].shape[0]} tokens"
+            )
+        self.base = base
+
+    def __len__(self) -> int:
+        return len(self.base)
+
+    def __getitem__(self, idx: int) -> dict:
+        # BulkChemistryDataset.__getitem__ clones, so in-place zeroing
+        # cannot touch the base tensors
+        item = self.base[idx]
+        item["src"][REDOX_TOKEN_INDEX] = 0
+        item["frac"][REDOX_TOKEN_INDEX] = 0.0
+        return item
 
 
 @torch.no_grad()

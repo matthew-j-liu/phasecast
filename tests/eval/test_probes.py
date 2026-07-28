@@ -13,7 +13,9 @@ import pytest
 import torch
 
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset
+from cnmineral.data.tokens import REDOX_TOKEN_INDEX
 from cnmineral.eval.latent import (
+    PaddedRedoxView,
     extract_latents,
     load_encoder_from_checkpoint,
 )
@@ -131,6 +133,37 @@ def test_extract_latents_deterministic_in_eval_mode(fixture_dataset) -> None:
     a = extract_latents(encoder, fixture_dataset, batch_size=64)
     b = extract_latents(encoder, fixture_dataset, batch_size=64)
     assert torch.allclose(a, b)
+
+
+def test_padded_redox_view_zeroes_the_slot(corpus_subset_path: Path) -> None:
+    """The view pads exactly the redox slot, leaves the base dataset
+    untouched, and refuses a 22-token corpus."""
+    ds = BulkChemistryDataset(
+        csv_path=corpus_subset_path, require_all_majors=False,
+        min_class_count=1, include_redox=True,
+    )
+    populated = [
+        i for i in range(len(ds))
+        if ds[i]["src"][REDOX_TOKEN_INDEX].item() != 0
+    ]
+    assert populated, "fixture should carry measured feo+fe2o3 pairs"
+    view = PaddedRedoxView(ds)
+    i = populated[0]
+    item = view[i]
+    assert item["src"][REDOX_TOKEN_INDEX].item() == 0
+    assert item["frac"][REDOX_TOKEN_INDEX].item() == 0.0
+    # base unchanged; other slots unchanged
+    assert ds[i]["src"][REDOX_TOKEN_INDEX].item() != 0
+    assert torch.equal(item["src"][:REDOX_TOKEN_INDEX],
+                       ds[i]["src"][:REDOX_TOKEN_INDEX])
+    assert len(view) == len(ds)
+
+    ds22 = BulkChemistryDataset(
+        csv_path=corpus_subset_path, require_all_majors=False,
+        min_class_count=1,
+    )
+    with pytest.raises(ValueError, match="23-token"):
+        PaddedRedoxView(ds22)
 
 
 # ---------- probes ----------

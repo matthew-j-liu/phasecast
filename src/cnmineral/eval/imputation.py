@@ -29,11 +29,14 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader, Subset
 
 from cnmineral.data.bulk_chemistry import MAJOR_TOKEN_TO_COL, OXIDE_TO_CATION_FACTOR
-from cnmineral.data.tokens import MAJORS, MASK_TOKEN_ID, VOCAB
+from cnmineral.data.tokens import (
+    MAJORS, MASK_TOKEN_ID, REDOX_TOKEN_ID, REDOX_TOKEN_INDEX, VOCAB,
+)
 from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.eval.supergroup import SUPERGROUP_COLORS, map_qap_array
 from cnmineral.models.encoder import Encoder
@@ -55,10 +58,13 @@ def _back_transform(token_pos: int, frac: np.ndarray) -> tuple[np.ndarray, str]:
     """Invert the dataset's frac normalization for one token position.
 
     Returns the values in the unit a scientist reads -- oxide wt% for
-    majors, ppm for traces -- plus a short axis label.  Fe is a blend of
-    FeO + Fe2O3 cation contributions, so its frac inverts to cation wt%
+    majors, ppm for traces, the dimensionless ratio for the redox
+    token -- plus a short axis label.  Fe is a blend of FeO + Fe2O3
+    cation contributions, so its frac inverts to cation wt%
     (`frac * 100`), not to a single oxide.
     """
+    if token_pos == REDOX_TOKEN_INDEX:
+        return frac, "Fe3+/total-Fe (ratio)"
     sym, _z = VOCAB[token_pos]
     if token_pos < len(MAJORS):
         if sym == "Fe":
@@ -255,9 +261,16 @@ def score_head_per_element(
     `trace_panels` is empty unless `with_panels` is set.  Gate reference lines
     and printing are the caller's concern -- this stays a pure scorer.
     """
+    positions = list(enumerate(VOCAB))
+    if getattr(head, "n_tokens", len(VOCAB)) > len(VOCAB):
+        # redox corpus: score the 23rd slot too.  It joins per_element
+        # under its own key but stays out of the trace panels and the
+        # 13-trace summary medians (it is not a trace).
+        positions.append((REDOX_TOKEN_INDEX, ("redox", REDOX_TOKEN_ID)))
+
     per_element: dict[str, dict] = {}
     trace_panels: list[dict] = []
-    for token_pos, (sym, _z) in enumerate(VOCAB):
+    for token_pos, (sym, _z) in positions:
         kept, true_frac, pred_log = _impute_token(
             encoder, head, dataset, indices, token_pos,
             device=device, batch_size=batch_size,
@@ -274,7 +287,7 @@ def score_head_per_element(
             "log_mae": m["mae"],
             "log_rmse": m["rmse"],
         }
-        if with_panels and token_pos >= _N_MAJORS:
+        if with_panels and _N_MAJORS <= token_pos < len(VOCAB):
             bt_true, label = _back_transform(token_pos, true_frac)
             bt_pred, _ = _back_transform(token_pos, np.power(10.0, pred_log))
             trace_panels.append({
@@ -290,16 +303,20 @@ def run_imputation(
     *,
     device: torch.device | None = None,
     batch_size: int = 512,
+    eval_roster: Path | None = None,
 ) -> dict:
     """Score a trained imputation head in log space over its encoder's test split.
 
     Writes per-element log-space metrics (with the gate's reference lines when
     available), an R2 bar chart, and trace parity grids to
     `runs/imputation/<encoder_tag>/readout/`, and returns the metrics dict.
+    `eval_roster` restricts the scored test rows to the roster's sample_ids
+    (the shared-row protocol for cross-corpus encoder comparison).
     """
     head_ckpt = ImputationHeadCheckpoint.load(head_checkpoint_path)
     encoder_ckpt_path = Path(head_ckpt.encoder_checkpoint)
-    tag = checkpoint_tag(encoder_ckpt_path)
+    base_tag = checkpoint_tag(encoder_ckpt_path)
+    tag = base_tag + ("_inherited" if eval_roster is not None else "")
     output_dir = RUNS_ROOT / "imputation" / tag / "readout"
     output_dir.mkdir(parents=True, exist_ok=True)
     device = device or pick_device()
@@ -314,8 +331,18 @@ def run_imputation(
 
     dataset = create_dataset(enc_ckpt.config)
     test_idx = np.asarray(reserve_test(dataset, enc_ckpt.config)["test"], dtype=np.int64)
+    if eval_roster is not None:
+        roster_ids = pd.read_csv(eval_roster)["sample_id"].to_numpy()
+        keep = np.isin(dataset.sample_ids[test_idx], roster_ids)
+        if not keep.any():
+            raise ValueError(
+                f"eval roster {eval_roster} shares no row with this "
+                f"encoder's test split"
+            )
+        test_idx = test_idx[keep]
+        print(f"scored test rows restricted to roster: {len(test_idx)}")
     sg_all = map_qap_array(dataset.qap_names)
-    references = _load_gate_references(tag)
+    references = _load_gate_references(base_tag)
     print(f"dataset n={len(dataset)} test={len(test_idx)} "
           f"gate_refs={'yes' if references else 'no'}")
 
@@ -358,10 +385,14 @@ def run_imputation(
 
 
 def _summarize(per_element: dict) -> dict:
-    """Median trace head log-R2 and, when present, the two reference medians."""
+    """Median trace head log-R2 and, when present, the two reference medians.
+
+    The redox slot reports separately -- it is not a trace, so it stays
+    out of the 13-trace medians the yardstick compares across encoders.
+    """
     head, ceil, latent = [], [], []
     for sym, rec in per_element.items():
-        if rec["token_pos"] < _N_MAJORS:
+        if not (_N_MAJORS <= rec["token_pos"] < len(VOCAB)):
             continue
         head.append(rec["log_r2"])
         if "input_xgb_ceiling_r2" in rec:
@@ -373,6 +404,7 @@ def _summarize(per_element: dict) -> dict:
         "median_head_log_r2": float(np.median(head)) if head else float("nan"),
         "median_input_xgb_ceiling_r2": float(np.median(ceil)) if ceil else None,
         "median_frozen_latent_xgb_r2": float(np.median(latent)) if latent else None,
+        "redox_log_r2": per_element.get("redox", {}).get("log_r2"),
     }
 
 
