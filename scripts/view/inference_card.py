@@ -83,7 +83,6 @@ def main() -> None:
         )["joint"]
         bpos = pick_bulk_by_nll(nll_rows, row_bulk, rung, args.rung, args.pick)
         bulk = int(ds.bulk_ids[bpos])
-        picked = f"{args.pick}-NLL val bulk"
         print(f"picked bulk {bulk} ({args.pick} per-bulk mode NLL at "
               f"rung {args.rung})")
     else:
@@ -92,7 +91,6 @@ def main() -> None:
         if len(hits) == 0:
             raise SystemExit(f"bulk {bulk} is not on the val roster")
         bpos = int(hits[0])
-        picked = "bulk chosen by hand"
     rows = np.flatnonzero((row_bulk == bpos) & (rung == args.rung))
     if len(rows) == 0:
         raise SystemExit(f"bulk {bulk} has no rows at rung {args.rung}")
@@ -121,9 +119,8 @@ def main() -> None:
         out_dir = Path("results") / args.checkpoint.parent.name
     out_dir.mkdir(parents=True, exist_ok=True)
     title = (
-        f"{ds.bulk_qap_names[bpos]} (bulk {bulk}), {args.rung}%-melt rung -- "
-        f"truth ({len(rows)} draws) vs prediction ({args.n_samples} samples); "
-        f"{picked}; no teacher forcing anywhere"
+        f"{ds.bulk_qap_names[bpos]} (bulk {bulk}), {args.rung}%-melt rung: "
+        f"predicted posterior vs {len(rows)}-draw truth"
     )
     inference_card(
         ds.bulk_11[rows].numpy(), ds.magnitude[rows].numpy(), pred_modes,

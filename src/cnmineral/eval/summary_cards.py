@@ -16,12 +16,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 from ..data.magemin_corpus import COMP_OXIDES
 from ..data.phase_vocab import SOLID_PHASES
 from ..models.cond_head import COND_AXES
 
 COND_LABELS = {"T": "temperature (C)", "P_kbar": "pressure (kbar)", "H2O": "water (wt%)"}
+
+TITLE_FS = 12
+XLABEL_FS = 11
+TICK_FS = 10
+LEGEND_FS = 11
+SUPTITLE_FS = 10
 
 
 def sample_assemblages(p, alpha_fn, n, rng):
@@ -142,11 +149,11 @@ def inference_card(
     lo, hi = np.quantile(bulk_11_rows[:, h2o], [0.1, 0.9])
     ax.errorbar(med[h2o], h2o, xerr=[[med[h2o] - lo], [hi - med[h2o]]],
                 fmt="none", ecolor="black", lw=0.9, capsize=2)
-    ax.set_yticks(range(len(COMP_OXIDES)), COMP_OXIDES, fontsize=8)
+    ax.set_yticks(range(len(COMP_OXIDES)), COMP_OXIDES, fontsize=TICK_FS)
     ax.invert_yaxis()
     ax.set_xscale("log")
-    ax.set_xlabel("mass fraction of the rock (log)", fontsize=9)
-    ax.set_title("input: bulk chemistry\n(whiskers: H2O varies by draw)", fontsize=9)
+    ax.set_xlabel("mass fraction of the rock (log)", fontsize=XLABEL_FS)
+    ax.set_title("Input: Bulk Chemistry", fontsize=TITLE_FS)
 
     show = [
         k for k in range(len(SOLID_PHASES))
@@ -163,13 +170,15 @@ def inference_card(
                      mfc="white")
         ax_rate.plot((truth_modes[:, k] > 0).mean(), i + 0.15, "o", ms=4,
                      color="tab:blue")
-    ax_rate.set_yticks(range(len(show)), [SOLID_PHASES[k] for k in show], fontsize=8)
+    ax_rate.set_yticks(range(len(show)), [SOLID_PHASES[k] for k in show],
+                       fontsize=TICK_FS)
     ax_rate.invert_yaxis()
     ax_rate.set_xlim(-0.05, 1.05)
     ax_rate.set_xticks([0, 0.5, 1])
     ax_rate.grid(axis="x", lw=0.3, alpha=0.5)
-    ax_rate.set_xlabel("fraction of draws\ncontaining the mineral", fontsize=8)
-    ax_rate.set_title("is it there?", fontsize=9)
+    ax_rate.set_xlabel("fraction of draws\ncontaining the mineral",
+                       fontsize=XLABEL_FS)
+    ax_rate.set_title("Phase Presence Rate", fontsize=TITLE_FS)
 
     ax_share = fig.add_subplot(gs[2])
     for i, k in enumerate(genuine):
@@ -187,21 +196,21 @@ def inference_card(
                     ecolor=color, lw=1.2, capsize=2.5,
                 )
     ax_share.set_yticks(range(len(genuine)),
-                        [SOLID_PHASES[k] for k in genuine], fontsize=8)
+                        [SOLID_PHASES[k] for k in genuine], fontsize=TICK_FS)
     ax_share.invert_yaxis()
     ax_share.set_xscale("log")
     ax_share.set_xlim(5e-4, 1.0)
     ax_share.grid(axis="x", lw=0.3, alpha=0.5)
     ax_share.set_xlabel("share of solids when present (log)\nwhiskers p25-p75",
-                        fontsize=9)
-    ax_share.set_title("how much, when there?", fontsize=9)
+                        fontsize=XLABEL_FS)
+    ax_share.set_title("Phase Abundance When Present", fontsize=TITLE_FS)
     ax_share.legend(handles=[
         Line2D([], [], marker="o", ls="", color="tab:orange", mfc="white",
                label="prediction"),
         Line2D([], [], marker="o", ls="", color="tab:blue", label="truth"),
         Line2D([], [], marker="o", ls="", color="0.55", mfc="white",
-               label="predicted but never in truth\n(rate panel only)"),
-    ], fontsize=7, loc="lower right")
+               label="false positive"),
+    ], fontsize=LEGEND_FS, loc="upper left")
 
     inner = gs[3].subgridspec(len(COND_AXES), 1, hspace=0.55)
     for a, axis_name in enumerate(COND_AXES):
@@ -210,15 +219,18 @@ def inference_card(
             np.concatenate([cond_truth[:, a], cond_samples[:, a]]), bins=35
         )
         axc.hist(cond_truth[:, a], bins=bins, density=True, color="tab:blue",
-                 alpha=0.35, label="truth draws")
+                 alpha=0.35)
         axc.hist(cond_samples[:, a], bins=bins, density=True, color="tab:orange",
-                 alpha=0.6, histtype="step", lw=1.4,
-                 label="posterior (own mineral lists)")
+                 alpha=0.6, histtype="step", lw=1.4)
         axc.set_yticks([])
-        axc.set_title(COND_LABELS[axis_name], fontsize=8, pad=2)
-        if a == 0:
-            axc.legend(fontsize=6)
-    fig.suptitle(title, fontsize=10)
+        axc.set_title(COND_LABELS[axis_name], fontsize=TITLE_FS, pad=2)
+        if a == len(COND_AXES) - 1:
+            axc.legend(handles=[
+                Patch(facecolor="tab:blue", alpha=0.35, label="truth draws"),
+                Line2D([], [], color="tab:orange", lw=1.4, label="posterior"),
+            ], fontsize=LEGEND_FS, ncol=2, loc="upper center",
+                bbox_to_anchor=(0.5, -0.45), frameon=False)
+    fig.suptitle(title, fontsize=SUPTITLE_FS)
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"saved {out_path}")
