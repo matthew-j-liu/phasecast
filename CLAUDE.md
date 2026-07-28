@@ -271,11 +271,11 @@ GitHub auto-closes on merge.
 - **src layout** under `src/cnmineral/`; **configs as YAML** in `configs/`, sole
   CLI flag `--config PATH`; **element-properties CSVs** at
   `src/cnmineral/data/element_properties/` (encoder loads `mat2vec.csv`);
-  **generated artifacts are gitignored**, regenerable via `scripts/`, and
-  split by role: `results/` = per-version headline summaries (model-version
-  ledger, trajectory, per-model headline figures; see `results/README.md`),
-  `runs/` = transient instrument snapshots overwritten as iteration
-  continues.
+  **generated artifacts** split by role, regenerable via `scripts/`:
+  `runs/` = transient instrument snapshots, gitignored, overwritten as
+  iteration continues; `results/` = per-version headline summaries
+  (model-version ledger, trajectory, per-model headline figures; see
+  `results/README.md`), tracked.
   (`explorations/*/results/` stay tracked -- exploration conclusions.)
 - [docs/encoder.md](docs/encoder.md) — foundation encoder, value proposition,
   four-axis differentiation, tokenization/data-flow, the three corpora, SSL

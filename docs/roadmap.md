@@ -114,14 +114,18 @@ fine-tune with all heads end-to-end at a low encoder LR
 ablation against the Track-B frozen-encoder version. Ship whichever
 calibrates better.
 
-## Current status and next steps (2026-07-27)
+## Current status and next steps (2026-07-28)
 
-The traced train tier is generated (35k bulks x 24 draws,
-`data/corpus/train_traced`); valtest is extended 500 -> 2000 bulks x
-128 draws on a frozen-assignment roster (journal 2026-07-26) and
-finishes generating as this is written, instrument
-`valtest128-traced@2000`. Sequencing from here runs corpus first, then
-encoder, so each change is attributed separately:
+Both traced tiers are generated and healthy (train 35k bulks x 24 draws,
+`data/corpus/train_traced`; valtest 2000 x 128 on the frozen-assignment
+887/1112 roster, instrument `valtest128-traced@2000`). The corpus cascade
+is in flight: heads configs point at the traced tiers, the instrument's
+noise floor is measured automatically at eval
+(`eval.mode_head.binomial_floor`) and the HPO tie band reads from the
+ledger's instrument stanza (journal 2026-07-28); the baseline heads
+retrain (`joint_heads_regen_seed0`) is queued behind the encoder
+session's GPU use. Sequencing runs corpus first, then encoder, so each
+change is attributed separately:
 
 1. **Corpus cascade**: build the training corpus from the traced
    tiers, retrain the heads, mini-HPO, re-score on the new

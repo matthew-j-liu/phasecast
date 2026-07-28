@@ -4791,3 +4791,54 @@ CSVs, which was silently skipping its representativeness plot).
 build, head retrain on the traced tiers, mini-HPO, re-score on the new
 instrument -- with the real-rock benchmark judging the era transition
 (zero-shot entry + the #52 curve re-run, per the segmented-ledger convention).
+
+## 2026-07-28 -- Cascade 1 kickoff: heads wired to the traced tiers, the instrument becomes code-read
+
+**Q.** With both traced tiers generated and the encoder re-pretrain running
+in a parallel session, how does the heads retrain sequence, how big is the
+mini-HPO, and where does the tie band live now that the instrument it was
+sized for is retired?
+
+**Context.** Every ledger entry so far is stamped `valtest128-broad`; the
+new instrument's stanza sat with null floor and band while `tie_band: 0.03`
+lived on in three sweep configs nothing connected. The #32 capacity answers
+(mode 256x3, comp 128x1, cond 512x2) were bought against the same frozen
+latent cascade 1 keeps.
+
+**Considered.** Sweep-first (fastest headline, but corpus and tuning
+effects fold together and the tiebreak runs on a stale band). Full #32
+repeat (~82 trials; re-buys certainty on capacity answers whose mechanism
+did not change). Tie band in a new tracked instruments file, or manual
+copies plus a consistency test (both keep a second copy alive).
+
+**Decision.** Owner-locked, four pieces. (1) *Baseline first*: retrain at
+the incumbent dials on the traced tiers (`joint_heads_regen_seed0`),
+re-score, then sweep -- two ledger entries mirroring joint-baseline ->
+joint-tuned, so the corpus change is measured alone. (2) *Weights-only
+mini-HPO*: 24 trials over lr / weight_decay / magnitude_weight /
+lambda_balance / dropout with the incumbent enqueued as trial 0 and head
+sizes locked; escalate to the arch mini-sweeps only if the winner lands at
+a search edge or comp/cond degrade beyond the band; the full space re-opens
+when the encoder changes (#54). (3) *One source of truth for the band*: the
+ledger's instruments stanza is canonical -- `run_hpo` resolves it via
+`ledger_tie_band` and refuses an unmeasured (null) instrument; the three
+config copies are deleted and `results/` is tracked from here on. (4) *The
+floor is measured where it is used*: `bulk_frequency_targets` +
+`binomial_floor` promoted from the presence-ceiling exploration into
+`eval.mode_head`, so every ModeHead eval stamps per-phase floors into its
+`metrics.json`. The stanza field is renamed `noise_floor` -- the value is
+presence-fraction MAE, not nats -- while the band stays `tie_band_nats`,
+adjudicated by the owner from the floor plus the seed-noise scale rather
+than unit-converted. Riders: the #49 amp gate check (report-only) and
+recalibrator HPO join this cascade's real-rock batch; #53 waits for
+cascade 2, where it decomposes encoder-vs-heads in one shot. Wiring smoke:
+34,474 train bulks x 24 draws (1.65M rows at rungs [50, 30]); 871 of the
+887 val-roster bulks carry corpus rows (3 unresolvable chemistry, 13
+rowless -- same ~1.5% as the old instrument's 218/221); nine classes sit
+permanently at 5-6 valtest bulks, recorded as `thin_classes` in the stanza
+so per-class numbers for them are structurally caveated as anecdote.
+
+**Next.** Owner launches the baseline retrain once the parallel session's
+imputation HPO frees MPS (both trainers auto-pick it; no CPU flag exists).
+The first eval prints the measured floor, the owner sets the band, the
+stanza fills, and the sweep unlocks.
