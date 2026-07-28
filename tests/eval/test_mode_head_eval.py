@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 import torch.nn.functional as F
 from scipy.stats import beta as beta_dist
@@ -11,6 +12,8 @@ from cnmineral.data.bulk_chemistry import BulkChemistryDataset
 from cnmineral.eval.joint_heads import run_joint_eval
 from cnmineral.eval.mode_head import (
     beta_pit,
+    binomial_floor,
+    bulk_frequency_targets,
     conditional_mean,
     fp_fn_mass,
     hurdle_nll_rows,
@@ -54,6 +57,40 @@ def test_within_bulk_frequency():
     assert np.allclose(f[2], [0.0, 0.5])
     assert np.isnan(f[1]).all()
     assert n_rows.tolist() == [2, 0, 2]
+
+
+def test_bulk_frequency_targets_derives_draws_from_rungs():
+    class _DS:
+        presence = torch.tensor([[1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 1.0]])
+        row_bulk_idx = torch.tensor([0, 0, 1, 1])
+        bulk_ids = [10, 11]
+        rung = torch.tensor([50, 30, 50, 30])
+
+    f, draws = bulk_frequency_targets(_DS())
+    assert np.allclose(f, [[1.0, 0.5], [0.0, 1.0]])
+    # 2 rows per bulk over 2 rungs = 1 draw
+    assert draws.tolist() == [1.0, 1.0]
+
+
+def test_bulk_frequency_targets_raises_on_rowless_bulk():
+    class _DS:
+        presence = torch.tensor([[1.0, 0.0]])
+        row_bulk_idx = torch.tensor([0])
+        bulk_ids = [10, 11]
+        rung = torch.tensor([50])
+
+    with pytest.raises(ValueError, match="no rows"):
+        bulk_frequency_targets(_DS())
+
+
+def test_binomial_floor_hand_case():
+    f = np.array([[0.5, 0.0], [0.5, 1.0]])
+    n_draws = np.array([100.0, 25.0])
+    floors = binomial_floor(f, n_draws)
+    # per-bulk sd 0.05 and 0.10, E|x| = sqrt(2/pi) * sd, averaged over bulks
+    assert np.isclose(floors[0], np.sqrt(2 / np.pi) * 0.075)
+    # degenerate frequencies carry no sampling noise
+    assert floors[1] == 0.0
 
 
 def test_within_bulk_conditional_sigma():
@@ -304,6 +341,9 @@ def test_run_mode_head_eval_end_to_end(
     }
     assert metrics["n_val_bulks"] == len(val_ids)
     assert metrics["n_val_rows"] == 3 * len(val_ids)
+    floor = metrics["binomial_floor"]
+    assert np.isfinite(floor["max"]) and np.isfinite(floor["draws_per_bulk_median"])
+    assert floor["max"] == max(floor["per_phase"].values())
     out_dir = tmp_path / "runs" / "mode_head" / "ckpt"
     assert (out_dir / "metrics.json").exists()
     assert (out_dir / "reliability.png").exists()

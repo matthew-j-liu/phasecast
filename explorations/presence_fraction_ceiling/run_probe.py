@@ -37,7 +37,7 @@ from cnmineral.data.phase_vocab import N_PHASES, SOLID_PHASES
 from cnmineral.data.tokens import VOCAB
 from cnmineral.eval.joint_heads import val_dataset_and_latents
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.mode_head import within_bulk_frequency
+from cnmineral.eval.mode_head import binomial_floor, bulk_frequency_targets
 from cnmineral.training import checkpoint_tag, pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 
@@ -46,39 +46,11 @@ HEADLINE = ("spl", "ilm", "ru", "sph")
 ELEMENT_SYMBOLS = [s for s, _z in VOCAB]
 
 
-def bulk_frequency_targets(dataset: JointHeadDataset) -> tuple[np.ndarray, np.ndarray]:
-    """Per-bulk presence fraction `f` [n_bulks, 21] and draws per bulk [n_bulks].
-
-    Rows are (draw, rung) pairs; `within_bulk_frequency` pools the rungs, so
-    draws ~ rows / n_rungs.  The rungs of one draw are correlated, so the
-    binomial floor is quoted at n = draws (conservative).
-    """
-    f, n_rows = within_bulk_frequency(
-        dataset.presence.numpy(),
-        dataset.row_bulk_idx.numpy(),
-        len(dataset.bulk_ids),
-    )
-    if not np.isfinite(f).all():
-        raise ValueError("some bulks contribute no rows; targets undefined")
-    n_rungs = len(torch.unique(dataset.rung))
-    return f, n_rows / n_rungs
-
-
 def log_feature_matrix(frac: np.ndarray, populated: np.ndarray) -> np.ndarray:
     """`log10(frac)` where populated, NaN where absent (XGBoost native missing)."""
     out = np.full(frac.shape, np.nan, dtype=np.float64)
     out[populated] = np.log10(frac[populated])
     return out
-
-
-def binomial_floor(f: np.ndarray, n_draws: np.ndarray) -> np.ndarray:
-    """Per-phase expected MAE of the truth estimator itself, [P].
-
-    A perfect predictor of the underlying rate still shows |f_hat - f| noise
-    from the finite draw count; for a normal approximation E|x| = sqrt(2/pi)*sd.
-    """
-    sd = np.sqrt(f * (1.0 - f) / n_draws[:, None])
-    return np.sqrt(2.0 / np.pi) * sd.mean(axis=0)
 
 
 def score_arm(pred: np.ndarray, truth: np.ndarray) -> dict[str, dict[str, float]]:

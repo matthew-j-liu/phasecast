@@ -79,6 +79,34 @@ def within_bulk_frequency(
     return f, n_rows
 
 
+def bulk_frequency_targets(dataset: JointHeadDataset) -> tuple[np.ndarray, np.ndarray]:
+    """Per-bulk presence fraction `f` [n_bulks, 21] and draws per bulk [n_bulks].
+
+    Rows are (draw, rung) pairs; `within_bulk_frequency` pools the rungs, so
+    draws ~ rows / n_rungs.  The rungs of one draw are correlated, so the
+    binomial floor is quoted at n = draws (conservative).
+    """
+    f, n_rows = within_bulk_frequency(
+        dataset.presence.numpy(),
+        dataset.row_bulk_idx.numpy(),
+        len(dataset.bulk_ids),
+    )
+    if not np.isfinite(f).all():
+        raise ValueError("some bulks contribute no rows; targets undefined")
+    n_rungs = len(torch.unique(dataset.rung))
+    return f, n_rows / n_rungs
+
+
+def binomial_floor(f: np.ndarray, n_draws: np.ndarray) -> np.ndarray:
+    """Per-phase expected MAE of the truth estimator itself, [P].
+
+    A perfect predictor of the underlying rate still shows |f_hat - f| noise
+    from the finite draw count; for a normal approximation E|x| = sqrt(2/pi)*sd.
+    """
+    sd = np.sqrt(f * (1.0 - f) / n_draws[:, None])
+    return np.sqrt(2.0 / np.pi) * sd.mean(axis=0)
+
+
 def within_bulk_conditional_sigma(
     magnitude: np.ndarray, presence: np.ndarray, row_bulk_idx: np.ndarray
 ) -> np.ndarray:
@@ -1044,6 +1072,10 @@ def run_mode_head_eval(
     f50, _ = within_bulk_frequency(presence[rung == 50], row_bulk[rung == 50], n_bulks)
     f30, _ = within_bulk_frequency(presence[rung == 30], row_bulk[rung == 30], n_bulks)
     f_rows = f_all[row_bulk]
+    # the instrument's own noise: what a perfect predictor of f would still
+    # miss from the finite draw count (fraction units, not nats)
+    f_targets, draws = bulk_frequency_targets(dataset)
+    floors = binomial_floor(f_targets, draws)
 
     rel_tables = plot_reliability(
         p_rows, presence, output_dir / "reliability.png", split_tag
@@ -1148,6 +1180,13 @@ def run_mode_head_eval(
         },
         "n_val_rows": int(len(dataset)),
         "n_val_bulks": int(n_bulks),
+        "binomial_floor": {
+            "draws_per_bulk_median": float(np.median(draws)),
+            "max": float(floors.max()),
+            "per_phase": {
+                name: float(floors[i]) for i, name in enumerate(SOLID_PHASES)
+            },
+        },
         "joint_nll": float(nll["joint"].mean()),
         "bernoulli_nll": float(nll["bernoulli"].mean()),
         "dirichlet_nll": float(nll["dirichlet"].mean()),
@@ -1200,6 +1239,8 @@ def run_mode_head_eval(
           f"(exposure bias delta {metrics['exposure_bias_nll_delta']:+.4f})")
     print("by rung:", {k: round(v["mean"], 4)
                        for k, v in metrics["joint_nll_by_rung"].items()})
+    print(f"binomial floor (presence-fraction units): max {floors.max():.4f} "
+          f"at {np.median(draws):.0f} draws/bulk median")
     print(f"fp mass mean={metrics['fp_mass']['mean']:.4f} "
           f"p95={metrics['fp_mass']['p95']:.4f}  "
           f"fn mass mean={metrics['fn_mass']['mean']:.4f} "
