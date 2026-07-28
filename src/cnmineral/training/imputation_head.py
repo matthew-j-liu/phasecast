@@ -24,7 +24,7 @@ import yaml
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Subset
 
-from cnmineral.data.tokens import mask_for_ssl
+from cnmineral.data.tokens import N_TOKENS, N_TOKENS_REDOX, mask_for_ssl
 from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.losses.pretrain_loss import masked_element_log_mse
 from cnmineral.models.encoder import Encoder
@@ -32,7 +32,7 @@ from cnmineral.models.imputation_head import LogImputationHead
 from cnmineral.training.build_from_config import create_dataset
 from cnmineral.training.checkpoint import _git_sha
 from cnmineral.training.pretrain_objective import log_frac_stats
-from cnmineral.training.splits import _qap_labels_for_indices, reserve_test
+from cnmineral.training.splits import _strat_labels_for_indices, reserve_test
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +71,7 @@ class ImputationHeadCheckpoint:
                 "d_model": head.d_model,
                 "hidden": head.hidden,
                 "dropout": head.dropout,
+                "n_tokens": head.n_tokens,
             },
             encoder_checkpoint=str(encoder_checkpoint),
             train_loss=float(train_loss),
@@ -121,6 +122,7 @@ class ImputationHeadCheckpoint:
             d_model=self.head_config["d_model"],
             hidden=self.head_config["hidden"],
             dropout=self.head_config.get("dropout", 0.0),
+            n_tokens=self.head_config.get("n_tokens", N_TOKENS),
         )
         head.load_state_dict(self.head_state)
         head.eval()
@@ -150,7 +152,8 @@ def _head_forward_loss(
 def _train_val_split(
     dataset, trainval: list[int], val_split: float, seed: int,
 ) -> tuple[list[int], list[int]]:
-    """Stratified (by `qap_name`) inner split of the trainval indices.
+    """Stratified (by the dataset's stratification labels) inner split
+    of the trainval indices.
 
     Shared by the production trainer and the head HPO so both carve the same
     val split from the same encoder's trainval -- the tuned numbers and the
@@ -160,7 +163,7 @@ def _train_val_split(
         raise ValueError(f"val_split must be > 0; got {val_split}")
     train_indices, val_indices = train_test_split(
         trainval, test_size=val_split, random_state=seed,
-        stratify=_qap_labels_for_indices(dataset, trainval),
+        stratify=_strat_labels_for_indices(dataset, trainval),
     )
     if not train_indices or not val_indices:
         raise ValueError(
@@ -196,10 +199,12 @@ def train_head_on_split(
     batch_size = config["batch_size"]
     patience = config.get("early_stop_patience")
 
+    include_redox = enc_config.get("data_kwargs", {}).get("include_redox", False)
     head = LogImputationHead(
         d_model=enc_config["d_model"],
         hidden=config.get("hidden"),
         dropout=config.get("dropout", 0.0),
+        n_tokens=N_TOKENS_REDOX if include_redox else N_TOKENS,
     ).to(device)
     mean, std = log_frac_stats(
         dataset, train_indices, batch_size=batch_size, num_workers=num_workers,

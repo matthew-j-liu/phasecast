@@ -79,6 +79,11 @@ class Checkpoint:
     monitor: dict
     test_loss: float | None = None
     test_indices: list[int] | None = None
+    # durable identity of the test rows: corpus-order indices go stale
+    # the moment the filter chain changes, sample_ids don't.  This is
+    # what lets a later corpus pin these rows into its own test split
+    # (splits.reserve_test `test_roster_path`).
+    test_sample_ids: list[int] | None = None
     git_sha: str | None = None
     saved_at: str | None = None
 
@@ -134,6 +139,7 @@ class Checkpoint:
             monitor=payload["monitor"],
             test_loss=payload.get("test_loss"),
             test_indices=payload.get("test_indices"),
+            test_sample_ids=payload.get("test_sample_ids"),
             git_sha=payload.get("git_sha"),
             saved_at=payload.get("saved_at"),
         )
@@ -157,6 +163,7 @@ class Checkpoint:
                 "monitor": self.monitor,
                 "test_loss": self.test_loss,
                 "test_indices": self.test_indices,
+                "test_sample_ids": self.test_sample_ids,
                 "git_sha": self.git_sha,
                 "saved_at": self.saved_at,
             },
@@ -172,6 +179,7 @@ class Checkpoint:
         self,
         test_loss: float | None,
         test_indices: list[int] | None,
+        test_sample_ids: list[int] | None = None,
     ) -> "Checkpoint":
         """Return a new Checkpoint with the test fields populated.
 
@@ -191,6 +199,7 @@ class Checkpoint:
             monitor=self.monitor,
             test_loss=test_loss,
             test_indices=test_indices,
+            test_sample_ids=test_sample_ids,
             git_sha=self.git_sha,
             saved_at=self.saved_at,
         )
@@ -344,6 +353,7 @@ class CheckpointStore:
         self,
         test_loss: float | None,
         test_indices: list[int] | None,
+        test_sample_ids: list[int] | None = None,
     ) -> None:
         """Load best, update test fields, save back.
 
@@ -354,5 +364,7 @@ class CheckpointStore:
         does not re-evaluate.
         """
         self.write_best(
-            self.load_best().with_test_results(test_loss, test_indices)
+            self.load_best().with_test_results(
+                test_loss, test_indices, test_sample_ids,
+            )
         )

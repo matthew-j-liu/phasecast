@@ -55,7 +55,7 @@ from cnmineral.training.pretrain_objective import (
     make_loss_fn,
 )
 from cnmineral.training.reconstruction_mse import evaluate_on_test
-from cnmineral.training.splits import _qap_labels_for_indices, reserve_test
+from cnmineral.training.splits import _strat_labels_for_indices, reserve_test
 
 # yaml + Path are still needed (run_single reads the YAML; pathlib
 # coerces config strings for CheckpointStore).
@@ -130,6 +130,14 @@ def run_pretraining(
     None, the loop runs without any disk writes (HPO trials use
     this path).
 
+    Early stopping: `early_stop_patience` (config, default None = off)
+    halts the loop once val has gone that many consecutive epochs
+    without improving on the best by more than `early_stop_min_delta`
+    (default 0.0).  `epochs` then acts as the cap; hitting it with the
+    val curve still descending is a signal to re-examine, not a
+    delivery.  Best-val tracking runs regardless of `store`, so the
+    stop fires identically in storeless (HPO) runs.
+
     Returns
     -------
     dict
@@ -152,8 +160,8 @@ def run_pretraining(
         weight_decay=config.get("weight_decay", 0.0),
     )
 
-    # inner 80/20: trainval -> train + val.  Stratify by qap_names when
-    # available so per-class proportions match the outer split.
+    # inner 80/20: trainval -> train + val.  Stratify by the dataset's
+    # stratification labels so per-class proportions match the outer split.
     val_split = config.get("val_split", 0.20)
     if val_split <= 0:
         raise ValueError(
@@ -161,7 +169,7 @@ def run_pretraining(
         )
     train_indices, val_indices = train_test_split(
         trainval_indices, test_size=val_split, random_state=seed,
-        stratify=_qap_labels_for_indices(dataset, trainval_indices),
+        stratify=_strat_labels_for_indices(dataset, trainval_indices),
     )
     if not train_indices or not val_indices:
         raise ValueError(
@@ -219,6 +227,9 @@ def run_pretraining(
     final_epoch = 0
     best_val_loss = float("inf")
     best_epoch = 0
+    patience = config.get("early_stop_patience")
+    min_delta = config.get("early_stop_min_delta", 0.0)
+    epochs_since_improve = 0
     for epoch in range(config["epochs"]):
         # ---- train pass ----
         # toggle training mode: nonzero dropout will randomly zero out activations
@@ -279,22 +290,37 @@ def run_pretraining(
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
-        # The best Checkpoint is the only one written DURING the loop,
-        # and only on a new val minimum.  The last Checkpoint lands
-        # once after the loop ends (see below) -- mid-training
-        # overwrites were disk-IO waste since we never resume from a
-        # mid-run snapshot.
-        if store is not None and val_mean < best_val_loss:
+        # Best-val tracking runs storeless too -- the patience counter
+        # reads it, and HPO trials have store=None.  The best Checkpoint
+        # is the only one written DURING the loop, and only on a new val
+        # minimum.  The last Checkpoint lands once after the loop ends
+        # (see below) -- mid-training overwrites were disk-IO waste
+        # since we never resume from a mid-run snapshot.
+        improved_by = best_val_loss - val_mean
+        if val_mean < best_val_loss:
             best_val_loss = val_mean
             best_epoch = epoch + 1
-            store.write_best(
-                Checkpoint.from_models(
-                    encoder, head, optimizer, best_epoch, config,
-                    train_mean, val_mean, monitor,
+            if store is not None:
+                store.write_best(
+                    Checkpoint.from_models(
+                        encoder, head, optimizer, best_epoch, config,
+                        train_mean, val_mean, monitor,
+                    )
                 )
-            )
 
         final_epoch = epoch + 1
+
+        if improved_by > min_delta:
+            epochs_since_improve = 0
+        else:
+            epochs_since_improve += 1
+        if patience is not None and epochs_since_improve >= patience:
+            print(
+                f"early stop at epoch {final_epoch}: no val improvement "
+                f"> {min_delta:g} for {patience} epochs "
+                f"(best {best_val_loss:.4e} at epoch {best_epoch})"
+            )
+            break
 
     # Single epoch_last.pt write after the loop completes -- captures
     # the post-final-epoch state (encoder + head + optimizer) without
@@ -437,11 +463,19 @@ def run_production(
         None if math.isnan(test_loss_raw) else test_loss_raw
     )
 
-    # Stamp test_loss + test_indices onto the store's best.  The last
-    # snapshot stays test-loss-free (it's the resume snapshot, not
-    # the headline).
+    # Stamp test_loss + test_indices + test_sample_ids onto the store's
+    # best.  Indices and ids describe the same rows (stamped atomically
+    # from one split); ids are the durable identity that survives a
+    # corpus-shape change.  The last snapshot stays test-loss-free
+    # (it's the resume snapshot, not the headline).
     if store is not None and store.best_exists():
-        store.stamp_test_results_on_best(test_loss, list(splits["test"]))
+        test_sample_ids = (
+            [int(dataset.sample_ids[i]) for i in splits["test"]]
+            if hasattr(dataset, "sample_ids") else None
+        )
+        store.stamp_test_results_on_best(
+            test_loss, list(splits["test"]), test_sample_ids,
+        )
         write_run_results(result, store)
 
     return {
