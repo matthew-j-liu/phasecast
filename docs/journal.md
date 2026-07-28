@@ -2952,9 +2952,9 @@ in place as a comparison harness. Should the codebase keep them?
 
 **Context.** The linear bits were retained only to re-run the linear-vs-log
 comparison someday. But the tagged history already preserves that: tag
-`v3-log-imputation` (commit `6ba9695`, 2026-06-24) points at a pre-cleanup state
+`v3.1-log-imputation` (commit `6ba9695`, 2026-06-24) points at a pre-cleanup state
 holding both objectives and all linear configs, so `git checkout
-v3-log-imputation` restores the full harness. Keeping dead code in the live tree
+v3.1-log-imputation` restores the full harness. Keeping dead code in the live tree
 to hedge a one-off reproduction is the smell. A one-item menu (`loss:` with a
 single value) also can't name its item losslessly -- `log_mse` hides the
 standardization, `std_log_mse` hides that it is per-element and masked -- so the
