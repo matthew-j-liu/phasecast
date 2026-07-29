@@ -82,8 +82,8 @@ one objective with no menu.
 
 The original reason for keeping the linear code was reproducibility of the
 linear-vs-log comparison. That is preserved by the existing tag
-`v3.1-log-imputation` (commit `6ba9695`, 2026-06-24), which points at a
+`v3.1-logmse-objective` (commit `6ba9695`, 2026-06-24), which points at a
 pre-cleanup state containing both objectives and all linear configs:
-`git checkout v3.1-log-imputation` restores the full comparison harness. The
+`git checkout v3.1-logmse-objective` restores the full comparison harness. The
 seed-1 confirmation run is reproducible from `pretrain_production.yaml` with
 `seed: 1`.

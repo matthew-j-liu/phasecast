@@ -4890,3 +4890,91 @@ retrain; the redox pad-dropout rate and the padded-redox calibration eval
 are decided there). #55 revisits the encoder optimization HPs against the
 same battery. The seed1 checkpoint stays as the spread reference until
 cascade 2 lands (untracked; deletion is final).
+
+## 2026-07-29 -- Cascade 1 measured: the traced corpus moves the dials, sharpness buys teacher-forced fit at sampled-support cost
+
+**Q.** At fixed dials, what did the corpus change do; what did the
+weights-only sweep move; and did the incumbent dials survive?
+
+**Context.** First eval on `valtest128-traced@2000` measured the floor:
+binomial max 0.0206 (presence-fraction MAE) vs the old instrument's 0.024.
+Owner carried the 0.03-nat band (the ~0.021 seed-noise cross-check is an
+old-corpus figure; a fresh one only materializes if the arch mini-sweeps
+ever run). Baseline retrain at incumbent dials (`joint_heads_regen_seed0`,
+120 epochs, ~36 s/epoch at 1.65M rows): mode -5.4187, comp -56.2998, cond
+7.4035, closure 0.0107.
+
+**Findings.** (1) *The incumbent lost beyond the band.* Sweep
+(`joint_heads_traced_hpo`, 24 trials, 60-epoch horizon): tiebreak winner =
+optuna best = trial 22, mode monitor -8.9421 vs trial 0's -8.8246 -- 0.118
+nats, ~4x the band -- with comp and cond also better than trial 0. Neither
+escalation trigger fired: the winner is interior on every dial (the
+magnitude_weight cap region was probed at 9.4-9.8 and lost), and nothing
+degraded. (2) *The dial story is magnitude_weight 0.25 -> 7.76 (31x) and
+lambda_balance 54.5 -> 0.012.* The closure penalty is redundant on
+mass-balanced labels: flat within noise from 1e-3 to ~50, harmful >= ~500,
+and the tuned run's converged closure (0.0109) is identical to baseline's
+-- the 60-epoch closure loosening was comp non-convergence, not penalty
+loss. (3) *Production retrain reproduced the sweep exactly* (mode best
+epoch 43 = trial 22 to four decimals; early stop at 102): eval mode
+-5.4774 (0.059 better than regen-baseline, ~2x band), comp -56.2860
+(0.014 in-band deficit), cond 7.3577. (4) *Sharpness trades sampled-support
+robustness for teacher-forced fit*: dirichlet on sampled supports -4.08 ->
+-3.47 (exposure delta +4.93 -> +5.64), cond-T sampled 6.98 -> 7.39. The
+support-conditioned magnitudes got more specialized to the true support,
+so self-sampled support errors cost more -- the objective never priced
+that regime. (5) *Three rows printed inf on cond-T sampled-support*: their
+sampled supports gained 3 spurious phases, CondHead read the bloated
+lineup as colder (T posterior 720-790 C, sigma 10-16, truth 1020-1040 --
+15-20 sigma out), and the density underflowed float32 because
+`clip(1e-300)` is 0.0 in float32 -- a dead guard. `gmm_nll_per_axis` now
+computes via `logsumexp` (regression test added); true row NLLs are
+118-141 nats, and the finite T sampled mean is 7.3895.
+
+**Decision.** Trial 22 dials adopted verbatim (precedent #32);
+`joint_heads_regen_tuned_seed0` is the production checkpoint. Ledger
+entries (regen-baseline + regen-tuned) land at ship per #44 order.
+
+**Next.** Real-rock batch on the production checkpoint: zero-shot (the
+cross-era judge; 10.406 to beat), #52 few-shot curve re-run, recalibrator
+HPO (sweep designed with the owner, carve-out selection only), #49 amp
+gate check (report-only). Then ship flow and the v3.4 tag.
+
+## 2026-07-29 -- Era tags renamed by contribution; weights stay out of git until submission
+
+**Q.** What should the era tags be named, what does an annotation carry,
+and where do production weights live between now and publication?
+
+**Context.** The old names were uneven: `v1.0-trained` said nothing,
+`-final` rotted the moment v3 existed, `v3.1-log-imputation` was a
+lightweight tag whose displayed "message" was an off-topic commit message,
+and proposed replacements had traps of their own ("traced" reads as
+tracing-a-source; "emulator" is v1's explicitly rejected Position-B
+framing).
+
+**Decision.** Rename map (all re-created at their original commits with
+original tagger dates recovered from the unreachable old tag objects;
+stale references in pretrain_applications.md, ADR 007, and supergroup.py
+updated): v1.0-trained -> v1.0-mode-cond; v2.0-traces-ssl-final ->
+v2.0-traces-ssl; v3.0-refactor-imputation -> v3.0-own-transformer;
+v3.1-log-imputation -> v3.1-logmse-objective (now annotated);
+v3.2-encoder-representation -> v3.2-label-corpus-limited; v3.3-sim-to-real
+kept, re-annotated. Naming principles: the slug names the era's
+contribution in the repo's locked vocabulary; no status or temporal words;
+the number carries ordering. The cascade-1 ship will tag
+v3.4-trace-conditioned-draws.
+
+Weights policy, owner-locked: the repo stays lean -- no tracked
+checkpoints, no releases while the models are research iterations
+(publishing a checkpoint implies it should be used). Tag annotations carry
+the era's production-checkpoint sha256s (v3.3's rewritten format is the
+standard: pithy prose + hash block); the hashes recorded at tag time are
+what make checkpoints attachable and verifiable as GitHub release assets
+at NeurIPS submission. Tracked surface: code, configs, docs, tests,
+slides source, `results/` (headline layer), `explorations/*/results/`,
+split rosters. Out: `data/`, `runs/`, `checkpoints/`, optuna journals.
+Accepted risk, named: until submission the era weights exist on one
+machine plus ordinary backups.
+
+**Next.** v3.4 annotation at ship: prose + frontier statement ("last
+version before the all-rock 23-token encoder cascade") + sha block.
