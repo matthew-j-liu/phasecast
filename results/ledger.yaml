@@ -31,14 +31,14 @@ instruments:
     thin_classes: [alkali feldspar quartz trachyte, quartz trachyte,
       phonolite, foid-bearing alkali feldspar trachyte, basanite, trachyte,
       alkali feldspar trachyte, silexite, tephrite]
-    # both measured on this instrument at its first eval -- the 0.024 above is
-    # a 500-bulk/128-draw number and does not carry over. noise_floor is the
-    # binomial floor of the presence-frequency truth estimator, in
-    # presence-fraction MAE units (eval.mode_head.binomial_floor, stamped in
-    # every mode metrics.json); the tie band stays in nats -- it is
-    # adjudicated from the floor plus the seed-noise scale, not converted
-    noise_floor: null
-    tie_band_nats: null
+    # noise_floor is the binomial floor of the presence-frequency truth
+    # estimator, in presence-fraction MAE units (eval.mode_head.binomial_floor,
+    # stamped in every mode metrics.json); measured at this instrument's first
+    # eval (joint_heads_regen_seed0, 2026-07-28). the tie band stays in nats --
+    # adjudicated from the floor plus the seed-noise scale (~0.021 nats,
+    # old-corpus figure), not converted; owner carried the 0.03 precedent
+    noise_floor: 0.0206
+    tie_band_nats: 0.03
 versions:
   - version: standalone-modehead
     date: 2026-07-15
