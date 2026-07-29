@@ -13,25 +13,25 @@ comp_hidden: null
 comp_layers: 1
 cond_hidden: 512
 cond_layers: 2
-dropout: 0.3479155007864341
+dropout: 0.16038238787281758
 alpha_eps: 1.0e-6
 cond_n_components: 3
 cond_sigma_eps: 1.0e-3
 
 # loss weights (swept by joint_heads_hpo, ADR 006)
-magnitude_weight: 0.2501388179331724
+magnitude_weight: 7.761536125422827
 lambda_comp: 1.0
 lambda_cond: 0.01     # cond NLL is in raw (T, P, H2O) units, so this also absorbs the scale gap
-lambda_balance: 54.52629573235609
+lambda_balance: 0.01177462344437114
 
 # optimization (patience is per-head: training stops when every head is
 # `early_stop_patience` epochs past its own best)
 epochs: 120
 early_stop_patience: 10
 batch_size: 1024
-lr: 2.1469012235795473e-04
-weight_decay: 1.0397924477833218e-05
+lr: 3.3641876904101674e-04
+weight_decay: 1.5946942975809576e-04
 seed: 0
 
-head_checkpoint_dir: checkpoints/joint_heads_regen_seed0
+head_checkpoint_dir: checkpoints/joint_heads_regen_tuned_seed0
 head_checkpoint_filename: heads_best.pt
