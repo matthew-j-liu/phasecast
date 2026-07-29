@@ -1,0 +1,25 @@
+# Log-space imputation head on the frozen all-rock + redox encoder.
+# Dataset + splits are reconstructed from the encoder checkpoint's config;
+# only the head trains here.  HPs are the Optuna sweep's best (objective:
+# median trace log-R2 on the held-out val split, encoder frozen; sweep
+# config: imputation_head_hpo_allrock_redox.yaml).
+
+encoder_checkpoint: checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt
+
+# head architecture
+hidden: 1024          # one GELU MLP layer (null -> linear read-out)
+dropout: 0.02446534468927629
+
+# optimization
+epochs: 80            # ceiling; early stopping ends it sooner
+early_stop_patience: 8
+batch_size: 256
+lr: 1.2934717297991027e-4
+weight_decay: 1.2675745715905547e-3
+mask_prob: 0.2798861346804999
+val_split: 0.20
+seed: 0
+num_workers: 0
+
+head_checkpoint_dir: checkpoints/imputation_head_allrock_redox_seed0
+head_checkpoint_filename: head_best.pt
