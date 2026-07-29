@@ -23,26 +23,55 @@ occasional vibe.
 
 ## Scope and refresh
 
-Numbers below are for the canonical encoder `pretrain_v3_logmse_std_seed0`
-(`epoch_best`) on its 33,371-row test split. The standing trigger: every new
-canonical encoder (the #15 pretext cascade -- re-probe, re-tune head, re-confirm
-ADR 007) **re-scores on these axes in the same pass**. When an axis stabilizes
-into a criterion worth fixing, it graduates: candidate (issue) -> provisional
-(here) -> locked (ADR).
+Numbers below are for the canonical encoder `pretrain_allrock_redox_seed0`
+(`epoch_best`), scored on the inherited shared-row roster
+(`pretrain_inherited_test_roster.csv`; 32,950 of its 33,371 ids survive the
+all-rock corpus filters) with the redox token padded -- the deployment
+regime, and the condition the previous canonical encoder can be compared
+under. Values in parentheses marked "prev" are the previous canonical
+encoder `pretrain_v3_logmse_std_seed0` re-scored on the same rows (its
+recorded own-split values are close but not identical). The standing
+trigger: every new canonical encoder (the #15 pretext cascade -- re-probe,
+re-tune head, re-confirm ADR 007) **re-scores on these axes in the same
+pass**. When an axis stabilizes into a criterion worth fixing, it
+graduates: candidate (issue) -> provisional (here) -> locked (ADR).
+
+## Re-score 2026-07-28: the all-rock + redox encoder rides as-is
+
+787,721-row all-rock corpus, redox token, ADR 007 HPs ridden as-is; cross-seed
+spread measured at 0.002-0.006 (seed1: qap MLP 0.765, supergroup MLP 0.812).
+Igneous-probe deficit vs the previous canonical encoder is consistent across
+seeds but measured under the previous corpus's optimization HPs -- the
+Strategy-A re-HPO is deferred to #55. Conclusion (owner-approved): even
+without re-tuning the encoder's HPs for the new corpus, we barely took a loss
+to performance, if any at all (probe deltas at or inside the noise band,
+imputation a tie), while gaining a ~4.7x broader all-rock training set and
+therefore, in principle, a richer latent representation -- with the
+rock_group axis and redox slot as its first realized evidence.
 
 ## Information / decodability -- how much is recoverable
 
 | axis | metric | current | floor -> ceiling | status | source |
 |---|---|---|---|---|---|
-| trace imputation | median log-R2, 13 traces | 0.836 | ~0 (mean-fill) -> 0.877 (latent-XGB) -> 0.892 (input-XGB) | provisional | #8, [trace_signal_in_latent](../explorations/trace_signal_in_latent/README.md) |
-| major imputation | median log-R2, majors | 0.891 | ~0 (mean-fill) -> input-XGB per-major ceiling | provisional | #8, [imputation_head_design](../explorations/imputation_head_design/README.md) |
-| qap decodability | probe acc (MLP / logreg) | 0.769 / 0.722 | 0.100 (random) -> *TBD* | provisional | probe eval |
-| supergroup decodability | probe acc (MLP / logreg) | 0.821 / 0.749 | 0.151 (random) -> *TBD* | provisional | probe eval |
+| trace imputation | median log-R2, 13 traces | 0.832 (prev 0.836) | ~0 (mean-fill) -> 0.877 (latent-XGB) -> 0.892 (input-XGB); gates stamped to the previous corpus, not re-run | provisional | #8, [trace_signal_in_latent](../explorations/trace_signal_in_latent/README.md) |
+| major imputation | median log-R2, majors | 0.894 (prev 0.891) | ~0 (mean-fill) -> input-XGB per-major ceiling | provisional | #8, [imputation_head_design](../explorations/imputation_head_design/README.md) |
+| qap decodability | probe acc (MLP / logreg) | 0.759 / 0.704 (prev 0.769 / 0.722) | 0.100 (random) -> *TBD* | provisional | probe eval |
+| supergroup decodability | probe acc (MLP / logreg) | 0.814 / 0.731 (prev 0.821 / 0.749) | 0.151 (random) -> *TBD* | provisional | probe eval |
+| rock_group decodability | probe acc (MLP / logreg), full all-rock test split | 0.919 / 0.894 | 0.810 (majority: always-igneous) -> *TBD* | provisional | probe eval |
+| redox imputation | log-R2, redox slot (never in trace medians) | 0.306 | ~0 (mean-fill) -> *TBD* | provisional | imputation readout |
+| redox token lift | populated-minus-padded qap MLP on measured-pair rows | +0.015 (0.774 populated) | 0 (token ignored) -> *TBD* | provisional | probe eval, #46 |
 
-The head reaches 95% of what a strong nonlinear reader (XGBoost) pulls off the
-frozen latent (0.836 / 0.877) and 94% of the absolute raw-input ceiling (0.892).
-Probe ceilings are still floor-anchored only -- the missing ceiling is a raw-input
-classifier, which #19 supplies.
+Each encoder scores with its own sweep-tuned read-out head (the head re-tunes
+per encoder so the axis measures the latent, not a stale head). The
+latent-XGB / input-XGB gates were measured on the previous corpus and are not
+yet re-run on the all-rock corpus, so the 95% / 94% recovery framing carries
+over only approximately. Probe ceilings are still floor-anchored only -- the
+missing ceiling is a raw-input classifier, which #19 supplies. rock_group is
+the one axis scored on the full all-rock test split rather than the shared
+roster (the roster is all-igneous, where the probe's 0.982 is merely igneous
+recall); per-class recall runs igneous 0.97 / sedimentary 0.82 / metamorphic
+0.51 -- metamorphic chemistry overlaps its protoliths, so group membership is
+genuinely underdetermined from composition there.
 
 ## Nonlinearity premium -- does the learned nonlinearity earn its keep
 
@@ -58,8 +87,8 @@ test. Without it, "beats raw-input ceiling" does not separate *learning* from
 
 | axis | metric | current | floor -> ceiling | status | source |
 |---|---|---|---|---|---|
-| qap kNN purity | cosine k=5 | 0.582 | 0.100 (random) -> 0.607 (raw-input) | provisional | [input_knn_ceiling](../explorations/input_knn_ceiling/README.md) |
-| supergroup kNN purity | cosine k=5 | 0.670 | 0.151 (random) -> 0.676 (raw-input) | provisional | [input_knn_ceiling](../explorations/input_knn_ceiling/README.md) |
+| qap kNN purity | cosine k=5 | 0.577 (prev 0.582) | 0.100 (random) -> 0.607 (raw-input, previous-corpus measurement) | provisional | [input_knn_ceiling](../explorations/input_knn_ceiling/README.md) |
+| supergroup kNN purity | cosine k=5 | 0.670 (previous encoder; not re-measured this cascade) | 0.151 (random) -> 0.676 (raw-input) | provisional | [input_knn_ceiling](../explorations/input_knn_ceiling/README.md) |
 | distance-metric recoverability | post-hoc kNN lift toward probe | *TBD* | raw-distance kNN -> probe acc | candidate | #16 |
 
 qap is ~96% of a data ceiling that is itself well below 1.0 (qap is largely not
@@ -70,12 +99,15 @@ gap a learned/whitened metric recovers without re-pretraining.
 
 | axis | metric | current | ideal <- latent -> input | status | source |
 |---|---|---|---|---|---|
-| first-order (mean cone) | mean random-pair cosine | 0.259 (centered 0.003) | 0.000 (isotropic) <- 0.259 -> 0.938 (raw_frac) | provisional | [latent_anisotropy](../explorations/latent_anisotropy/README.md) |
-| second-order (shape) | effective rank / d | 0.125 (32/256; top-10 var 0.653) | 0.996 (isotropic) <- 0.125 -> 0.126 (raw_frac) | provisional | [latent_anisotropy](../explorations/latent_anisotropy/README.md) |
+| first-order (mean cone) | mean random-pair cosine | 0.266 (centered 0.003; prev 0.259) | 0.000 (isotropic) <- 0.266 -> 0.531 (raw_frac, all-rock) | provisional | [latent_anisotropy](../explorations/latent_anisotropy/README.md) |
+| second-order (shape) | effective rank / d | 0.191 (48.9/256; top-10 var 0.546; prev 0.125) | 0.996 (isotropic) <- 0.191 -> 0.101 (raw_frac, all-rock) | provisional | [latent_anisotropy](../explorations/latent_anisotropy/README.md) |
 
-The encoder removes the compositional input cone (first-order, harmless to kNN);
-its variance concentrates in ~32 effective dims (no catastrophic collapse, but far
-from isotropic). The before-number for any future anti-collapse objective.
+The encoder removes the compositional input cone (first-order, harmless to
+kNN); the all-rock latent spreads variance over ~49 effective dims, up from
+the previous canonical encoder's ~32 (no catastrophic collapse, still far
+from isotropic). Anisotropy scores each encoder on its own corpus's test
+split, so the prev comparison mixes encoder and population. The
+before-number for any future anti-collapse objective.
 
 ## Interpretability -- is the structure chemically meaningful
 

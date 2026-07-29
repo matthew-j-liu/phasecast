@@ -4842,3 +4842,51 @@ so per-class numbers for them are structurally caveated as anecdote.
 imputation HPO frees MPS (both trainers auto-pick it; no CPU flag exists).
 The first eval prints the measured floor, the owner sets the band, the
 stanza fills, and the sweep unlocks.
+
+## 2026-07-28 -- Acceptance: the all-rock + redox encoder rides as-is
+
+**Q.** Does pretraining on the ~4.7x all-rock corpus with the optional
+redox token cost the igneous representation the heads consume -- and does
+the token itself pay?
+
+**Context.** Spec locked 2026-07-27 on #24 / #45. The first training run
+was superseded by the valtest-pin amendment (the merged roster pins the
+previous encoder's surviving test rows AND the supervised eval bulks into
+SSL test; the dedup-prefer knob makes pinned rows win their duplicate
+groups). The production run early-stopped at epoch 16 (val 0.2000). All
+head-to-head numbers are on the inherited shared-row roster (32,950 rows
+scored in the new corpus, 33,371 in the old), new encoder redox-padded;
+the old-encoder numbers are fresh roster-restricted re-runs, not the
+recorded own-split scorecard values.
+
+**Considered.** A mechanical tie-band gate (rejected at spec time -- the
+owner adjudicates the table, with the ADR 007 cross-seed spread as reading
+aid). Delivering on one seed (rejected: the deltas sat at the band edge,
+so the pre-authorized seed1 tiebreaker ran). Running the Strategy-A
+re-HPO before adoption (owner declined in the interest of time).
+
+**Decision.** Adopted ride-as-is; owner adjudicated same day. Numbers:
+qap MLP 0.759 vs 0.769, supergroup MLP 0.814 vs 0.821, kNN qap purity
+0.577 vs 0.582, LR probes -0.018; seed1 (0.765 / 0.812) puts cross-seed
+spread at 0.002-0.006, so the igneous deficit is real, small, and an
+upper bound -- the HPs are the previous corpus's optimum ridden unchanged
+for clean attribution. Trace imputation is a tie: re-tuned head 0.832 vs
+0.836 on the same rows (sweep best-val 0.8557, winner hidden 1024).
+Redox evidence: populated-vs-padded qap MLP +0.015 (0.774, above the
+previous encoder), and since the inherited roster is entirely
+measured-pair rows this IS the measured-slice delta; redox-imputation
+readout log-R2 0.306. Anisotropy: effective rank 48.9 vs 32.0 of 256
+(own-population characterization). Scorecard re-scored under the
+shared-row protocol; the Strategy-A re-HPO is deferred to #55 (P2-medium)
+with the adoption bar unchanged (beat ride-as-is on this battery; adopting
+later re-triggers the heads cascade). One correction caught during the
+scorecard write: the roster-scored rock_group probe (0.982) is igneous
+recall on an all-igneous scoring population, not group separability --
+the full-test-split number is being measured and the scorecard line
+stays pending until it lands.
+
+**Next.** Cascade 2 consumes `pretrain_allrock_redox_seed0` (heads
+retrain; the redox pad-dropout rate and the padded-redox calibration eval
+are decided there). #55 revisits the encoder optimization HPs against the
+same battery. The seed1 checkpoint stays as the spread reference until
+cascade 2 lands (untracked; deletion is final).
