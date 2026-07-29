@@ -13,6 +13,7 @@
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/imputation/imputation_head.yaml",
+      "configs/imputation/imputation_head_allrock_redox.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/imputation/imputation_head_hpo_allrock_redox.yaml",
       "configs/pretrain/pretrain_allrock_redox.yaml",
@@ -449,6 +450,7 @@
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/imputation/imputation_head.yaml",
+      "configs/imputation/imputation_head_allrock_redox.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/imputation/imputation_head_hpo_allrock_redox.yaml",
       "configs/pretrain/pretrain_allrock_redox.yaml",
@@ -472,6 +474,7 @@
     ],
     "masked_element_modeling": [
       "configs/imputation/imputation_head.yaml",
+      "configs/imputation/imputation_head_allrock_redox.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/imputation/imputation_head_hpo_allrock_redox.yaml",
       "configs/pretrain/pretrain_allrock_redox.yaml",
