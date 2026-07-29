@@ -496,12 +496,13 @@ rename, or repurpose a test) updates this file in the same change.**
 ### test_cond_head_eval.py
 
 1. `test_gmm_nll_per_axis_matches_loss_module` -- the numpy per-axis NLL sums to the torch `gmm_nll` per row.
-2. `test_gmm_pit_single_component_is_normal_cdf` -- K=1 PIT equals the normal CDF.
-3. `test_gmm_pit_calibrated_coverage` -- PIT of samples drawn from the scored mixture yields nominal central coverage at 50/90%.
-4. `test_central_coverage_hand_case` -- a 3-value hand case lands the right central-interval fraction.
-5. `test_effective_components_limits` -- exp-entropy of one-hot weights is 1 and of uniform weights is K.
-6. `test_mass_below_zero` -- mixture mass below zero is 0.5 for a zero-centered unit normal and ~0 far above zero.
-7. `test_run_cond_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("cond",))` on a test-trained joint checkpoint (roster and results root monkeypatched): per-axis metrics incl. the exposure-bias delta are finite and PIT/component figures land.
+2. `test_gmm_nll_per_axis_float32_outlier_stays_finite` -- a ~19-sigma float32 outlier row gets a finite NLL matching the float64 value (regression: the pre-logsumexp path underflowed to inf).
+3. `test_gmm_pit_single_component_is_normal_cdf` -- K=1 PIT equals the normal CDF.
+4. `test_gmm_pit_calibrated_coverage` -- PIT of samples drawn from the scored mixture yields nominal central coverage at 50/90%.
+5. `test_central_coverage_hand_case` -- a 3-value hand case lands the right central-interval fraction.
+6. `test_effective_components_limits` -- exp-entropy of one-hot weights is 1 and of uniform weights is K.
+7. `test_mass_below_zero` -- mixture mass below zero is 0.5 for a zero-centered unit normal and ~0 far above zero.
+8. `test_run_cond_head_eval_end_to_end` -- full harness smoke via `run_joint_eval(heads=("cond",))` on a test-trained joint checkpoint (roster and results root monkeypatched): per-axis metrics incl. the exposure-bias delta are finite and PIT/component figures land.
 
 ### test_joint_heads_eval.py
 

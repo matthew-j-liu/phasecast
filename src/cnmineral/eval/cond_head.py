@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+from scipy.special import logsumexp
 from scipy.stats import norm
 
 from cnmineral.data.mineralogy_dataset import JointHeadDataset
@@ -49,7 +50,10 @@ def gmm_nll_per_axis(
         - np.log(sigma)
         - 0.5 * np.log(2 * np.pi)
     )
-    return -np.log(np.exp(log_w + log_norm).sum(-1).clip(1e-300))
+    # logsumexp, not exp-sum-clip-log: any clip floor small enough to matter
+    # is 0.0 in float32, and these arrays arrive as float32 -- a many-sigma
+    # row under a sampled support underflows to log(0) = inf otherwise
+    return -logsumexp(log_w + log_norm, axis=-1)
 
 
 def gmm_pit(

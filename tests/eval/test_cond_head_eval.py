@@ -36,6 +36,23 @@ def test_gmm_nll_per_axis_matches_loss_module():
     assert np.allclose(per_axis.sum(-1), ref, atol=1e-6)
 
 
+def test_gmm_nll_per_axis_float32_outlier_stays_finite():
+    # regression: a target ~19 sigma from every component underflows float32
+    # density; the old exp-sum-clip-log path returned inf because a 1e-300
+    # clip floor is 0.0 in float32
+    log_w = np.log(np.full((1, 3, 3), 1 / 3, dtype=np.float32))
+    mu = np.full((1, 3, 3), 760.0, dtype=np.float32)
+    sigma = np.full((1, 3, 3), 15.0, dtype=np.float32)
+    target = np.full((1, 3), 1040.0, dtype=np.float32)
+    nll = gmm_nll_per_axis(log_w, mu, sigma, target)
+    ref = gmm_nll_per_axis(
+        log_w.astype(np.float64), mu.astype(np.float64),
+        sigma.astype(np.float64), target.astype(np.float64),
+    )
+    assert np.isfinite(nll).all()
+    assert np.allclose(nll, ref, rtol=1e-5)
+
+
 def test_gmm_pit_single_component_is_normal_cdf():
     rng = np.random.default_rng(1)
     mu = rng.normal(size=(4, 3, 1))
