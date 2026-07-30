@@ -277,6 +277,10 @@ GitHub auto-closes on merge.
   (model-version ledger, trajectory, per-model headline figures; see
   `results/README.md`), tracked.
   (`explorations/*/results/` stay tracked -- exploration conclusions.)
+- [literature/](literature/) — manuscript bibliography: `references.bib` (the
+  BibTeX the paper compiles) and [claims.md](literature/claims.md) (claim →
+  citation map, roles, do-not-cite warnings, verification status).  The PDFs in
+  that directory stay gitignored; the two text files are tracked.
 - [docs/encoder.md](docs/encoder.md) — foundation encoder, value proposition,
   four-axis differentiation, tokenization/data-flow, the three corpora, SSL
   pretrain mechanic, and the load-bearing code invariant.

@@ -29,5 +29,10 @@ __pycache__/
 # OS
 .DS_Store
 
-# Papers
-literature/
+# Papers: the PDFs stay out, the bibliography and its claim map are tracked.
+# Ignoring the contents rather than the directory -- git does not descend into
+# an excluded directory, so a `!literature/*.bib` negation under a bare
+# `literature/` never fires.
+literature/*
+!literature/*.bib
+!literature/*.md

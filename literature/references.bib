@@ -1,0 +1,632 @@
+% Bibliography for the crabnet-mineral manuscript.
+%
+% Claim-to-citation mapping, roles, and verification status live in
+% literature/claims.md -- this file holds only the entries.
+%
+% VERIFICATION: every entry here was assembled from literature-review agent
+% reports and cross-checked against model knowledge for author/title/venue.
+% Volume, page, and DOI fields are as reported and have NOT been confirmed
+% against the primary sources. Entries whose existence or details could not be
+% corroborated carry a `% UNVERIFIED` comment. Confirm before submission.
+
+% ---------------------------------------------------------------- scoring rules
+
+@article{gneiting2007proper,
+  author  = {Gneiting, Tilmann and Raftery, Adrian E.},
+  title   = {Strictly Proper Scoring Rules, Prediction, and Estimation},
+  journal = {Journal of the American Statistical Association},
+  volume  = {102},
+  number  = {477},
+  pages   = {359--378},
+  year    = {2007},
+  doi     = {10.1198/016214506000001437},
+}
+
+@article{gneiting2007calibration,
+  author  = {Gneiting, Tilmann and Balabdaoui, Fadoua and Raftery, Adrian E.},
+  title   = {Probabilistic Forecasts, Calibration and Sharpness},
+  journal = {Journal of the Royal Statistical Society: Series B},
+  volume  = {69},
+  number  = {2},
+  pages   = {243--268},
+  year    = {2007},
+  doi     = {10.1111/j.1467-9868.2007.00587.x},
+}
+
+@article{gneiting2014probabilistic,
+  author  = {Gneiting, Tilmann and Katzfuss, Matthias},
+  title   = {Probabilistic Forecasting},
+  journal = {Annual Review of Statistics and Its Application},
+  volume  = {1},
+  pages   = {125--151},
+  year    = {2014},
+  doi     = {10.1146/annurev-statistics-062713-085831},
+}
+
+@article{bernardo1979expected,
+  author  = {Bernardo, Jos{\'e}-Miguel},
+  title   = {Expected Information as Expected Utility},
+  journal = {The Annals of Statistics},
+  volume  = {7},
+  number  = {3},
+  pages   = {686--690},
+  year    = {1979},
+}
+
+@article{selten1998axiomatic,
+  author  = {Selten, Reinhard},
+  title   = {Axiomatic Characterization of the Quadratic Scoring Rule},
+  journal = {Experimental Economics},
+  volume  = {1},
+  pages   = {43--61},
+  year    = {1998},
+  doi     = {10.1023/A:1009957816843},
+}
+
+@article{bolin2023local,
+  author  = {Bolin, David and Wallin, Jonas},
+  title   = {Local Scale Invariance and Robustness of Proper Scoring Rules},
+  journal = {Statistical Science},
+  volume  = {38},
+  number  = {1},
+  pages   = {140--159},
+  year    = {2023},
+  eprint  = {1912.05642},
+  archivePrefix = {arXiv},
+}
+
+@article{gebetsberger2018estimation,
+  author  = {Gebetsberger, Manuel and Messner, Jakob W. and Mayr, Georg J.
+             and Zeileis, Achim},
+  title   = {Estimation Methods for Nonhomogeneous Regression Models:
+             Minimum Continuous Ranked Probability Score versus Maximum
+             Likelihood},
+  journal = {Monthly Weather Review},
+  volume  = {146},
+  number  = {12},
+  pages   = {4323--4338},
+  year    = {2018},
+  doi     = {10.1175/MWR-D-17-0364.1},
+}
+
+@article{gneiting2005emos,
+  author  = {Gneiting, Tilmann and Raftery, Adrian E. and Westveld, Anton H.
+             and Goldman, Tom},
+  title   = {Calibrated Probabilistic Forecasting Using Ensemble Model Output
+             Statistics and Minimum {CRPS} Estimation},
+  journal = {Monthly Weather Review},
+  volume  = {133},
+  number  = {5},
+  pages   = {1098--1118},
+  year    = {2005},
+  doi     = {10.1175/MWR2904.1},
+}
+
+@article{rasp2018neural,
+  author  = {Rasp, Stephan and Lerch, Sebastian},
+  title   = {Neural Networks for Postprocessing Ensemble Weather Forecasts},
+  journal = {Monthly Weather Review},
+  volume  = {146},
+  number  = {11},
+  pages   = {3885--3900},
+  year    = {2018},
+  doi     = {10.1175/MWR-D-18-0187.1},
+}
+
+@article{schulz2022machine,
+  author  = {Schulz, Benedikt and Lerch, Sebastian},
+  title   = {Machine Learning Methods for Postprocessing Ensemble Forecasts of
+             Wind Gusts: A Systematic Comparison},
+  journal = {Monthly Weather Review},
+  volume  = {150},
+  number  = {1},
+  pages   = {235--257},
+  year    = {2022},
+  eprint  = {2106.09512},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{duan2020ngboost,
+  author    = {Duan, Tony and Avati, Anand and Ding, Daisy Yi and
+               Thai, Khanh K. and Basu, Sanjay and Ng, Andrew and
+               Schuler, Alejandro},
+  title     = {{NGBoost}: Natural Gradient Boosting for Probabilistic Prediction},
+  booktitle = {Proceedings of the 37th International Conference on Machine
+               Learning (ICML)},
+  year      = {2020},
+  eprint    = {1910.03225},
+  archivePrefix = {arXiv},
+}
+
+@article{pacchiardi2024probabilistic,
+  author  = {Pacchiardi, Lorenzo and Adewoyin, Rilwan A. and Dueben, Peter
+             and Dutta, Ritabrata},
+  title   = {Probabilistic Forecasting with Generative Networks via Scoring
+             Rule Minimization},
+  journal = {Journal of Machine Learning Research},
+  volume  = {25},
+  number  = {45},
+  pages   = {1--64},
+  year    = {2024},
+}
+
+% ------------------------------------------------------------- calibration
+
+@inproceedings{guo2017calibration,
+  author    = {Guo, Chuan and Pleiss, Geoff and Sun, Yu and
+               Weinberger, Kilian Q.},
+  title     = {On Calibration of Modern Neural Networks},
+  booktitle = {Proceedings of the 34th International Conference on Machine
+               Learning (ICML)},
+  year      = {2017},
+  eprint    = {1706.04599},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{ovadia2019trust,
+  author    = {Ovadia, Yaniv and Fertig, Emily and Ren, Jie and Nado, Zachary
+               and Sculley, D. and Nowozin, Sebastian and Dillon, Joshua V.
+               and Lakshminarayanan, Balaji and Snoek, Jasper},
+  title     = {Can You Trust Your Model's Uncertainty? Evaluating Predictive
+               Uncertainty Under Dataset Shift},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2019},
+  eprint    = {1906.02530},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{minderer2021revisiting,
+  author    = {Minderer, Matthias and Djolonga, Josip and Romijnders, Rob and
+               Hubis, Frances and Zhai, Xiaohua and Houlsby, Neil and
+               Tran, Dustin and Lucic, Mario},
+  title     = {Revisiting the Calibration of Modern Neural Networks},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2021},
+}
+
+@inproceedings{nixon2019measuring,
+  author    = {Nixon, Jeremy and Dusenberry, Michael W. and Zhang, Linchuan
+               and Jerfel, Ghassen and Tran, Dustin},
+  title     = {Measuring Calibration in Deep Learning},
+  booktitle = {CVPR Workshops},
+  year      = {2019},
+  eprint    = {1904.01685},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{mukhoti2020focal,
+  author    = {Mukhoti, Jishnu and Kulharia, Viveka and Sanyal, Amartya and
+               Golodetz, Stuart and Torr, Philip H. S. and Dokania, Puneet K.},
+  title     = {Calibrating Deep Neural Networks using Focal Loss},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2020},
+  eprint    = {2002.09437},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{seitzer2022pitfalls,
+  author    = {Seitzer, Maximilian and Tavakoli, Arash and Anti{\'c}, Dimitrije
+               and Martius, Georg},
+  title     = {On the Pitfalls of Heteroscedastic Uncertainty Estimation with
+               Probabilistic Neural Networks},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2022},
+  eprint    = {2203.09168},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{kuleshov2018accurate,
+  author    = {Kuleshov, Volodymyr and Fenner, Nathan and Ermon, Stefano},
+  title     = {Accurate Uncertainties for Deep Learning Using Calibrated
+               Regression},
+  booktitle = {Proceedings of the 35th International Conference on Machine
+               Learning (ICML)},
+  year      = {2018},
+  eprint    = {1807.00263},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{song2019distribution,
+  author    = {Song, Hao and Diethe, Tom and Kull, Meelis and Flach, Peter},
+  title     = {Distribution Calibration for Regression},
+  booktitle = {Proceedings of the 36th International Conference on Machine
+               Learning (ICML)},
+  year      = {2019},
+  eprint    = {1905.06023},
+  archivePrefix = {arXiv},
+}
+
+@article{levi2022evaluating,
+  author  = {Levi, Dan and Gispan, Liran and Giladi, Niv and Fetaya, Ethan},
+  title   = {Evaluating and Calibrating Uncertainty Prediction in Regression
+             Tasks},
+  journal = {Sensors},
+  year    = {2022},
+  eprint  = {1905.11659},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{laves2020well,
+  author    = {Laves, Max-Heinrich and Ihler, Sontje and Fast, Jacob F. and
+               Kahrs, L{\"u}der A. and Ortmaier, Tobias},
+  title     = {Well-Calibrated Regression Uncertainty in Medical Imaging with
+               Deep Learning},
+  booktitle = {Medical Imaging with Deep Learning (MIDL)},
+  year      = {2020},
+}
+
+@article{zelikman2020crude,
+  author  = {Zelikman, Eric and Healy, Christopher and Zhou, Sharon and
+             Avati, Anand},
+  title   = {{CRUDE}: Calibrating Regression Uncertainty Distributions
+             Empirically},
+  year    = {2020},
+  eprint  = {2005.12496},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{chung2021beyond,
+  author    = {Chung, Youngseog and Neiswanger, Willie and Char, Ian and
+               Schneider, Jeff},
+  title     = {Beyond Pinball Loss: Quantile Methods for Calibrated Uncertainty
+               Quantification},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2021},
+  eprint    = {2011.09588},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{tomani2021posthoc,
+  author    = {Tomani, Christian and Gruber, Sebastian and Erdem, Muhammed Ebrar
+               and Cremers, Daniel and Buettner, Florian},
+  title     = {Post-hoc Uncertainty Calibration for Domain Drift Scenarios},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition
+               (CVPR)},
+  year      = {2021},
+}
+
+% -------------------------------- misspecification, tempering, modular inference
+
+@article{grunwald2017inconsistency,
+  author  = {Gr{\"u}nwald, Peter and van Ommen, Thijs},
+  title   = {Inconsistency of {B}ayesian Inference for Misspecified Linear
+             Models, and a Proposal for Repairing It},
+  journal = {Bayesian Analysis},
+  volume  = {12},
+  number  = {4},
+  pages   = {1069--1103},
+  year    = {2017},
+  doi     = {10.1214/17-BA1085},
+}
+
+@article{bissiri2016general,
+  author  = {Bissiri, Pier Giovanni and Holmes, Chris C. and Walker, Stephen G.},
+  title   = {A General Framework for Updating Belief Distributions},
+  journal = {Journal of the Royal Statistical Society: Series B},
+  volume  = {78},
+  number  = {5},
+  pages   = {1103--1130},
+  year    = {2016},
+}
+
+@article{holmes2017assigning,
+  author  = {Holmes, Chris C. and Walker, Stephen G.},
+  title   = {Assigning a Value to a Power Likelihood in a General {B}ayesian
+             Model},
+  journal = {Biometrika},
+  year    = {2017},
+}
+
+@article{miller2019robust,
+  author  = {Miller, Jeffrey W. and Dunson, David B.},
+  title   = {Robust {B}ayesian Inference via Coarsening},
+  journal = {Journal of the American Statistical Association},
+  year    = {2019},
+}
+
+@article{carmona2020semi,
+  author  = {Carmona, Chris U. and Nicholls, Geoff K.},
+  title   = {Semi-Modular Inference: Enhanced Learning in Multi-Modular Models
+             by Tempering the Influence of Components},
+  journal = {Proceedings of the 23rd International Conference on Artificial
+             Intelligence and Statistics (AISTATS)},
+  year    = {2020},
+  eprint  = {2003.06804},
+  archivePrefix = {arXiv},
+}
+
+@article{jacob2017better,
+  author  = {Jacob, Pierre E. and Murray, Lawrence M. and Holmes, Chris C.
+             and Robert, Christian P.},
+  title   = {Better Together? Statistical Learning in Models Made of Modules},
+  journal = {Statistical Science},
+  year    = {2017},
+}
+
+@article{cannon2022investigating,
+  author  = {Cannon, Patrick and Ward, Daniel and Schmon, Sebastian M.},
+  title   = {Investigating the Impact of Model Misspecification in Neural
+             Simulation-Based Inference},
+  year    = {2022},
+  note    = {No mitigation strategy tested worked in all cases},
+}
+
+@inproceedings{wenzel2020good,
+  author    = {Wenzel, Florian and Roth, Kevin and Veeling, Bastiaan S. and
+               {\'S}wi{\k{a}}tkowski, Jakub and Tran, Linh and Mandt, Stephan
+               and Snoek, Jasper and Salimans, Tim and Jenatton, Rodolphe and
+               Nowozin, Sebastian},
+  title     = {How Good is the {B}ayes Posterior in Deep Neural Networks
+               Really?},
+  booktitle = {Proceedings of the 37th International Conference on Machine
+               Learning (ICML)},
+  year      = {2020},
+  eprint    = {2002.02405},
+  archivePrefix = {arXiv},
+}
+
+% ------------------------------------------------- hurdle and two-part models
+
+@article{cragg1971some,
+  author  = {Cragg, John G.},
+  title   = {Some Statistical Models for Limited Dependent Variables with
+             Application to the Demand for Durable Goods},
+  journal = {Econometrica},
+  volume  = {39},
+  number  = {5},
+  pages   = {829--844},
+  year    = {1971},
+}
+
+@article{mullahy1986specification,
+  author  = {Mullahy, John},
+  title   = {Specification and Testing of Some Modified Count Data Models},
+  journal = {Journal of Econometrics},
+  volume  = {33},
+  number  = {3},
+  pages   = {341--365},
+  year    = {1986},
+}
+
+@article{manning1987monte,
+  author  = {Manning, Willard G. and Duan, Naihua and Rogers, William H.},
+  title   = {Monte Carlo Evidence on the Choice Between Sample Selection and
+             Two-Part Models},
+  journal = {Journal of Econometrics},
+  volume  = {35},
+  number  = {1},
+  pages   = {59--82},
+  year    = {1987},
+}
+
+@article{cox1987parameter,
+  author  = {Cox, D. R. and Reid, N.},
+  title   = {Parameter Orthogonality and Approximate Conditional Inference},
+  journal = {Journal of the Royal Statistical Society: Series B},
+  volume  = {49},
+  number  = {1},
+  pages   = {1--39},
+  year    = {1987},
+}
+
+@inproceedings{kong2020deep,
+  author    = {Kong, Shuwen and Bai, Junwen and Lee, Jae Hee and Chen, Di and
+               Allyn, Andrew and Stuart, Michelle and Pinsky, Malin and
+               Mills, Katherine and Gomes, Carla P.},
+  title     = {Deep Hurdle Networks for Zero-Inflated Multi-Target Regression:
+               Application to Multiple Species Abundance Estimation},
+  booktitle = {Proceedings of the 29th International Joint Conference on
+               Artificial Intelligence (IJCAI)},
+  year      = {2020},
+  eprint    = {2010.16040},
+  archivePrefix = {arXiv},
+}
+
+@article{ovaskainen2017how,
+  author  = {Ovaskainen, Otso and Tikhonov, Gleb and Norberg, Anna and
+             Blanchet, F. Guillaume and Duan, Leo and Dunson, David and
+             Roslin, Tomas and Abrego, Nerea},
+  title   = {How to Make More Out of Community Data? A Conceptual Framework
+             and Its Implementation as Models and Software},
+  journal = {Ecology Letters},
+  volume  = {20},
+  number  = {5},
+  pages   = {561--576},
+  year    = {2017},
+}
+
+@article{tikhonov2020joint,
+  author  = {Tikhonov, Gleb and Opedal, {\O}ystein H. and Abrego, Nerea and
+             Lehikoinen, Aleksi and de Jonge, Melinda M. J. and
+             Oksanen, Jari and Ovaskainen, Otso},
+  title   = {Joint Species Distribution Modelling with the {R}-package {Hmsc}},
+  journal = {Methods in Ecology and Evolution},
+  volume  = {11},
+  number  = {3},
+  pages   = {442--447},
+  year    = {2020},
+}
+
+@article{potts2006comparing,
+  author  = {Potts, Joanne M. and Elith, Jane},
+  title   = {Comparing Species Abundance Models},
+  journal = {Ecological Modelling},
+  volume  = {199},
+  number  = {2},
+  pages   = {153--163},
+  year    = {2006},
+}
+
+@article{welsh1996modelling,
+  author  = {Welsh, A. H. and Cunningham, R. B. and Donnelly, C. F. and
+             Lindenmayer, D. B.},
+  title   = {Modelling the Abundance of Rare Species: Statistical Models for
+             Counts with Extra Zeros},
+  journal = {Ecological Modelling},
+  volume  = {88},
+  number  = {1-3},
+  pages   = {297--308},
+  year    = {1996},
+}
+
+% ---------------------------------------- compositional data, zeros, Dirichlet
+
+@book{aitchison1986statistical,
+  author    = {Aitchison, John},
+  title     = {The Statistical Analysis of Compositional Data},
+  publisher = {Chapman and Hall},
+  year      = {1986},
+}
+
+@article{connor1969concepts,
+  author  = {Connor, Robert J. and Mosimann, James E.},
+  title   = {Concepts of Independence for Proportions with a Generalization of
+             the {D}irichlet Distribution},
+  journal = {Journal of the American Statistical Association},
+  volume  = {64},
+  number  = {325},
+  pages   = {194--206},
+  year    = {1969},
+}
+
+@article{tsagris2018dirichlet,
+  author  = {Tsagris, Michail and Stewart, Connie},
+  title   = {A {D}irichlet Regression Model for Compositional Data with Zeros},
+  journal = {Lobachevskii Journal of Mathematics},
+  volume  = {39},
+  number  = {3},
+  pages   = {398--412},
+  year    = {2018},
+  eprint  = {1410.5011},
+  archivePrefix = {arXiv},
+}
+
+@article{tang2019zero,
+  author  = {Tang, Zheng-Zheng and Chen, Guanhua},
+  title   = {Zero-Inflated Generalized {D}irichlet Multinomial Regression Model
+             for Microbiome Compositional Data Analysis},
+  journal = {Biostatistics},
+  volume  = {20},
+  number  = {4},
+  pages   = {698--713},
+  year    = {2019},
+}
+
+@article{koslovsky2023bayesian,
+  author  = {Koslovsky, Matthew D.},
+  title   = {A {B}ayesian Zero-Inflated {D}irichlet-Multinomial Regression
+             Model for Multivariate Compositional Count Data},
+  journal = {Biometrics},
+  volume  = {79},
+  number  = {4},
+  pages   = {3239--3251},
+  year    = {2023},
+}
+
+% --------------------------------------------- multi-task weighting (contested)
+
+@inproceedings{kendall2018multi,
+  author    = {Kendall, Alex and Gal, Yarin and Cipolla, Roberto},
+  title     = {Multi-Task Learning Using Uncertainty to Weigh Losses for Scene
+               Geometry and Semantics},
+  booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition
+               (CVPR)},
+  year      = {2018},
+  eprint    = {1705.07115},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{kurin2022defense,
+  author    = {Kurin, Vitaly and De Palma, Alessandro and Kostrikov, Ilya and
+               Whiteson, Shimon and Kumar, M. Pawan},
+  title     = {In Defense of the Unitary Scalarization for Deep Multi-Task
+               Learning},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2022},
+  eprint    = {2201.04122},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{xin2022current,
+  author    = {Xin, Derrick and Ghorbani, Behrooz and Garg, Ankush and
+               Firat, Orhan and Gilmer, Justin},
+  title     = {Do Current Multi-Task Optimization Methods in Deep Learning Even
+               Help?},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2022},
+  eprint    = {2209.11379},
+  archivePrefix = {arXiv},
+}
+
+% ------------------------------------------------------ conformal prediction
+
+@article{angelopoulos2021gentle,
+  author  = {Angelopoulos, Anastasios N. and Bates, Stephen},
+  title   = {A Gentle Introduction to Conformal Prediction and
+             Distribution-Free Uncertainty Quantification},
+  year    = {2021},
+  eprint  = {2107.07511},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{tibshirani2019conformal,
+  author    = {Tibshirani, Ryan J. and Barber, Rina Foygel and
+               Cand{\`e}s, Emmanuel J. and Ramdas, Aaditya},
+  title     = {Conformal Prediction Under Covariate Shift},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2019},
+}
+
+@article{barber2023conformal,
+  author  = {Barber, Rina Foygel and Cand{\`e}s, Emmanuel J. and
+             Ramdas, Aaditya and Tibshirani, Ryan J.},
+  title   = {Conformal Prediction Beyond Exchangeability},
+  journal = {The Annals of Statistics},
+  year    = {2023},
+  eprint  = {2202.13415},
+  archivePrefix = {arXiv},
+}
+
+% ----------------------------------- Dirichlet-as-calibration-map / evidential
+% Kept for the do-not-confuse note in claims.md, not as method support.
+
+@inproceedings{kull2019beyond,
+  author    = {Kull, Meelis and Perello-Nieto, Miquel and K{\"a}ngsepp, Markus
+               and Song, Hao and Flach, Peter},
+  title     = {Beyond Temperature Scaling: Obtaining Well-Calibrated Multiclass
+               Probabilities with {D}irichlet Calibration},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2019},
+  eprint    = {1910.12656},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{sensoy2018evidential,
+  author    = {Sensoy, Murat and Kaplan, Lance and Kandemir, Melih},
+  title     = {Evidential Deep Learning to Quantify Classification Uncertainty},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2018},
+  eprint    = {1806.01768},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{bengs2022pitfalls,
+  author    = {Bengs, Viktor and H{\"u}llermeier, Eyke and Waegeman, Willem},
+  title     = {Pitfalls of Epistemic Uncertainty Quantification through Loss
+               Minimisation},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2022},
+  eprint    = {2203.06102},
+  archivePrefix = {arXiv},
+}
+
+@inproceedings{bengs2023second,
+  author    = {Bengs, Viktor and H{\"u}llermeier, Eyke and Waegeman, Willem},
+  title     = {On Second-Order Scoring Rules for Epistemic Uncertainty
+               Quantification},
+  booktitle = {Proceedings of the 40th International Conference on Machine
+               Learning (ICML)},
+  year      = {2023},
+  eprint    = {2301.12736},
+  archivePrefix = {arXiv},
+}
