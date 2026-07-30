@@ -544,6 +544,8 @@ rename, or repurpose a test) updates this file in the same change.**
 30. `test_unit_grouped_split_is_deterministic_given_a_seed` -- the carve-out is the board strategies get compared on, so the same seed reproduces it and a different seed does not.
 31. `test_split_balance_prefers_slices_that_match_the_population` -- the criterion ranks an even split above a lopsided one, and reads truth marginals only so selecting on it cannot leak a model output.
 32. `test_unknown_split_subset_is_rejected` -- a mistyped subset name raises rather than silently returning nothing.
+33. `test_wilson_interval_brackets_and_narrows_with_count` -- the interval contains the observed frequency (including at 0 and 1, where the normal approximation collapses), stays inside [0, 1], and narrows as the bin count grows.
+34. `test_unit_bootstrap_resamples_whole_units` -- every resample carries each drawn unit's rows together, so the clustered intervals never mix partial units.
 
 ### test_summary_cards.py
 

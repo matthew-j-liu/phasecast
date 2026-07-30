@@ -10,6 +10,8 @@ from cnmineral.eval.real_rock import (
     GROUPS,
     MINERAL_DENSITY,
     SPLIT_SUBSETS,
+    _unit_bootstrap,
+    _wilson_interval,
     coarsen_alpha,
     coarsen_presence,
     censored_consistency,
@@ -460,3 +462,28 @@ def test_split_balance_prefers_slices_that_match_the_population():
 def test_unknown_split_subset_is_rejected():
     with pytest.raises(ValueError, match="unknown real-rock subset"):
         load_real_rock_split("holdout")
+
+
+def test_wilson_interval_brackets_and_narrows_with_count():
+    freq = np.array([0.0, 0.5, 1.0])
+    lo, hi = _wilson_interval(freq, np.array([10.0, 10.0, 10.0]))
+    assert (lo <= freq + 1e-12).all() and (freq - 1e-12 <= hi).all()
+    assert (lo >= 0).all() and (hi <= 1).all()
+    lo_big, hi_big = _wilson_interval(np.array([0.5]), np.array([400.0]))
+    assert hi_big[0] - lo_big[0] < hi[1] - lo[1]
+
+
+def test_unit_bootstrap_resamples_whole_units():
+    """Rocks within a unit share chemistry, so a resample must carry each
+    drawn unit's rows together -- a partial unit means the clustering leaked."""
+    units = np.array(["a", "a", "a", "b", "b", "c"])
+    sizes = {"a": 3, "b": 2, "c": 1}
+
+    def stat(rows):
+        labels, counts = np.unique(units[rows], return_counts=True)
+        assert all(c % sizes[u] == 0 for u, c in zip(labels, counts))
+        return np.array([rows.size, np.mean(rows)])
+
+    lo, hi = _unit_bootstrap(stat, units, n_boot=50, seed=3)
+    assert lo.shape == hi.shape == (2,)
+    assert (lo <= hi).all()

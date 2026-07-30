@@ -50,6 +50,13 @@ from cnmineral.eval.mode_head import (
     presence_scores,
     reliability_table,
 )
+from cnmineral.eval.summary_cards import (
+    LEGEND_FS,
+    SUPTITLE_FS,
+    TICK_FS,
+    TITLE_FS,
+    XLABEL_FS,
+)
 from cnmineral.losses.mode_loss import masked_dirichlet_nll
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -671,6 +678,50 @@ def _finish(fig, title: str, out_path: Path) -> None:
     print(f"saved {out_path}")
 
 
+def _wilson_interval(
+    freq: np.ndarray, count: np.ndarray, z: float = 1.96
+) -> tuple[np.ndarray, np.ndarray]:
+    """95% Wilson score interval for a binomial proportion, elementwise.
+
+    Wilson rather than normal-approximation: reliability bins on a skewed
+    group hold a handful of rocks, exactly where the normal interval
+    collapses to zero width at an observed frequency of 0 or 1.
+    """
+    with np.errstate(invalid="ignore", divide="ignore"):
+        denom = 1.0 + z**2 / count
+        center = (freq + z**2 / (2 * count)) / denom
+        half = z * np.sqrt(
+            freq * (1 - freq) / count + z**2 / (4 * count**2)
+        ) / denom
+    return np.clip(center - half, 0.0, 1.0), np.clip(center + half, 0.0, 1.0)
+
+
+def _unit_bootstrap(
+    stat_fn, units: np.ndarray, n_boot: int = 1000, seed: int = 0
+) -> tuple[np.ndarray, np.ndarray]:
+    """2.5/97.5 percentile band of `stat_fn` under a unit-clustered bootstrap.
+
+    Rocks within a stratigraphic unit share nearly identical chemistry, so
+    resampling rows independently would understate every interval -- units
+    are resampled whole, the same clustering the paired NLL comparisons use.
+    `stat_fn` maps a row-index array to a stat vector; NaN entries (a group
+    with too few quantified rocks in a resample) are ignored per component.
+    """
+    rng = np.random.default_rng(seed)
+    groups = [np.flatnonzero(units == u) for u in np.unique(units)]
+    stats = np.stack([
+        stat_fn(np.concatenate(
+            [groups[j] for j in rng.integers(0, len(groups), len(groups))]
+        ))
+        for _ in range(n_boot)
+    ])
+    with np.errstate(invalid="ignore"):
+        return (
+            np.nanpercentile(stats, 2.5, axis=0),
+            np.nanpercentile(stats, 97.5, axis=0),
+        )
+
+
 def plot_presence_calibration(
     p7, presence, stats, out_path: Path, subtitle: str
 ) -> None:
@@ -679,7 +730,9 @@ def plot_presence_calibration(
     The diagonal is what calibration on MAGEMin would buy if the simulator's
     phase frequencies matched a geologist's logs. Systematic departure is the
     offset the recalibrator exists to absorb, so read the vertical gap, not just
-    the scatter.
+    the scatter. Each bin carries its rock count and a Wilson interval, so a
+    skewed group's nearly-empty bins read as the noise they are instead of
+    as structure.
     """
     fig, axes = _group_grid()
     for i, group in enumerate(GROUPS):
@@ -687,102 +740,116 @@ def plot_presence_calibration(
         rel = reliability_table(p7[:, i], presence[:, i])
         ax.plot([0, 1], [0, 1], lw=0.8, color="0.6", ls="--")
         ok = rel["count"] > 0
-        ax.plot(rel["mean_p"][ok], rel["freq"][ok], "o-", ms=4, color="tab:orange")
+        lo, hi = _wilson_interval(rel["freq"], rel["count"])
+        ax.errorbar(
+            rel["mean_p"][ok], rel["freq"][ok],
+            yerr=[np.maximum(rel["freq"] - lo, 0)[ok],
+                  np.maximum(hi - rel["freq"], 0)[ok]],
+            fmt="o-", ms=4, color="tab:orange", lw=1.0, elinewidth=0.9,
+            capsize=2,
+        )
+        for x, y, c in zip(rel["mean_p"][ok], rel["freq"][ok], rel["count"][ok]):
+            ax.annotate(f"{int(c)}", (x, y), textcoords="offset points",
+                        xytext=(4, 4), fontsize=6, color="0.4")
         ax.axhline(presence[:, i].mean(), lw=0.7, color="tab:blue", alpha=0.6)
         ax.set_title(
             f"{group}   AUROC {stats['auroc'][i]:.2f}   ECE {rel['ece']:.2f}",
             fontsize=9,
         )
         ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
+        ax.set_ylim(-0.02, 1.02)
         ax.set_xlabel("predicted probability", fontsize=8)
         if i % 4 == 0:
             ax.set_ylabel("observed frequency", fontsize=8)
     _finish(fig, f"presence calibration on real rocks -- {subtitle}\n"
-                 "blue line: the group's base rate", out_path)
+                 "blue line: the group's base rate; bin labels: rock count, "
+                 "whiskers: 95% Wilson", out_path)
 
 
-def plot_magnitude_parity(pred, magnitude, numeric, stats, out_path, subtitle) -> None:
-    """Predicted against measured share of the crystal cargo, per group."""
+def plot_magnitude_parity(
+    alpha7, magnitude, numeric, stats, out_path, subtitle
+) -> None:
+    """Predicted share interval against measured share, per group.
+
+    The magnitude branch emits a Dirichlet, so each entry draws as its
+    Beta-marginal median with a 10-90% credible bar rather than a point:
+    a bar missing the diagonal is a confident miss, and `cov80` is the
+    fraction of measured shares the bar contains (0.80 when calibrated).
+    Ranking quality is the Spearman; R2 stays in metrics.json, where its
+    scale-offset sensitivity can be read next to the MAE instead of
+    headlining a plot about distributions.
+    """
+    mask = numeric.astype(np.float64)
+    lo, hi = share_interval(alpha7, mask)
+    med, _ = share_interval(alpha7, mask, q=(0.5, 0.5))
     fig, axes = _group_grid()
     for i, group in enumerate(GROUPS):
         ax, m = axes[i], numeric[:, i]
         ax.plot([0, 1], [0, 1], lw=0.8, color="0.6", ls="--")
-        ax.plot(magnitude[m, i], pred[m, i], "o", ms=2.5, alpha=0.35,
-                color="tab:orange")
+        x = magnitude[m, i]
+        ax.errorbar(
+            x, med[m, i],
+            yerr=[np.maximum(med[m, i] - lo[m, i], 0),
+                  np.maximum(hi[m, i] - med[m, i], 0)],
+            fmt=".", ms=3, color="tab:orange", elinewidth=0.6, alpha=0.35,
+            capsize=0,
+        )
+        cov = float(((x >= lo[m, i]) & (x <= hi[m, i])).mean()) if m.any() else np.nan
         ax.set_title(
-            f"{group}   R2 {stats['r2'][i]:.2f}   rho {stats['spearman'][i]:.2f}"
+            f"{group}   rho {stats['spearman'][i]:.2f}   cov80 {cov:.2f}"
             f"   n={stats['n'][i]}", fontsize=9,
         )
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
         ax.set_xlabel("measured share", fontsize=8)
         if i % 4 == 0:
-            ax.set_ylabel("predicted share", fontsize=8)
-    _finish(fig, f"magnitude parity on real rocks -- {subtitle}\n"
+            ax.set_ylabel("predicted share (median, 10-90%)", fontsize=8)
+    _finish(fig, f"magnitude interval parity on real rocks -- {subtitle}\n"
                  "quantified entries only; trace-only appearances scored by their "
                  "censoring bound", out_path)
 
 
-def plot_residual_vs_sio2(
-    p7, pred, benchmark, out_path: Path, subtitle: str
-) -> None:
-    """Where the gap lives along the differentiation trend -- the recalibrator's blueprint.
-
-    A flat residual means one constant per group corrects it; a sloped one
-    means the correction needs a silica term. The amphibole-pyroxene
-    changeover sits near 52-63 wt% SiO2, so that band is where a slope would
-    show up if anything does.
-    """
-    fig, axes = plt.subplots(2, len(GROUPS), figsize=(2.5 * len(GROUPS), 5.4),
-                             squeeze=False, sharex=True)
-    for i, group in enumerate(GROUPS):
-        top, bottom = axes[0][i], axes[1][i]
-        top.axhline(0, lw=0.7, color="0.5")
-        top.plot(benchmark.sio2, benchmark.presence[:, i] - p7[:, i], "o", ms=2,
-                 alpha=0.3, color="tab:purple")
-        top.axvspan(52, 63, color="0.85", zorder=0)
-        top.set_title(group, fontsize=9)
-        top.set_ylim(-1.05, 1.05)
-
-        m = benchmark.numeric[:, i]
-        bottom.axhline(0, lw=0.7, color="0.5")
-        bottom.plot(benchmark.sio2[m], benchmark.magnitude[m, i] - pred[m, i], "o",
-                    ms=2, alpha=0.3, color="tab:green")
-        bottom.axvspan(52, 63, color="0.85", zorder=0)
-        bottom.set_xlabel("SiO2 (wt%)", fontsize=8)
-        bottom.set_ylim(-1.05, 1.05)
-    axes[0][0].set_ylabel("presence residual\n(truth - predicted)", fontsize=8)
-    axes[1][0].set_ylabel("magnitude residual\n(truth - predicted)", fontsize=8)
-    _finish(fig, f"where the sim-to-real gap sits along the silica trend -- "
-                 f"{subtitle}\nshaded: the 52-63 wt% band where amphibole and "
-                 "pyroxene trade places", out_path)
-
-
 def plot_gap_summary(p7, pred, benchmark, out_path: Path, subtitle: str) -> None:
-    """The two corrections a recalibrator would make, per group, on one axis."""
+    """The two corrections a recalibrator would make, per group, on one axis.
+
+    Whiskers are unit-clustered bootstrap 95% intervals: a bar whose
+    interval spans zero is a correction the data does not actually demand.
+    """
+    def presence_stat(rows: np.ndarray) -> np.ndarray:
+        return benchmark.presence[rows].mean(0) - p7[rows].mean(0)
+
+    def scale_stat(rows: np.ndarray) -> np.ndarray:
+        out = np.full(len(GROUPS), np.nan)
+        for i in range(len(GROUPS)):
+            m = rows[benchmark.numeric[rows, i]]
+            if len(m) >= 3 and pred[m, i].mean() > 0:
+                out[i] = np.log(
+                    benchmark.magnitude[m, i].mean() / pred[m, i].mean()
+                )
+        return out
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3.6))
     y = np.arange(len(GROUPS))
-    presence_bias = benchmark.presence.mean(0) - p7.mean(0)
-    ax1.barh(y, presence_bias, color=np.where(presence_bias > 0, "tab:blue", "tab:red"))
-    ax1.axvline(0, lw=0.8, color="0.3")
-    ax1.set_yticks(y, GROUPS)
-    ax1.invert_yaxis()
-    ax1.set_xlabel("observed rate - mean predicted probability")
-    ax1.set_title("presence offset (positive: model under-calls)", fontsize=10)
-
-    scale = np.full(len(GROUPS), np.nan)
-    for i in range(len(GROUPS)):
-        m = benchmark.numeric[:, i]
-        if m.sum() >= 3 and pred[m, i].mean() > 0:
-            scale[i] = np.log(benchmark.magnitude[m, i].mean() / pred[m, i].mean())
-    ax2.barh(y, scale, color=np.where(scale > 0, "tab:blue", "tab:red"))
-    ax2.axvline(0, lw=0.8, color="0.3")
-    ax2.set_yticks(y, GROUPS)
-    ax2.invert_yaxis()
-    ax2.set_xlabel("log(mean measured share / mean predicted share)")
-    ax2.set_title("magnitude scale offset (positive: model under-sizes)", fontsize=10)
-    _finish(fig, f"the corrections a thin recalibrator would learn -- {subtitle}", out_path)
+    all_rows = np.arange(len(benchmark))
+    for ax, stat_fn, xlabel, title in (
+        (ax1, presence_stat, "observed rate - mean predicted probability",
+         "presence offset (positive: model under-calls)"),
+        (ax2, scale_stat, "log(mean measured share / mean predicted share)",
+         "magnitude scale offset (positive: model under-sizes)"),
+    ):
+        value = stat_fn(all_rows)
+        lo, hi = _unit_bootstrap(stat_fn, benchmark.unit)
+        ax.barh(y, value, color=np.where(value > 0, "tab:blue", "tab:red"))
+        ax.errorbar(value, y,
+                    xerr=[np.maximum(value - lo, 0), np.maximum(hi - value, 0)],
+                    fmt="none", ecolor="0.25", elinewidth=1.0, capsize=2.5)
+        ax.axvline(0, lw=0.8, color="0.3")
+        ax.set_yticks(y, GROUPS)
+        ax.invert_yaxis()
+        ax.set_xlabel(xlabel)
+        ax.set_title(title, fontsize=10)
+    _finish(fig, f"the corrections a thin recalibrator would learn -- {subtitle}\n"
+                 "whiskers: unit-clustered bootstrap 95%", out_path)
 
 
 def share_interval(
@@ -809,6 +876,9 @@ def share_interval(
     return lo, hi
 
 
+CARD_SHARE_FLOOR = 5e-4
+
+
 def _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row: int,
                  prefix: str = "", interval=None) -> None:
     """Draw one rock's three card panels onto the given axes.
@@ -817,73 +887,96 @@ def _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row: int,
     of them on one figure without duplicating the panel logic.  `prefix` names
     which model a row is showing, in the panel titles rather than only as an
     axis label -- on a stacked figure the reader should not have to infer it.
+
+    Styling follows the corpus inference card (`summary_cards`): open orange
+    markers for predictions, filled blue for truth, log share axis, whisker
+    intervals -- so the real-rock card and the corpus card read as the same
+    figure family.
     """
     if ax0 is not None:
         src, frac = benchmark.bulk_src[row].numpy(), benchmark.bulk_frac[row].numpy()
         populated = np.flatnonzero(src > 0)
         symbol = {z: sym for sym, z in VOCAB}
-        ax0.barh(np.arange(len(populated)), frac[populated] * 100, color="tab:gray")
+        ax0.barh(np.arange(len(populated)), frac[populated] * 100,
+                 color="tab:gray", alpha=0.8, height=0.6)
         ax0.set_yticks(np.arange(len(populated)),
-                       [symbol[int(z)] for z in src[populated]], fontsize=10)
+                       [symbol[int(z)] for z in src[populated]], fontsize=TICK_FS)
         ax0.invert_yaxis()
         ax0.set_xscale("log")
-        ax0.set_xlabel("cation wt% (log)", fontsize=10)
-        ax0.set_title("input: whole-rock chemistry", fontsize=11)
+        ax0.set_xlabel("cation wt% (log)", fontsize=XLABEL_FS)
+        ax0.set_title("Input: Whole-Rock Chemistry", fontsize=TITLE_FS)
 
     y = np.arange(len(GROUPS))
-    ax1.barh(y - 0.19, p7[row], 0.36, color="tab:orange", label="predicted")
-    ax1.barh(y + 0.19, benchmark.presence[row], 0.36, color="tab:blue",
-             label="measured")
-    ax1.set_yticks(y, GROUPS, fontsize=10)
+    ax1.plot(p7[row], y - 0.15, "o", ms=5, color="tab:orange", mfc="white")
+    ax1.plot(benchmark.presence[row], y + 0.15, "o", ms=5, color="tab:blue")
+    ax1.set_yticks(y, GROUPS, fontsize=TICK_FS)
     ax1.invert_yaxis()
-    ax1.set_xlim(0, 1.05)
-    ax1.set_xlabel("presence probability", fontsize=10)
-    ax1.set_title(f"{prefix}is it there?", fontsize=11)
-    ax1.legend(fontsize=8)
+    ax1.set_xlim(-0.05, 1.05)
+    ax1.set_xticks([0, 0.5, 1])
+    ax1.grid(axis="x", lw=0.3, alpha=0.5)
+    ax1.set_xlabel("presence probability", fontsize=XLABEL_FS)
+    ax1.set_title(f"{prefix}Phase Presence", fontsize=TITLE_FS)
 
+    floor = CARD_SHARE_FLOOR
     for i in range(len(GROUPS)):
         if benchmark.numeric[row, i]:
-            ax2.plot(benchmark.magnitude[row, i], i + 0.19, "o", ms=6,
-                     color="tab:blue")
+            ax2.plot(max(benchmark.magnitude[row, i], floor), i + 0.15, "o",
+                     ms=5, color="tab:blue")
         elif benchmark.censored[row, i]:
-            ax2.annotate("", xy=(benchmark.censor_bound[row, i], i + 0.19),
-                         xytext=(1.0, i + 0.19),
+            ax2.annotate("", xy=(max(benchmark.censor_bound[row, i], floor),
+                                 i + 0.15),
+                         xytext=(1.0, i + 0.15),
                          arrowprops={"arrowstyle": "->", "color": "tab:blue",
                                      "lw": 0.9, "alpha": 0.7})
+        value = max(pred[row, i], floor)
         if interval is not None and np.isfinite(interval[0][row, i]):
-            ax2.plot(interval[0][row, i:i + 1].tolist()
-                     + interval[1][row, i:i + 1].tolist(),
-                     [i - 0.19] * 2, "-", color="tab:orange", lw=1.6, alpha=0.55)
-        ax2.plot(pred[row, i], i - 0.19, "o", ms=6, color="tab:orange", mfc="white")
+            lo = max(interval[0][row, i], floor)
+            hi = max(interval[1][row, i], floor)
+            ax2.errorbar(value, i - 0.15,
+                         xerr=[[max(value - lo, 0)], [max(hi - value, 0)]],
+                         fmt="o", ms=5, color="tab:orange", mfc="white",
+                         lw=1.2, capsize=2.5)
+        else:
+            ax2.plot(value, i - 0.15, "o", ms=5, color="tab:orange", mfc="white")
     handles = [
-        Line2D([], [], marker="o", ls="none", ms=6, color="tab:orange",
+        Line2D([], [], marker="o", ls="none", ms=5, color="tab:orange",
                mfc="white", label="predicted"),
-        Line2D([], [], marker="o", ls="none", ms=6, color="tab:blue",
+        Line2D([], [], marker="o", ls="none", ms=5, color="tab:blue",
                label="measured"),
     ]
-    if interval is not None:
-        handles.append(Line2D([], [], color="tab:orange", lw=1.6, alpha=0.55,
-                              label="predicted 10-90%"))
-    ax2.legend(handles=handles, fontsize=8, loc="lower right", framealpha=0.9)
-    ax2.set_yticks(y, GROUPS, fontsize=10)
+    ax2.legend(handles=handles, fontsize=LEGEND_FS, loc="upper left",
+               framealpha=0.9)
+    ax2.set_yticks(y, GROUPS, fontsize=TICK_FS)
     ax2.invert_yaxis()
-    ax2.set_xlim(0, 1.02)
-    ax2.set_xlabel("share of the crystal cargo", fontsize=10)
-    ax2.set_title(f"{prefix}how much?\n"
-                  "(arrow: measured only as a trace, so bounded above)",
-                  fontsize=11)
+    ax2.set_xscale("log")
+    ax2.set_xlim(floor, 1.05)
+    ax2.grid(axis="x", lw=0.3, alpha=0.5)
+    ax2.set_xlabel("share of the crystal cargo (log)\n"
+                   "arrow: trace-only, bounded above; whiskers: predicted "
+                   "10-90%", fontsize=XLABEL_FS)
+    ax2.set_title(f"{prefix}Phase Share", fontsize=TITLE_FS)
 
 
 def real_rock_card(
-    p7, pred, benchmark, row: int, out_path: Path
+    p7, pred, benchmark, row: int, out_path: Path, interval=None
 ) -> None:
-    """One real rock end to end: chemistry in, assemblage out, measurement beside it."""
+    """One real rock end to end: chemistry in, assemblage out, measurement beside it.
+
+    `interval` is the `(lo, hi)` pair from `share_interval`: the predicted
+    share draws as a whisker around `pred`, because a point marker alone
+    misrepresents a model whose output is a distribution.
+    """
     fig, (ax0, ax1, ax2) = plt.subplots(
         1, 3, figsize=(13, 3.8), gridspec_kw={"width_ratios": [1.0, 0.9, 1.2]}
     )
-    _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row)
-    _finish(fig, f"{benchmark.bulk_ids[row]} -- SiO2 {benchmark.sio2[row]:.1f} wt%, "
-                 "zero-shot (nothing fit on real rocks)", out_path)
+    _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row, interval=interval)
+    fig.suptitle(f"{benchmark.bulk_ids[row]} -- SiO2 {benchmark.sio2[row]:.1f} "
+                 "wt%, zero-shot (nothing fit on real rocks)",
+                 fontsize=SUPTITLE_FS)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"saved {out_path}")
 
 
 def real_rock_card_comparison(
@@ -916,7 +1009,6 @@ def real_rock_card_comparison(
         _card_panels(ax_chem if r == 0 else None, ax1, ax2, p7, share,
                      benchmark, row, prefix=f"{label}  --  ",
                      interval=None if lo is None else (lo, hi))
-        ax1.legend(fontsize=8, loc="lower right", framealpha=0.9)
         if r == 0:
             ax1.set_xlabel("")
             ax2.set_xlabel("")
@@ -1158,12 +1250,8 @@ def run_real_rock_eval(
         clean_bench.numeric.astype(np.float64),
     )
     plot_magnitude_parity(
-        cond_mean[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
+        alpha7[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
         mag_stats, output_dir / "magnitude_parity.png", subtitle,
-    )
-    plot_residual_vs_sio2(
-        p7[benchmark.clean], cond_mean[benchmark.clean], clean_bench,
-        output_dir / "residual_vs_sio2.png", subtitle,
     )
     plot_gap_summary(
         p7[benchmark.clean], cond_mean[benchmark.clean], clean_bench,
@@ -1174,11 +1262,12 @@ def run_real_rock_eval(
     # the card normalizes over every measured group, trace ones included, so
     # a mineral logged only as a trace still shows what the model says about
     # it next to the bound it has to sit under.
+    card_mask = (benchmark.numeric | benchmark.censored).astype(np.float64)
+    card_med, _ = share_interval(alpha7, card_mask, q=(0.5, 0.5))
     real_rock_card(
-        p7,
-        conditional_mean(alpha7, (benchmark.numeric | benchmark.censored).astype(
-            np.float64)),
-        benchmark, card_row, output_dir / "real_rock_card.png",
+        p7, card_med, benchmark, card_row,
+        output_dir / "real_rock_card.png",
+        interval=share_interval(alpha7, card_mask),
     )
 
     thresholded = presence_scores(p7[benchmark.clean],
