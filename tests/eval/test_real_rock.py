@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -6,17 +8,22 @@ import torch
 from cnmineral.data.bulk_chemistry import BulkChemistryDataset, tokenize_bulk_frame
 from cnmineral.data.phase_vocab import PHASE_INDEX, SOLID_PHASES
 from cnmineral.eval.real_rock import (
+    CLIMATOLOGY_GRID,
     GROUP_INDEX,
     GROUPS,
     MINERAL_DENSITY,
+    MODEL_TO_GROUP,
     SPLIT_SUBSETS,
     _unit_bootstrap,
     _wilson_interval,
+    climatology,
     coarsen_alpha,
     coarsen_presence,
+    coarsen_support,
     censored_consistency,
     load_benchmark,
     load_real_rock_split,
+    murphy,
     parse_alteration_grade,
     real_rock_nll,
     split_balance,
@@ -487,3 +494,97 @@ def test_unit_bootstrap_resamples_whole_units():
     lo, hi = _unit_bootstrap(stat, units, n_boot=50, seed=3)
     assert lo.shape == hi.shape == (2,)
     assert (lo <= hi).all()
+
+
+def test_coarsen_support_is_the_group_level_or():
+    """A group carries concentration when any member phase is on the support,
+    which is the denominator a share conditioned on that support divides by."""
+    members: dict[str, list[str]] = {}
+    for phase, group in MODEL_TO_GROUP.items():
+        members.setdefault(group, []).append(phase)
+    group = next(g for g, ph in members.items() if len(ph) > 1)
+    first, second = members[group][:2]
+
+    support = np.zeros((3, len(SOLID_PHASES)))
+    support[0, PHASE_INDEX[first]] = 1.0
+    support[1, PHASE_INDEX[second]] = 1.0
+    support[2, [PHASE_INDEX[first], PHASE_INDEX[second]]] = 1.0
+
+    out = coarsen_support(support)
+    assert out[:, GROUP_INDEX[group]].all()
+    others = [GROUP_INDEX[g] for g in GROUPS if g != group]
+    assert not out[:, others].any()
+
+
+def test_climatology_is_fit_only_on_the_carve_out():
+    """The null is scored on every rock including the ones it is compared
+    against, so it must read none of their answers: rewriting the held-out
+    truth entirely must leave its parameters untouched."""
+    benchmark = load_benchmark()
+    held = split_mask(benchmark, "test")
+    assert held.any()
+
+    presence = benchmark.presence.copy()
+    magnitude = benchmark.magnitude.copy()
+    presence[held] = 1.0 - presence[held]
+    magnitude[held] = magnitude[held][:, ::-1]
+
+    base = climatology(benchmark)
+    moved = climatology(
+        replace(benchmark, presence=presence, magnitude=magnitude)
+    )
+    assert moved["concentration"] == base["concentration"]
+    np.testing.assert_allclose(moved["p7"], base["p7"])
+    np.testing.assert_allclose(moved["alpha7"], base["alpha7"])
+
+
+def test_climatology_concentration_beats_its_grid_neighbours():
+    """The null's one free parameter is tuned to score as well as it can --
+    a null worth beating should be the strongest version of itself."""
+    benchmark = load_benchmark()
+    null = climatology(benchmark)
+    scored = benchmark.clean & benchmark.has_magnitude
+    fit = (split_mask(benchmark, "train") | split_mask(benchmark, "val")) & scored
+    mean_comp = benchmark.magnitude[fit].sum(0)
+    mean_comp /= mean_comp.sum()
+
+    def dirichlet_at(k):
+        return real_rock_nll(
+            null["p7"], np.tile(k * mean_comp, (len(benchmark), 1)),
+            benchmark.presence, benchmark.magnitude, benchmark.numeric,
+        )["dirichlet"][fit].mean()
+
+    chosen = int(np.argmin(np.abs(CLIMATOLOGY_GRID - null["concentration"])))
+    neighbours = {0, len(CLIMATOLOGY_GRID) - 1,
+                  max(chosen - 1, 0), min(chosen + 1, len(CLIMATOLOGY_GRID) - 1)}
+    best = dirichlet_at(null["concentration"])
+    for i in neighbours - {chosen}:
+        assert best <= dirichlet_at(CLIMATOLOGY_GRID[i]) + 1e-9
+
+
+def test_murphy_terms_separate_calibration_from_discrimination():
+    """Quoting the base rate is honest but tells you nothing about the rock;
+    naming the outcome is honest and maximally informative."""
+    rng = np.random.default_rng(0)
+    y = (rng.random(400) < 0.3).astype(float)
+
+    rel, res = murphy(np.full(len(y), y.mean()), y)
+    assert rel == pytest.approx(0.0, abs=1e-12)
+    assert res == pytest.approx(0.0, abs=1e-12)
+
+    rel, res = murphy(y, y)
+    assert rel == pytest.approx(0.0, abs=1e-12)
+    assert res == pytest.approx(y.mean() * (1 - y.mean()), rel=1e-9)
+
+
+def test_brier_decomposes_into_uncertainty_resolution_reliability():
+    """Brier = uncertainty - resolution + reliability, so the two terms
+    account for the score rather than merely describing it."""
+    rng = np.random.default_rng(1)
+    y = (rng.random(500) < 0.4).astype(float)
+    p = np.clip(0.3 * y + 0.35 + rng.normal(0, 0.05, len(y)), 0.01, 0.99)
+
+    rel, res = murphy(p, y, n_bins=50)
+    uncertainty = y.mean() * (1 - y.mean())
+    assert ((p - y) ** 2).mean() == pytest.approx(uncertainty - res + rel,
+                                                  abs=5e-3)

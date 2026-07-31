@@ -546,6 +546,11 @@ rename, or repurpose a test) updates this file in the same change.**
 32. `test_unknown_split_subset_is_rejected` -- a mistyped subset name raises rather than silently returning nothing.
 33. `test_wilson_interval_brackets_and_narrows_with_count` -- the interval contains the observed frequency (including at 0 and 1, where the normal approximation collapses), stays inside [0, 1], and narrows as the bin count grows.
 34. `test_unit_bootstrap_resamples_whole_units` -- every resample carries each drawn unit's rows together, so the clustered intervals never mix partial units.
+35. `test_coarsen_support_is_the_group_level_or` -- a group is on the coarsened support when any member phase is, which is the denominator a share conditioned on that support renormalizes over.
+36. `test_climatology_is_fit_only_on_the_carve_out` -- rewriting the held-out truth entirely leaves the null's base rates, mean composition and concentration untouched, so it never reads back answers from the rocks it is compared against.
+37. `test_climatology_concentration_beats_its_grid_neighbours` -- the null's one free parameter is the grid optimum on the fit rows, so the baseline is the strongest version of itself rather than a straw man.
+38. `test_murphy_terms_separate_calibration_from_discrimination` -- quoting the base rate scores zero reliability and zero resolution; naming the outcome scores zero reliability and resolution equal to the uncertainty.
+39. `test_brier_decomposes_into_uncertainty_resolution_reliability` -- the two terms account for the Brier score rather than merely describing it.
 
 ### test_summary_cards.py
 

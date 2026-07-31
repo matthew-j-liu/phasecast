@@ -28,8 +28,9 @@ import pandas as pd
 from matplotlib.lines import Line2D
 import torch
 import torch.nn.functional as F
+from matplotlib.patches import Patch
 from scipy.special import betainc, betaincinv
-from scipy.stats import spearmanr
+from scipy.stats import gaussian_kde, spearmanr
 from sklearn.metrics import roc_auc_score
 
 from cnmineral.data.bulk_chemistry import tokenize_bulk_frame
@@ -496,6 +497,19 @@ def coarsen_alpha(
     return out, off_vocab
 
 
+def coarsen_support(support: np.ndarray) -> np.ndarray:
+    """Group-level support: a group is on when any member phase is on.
+
+    The boolean counterpart of `coarsen_alpha` -- it names which groups a
+    given 21-phase support actually carries concentration for, which is the
+    denominator any share conditioned on that support renormalizes over.
+    """
+    out = np.zeros((len(support), len(GROUPS)), dtype=bool)
+    for phase, group in MODEL_TO_GROUP.items():
+        out[:, GROUP_INDEX[group]] |= support[:, PHASE_INDEX[phase]] > 0
+    return out
+
+
 def truth_forced_support(
     presence7: np.ndarray, p21: np.ndarray, *, member_threshold: float = 0.5
 ) -> np.ndarray:
@@ -563,6 +577,50 @@ def real_rock_nll(
         "bernoulli": bern.numpy(),
         "dirichlet": dirichlet.numpy(),
         "joint": (bern + dirichlet).numpy(),
+    }
+
+
+CLIMATOLOGY_GRID: np.ndarray = np.geomspace(0.5, 400, 80)
+
+
+def climatology(benchmark: RealRockBenchmark) -> dict:
+    """The do-nothing forecast every scored figure is read against.
+
+    Per-group base rates and the mean measured composition, quoted for every
+    rock regardless of its chemistry -- the reference forecast of weather
+    verification.  A cost in nats has no scale until you know what ignoring
+    the rock entirely would have cost.
+
+    Fit on the train/val carve-out and scored everywhere, so it never reads
+    its own answers back on the rocks it is compared on.  Its one free
+    parameter is the Dirichlet concentration, chosen to score as well as it
+    possibly can, because a null worth beating should be the strongest
+    version of itself.
+
+    Unlike the model it is not zero-shot: it has seen real rocks in
+    aggregate.  That asymmetry is the point of the comparison rather than a
+    flaw in it -- the gap measures what simulator training buys against a
+    little target-domain bookkeeping.
+    """
+    scored = benchmark.clean & benchmark.has_magnitude
+    fit = (split_mask(benchmark, "train") | split_mask(benchmark, "val")) & scored
+    rate = (benchmark.presence[fit] > 0).mean(0)
+    mean_comp = benchmark.magnitude[fit].sum(0)
+    mean_comp /= mean_comp.sum()
+    p7 = np.tile(rate, (len(benchmark), 1))
+    scores = [
+        real_rock_nll(
+            p7, np.tile(k * mean_comp, (len(p7), 1)), benchmark.presence,
+            benchmark.magnitude, benchmark.numeric,
+        )["dirichlet"][fit].mean()
+        for k in CLIMATOLOGY_GRID
+    ]
+    concentration = float(CLIMATOLOGY_GRID[int(np.argmin(scores))])
+    return {
+        "p7": p7,
+        "alpha7": np.tile(concentration * mean_comp, (len(p7), 1)),
+        "concentration": concentration,
+        "n_fit": int(fit.sum()),
     }
 
 
@@ -706,6 +764,10 @@ def _unit_bootstrap(
     are resampled whole, the same clustering the paired NLL comparisons use.
     `stat_fn` maps a row-index array to a stat vector; NaN entries (a group
     with too few quantified rocks in a resample) are ignored per component.
+    The indices handed to `stat_fn` are positions into `units`, so a caller
+    scoring a subset must pass that subset's units and map back itself --
+    silently mixing absolute row indices with subset positions resamples the
+    wrong rocks and produces intervals that do not contain the estimate.
     """
     rng = np.random.default_rng(seed)
     groups = [np.flatnonzero(units == u) for u in np.unique(units)]
@@ -852,6 +914,319 @@ def plot_gap_summary(p7, pred, benchmark, out_path: Path, subtitle: str) -> None
                  "whiskers: unit-clustered bootstrap 95%", out_path)
 
 
+# The cohort card renders near 17x12.5 in, several times the single-rock
+# card's area, so it carries its own type scale: the `summary_cards`
+# constants are illegible at this figure size.  The chemistry panel stacks 21
+# elements and cannot take the mineral panels' size, so it keeps its own.
+COHORT_ELEMENT_FS = 12
+COHORT_GROUP_FS = 15
+COHORT_GAP_FS = 16
+COHORT_LABEL_FS = 18
+COHORT_TITLE_FS = 20
+COHORT_LEGEND_FS = 14
+
+
+def _violin(ax, values, y: float, color: str, *, side: str = "both",
+            width: float = 0.38, alpha: float = 0.55,
+            min_kde: int = 10) -> None:
+    """One horizontal kernel density at row `y`, with a median tick.
+
+    Fewer than `min_kde` rocks fall back to plotting them individually: a
+    density over a handful of points is a drawing, not an estimate, and the
+    groups where that happens are exactly the ones a reader must not
+    over-read.
+    """
+    v = np.asarray(values, dtype=float)
+    v = v[np.isfinite(v)]
+    if len(v) < min_kde or np.ptp(v) < 1e-9:
+        offset = {"up": -0.12, "down": 0.12}.get(side, 0.0)
+        if len(v):
+            ax.plot(v, np.full(len(v), y + offset), "o", ms=4, color=color)
+        return
+    grid = np.linspace(v.min(), v.max(), 256)
+    dens = gaussian_kde(v)(grid)
+    dens = dens / dens.max() * width
+    if side in ("both", "up"):
+        ax.fill_between(grid, y, y - dens, color=color, alpha=alpha, lw=0)
+    if side in ("both", "down"):
+        ax.fill_between(grid, y, y + dens, color=color, alpha=alpha, lw=0)
+    ax.plot([np.median(v)], [y], "|", ms=10, color=color, mew=1.8)
+
+
+def _share_ticks(ax, fontsize: int) -> None:
+    ax.set_xticks(np.log10([0.001, 0.01, 0.1, 0.5, 1.0]),
+                  ["0.1%", "1%", "10%", "50%", "100%"], fontsize=fontsize)
+
+
+def plot_cohort_card(
+    p7: np.ndarray,
+    forced_share: np.ndarray,
+    model_share: np.ndarray,
+    model_support: np.ndarray,
+    benchmark: RealRockBenchmark,
+    out_path: Path,
+) -> None:
+    """The single-rock card generalized to the whole cohort.
+
+    Every array is already restricted to the rocks being scored, `benchmark`
+    with them.  The four panels follow the pipeline: what went in, which
+    minerals the model calls, and how much of each read two ways.
+
+    The two mineralogy panels differ only in which assemblage the magnitude
+    branch was conditioned on.  The measured-assemblage panel is teacher
+    forced, so its predicted and measured counts are equal by construction
+    and a presence failure leaves no trace in it; the predicted-assemblage
+    panel is where a mineral the model never calls collapses to a handful of
+    rocks.  Both are needed, because the second panel's two violins cover
+    different rock sets and its predicted shares renormalize over whatever
+    the model kept, so it cannot be read as a like-for-like comparison on its
+    own.
+    """
+    floor_log = np.log10(CARD_SHARE_FLOOR)
+    fig, ((ax0, ax1), (ax2, ax3)) = plt.subplots(
+        2, 2, figsize=(17.0, 12.5), gridspec_kw={"height_ratios": [1.15, 1.0]}
+    )
+
+    symbol = {z: sym for sym, z in VOCAB}
+    src, frac = benchmark.bulk_src.numpy(), benchmark.bulk_frac.numpy()
+    pools = {symbol[int(z)]: np.log10(np.clip(frac[src == z] * 100, 1e-4, None))
+             for z in np.unique(src[src > 0])}
+    order = sorted(pools, key=lambda s: -np.median(pools[s]))
+    for i, sym in enumerate(order):
+        _violin(ax0, pools[sym], i, "tab:gray", alpha=0.7)
+    ax0.set_yticks(range(len(order)), order, fontsize=COHORT_ELEMENT_FS)
+    ax0.invert_yaxis()
+    ax0.set_xticks([-3, -2, -1, 0, 1], ["0.001", "0.01", "0.1", "1", "10"],
+                   fontsize=COHORT_GROUP_FS)
+    ax0.set_xlabel("Cation wt%", fontsize=COHORT_LABEL_FS)
+    ax0.set_title("Input: Whole-Rock Chemistry", fontsize=COHORT_TITLE_FS)
+
+    for i in range(len(GROUPS)):
+        says = np.mean(p7[:, i] > 0.5) * 100
+        truth = np.mean(benchmark.presence[:, i] > 0) * 100
+        ax1.plot([truth, says], [i, i], lw=1.4, color="0.7", zorder=0)
+        ax1.plot(truth, i, "o", ms=8, color="tab:blue")
+        ax1.plot(says, i, "o", ms=8, color="tab:orange", mfc="white", mew=1.8)
+        ax1.annotate(f"{says - truth:+.0f}", (112, i), fontsize=COHORT_GAP_FS,
+                     color="0.3", va="center", ha="left")
+    ax1.set_xlim(-4, 140)
+    ax1.set_xticks([0, 50, 100], ["0", "50", "100"], fontsize=COHORT_GROUP_FS)
+    ax1.set_xlabel("Fraction of rocks (%)", fontsize=COHORT_LABEL_FS)
+    ax1.set_title("Phase Presence", fontsize=COHORT_TITLE_FS)
+    ax1.legend(handles=[
+        Line2D([], [], marker="o", ls="none", ms=9, color="tab:blue",
+               label="is there"),
+        Line2D([], [], marker="o", ls="none", ms=9, color="tab:orange",
+               mfc="white", mew=1.8, label="model calls it"),
+    ], fontsize=COHORT_LEGEND_FS, loc="upper left", framealpha=0.9)
+
+    n_total = len(benchmark)
+    for ax, share, pmask, title in (
+        (ax2, forced_share, benchmark.numeric,
+         "Modal Mineralogy | measured assemblage"),
+        (ax3, model_share, model_support,
+         "Modal Mineralogy | predicted assemblage"),
+    ):
+        for i in range(len(GROUPS)):
+            tm, pm = benchmark.numeric[:, i], pmask[:, i]
+            _violin(ax, np.log10(np.maximum(benchmark.magnitude[tm, i],
+                                            CARD_SHARE_FLOOR)),
+                    i, "tab:blue", side="down")
+            _violin(ax, np.log10(np.maximum(share[pm, i], CARD_SHARE_FLOOR)),
+                    i, "tab:orange", side="up")
+            # each count sits on the side its own violin is drawn on
+            ax.annotate(f"{int(pm.sum())}/{n_total}", (0.60, i - 0.20),
+                        fontsize=COHORT_GROUP_FS, color="tab:orange",
+                        ha="right", va="center")
+            ax.annotate(f"{int(tm.sum())}/{n_total}", (0.60, i + 0.20),
+                        fontsize=COHORT_GROUP_FS, color="tab:blue",
+                        ha="right", va="center")
+        ax.set_xlim(floor_log, 0.62)
+        _share_ticks(ax, COHORT_GROUP_FS)
+        ax.grid(axis="x", lw=0.3, alpha=0.5)
+        ax.set_xlabel("Fraction of rock's crystalline mass",
+                      fontsize=COHORT_LABEL_FS)
+        ax.set_title(title, fontsize=COHORT_TITLE_FS)
+
+    for ax in (ax1, ax2, ax3):
+        ax.set_yticks(range(len(GROUPS)), GROUPS, fontsize=COHORT_GROUP_FS)
+        ax.set_ylim(len(GROUPS) - 0.4, -0.6)
+    ax2.legend(handles=[
+        Patch(color="tab:orange", alpha=0.55, label="predicted"),
+        Patch(color="tab:blue", alpha=0.55, label="measured"),
+    ], fontsize=COHORT_LEGEND_FS, loc="upper left", framealpha=0.9)
+
+    # not `_finish`: its suptitle size is tuned for the single-rock card
+    fig.suptitle("cohort card (zero-shot)", fontsize=COHORT_TITLE_FS)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"saved {out_path}")
+
+
+def plot_magnitude_ratio(
+    share: np.ndarray, magnitude: np.ndarray, numeric: np.ndarray,
+    out_path: Path, subtitle: str,
+) -> None:
+    """Per-rock magnitude error, paired: how many times off, and which way.
+
+    The cohort card's mineralogy panels put two marginal distributions side
+    by side, which cannot see a per-rock error -- shuffling the predictions
+    among rocks leaves them unchanged.  This is the paired view: one number
+    per rock, so the same shuffle destroys it.  Log-spaced because the error
+    is multiplicative and the groups span two orders of magnitude in size.
+    """
+    fig, ax = plt.subplots(figsize=(8.5, 4.6))
+    ax.axvline(0, lw=1.0, color="0.35", zorder=0)
+    for i, group in enumerate(GROUPS):
+        m = numeric[:, i]
+        if m.sum() < 3:
+            continue
+        ratio = np.log2(np.maximum(share[m, i], 1e-9)
+                        / np.maximum(magnitude[m, i], 1e-9))
+        _violin(ax, ratio, i, "tab:orange", width=0.40)
+        ax.annotate(f"median x{2 ** np.median(ratio):.2f}", (1.01, i),
+                    fontsize=TICK_FS - 2, color="0.3", va="center",
+                    ha="left", xycoords=("axes fraction", "data"), annotation_clip=False)
+    ax.set_yticks(range(len(GROUPS)),
+                  [f"{g}\nn={int(numeric[:, i].sum())}"
+                   for i, g in enumerate(GROUPS)], fontsize=TICK_FS - 1)
+    ax.set_ylim(len(GROUPS) - 0.4, -0.6)
+    ax.set_xlim(-5, 5)
+    ax.set_xticks([-4, -2, -1, 0, 1, 2, 4],
+                  ["1/16", "1/4", "1/2", "right", "2x", "4x", "16x"],
+                  fontsize=TICK_FS)
+    ax.grid(axis="x", lw=0.3, alpha=0.5)
+    ax.set_xlabel("predicted share divided by measured share",
+                  fontsize=XLABEL_FS)
+    _finish(fig, f"per-rock magnitude error on real rocks -- {subtitle}\n"
+                 "quantified entries only, teacher-forced on the measured "
+                 "assemblage", out_path)
+
+
+def plot_nll_distribution(
+    nll: dict, null_nll: dict, out_path: Path, subtitle: str,
+) -> None:
+    """The headline split into its terms, each against the do-nothing forecast.
+
+    The two halves are different quantities on different scales and neither
+    is readable as a single mean, so both are drawn as distributions over
+    rocks.  The climatology curve is what the same figure looks like for a
+    forecast that ignores the rock; without it a cost in nats has no scale.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(16, 4.4))
+    for ax, term, name in (
+        (axes[0], "bernoulli", "presence"),
+        (axes[1], "dirichlet", "composition"),
+        (axes[2], "joint", "joint"),
+    ):
+        for values, color, style, label in (
+            (nll[term], "#2a78d6", "-", "model"),
+            (null_nll[term], "0.35", ":", "climatology"),
+        ):
+            v = np.sort(values)
+            ax.step(v, np.arange(1, len(v) + 1) / len(v), where="post",
+                    lw=2 if style == "-" else 1.6, ls=style, color=color,
+                    label=f"{label} (mean {v.mean():.1f})")
+        ax.set_xlim(np.percentile(
+            np.concatenate([nll[term], null_nll[term]]), [0.5, 98]))
+        ax.set_xlabel(f"per-rock {name} NLL (nats)", fontsize=XLABEL_FS)
+        ax.set_ylabel("fraction of rocks at or below", fontsize=XLABEL_FS)
+        ax.set_title(f"{name}: cost per rock", fontsize=TITLE_FS)
+        ax.legend(fontsize=LEGEND_FS - 2, loc="lower right")
+    _finish(fig, f"per-rock cost against a forecast that ignores the rock -- "
+                 f"{subtitle}\nclimatology: per-group base rates + the mean "
+                 "measured composition, fit on the train/val carve-out",
+            out_path)
+
+
+def murphy(p: np.ndarray, y: np.ndarray, n_bins: int = 10) -> tuple[float, float]:
+    """Reliability and resolution for one group's presence forecasts.
+
+    Brier decomposes as uncertainty - resolution + reliability: how hard the
+    question is, credit for separating rocks into groups with different
+    outcome rates, and the penalty for probabilities that do not match
+    observed frequencies.
+
+    Computed per group and averaged by the caller, never pooled over
+    group-rock pairs.  Pooling credits the model with resolution for knowing
+    that opaques are common and olivine is rare, which the climatology knows
+    too, and inflates the term several-fold.
+    """
+    base = y.mean()
+    idx = np.clip(np.digitize(p, np.linspace(0, 1, n_bins + 1)[1:-1]), 0,
+                  n_bins - 1)
+    rel = res = 0.0
+    for b in range(n_bins):
+        m = idx == b
+        if m.any():
+            rel += m.sum() * (p[m].mean() - y[m].mean()) ** 2
+            res += m.sum() * (y[m].mean() - base) ** 2
+    return rel / len(p), res / len(p)
+
+
+def plot_presence_brier(
+    p7: np.ndarray, null_p7: np.ndarray, presence: np.ndarray,
+    unit: np.ndarray, out_path: Path, subtitle: str,
+) -> None:
+    """Presence scored with calibration folded in, and split into its terms.
+
+    AUROC is invariant to any monotone rescaling of the probabilities, so a
+    model that says 95% when it should say 60% keeps a perfect AUROC and a
+    terrible Brier.  Since the standing real-rock finding is that ranking
+    transfers and scale does not, the ranking-only view is blind to the
+    failure being chased; this one is not.
+
+    The decomposition is what makes the figure actionable: resolution the
+    model has and the null does not is information about the specific rock,
+    and a correction that only rescales probabilities can recover the
+    reliability it is losing but cannot manufacture resolution it never had.
+    """
+    y = (presence > 0).astype(float)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 4.2),
+                                   gridspec_kw={"width_ratios": [1.6, 1.0]})
+    x = np.arange(len(GROUPS) + 1)
+    for p, color, label in ((p7, "#2a78d6", "model"),
+                            (null_p7, "0.35", "climatology")):
+        sq = (p - y) ** 2
+
+        def stat(rows, _s=sq):
+            return np.append(_s[rows].mean(0), _s[rows].mean(0).mean())
+
+        value = stat(np.arange(len(y)))
+        if label == "climatology":
+            for xi, v in zip(x, value):
+                ax1.plot([xi - 0.42, xi + 0.42], [v, v], ls=":", lw=1.8,
+                         color=color, label=label if xi == 0 else None)
+        else:
+            lo, hi = _unit_bootstrap(stat, unit)
+            ax1.bar(x, value, 0.55, color=color, label=label)
+            ax1.errorbar(x, value,
+                         yerr=[np.maximum(value - lo, 0),
+                               np.maximum(hi - value, 0)],
+                         fmt="none", ecolor="0.25", elinewidth=1.0, capsize=2)
+        terms = np.array([murphy(p[:, i], y[:, i])
+                          for i in range(len(GROUPS))]).mean(0)
+        j = 0 if label == "model" else 1
+        ax2.bar(j - 0.19, terms[0], 0.36, color=color)
+        ax2.bar(j + 0.19, terms[1], 0.36, color=color, alpha=0.45, hatch="//")
+        ax2.annotate("REL", (j - 0.19, terms[0]), ha="center", va="bottom",
+                     fontsize=7, color="0.3")
+        ax2.annotate("RES", (j + 0.19, terms[1]), ha="center", va="bottom",
+                     fontsize=7, color="0.3")
+    ax1.set_xticks(x, list(GROUPS) + ["mean"], fontsize=TICK_FS)
+    ax1.set_ylabel("Brier score (lower is better)", fontsize=XLABEL_FS)
+    ax1.set_title("presence Brier per group", fontsize=TITLE_FS)
+    ax1.legend(fontsize=LEGEND_FS - 2)
+    ax2.set_xticks([0, 1], ["model", "climatology"], fontsize=TICK_FS)
+    ax2.set_ylabel("per-group mean contribution", fontsize=XLABEL_FS)
+    ax2.set_title("Murphy decomposition, per group\nreliability (lower better) "
+                  "vs resolution (higher better)", fontsize=TITLE_FS)
+    _finish(fig, f"presence Brier and its decomposition -- {subtitle}\n"
+                 "whiskers: unit-clustered bootstrap 95%; dotted: climatology",
+            out_path)
+
+
 def share_interval(
     alpha7: np.ndarray, mask: np.ndarray, q: tuple[float, float] = (0.1, 0.9)
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -878,6 +1253,12 @@ def share_interval(
 
 CARD_SHARE_FLOOR = 5e-4
 
+# The whisker the cards draw, matching the corpus inference card's p25-p75 so
+# the two read as one figure family.  `plot_magnitude_parity` deliberately
+# keeps `share_interval`'s wider default: its per-panel coverage label asserts
+# an 80% band, so narrowing it there would make that figure lie.
+CARD_INTERVAL_Q: tuple[float, float] = (0.25, 0.75)
+
 
 def _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row: int,
                  prefix: str = "", interval=None) -> None:
@@ -903,7 +1284,7 @@ def _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row: int,
                        [symbol[int(z)] for z in src[populated]], fontsize=TICK_FS)
         ax0.invert_yaxis()
         ax0.set_xscale("log")
-        ax0.set_xlabel("cation wt% (log)", fontsize=XLABEL_FS)
+        ax0.set_xlabel("Cation wt%", fontsize=XLABEL_FS)
         ax0.set_title("Input: Whole-Rock Chemistry", fontsize=TITLE_FS)
 
     y = np.arange(len(GROUPS))
@@ -951,9 +1332,8 @@ def _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row: int,
     ax2.set_xscale("log")
     ax2.set_xlim(floor, 1.05)
     ax2.grid(axis="x", lw=0.3, alpha=0.5)
-    ax2.set_xlabel("share of the crystal cargo (log)\n"
-                   "arrow: trace-only, bounded above; whiskers: predicted "
-                   "10-90%", fontsize=XLABEL_FS)
+    ax2.set_xlabel("Fraction of rock's crystalline mass\n"
+                   "whiskers: predicted 25-75%", fontsize=XLABEL_FS)
     ax2.set_title(f"{prefix}Phase Share", fontsize=TITLE_FS)
 
 
@@ -1003,11 +1383,11 @@ def real_rock_card_comparison(
     gs = fig.add_gridspec(2, 3, width_ratios=[1.0, 0.9, 1.2], wspace=0.3,
                           hspace=0.45, top=0.83, bottom=0.07)
     ax_chem = fig.add_subplot(gs[:, 0])
-    rows = (("ZERO-SHOT (nothing fit)", before), ("ADAPTED", after))
+    rows = (("Zero-shot", before), ("Adapted", after))
     for r, (label, (p7, share, lo, hi)) in enumerate(rows):
         ax1, ax2 = fig.add_subplot(gs[r, 1]), fig.add_subplot(gs[r, 2])
         _card_panels(ax_chem if r == 0 else None, ax1, ax2, p7, share,
-                     benchmark, row, prefix=f"{label}  --  ",
+                     benchmark, row, prefix=f"{label}: ",
                      interval=None if lo is None else (lo, hi))
         if r == 0:
             ax1.set_xlabel("")
@@ -1161,6 +1541,8 @@ def predict(head, latents: torch.Tensor, benchmark: RealRockBenchmark) -> dict:
     below that. `alpha_model_support` repeats it on the model's own support --
     the same exposure-bias probe the corpus eval reports, which here also says
     how much of the gap is the support being wrong rather than the sizes.
+    `model_support7` is the group-level mask that goes with it, which any
+    share conditioned on the model's own assemblage renormalizes over.
     """
     with torch.no_grad():
         p21 = torch.sigmoid(head.presence_logits(latents)).cpu().numpy()
@@ -1181,6 +1563,7 @@ def predict(head, latents: torch.Tensor, benchmark: RealRockBenchmark) -> dict:
         "p7": coarsen_presence(p21),
         "alpha7": alpha7,
         "alpha7_model_support": alpha7_model,
+        "model_support7": coarsen_support(model_support),
         "off_vocab_alpha": off_vocab,
         "support21": support,
     }
@@ -1267,7 +1650,34 @@ def run_real_rock_eval(
     real_rock_card(
         p7, card_med, benchmark, card_row,
         output_dir / "real_rock_card.png",
-        interval=share_interval(alpha7, card_mask),
+        interval=share_interval(alpha7, card_mask, q=CARD_INTERVAL_Q),
+    )
+
+    null = climatology(benchmark)
+    null_nll = real_rock_nll(
+        null["p7"], null["alpha7"], benchmark.presence, benchmark.magnitude,
+        benchmark.numeric,
+    )
+    model_share = conditional_mean(
+        pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
+    )
+    plot_cohort_card(
+        p7[clean], cond_mean[clean], model_share[clean],
+        pred["model_support7"][clean], benchmark.subset(clean),
+        output_dir / "cohort_card.png",
+    )
+    plot_magnitude_ratio(
+        cond_mean[clean], benchmark.magnitude[clean], benchmark.numeric[clean],
+        output_dir / "magnitude_ratio.png", subtitle,
+    )
+    plot_nll_distribution(
+        {k: v[clean] for k, v in nll.items()},
+        {k: v[clean] for k, v in null_nll.items()},
+        output_dir / "nll_distribution.png", subtitle,
+    )
+    plot_presence_brier(
+        p7[clean], null["p7"][clean], benchmark.presence[clean],
+        benchmark.unit[clean], output_dir / "presence_brier.png", subtitle,
     )
 
     thresholded = presence_scores(p7[benchmark.clean],
@@ -1323,6 +1733,13 @@ def run_real_rock_eval(
             "clean_grades": sorted(CLEAN_GRADES),
         },
         "headline": _headline(nll, clean, benchmark.numeric),
+        # the null is recorded, not just drawn: a headline in nats is only
+        # readable beside what ignoring the rock would have cost
+        "climatology": {
+            "concentration": null["concentration"],
+            "n_fit": null["n_fit"],
+            **_headline(null_nll, clean, benchmark.numeric),
+        },
         "altered": _headline(nll, ~benchmark.clean & benchmark.has_magnitude,
                              benchmark.numeric),
         "all_rocks": _headline(nll, benchmark.has_magnitude, benchmark.numeric),

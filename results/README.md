@@ -34,6 +34,18 @@ written directly by the view scripts and overwritten on regeneration:
   NLL, `--pick best` for the internal showcase).
 - `scenario_view_bulk<id>.png` -- an ambiguous rock's top-2 predicted
   assemblages + per-scenario conditions (`scripts/view/scenario_view.py`).
+- `cohort_card.png`, `magnitude_ratio.png`, `nll_distribution.png`,
+  `presence_brier.png` -- the real-rock headline set, zero-shot on the
+  least-altered eruption rocks (`scripts/view/real_rock_card.py`). The cohort
+  card is the single-rock card generalized to the whole benchmark (inputs,
+  which minerals the model calls, how much of each on the measured and on its
+  own assemblage); the ratio plot is the paired per-rock magnitude error the
+  card's marginals cannot see. The other two are scored against a climatology
+  null -- base rates plus the mean measured composition, fit on the train/val
+  carve-out -- because a cost in nats has no scale until you know what
+  ignoring the rock would have cost. Cross-instrument comparison lives here
+  rather than in the ledger, which is why these are per-model rather than a
+  single trajectory.
 
 The fuller diagnostic sweeps (per-head interrogation figures,
 truth-vs-pred panels) stay in `runs/` -- this directory holds only the

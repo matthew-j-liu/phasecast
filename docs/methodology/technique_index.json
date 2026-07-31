@@ -116,9 +116,21 @@
     ]
   },
   "evaluation": {
+    "brier_murphy_decomposition": [
+      "scripts/view/real_rock_card.py",
+      "src/cnmineral/eval/real_rock.py"
+    ],
+    "climatology_reference_forecast": [
+      "scripts/view/real_rock_card.py",
+      "src/cnmineral/eval/real_rock.py"
+    ],
     "cluster_bootstrap": [
       "scripts/eval/real_rock.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
+    ],
+    "cohort_card": [
+      "scripts/view/real_rock_card.py",
+      "src/cnmineral/eval/real_rock.py"
     ],
     "comp_oxide_calibration": [
       "src/cnmineral/eval/comp_head.py"
@@ -189,6 +201,7 @@
     "sim_to_real_zero_shot_transfer": [
       "scripts/build/build_real_rock_split.py",
       "scripts/eval/real_rock.py",
+      "scripts/view/real_rock_card.py",
       "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ],
@@ -266,6 +279,7 @@
       "scripts/eval/real_rock.py",
       "scripts/view/inference_card.py",
       "scripts/view/plot_training.py",
+      "scripts/view/real_rock_card.py",
       "scripts/view/scenario_view.py",
       "scripts/view/truth_vs_pred.py",
       "src/cnmineral/eval/imputation.py",
@@ -309,6 +323,7 @@
       "scripts/eval/joint_heads.py",
       "scripts/eval/real_rock.py",
       "scripts/view/inference_card.py",
+      "scripts/view/real_rock_card.py",
       "scripts/view/scenario_view.py",
       "scripts/view/truth_vs_pred.py",
       "src/cnmineral/eval/comp_head.py",

@@ -406,7 +406,24 @@ techniques:
     patterns:
       - "coarsen_presence"
       - "coarsen_alpha"
+      - "coarsen_support"
       - "truth_forced_support"
+  - name: climatology_reference_forecast
+    type: evaluation
+    patterns:
+      - "climatology"
+      - "CLIMATOLOGY_GRID"
+  - name: brier_murphy_decomposition
+    type: evaluation
+    patterns:
+      - "murphy"
+      - "plot_presence_brier"
+  - name: cohort_card
+    type: evaluation
+    patterns:
+      - "plot_cohort_card"
+      - "plot_magnitude_ratio"
+      - "plot_nll_distribution"
   - name: left_censored_magnitude_scoring
     type: evaluation
     patterns:
