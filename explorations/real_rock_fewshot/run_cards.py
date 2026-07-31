@@ -30,6 +30,7 @@ import torch
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.mode_head import conditional_mean
 from cnmineral.eval.real_rock import (
+    CARD_INTERVAL_Q,
     GROUPS,
     coarsen_presence,
     load_benchmark,
@@ -170,7 +171,8 @@ def main() -> None:
         arms = {}
         for name, alpha in (("zero", test.alpha7[local:local + 1].numpy()),
                             ("adapted", adj_alpha.numpy())):
-            lo, hi = share_interval(alpha, measured[row:row + 1])
+            lo, hi = share_interval(alpha, measured[row:row + 1],
+                                    q=CARD_INTERVAL_Q)
             arms[name] = (conditional_mean(alpha, measured[row:row + 1]), lo, hi)
 
         # the card panels index by benchmark row, so scatter the single-row
