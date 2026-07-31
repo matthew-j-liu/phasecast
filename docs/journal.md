@@ -4978,3 +4978,92 @@ machine plus ordinary backups.
 
 **Next.** v3.4 annotation at ship: prose + frontier statement ("last
 version before the all-rock 23-token encoder cascade") + sha block.
+
+## 2026-07-30 -- Real-rock metric selection: four instruments promoted, the null wins on all of them
+
+**Q.** The zero-shot headline is one number in nats that nobody can size.
+Which additional instruments earn a permanent place beside it, and what do
+they say about the cascade-1 checkpoint?
+
+**Context.** Six candidate metrics were prototyped on the 640 least-altered
+eruption-v2 rocks, scored across three arms (old corpus
+`joint_heads_supportmag_seed0`, traced baseline `joint_heads_regen_seed0`,
+traced tuned `joint_heads_regen_tuned_seed0`), each against a climatology
+null -- per-group base rates plus the mean measured composition, fit on the
+train/val carve-out with one tuned concentration. The null was added
+because "4.7 nats doesn't mean anything to me" was correct: a cost has no
+scale without a do-nothing baseline.
+
+**Considered.** (1) *Coverage and sharpness*: stated-80% intervals are
+really 39/32/30% intervals; climatology sits near the diagonal. Rejected
+from the promoted set -- calibration is the recalibrator's job downstream,
+and no single concentration rescale reaches parity anyway (a global
+multiplier tops out at 69% coverage at the 80% level, and opq/bi never
+reach it at all, so part of the deficit is location, not width). (2)
+*CRPS*: pooled 0.0929/0.0972/0.0990 against the null's 0.0820. Overlapping
+marginal intervals initially read as a tie; the paired contrast excludes
+zero for every pairing (tuned - old +0.0061 [+0.0035, +0.0089]). Not
+promoted -- Bolin & Wallin 2023 show CRPS scales linearly with dispersion,
+so it is structurally under-sensitive to the concentration changes that
+differ between arms, and once the null is on the NLL figure it adds sign
+without magnitude. Raw CRPS is also incomparable across groups: opq has
+one of the lowest bars and the worst skill (-0.50 vs its own climatology),
+while ol is the only group beating the null (+0.32). (3) *Aitchison
+distance*: medians 1.40/1.47/1.54 vs the null's 1.19, all paired contrasts
+excluding zero. Not promoted, but it contradicts the standing
+"accuracy did not move" reading -- log-ratio geometry weights every mineral
+equally, so it sees point-estimate degradation on the accessories that
+Spearman/AUROC/MAE, all dominated by the large shares, cannot. (4)
+*Assemblage ranking*: median rank 11 -> 9 -> 8 of 128, paired tuned-minus-old
+-2.0 [-3.0, -2.0] with Jaccard +0.0104 [+0.0033, +0.0187]. The cleanest
+across-arm win in the set. Not promoted because climatology ties the best
+arm at rank 8 and dominates the whole top-K curve, so as a per-run headline
+it reports a deficit without pointing anywhere.
+
+**Decision.** Promoted, all four emitted by `run_real_rock_eval` into
+`runs/real_rock/<tag>/` and by `scripts/view/real_rock_card.py` into
+`results/<tag>/`: `cohort_card` (the single-rock card generalized to the
+cohort -- chemistry violins, presence rates, and modal mineralogy on the
+measured and on the model's own assemblage), `magnitude_ratio` (paired
+per-rock error, the view the cohort card's marginals structurally cannot
+give), `nll_distribution` (the headline split by term against the null),
+and `presence_brier` with its Murphy decomposition. `climatology` and
+`murphy` are production functions; the null's headline is recorded in
+`metrics.json`, not only drawn.
+
+**What they say.** All three arms lose to the null on every promoted axis.
+The tuned arm: joint 24.4 against 1.5, presence 6.5 against 3.5,
+composition 17.9 against -1.9. Amphibole Brier 0.505 is worse than a coin
+flip (AUROC 0.539, model calls it in 19% of rocks against 65% present).
+Olivine looks like the same failure and is not -- AUROC 0.841 with every
+probability too small to cross any threshold, which is a scale failure a
+recalibrator repairs, where amphibole has nothing underneath to rescale.
+The decomposition is the actionable line: reliability 0.081 against
+resolution 0.036, with the null at zero resolution. The model knows
+something real about specific rocks and hands back more than it earns
+through miscalibration.
+
+Two findings the six-figure sweep produced that nothing in the existing
+eval surfaced. First, a signed multiplicative bias table (tuned arm, median
+per-rock ratio): fsp x1.16 and q x1.86 over-called, ol x1.00, and amp x0.75,
+px x0.63, bi x0.63, opq x0.36 under. The felsic framework is over-called
+and everything mafic and accessory under; opaques at x0.36 was invisible to
+every absolute-error metric because opaque shares are small. Second, the
+retrain moved exactly one group: quartz presence, +49 points over-called on
+the old corpus to +28 on the traced arms, corroborated independently by
+Brier (-0.0802 [-0.0992, -0.0595]) and CRPS (-0.0143 [-0.0242, -0.0003]).
+Every other group sits within a few points across all three arms.
+
+**Also.** `_unit_bootstrap` hands `stat_fn` positions into the `units`
+array it was given; a caller scoring a subset with absolute row indices
+resamples the wrong rocks and returns intervals that do not contain the
+estimate. Production had one call site and it was correct; the trap is now
+documented. And `tokenize_bulk_frame` never renormalizes to a common oxide
+total, so gard2019 (median 97.8, raw analyses with untokenized volatiles)
+and the du Bray benchmark (median 99.7, recalculated volatile-free) present
+to the encoder on different scales -- filed as #56.
+
+**Next.** Coverage is absent from the promoted set by choice; if the
+recalibrator ships, its calibration claim needs that instrument back. The
+promoted panels also mix aggregations (entry-weighted pooling in one,
+equal-weight-per-group in another), unstated.
