@@ -147,11 +147,55 @@ exact transform raises each member's absence probability to a common power,
 `gamma = log(1 - P_target) / log(1 - P_now)`. That function also feeds the
 exposure probe, so this was never only a plotting bug.
 
+## Residual decomposition: width vs location
+
+`run_residual_decomposition.py` asks what the recalibrator's functional form can
+reach at all, before any hyperparameter sweep on it: fit vector and matrix on
+the train roster, then split each group's remaining miss into width (interval
+too narrow) and location (share systematically off). The oracle reparameterizes
+each group's Beta marginal into mean and precision -- `k` scales precision at
+fixed mean, `delta` shifts the mean at fixed precision -- and grid-searches the
+coverage each knob can buy. Those two directions are exactly what the
+recalibrator's own alpha offsets entangle: a per-group `magnitude_offset` moves
+mean and concentration together, and the only mean-preserving direction in the
+parameterization is an offset shared by all seven groups.
+
+Measured on the regen arms (2026-07-31, val slice, fit on train, test sealed):
+
+- The fit's constant offsets absorb most of the location error. Zero-shot
+  medians run to 2.8x off (bi, opq under; fsp, q over); after the matrix fit
+  every group's median ratio is within 1.4x and mean PIT sits near 0.5. The
+  zero-shot suspicion that opq/bi were location-limited does not survive the
+  fit -- opq lands nearly centered.
+- What remains is under-dispersion everywhere: empirical coverage of the
+  nominal 80% interval is 0.45-0.75 (matrix) against 0.12-0.42 zero-shot.
+  Reaching nominal by pure widening needs precision cuts of 6x to 1000x, and
+  for most groups the interval at that optimum spans half the simplex or more
+  -- coverage bought vacuously. The two groups whose optimum stays sharp (px,
+  bi) are also the two whose width ceiling falls short of nominal. So the
+  coverage gap is not a missing-knob problem: the residual is heavier-tailed
+  than any Beta at the fitted mean, which points at mixture / per-rock
+  precision structure, not more constant knobs.
+- The location residual that does survive is SiO2-structured (Spearman of
+  signed residual vs SiO2: bi +0.6, q and px +0.5, stable across arms and
+  tiers). The recalibrator carries SiO2 slopes on presence only; a
+  magnitude-side SiO2 term is the one targeted parametric extension the data
+  argues for.
+- Recalibration nearly closes the tuned-vs-baseline zero-shot gap: val joint
+  NLL 31.7 vs 25.4 zero-shot collapses to 2.0 vs 1.7 after the matrix fit.
+
+Numbers and per-group detail in `results/<tag>/residual_decomposition.json`;
+the figure annotates each width ceiling with the `k` that buys it, so a bar at
+1.0 reached only by a 100x precision cut reads as the vacuity it is.
+
 ## Files
 
 - `run_curve.py` -- the sweep, the figures, `results/<tag>/curve.json`
+- `run_residual_decomposition.py` -- width-vs-location residual decomposition
+  after the fit, `results/<tag>/residual_decomposition.{json,png}`
 - `results/joint_heads_supportmag_seed0/learning_curve.png` -- the deliverable
 - `results/joint_heads_supportmag_seed0/curve_by_units.png` -- priced in eruptions
 
-Backing: journal 2026-07-25, `results/real_rock_ledger.yaml` (`eruption-v2`),
+Backing: journal 2026-07-25 (curve), 2026-07-31 (decomposition),
+`results/real_rock_ledger.yaml` (`eruption-v2`),
 `explorations/real_rock_mapping/` (the truth mapping this rests on).

@@ -5067,3 +5067,69 @@ to the encoder on different scales -- filed as #56.
 recalibrator ships, its calibration claim needs that instrument back. The
 promoted panels also mix aggregations (entry-weighted pooling in one,
 equal-weight-per-group in another), unstated.
+
+## 2026-07-31 -- Residual decomposition after the recalibrator fit: location is absorbed, the deficit is width no sane knob buys
+
+**Q.** Before spending an HPO sweep on the recalibrator, what can its
+functional form reach at all? The zero-shot probe behind the 2026-07-30
+entry (global concentration multiplier tops out at 69% coverage; opq/bi
+never reach parity under free per-group multipliers) suggested those two
+groups were location-limited, in which case concentration-space knobs chase
+the wrong quantity for them.
+
+**Context.** New instrument `explorations/real_rock_fewshot/
+run_residual_decomposition.py`: fit vector and matrix on the committed
+train roster, then per group decompose the remaining miss on train and val
+into width vs location. The oracle reparameterizes each group's Beta
+marginal into mean and precision -- `k` scales precision at fixed mean,
+`delta` shifts the mean logit at fixed precision -- exactly the two
+directions the recalibrator's own alpha offsets entangle (a per-group
+`magnitude_offset` moves mean and concentration together; the only
+mean-preserving direction in the parameterization is an offset shared by
+all seven groups). Grid search each knob's reachable coverage, record the
+sharpness at the optimum, bootstrap over units. Run on both regen arms;
+test slice untouched.
+
+**What it measured.** (1) The zero-shot location hypothesis does not
+survive the fit. Constant per-group offsets absorb most of the location
+error: zero-shot medians run to 2.8x off (bi, opq under; fsp, q over);
+after the matrix fit every group's median ratio is within 1.4x and mean
+PIT sits near 0.5. opq -- the group the probe flagged hardest -- lands
+nearly centered (median x1.2-1.3 over, PIT 0.45-0.49). (2) What remains is
+under-dispersion everywhere: coverage of the nominal 80% interval is
+0.45-0.75 after the matrix fit, and reaching nominal by pure widening
+needs precision cuts of 6x-1000x, at which point most groups' intervals
+span half the simplex or more -- coverage bought vacuously. The two groups
+whose optimum stays sharp (px at k 0.12-0.17, bi at k 0.04) are exactly
+the two whose width ceiling falls short of nominal (0.75-0.84). So the
+residual is heavier-tailed than any Beta at the fitted mean: 25-50% of
+rocks sit outside intervals already a fifth of the simplex wide. (3) The
+surviving location structure is SiO2-dependent, not constant: Spearman of
+signed residual vs SiO2 is bi +0.6, q and px +0.5, stable across arms and
+tiers. The recalibrator's SiO2 slopes act on presence only. (4)
+Recalibration nearly closes the tuned-vs-baseline zero-shot gap: val joint
+NLL 31.7 vs 25.4 collapses to 2.04 vs 1.71 after the matrix fit -- the
+tuned arm's 6.3-nat zero-shot penalty shrinks to 0.3. Direct input to the
+open production adjudication: the regression the cross-era judge measured
+is almost entirely recalibrator-absorbable.
+
+**Decision implications, owner to adjudicate.** HPO on the fit
+hyperparameters optimizes NLL and will not close a coverage gap that any
+Beta-shaped correction can only close vacuously; a mean-shifting term is
+not the priority either, since the fit already absorbs constant location
+error. The two extensions the data argues for: heavier-tailed magnitude
+structure (mixture or per-rock precision), and an SiO2 slope on the
+magnitude side. Neither is scheduled here.
+
+**Also.** The oracle's max-coverage ceiling degenerates for mid-share
+groups once `k` is allowed small enough -- a diluted Beta's 80% interval
+tends to (0, 1) when the group's mean share exceeds 0.1, so its ceiling
+saturates at 1.0 vacuously; below 0.1 the interval collapses toward zero
+instead, which is why small-share groups (bi, px) are the only ones whose
+ceiling binds. The instrument therefore records median interval width at
+every optimum, and the figure prints the `k` that buys each ceiling.
+
+**Next.** Owner call on the recalibrator HPO docket item in light of the
+above, and on the production adjudication now that the tuned arm's
+real-rock penalty is measured as recalibrator-absorbable. The 423 censored
+trace-only observations remain outside the fit objective.
