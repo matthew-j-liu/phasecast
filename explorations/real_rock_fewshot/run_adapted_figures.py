@@ -5,7 +5,7 @@ magnitude ratio, NLL distribution, presence Brier -- for one checkpoint, with
 the recalibrator fit on the full train roster and every figure drawn on the
 val slice only. That is the residual-decomposition protocol, so running this
 for all three checkpoints puts them on identical post-correction footing.
-The test slice stays sealed.
+The test slice (spent 2026-08-03) is not touched here.
 
     conda run -n alignn_fix python explorations/real_rock_fewshot/run_adapted_figures.py \
         --checkpoint checkpoints/joint_heads_regen_seed0/heads_best.pt
@@ -111,7 +111,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     n_train, n_val = int(train_mask.sum()), int(val_mask.sum())
     subtitle = (f"{args.tier} correction fit on {n_train} train rocks, "
-                f"drawn on {n_val} val rocks; test sealed")
+                f"drawn on {n_val} val rocks; test not used")
 
     plot_cohort_card(
         p7, forced_share, model_share, model_support7[val_mask],

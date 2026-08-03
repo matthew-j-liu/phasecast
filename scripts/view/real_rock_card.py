@@ -11,7 +11,7 @@ least-altered rocks of the eruption benchmark:
     presence_brier.png   presence Brier and its Murphy decomposition
 
     python scripts/view/real_rock_card.py \\
-        --checkpoint checkpoints/joint_heads_regen_tuned_seed0/heads_best.pt
+        --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt
 
 The figures land in `results/<checkpoint-dir-name>/` unless `--out-dir` says
 otherwise. The fuller diagnostic sweep stays in `runs/real_rock/<tag>/`,

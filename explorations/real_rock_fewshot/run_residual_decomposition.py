@@ -9,7 +9,7 @@ knobs cannot fix it, a mean-shifting term could.
 
     conda run -n alignn_fix python explorations/real_rock_fewshot/run_residual_decomposition.py
 
-Fit on train, diagnose on train and val; the test slice stays sealed.
+Fit on train, diagnose on train and val; the test slice (spent 2026-08-03) is not touched.
 """
 
 import argparse
@@ -315,7 +315,7 @@ def plot_decomposition(tiers: dict, out_path: Path, subtitle: str) -> None:
 
     axes[0, 0].legend(fontsize=8)
     fig.suptitle(f"width vs location after the recalibrator fit -- {subtitle}\n"
-                 "fit on train, shown on val; test sealed", fontsize=11)
+                 "fit on train, shown on val; test not used", fontsize=11)
     fig.tight_layout()
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
     plt.close(fig)

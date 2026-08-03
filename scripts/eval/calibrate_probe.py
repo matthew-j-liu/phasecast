@@ -1,7 +1,7 @@
 """Cross-encoder probe-HPO calibration report CLI.
 
     python scripts/eval/calibrate_probe.py \\
-        runs/probe_hpo/*/summary.json \\
+        runs/probe_hpo/*/summary.json   # regenerate via the probe-HPO sweep; runs/ is transient \\
         --output-dir runs/probe_calibration/
 
 All business logic lives in `cnmineral.eval.probe.calibration`;

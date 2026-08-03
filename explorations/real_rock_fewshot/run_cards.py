@@ -4,7 +4,8 @@ Renders the #52 result at the level someone would actually interact with it --
 a single held-out rock, the model's answer, and the measurement beside it --
 rather than as a curve. Fits the adaptation tier on a draw of whole
 stratigraphic units from the train roster and renders **test-slice rocks only**,
-so nothing shown was ever fit on.
+so nothing shown was ever fit on. (The test slice was spent 2026-08-03 for
+scoring purposes; these renders are illustrative, not selection evidence.)
 
     conda run -n alignn_fix python explorations/real_rock_fewshot/run_cards.py \
         --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt

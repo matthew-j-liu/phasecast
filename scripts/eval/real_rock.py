@@ -9,8 +9,11 @@ the corpus eval reports is assembled against measured phenocryst modes.
 Figures + `metrics.json` land in `runs/real_rock/<checkpoint dir name>/`.
 
 `--fit-recalibrator` instead fits the sim-to-real recalibrator on the committed train
-roster and reports it on the test slice, paired against the zero-shot baseline
-on the same rocks. Encoder and heads stay frozen either way.
+roster and reports it on the val slice, paired against the zero-shot baseline
+on the same rocks. Encoder and heads stay frozen either way. The test slice
+was spent 2026-08-03 on the sealed three-way scoring (journal), so it is not
+an available reporting slice here -- any further test read is a disclosed
+second look, made deliberately, not via this default path.
 """
 
 import os
@@ -39,7 +42,7 @@ from cnmineral.training.real_rock_recalibrator import (
 
 def report_recalibrator(ckpt, benchmark, latents, device, tier: str,
                    weight_decay: float) -> None:
-    """Fit on the train roster, report on test, paired on the same rocks.
+    """Fit on the train roster, report on val, paired on the same rocks.
 
     Absolute levels on a ~160-rock slice carry roughly +/- 2 nats, so the
     number that means something is the paired difference, bootstrapped over
@@ -49,16 +52,16 @@ def report_recalibrator(ckpt, benchmark, latents, device, tier: str,
                                  benchmark, latents)
     scored = benchmark.clean & benchmark.has_magnitude
     train = gp.subset(split_mask(benchmark, "train") & scored)
-    test = gp.subset(split_mask(benchmark, "test") & scored)
+    val = gp.subset(split_mask(benchmark, "val") & scored)
     print(f"train {len(train)} rocks / {len(np.unique(train.unit))} units   "
-          f"test {len(test)} rocks / {len(np.unique(test.unit))} units")
+          f"val {len(val)} rocks / {len(np.unique(val.unit))} units")
 
     recalibrator = fit_recalibrator(train, tier=tier, weight_decay=weight_decay)
-    base, got = score_recalibrator(None, test), score_recalibrator(recalibrator, test)
+    base, got = score_recalibrator(None, val), score_recalibrator(recalibrator, val)
     print(f"\nmean composition size {base['mean_composition_size']:.3f} "
           "(unchanged by the recalibrator -- same rocks, same truth)")
     for term in ("dirichlet", "joint", "bernoulli"):
-        boot = paired_bootstrap(base[term], got[term], test.unit)
+        boot = paired_bootstrap(base[term], got[term], val.unit)
         print(f"{term:10s} {base[term].mean():7.3f} -> {got[term].mean():7.3f}   "
               f"recovered {boot['mean']:+.3f} "
               f"[{boot['lo']:+.3f}, {boot['hi']:+.3f}] nats")
@@ -80,7 +83,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--fit-recalibrator", choices=TIERS, default=None,
-        help="fit the sim-to-real recalibrator on the train roster and report on test",
+        help="fit the sim-to-real recalibrator on the train roster and report on val (test is spent)",
     )
     parser.add_argument(
         "--weight-decay", type=float, default=1.0,

@@ -1,8 +1,8 @@
 """How many labelled real rocks close the sim-to-real gap? (#52)
 
 Fits the frozen-head recalibrator on real modal labels drawn as whole stratigraphic
-units, and scores it on the fixed test slice, over a sweep of labelled-rock
-budgets.  The deliverable is the curve's shape: a point estimate on a
+units, and scores it on a fixed held-out slice (--eval-split; val since the
+test slice was spent 2026-08-03), over a sweep of labelled-rock budgets.  The deliverable is the curve's shape: a point estimate on a
 ~160-rock slice carries roughly +/- 2 nats, but the shape survives that, and
 it is what says whether harvesting more eruptions is worth the transcription.
 
@@ -52,7 +52,7 @@ TIER_COLOR = {"vector": "tab:blue", "matrix": "tab:orange", "mlp": "tab:green"}
 
 
 def run_curve(train, test, *, budgets, n_draws, weight_decay, seed=0):
-    """One fit per (tier, budget, draw), each scored on the fixed test slice."""
+    """One fit per (tier, budget, draw), each scored on the fixed eval slice."""
     baseline = score_recalibrator(None, test)
     rows = []
     for tier in TIERS:
@@ -184,9 +184,10 @@ def main() -> None:
     parser.add_argument("--draws", type=int, default=10)
     parser.add_argument("--select-wd", action="store_true",
                         help="re-select weight decay on val before the curve")
-    parser.add_argument("--eval-split", choices=("test", "val"), default="test",
-                        help="slice the curve is scored on; val keeps the "
-                             "test slice sealed")
+    parser.add_argument("--eval-split", choices=("test", "val"), default="val",
+                        help="slice the curve is scored on; test was spent "
+                             "2026-08-03, so scoring it is a disclosed "
+                             "second look")
     parser.add_argument("--tag", default=None)
     args = parser.parse_args()
 

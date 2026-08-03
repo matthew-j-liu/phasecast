@@ -7,8 +7,10 @@ rocks are decision-grade. This scores every checkpoint under the identical
 protocol (matrix tier fit on the full train roster), pairs them rock-for-rock,
 and bootstraps over stratigraphic units.
 
-Scores the val slice by default. `--score-test` additionally spends the sealed
-test slice -- the one-shot final number -- so pass it deliberately.
+Scores the val slice by default. The sealed test scoring was taken once,
+2026-08-03 (0.478 / 0.769 / 1.371 joint NLL for supportmag / regen / tuned);
+`--score-test` re-reads that slice, which is a disclosed second look -- pass
+it deliberately and say so wherever the number lands.
 
     conda run -n alignn_fix python explorations/real_rock_fewshot/run_checkpoint_contrast.py \
         checkpoints/joint_heads_supportmag_seed0/heads_best.pt \
@@ -46,7 +48,8 @@ def main() -> None:
     parser.add_argument("checkpoints", type=Path, nargs="+")
     parser.add_argument("--tier", choices=TIERS, default="matrix")
     parser.add_argument("--score-test", action="store_true",
-                        help="also score the sealed test slice (one-shot)")
+                        help="also score the test slice (spent 2026-08-03; "
+                             "a re-read is a disclosed second look)")
     args = parser.parse_args()
 
     benchmark = load_benchmark()
