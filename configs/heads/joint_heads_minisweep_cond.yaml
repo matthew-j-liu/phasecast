@@ -4,8 +4,8 @@
 # `base:` carries the main-sweep tiebreak winner verbatim (provenance in the
 # joint_heads_hpo journal / readout). Cond has no closure coupling into
 # mode, so the `mode_reference` guard here only screens seed-noise-scale
-# drift. Trial 0 is the current production architecture (hidden null ->
-# d_model // 2 = 128). The search space is 12 discrete cells and seed is
+# drift. Trial 0 is the pre-mini-sweep reference trunk (hidden null ->
+# d_model // 2 = 128); the shipped winner is 512 x 2. The search space is 12 discrete cells and seed is
 # fixed, so duplicate trials just re-measure a cell; n_trials is a ceiling,
 # stop anytime, the journal resumes.
 #

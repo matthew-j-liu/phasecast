@@ -12,8 +12,12 @@
 #
 # `base:` carries the locked knobs; `search_space:` the swept ones --
 # disjoint, same convention as configs/imputation/imputation_head_hpo.yaml.
-# `baseline:` is enqueued as trial 0: the incumbent production dials
-# (configs/heads/joint_heads.yaml), fully comparable and a TPE seed point.
+# `baseline:` is enqueued as trial 0: the regen-baseline dials as the
+# comparable reference and TPE seed point (NOT production -- production is
+# joint_heads_supportmag_seed0; the winner this sweep produced was reversed
+# 2026-08-03). Any future sweep applies the corrected criterion: search
+# magnitude_weight at or below 0.048 (effective lambda <= 1, the 21x
+# averaging mismatch) and add sampled-support NLL to the tiebreak as a veto.
 
 study_name: joint_heads_traced_hpo
 storage_path: data/optuna/journals/joint_heads_traced_hpo.journal

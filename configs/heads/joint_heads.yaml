@@ -1,3 +1,9 @@
+# These dials are the cascade-1 sweep winner (trial 22). Its adoption was
+# REVERSED 2026-08-03: production heads are joint_heads_supportmag_seed0 (old
+# broad-draw corpus), and this magnitude_weight is effective lambda ~163
+# (21x nominal), above the corrected criterion of lambda <= 1
+# (magnitude_weight <= 0.048). Cascade 2 re-authors this config: old corpus,
+# all-rock encoder, baseline-first. See docs/2026_08_03_recap.md.
 encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
 
 # labels (semantics stamped into the checkpoint; must match at re-eval)
