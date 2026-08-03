@@ -5180,3 +5180,63 @@ soft-fail read), four cross-exploration imports rewritten to
 `explorations.archive.*`, doc links repointed (scorecard, corpus_regen_spec,
 pretrain_applications, ADR 004, two build-script docstrings), and the
 `.gitignore` scratch pattern deepened to `explorations/**/work/`.
+
+## 2026-08-03 -- Three-way checkpoint contrast: the old corpus wins after identical recalibration; test slice spent
+
+**Q.** The residual decomposition recalibrated only the two regen
+checkpoints; the old-corpus production model had never been corrected under
+the same protocol. Does the traced corpus's real-rock penalty survive
+correction, or was it all calibration?
+
+**Instruments.** `explorations/real_rock_fewshot/run_adapted_figures.py`
+(the four root-results canvases redrawn post-fit, val slice),
+`run_checkpoint_contrast.py` (paired unit-clustered contrasts, val + the
+one sealed test scoring), and `run_curve.py --eval-split val` (few-shot
+curves for all three checkpoints with the test slice left alone). Protocol
+everywhere: matrix tier fit on the full 368-rock train roster, identical
+across checkpoints; the regen numbers reproduce the residual decomposition
+bit-for-bit.
+
+**Result.** Post-correction val joint NLL 1.376 / 1.707 / 2.035 for
+supportmag / regen / regen-tuned -- but val alone cannot separate old from
+regen (paired delta -0.33 [-0.76, +0.05]). The sealed test slice can:
+**0.478 / 0.769 / 1.371**, every pairwise contrast excluding zero
+(old-vs-regen -0.29 [-0.54, -0.07]; old-vs-tuned -0.89 [-1.51, -0.24];
+regen-vs-tuned -0.60 [-1.12, -0.10]). Few-shot curves: the old-corpus
+model wins at every labelled budget (25 rocks: median joint 3.86 / 5.97 /
+6.84), no crossover, so there is no few-shot regime where the traced
+corpus pays. Reading: the traced corpus's zero-shot penalty is mostly
+calibration (11.8 of 12.1 nats absorbed) but a real residual survives, and
+it points the wrong way for "sharper supervision is better." Hypothesized
+mechanism (not isolated -- the regen changed sampler, draws, and roster
+together): narrowed draws deleted rock-dependent hedging that broad-draw
+marginalization provided; constant corrections cannot restore per-rock
+width, which is the same missing structure the decomposition's heavy-tail
+finding and the measured amp bimodality point at. What the traced corpus
+did buy stands: quartz presence and assemblage ranking.
+
+**Consequence.** The real-rock test slice is SPENT. Future recalibrator
+work selects and validates on train/val; any later test number is a
+disclosed second look.
+
+## 2026-08-03 -- Owner decisions: production, cascade 2, mixture, recalibrator order
+
+Recorded with rationale in `docs/2026_08_03_recap.md`; terse ledger here.
+
+1. **Production remains `joint_heads_supportmag_seed0`.** The provisional
+   2026-07-29 adoption of trial 22 is reversed -- it loses to its own
+   baseline on every paired real-rock metric, and both regen checkpoints
+   lose to the old-corpus model after identical correction. No v3.4 tag
+   rushed; historical tags stay as-is.
+2. **Cascade 2 = all-rock 23-token encoder x the OLD broad-draw corpus.**
+   Baseline-first at current production dials (isolates the encoder
+   effect), then the sweep under the corrected criterion: effective
+   lambda reported and searched at or below 1 (magnitude_weight <= 0.048),
+   sampled-support NLL in the tiebreak. Judged on the real-rock benchmark.
+   Supersedes the earlier plan to run cascade 2 on the traced corpus.
+3. **ModeHead Dirichlet mixture** attempted after cascade 2, on the old
+   corpus with whichever encoder wins; kept only if better.
+4. **Recalibrator upgrades wait on the mixture verdict**; the SiO2
+   magnitude-side term and constant offsets are needed regardless.
+5. **#60 filed**: corpus scaling re-measured on the real-rock axis, after
+   cascade 2; decides whether a larger broad-draw regen is generated.
