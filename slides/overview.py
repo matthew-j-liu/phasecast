@@ -435,8 +435,8 @@ def s_regen_status(prs):
         ("4. valtest tier", ["complete + sealed", ("2k bulks x 128 draws",),
                              ("roster grown by extension:",),
                              ("887 val / 1112 test",)], True, False),
-        ("5. heads cascade", ["retrained + re-tuned", ("on the traced tiers;",),
-                              ("encoder swap is next",)], True, False),
+        ("5. heads cascade", ["measured, not adopted", ("traced heads lost on",),
+                              ("real rocks; encoder",), ("swap is next",)], True, False),
     ]
     bx, bw, bh, by = [0.55, 3.15, 5.75, 8.35, 10.95], 2.35, 2.1, 2.3
     for i, (name, lines, landed, is_next) in enumerate(steps):
@@ -452,7 +452,7 @@ def s_regen_status(prs):
             "bulks (scaling said bulks are where the nats are, and draws flatten past ~24), "
             "a trace-conditional (P, H2O) proposal replacing the broad box, and a valtest "
             "roster grown to 2,000 bulks by extension -- prior val/test assignments are "
-            "frozen, so committed rows never move between splits. Test stays sealed.",
+            "frozen, so committed rows never move between splits.",
             13, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.35, 12.2, "spec: docs/corpus_regen_spec.md . the roster change retired "
             "the old measuring instrument, so headline numbers before and after it are not "
@@ -462,10 +462,15 @@ def s_regen_status(prs):
              "not a plan. Two generations have run: the first (2026-07-17, 10k train bulks x "
              "48 broad-box draws) and the traced regen (2026-07-27) described here. Step 5 is "
              "cascade 1: heads retrained at the incumbent dials on the traced tiers, then a "
-             "weights-only mini-HPO whose winner was adopted (joint_heads_regen_tuned_seed0). "
-             "Cascade 2 -- swapping in the all-rock + redox encoder that was accepted "
-             "2026-07-28 -- has not run, which is why every architecture slide in this deck "
-             "still shows the 22-token encoder. Candidate to retire or fold into the corpora "
+             "weights-only mini-HPO. Its winner (joint_heads_regen_tuned_seed0) was "
+             "provisionally adopted 2026-07-29 and reversed 2026-08-03: both traced-corpus "
+             "checkpoints lose to the old-corpus production model on real rocks after "
+             "identical recalibration (sealed test joint NLL 0.478 / 0.769 / 1.371), so "
+             "production remains joint_heads_supportmag_seed0 and the traced corpus is a "
+             "measured non-production arm (its wins: quartz presence, assemblage ranking). "
+             "Cascade 2 -- the all-rock + redox encoder (accepted 2026-07-28) on the old "
+             "broad-draw corpus, baseline-first -- has not run, which is why every "
+             "architecture slide in this deck still shows the 22-token encoder. Candidate to retire or fold into the corpora "
              "slide at the next deck pass (owner call).")
 
 
@@ -613,7 +618,8 @@ def s_workflow(prs):
     notes(s, "The three-stage training pipeline. Stage 1 is the SSL loop from the prior slide; "
              "stage 2 freezes; stage 3 trains the heads on the labeled equilibrium corpus. "
              "The production stack is checkpoints/pretrain_v3_logmse_std_seed0 (stage 1-2) + "
-             "checkpoints/joint_heads_regen_tuned_seed0 (stage 3). Stage 3 is cheap by "
+             "checkpoints/joint_heads_supportmag_seed0 (stage 3, old broad-draw corpus; the "
+             "traced-corpus retrains were measured and not adopted). Stage 3 is cheap by "
              "design -- ~900k head params against a 3.23M frozen encoder -- which is what "
              "makes re-supervising the heads against a different label source a retrain "
              "rather than a rebuild.")
@@ -706,9 +712,9 @@ def s_mode_head_anatomy(prs):
                     "-- ~12.7% of the frozen encoder; 256 x 3 per trunk is the joint-HPO "
                     "winner, kept unchanged when the support-conditioned trunk was added "
                     "(isolation, #25).",
-        dials_line="dials (configs/heads/joint_heads.yaml): mode_hidden 256 . mode_layers 3 . "
-                   "dropout 0.160 . magnitude_weight 7.76 . alpha_eps 1e-6 . lr 3.36e-4 . "
-                   "weight_decay 1.59e-4 . batch 1024 . epochs 120 / per-head patience 10 -- "
+        dials_line="dials (stamped in the production checkpoint): mode_hidden 256 . mode_layers 3 . "
+                   "dropout 0.348 . magnitude_weight 0.25 . alpha_eps 1e-6 . lr 2.15e-4 . "
+                   "weight_decay 1.04e-5 . batch 1024 . epochs 120 / per-head patience 10 -- "
                    "fixed in code: GELU, AdamW, grad-clip 1.0",
         loss_boxes=[
             (["L_presence = −Σᵢ [ yᵢ ln pᵢ + (1−yᵢ) ln(1−pᵢ) ]",
@@ -720,10 +726,10 @@ def s_mode_head_anatomy(prs):
             (["L = L_presence + λ_mag · L_magnitude",
               ("one backward pass; the trunks are param-disjoint, so λ_mag "
                "no longer arbitrates a shared trunk -- it sets how hard the "
-               "Dirichlet term pulls relative to the presence term, and the "
-               "sweep pushed it 31x up to 7.76",)], PURPLE),
+               "Dirichlet term pulls relative to the presence term; "
+               "production runs 0.25",)], PURPLE),
         ],
-        notes_text="Anatomy of the trained ModeHead (checkpoints/joint_heads_regen_tuned_seed0): "
+        notes_text="Anatomy of the trained ModeHead (checkpoints/joint_heads_supportmag_seed0, the production run): "
              "two parallel trunks of 3 stacked Linear(->256)+GELU+dropout blocks. The presence "
              "trunk reads h alone (it predicts the support, so it must not see it) -> logits "
              "(sigmoid -> per-phase Bernoulli, BCE). The magnitude trunk reads h concatenated "
@@ -733,18 +739,19 @@ def s_mode_head_anatomy(prs):
              "inference. Support-conditioning (adopted 2026-07-22, #25) exists because the "
              "conditional truth is bimodal by support for path-sensitive phases (deep-wet-much-"
              "amp vs shallow-dry-little); a support-blind Dirichlet could only average the "
-             "humps -- amp magnitude parity r went 0.715 -> 0.876 when it landed (measured on "
-             "the since-retired instrument; the current corpus reads 0.886). Param counts are "
+             "humps -- amp magnitude parity r went 0.715 -> 0.876 when it landed (the "
+             "traced-corpus retrains later read 0.886 on their own instrument). Param counts are "
              "pulled from the checkpoint (mode_hidden 256, mode_layers 3 per trunk, the "
-             "joint-HPO winner kept through the weights-only retune). "
+             "joint-HPO winner). "
              "Loss boxes mirror the SSL slide: BCE is a proper "
              "scoring rule (per-rock minimum = within-bulk presence frequency, which is why "
              "intermediate p is signal); the Dirichlet NLL is masked to the label's present "
              "set (sub-composition property keeps it a proper density); λ_mag is the "
-             "loss-weighting coefficient (config key magnitude_weight, 7.76 tuned) -- "
+             "loss-weighting coefficient (config key magnitude_weight, 0.25 in production) -- "
              "λ chosen over w to avoid clashing with layer weights and to match the "
              "λ_balance / λ_comp family. Note the reduction asymmetry: BCE means over the 21 "
-             "phases while the Dirichlet NLL sums them, so 7.76 in the config is 163 against "
+             "phases while the Dirichlet NLL sums them, so 0.25 in the config is ~5.3 against "
+             "(effective lambda; the reversed trial-22 dials ran 7.76 = 163) "
              "a per-phase-summed BCE. 'Trained jointly' is one scalar L, one backward "
              "pass, one AdamW step; with the trunks split, the two ModeHead terms touch "
              "disjoint params, coupled only second-order through the per-head gradient clip "
@@ -801,10 +808,10 @@ def s_mode_head_reliability(prs):
             "scatter is the stricter per-rock test, and the head is scored on both.",
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 5.9, 12.2, "3 rocks shown; the real figure pools the val-roster rocks "
-            "only -- 871 rocks x ~256 rows = 222,717 (p, truth) pairs per mineral panel, "
+            "only -- 218 rocks x ~255 rows = 55,576 (p, truth) pairs per mineral panel, "
             "partitioned across the 10 bins (the gray bars). Training rocks are excluded "
             "because a head that memorized them would grade itself calibrated. And since "
-            "all ~256 rows of a rock share one prediction, a panel holds only 871 distinct "
+            "all ~255 rows of a rock share one prediction, a panel holds only 218 distinct "
             "p values, each stamped ~256x -- the effective sample size is rocks, not rows. "
             "The population is the fixed val roster of the sealed valtest tier (128 "
             "draws/rock at rungs 50+30), so panels are comparable across retrains.",
@@ -812,9 +819,9 @@ def s_mode_head_reliability(prs):
     caption(s, 0.55, 6.95, 12.2, "BCE's per-rock minimum is the true fraction, so an honest "
             "head lands on the diagonal by construction. current limits (production model): "
             "intermediate-frequency presence is the miss mode -- where a mineral grows on "
-            "10-50% of a rock's paths, recall runs 0.09-0.35, against 0.86-1.00 where it "
-            "grows on >90%; the rare phases (mu, ep, ky) are never called at all; spinel is "
-            "the worst-calibrated panel (ECE 0.040). full report: runs/mode_head/<tag>/",
+            "10-50% of a rock's paths, recall runs 0.00-0.41, against 0.76-1.00 where it "
+            "grows on >90%; the rarest phases are essentially never called; spinel is "
+            "the worst-calibrated panel (ECE 0.072). full report: runs/mode_head/<tag>/",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Worked example for the reliability diagram in runs/mode_head/<tag>/"
              "reliability.png. Numbers illustrative but to scale: three rocks predicted in "
@@ -824,10 +831,10 @@ def s_mode_head_reliability(prs):
              "x = count-weighted mean p (0.740), "
              "y = pooled fraction of pairs with cpx present (547/768 = 0.712). ECE on the "
              "real panels is the count-weighted |x - y| over 10 such bins. The gray ghost "
-             "dot shows the overconfident failure mode. Real population: the sealed valtest "
-             "tier's val roster (887 assigned rocks, 871 contributing 222,717 rows at 128 "
-             "draws x rungs 50/30, minus attrition). Fixed roster: panel numbers move only "
-             "when the head retrains. Pair with figure 2 (p vs within-bulk "
+             "dot shows the overconfident failure mode. Real population: the production "
+             "instrument's val roster (221 assigned bulks, 218 contributing 55,576 rows at "
+             "128 draws x rungs 50/30, minus attrition). Fixed roster: panel numbers move "
+             "only when the head retrains. Pair with figure 2 (p vs within-bulk "
              "frequency): reliability is aggregate honesty, the scatter is per-rock "
              "sharpness; a base-rate predictor passes the first and fails the second.")
 
@@ -892,11 +899,11 @@ def s_mode_head_dirichlet(prs):
             "itself a Dirichlet, so the sliced score is a proper density).",
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.85, 12.2, "population: only truly-present (row, phase) pairs are "
-            "scored -- ~177k pairs for plag down to ~340 for kyanite; single-phase rows "
-            "are excluded (nothing to size). current limits (production model): amp parity "
-            "r 0.886 teacher-forced but 0.580 on self-sampled supports; 47% of its PIT "
-            "groups still sit mean-shifted and 11.5% are two-sided -- bimodal WITHIN one "
-            "support (mixture parameterization is the staged candidate, #25). "
+            "scored -- ~41k pairs for plag down to a few hundred for the rarest phases; "
+            "single-phase rows are excluded (nothing to size). current limits (production "
+            "model): amp parity r 0.876 teacher-forced but 0.539 on self-sampled supports; "
+            "the interrogation also measured amp bimodal WITHIN one support "
+            "(mixture parameterization is the staged candidate, #25). "
             "full report: runs/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "
@@ -952,8 +959,8 @@ def s_comp_head_anatomy(prs):
                     "heads despite emitting the most numbers (21 x 11).",
         dials_line="dials (configs/heads/joint_heads.yaml): comp_hidden null -> 128 . "
                    "comp_layers 1 (mini-sweep verdict: capacity above 128 x 1 hurts comp) . "
-                   "dropout 0.160 . alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) "
-                   ". lambda_comp 1.0 . lambda_balance 0.0118 -- fixed in code: GELU, AdamW, "
+                   "dropout 0.348 . alpha_eps 1e-6 . comp_eps 1e-4 (hard-zero clip on targets) "
+                   ". lambda_comp 1.0 . lambda_balance 54.5 -- fixed in code: GELU, AdamW, "
                    "per-head grad-clip 1.0",
         loss_boxes=[
             (["alpha_p = c_p · softmax(u_p)",
@@ -967,7 +974,7 @@ def s_comp_head_anatomy(prs):
                "the input bulk B; melt/fluid side teacher-forced from the corpus",)], REDX),
         ],
         notes_text="Anatomy of CompHead (trains in the joint trainer, "
-             "checkpoints/joint_heads_regen_tuned_seed0). Interface: h [256] in, alpha [21, 11] out; "
+             "checkpoints/joint_heads_supportmag_seed0, the production run). Interface: h [256] in, alpha [21, 11] out; "
              "one training example is one (bulk, draw, rung) row; targets are per-phase "
              "oxide mass fractions from the rungs table (same-token instances merged by "
              "mass-weighted mean, feldspar split into plag/afs BEFORE averaging so the "
@@ -1022,15 +1029,15 @@ def s_comp_head_pit(prs):
     tx = gx + 0.53 * gw
     line(s, tx, gy, tx, gy - gh - 0.15, GREEN, 2.0)
     caption(s, gx - 0.25, gy - gh - 0.55, gw + 0.5, "truth 0.553 -> PIT 0.43", 10, GREEN)
-    caption(s, 0.55, 5.2, 12.2, "population: only truly-present (row, phase) pairs -- 161k "
-            "for cpx down to ~340 for kyanite. headline (val roster, production): comp NLL "
-            "-56.29 nats per present (row, phase); majors' PIT tails sit near the nominal "
-            "10% (cpx 0.040/0.055).", 11, INK, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 5.95, 12.2, "confidence spans ~2.5 decades and tracks real mineralogy: "
-            "near-stoichiometric phases earn median alpha0 ~40,000 (q), ~36,000 (ru), "
-            "~19,000 (sph) while wide solid solutions stay soft -- garnet ~170, spinel ~240, "
-            "ilmenite ~480. mass balance closes to 1.1% mean L2 with signed per-oxide "
-            "residuals centered on zero; plag An# parity r = 0.96.",
+    caption(s, 0.55, 5.2, 12.2, "population: only truly-present (row, phase) pairs -- 42k "
+            "for cpx down to ~240 for andalusite. headline (val roster, production): comp NLL "
+            "-53.90 nats per present (row, phase); majors' PIT tails sit near the nominal "
+            "10% (cpx 0.048/0.054).", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 5.95, 12.2, "confidence spans decades and tracks real mineralogy: "
+            "near-stoichiometric phases (q, ru, sph) earn far higher median alpha0 than "
+            "wide solid solutions (garnet, spinel, ilmenite) -- span measured on the "
+            "traced-corpus retrain. mass balance closes to 1.3% mean L2 with signed "
+            "per-oxide residuals centered on zero; plag An# parity r = 0.93.",
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.85, 12.2, "current limits: hard-zero oxides ride the eps floor (a "
             "quartz row is 'SiO2 + 10 floors'); ilmenite FeO/TiO2 stays the accuracy "
@@ -1042,11 +1049,11 @@ def s_comp_head_pit(prs):
              "support to the slice and meets the prediction only at scoring. Box numbers "
              "illustrative but to scale (a plag Dirichlet with alpha0 ~780 has SiO2 sd "
              "~0.018); headline numbers are real, from "
-             "runs/comp_head/joint_heads_regen_tuned_seed0/metrics.json. CompHead is the "
-             "head the weights-only sweep did not move: against the same-corpus pre-sweep "
-             "run (joint_heads_regen_seed0) NLL went -56.30 -> -56.29, closure L2 0.0107 -> "
-             "0.0109, An# parity mae 0.044 -> 0.043 / r 0.957 -> 0.959 -- all inside the "
-             "0.03-nat tie band, which is why the adoption argument rested on ModeHead. The "
+             "runs/comp_head/joint_heads_supportmag_seed0/metrics.json (the production run). "
+             "In the later traced-corpus sweep CompHead was the head the weights-only sweep "
+             "did not move (NLL -56.30 -> -56.29, inside the tie band) -- which is why that "
+             "sweep's adoption argument rested on ModeHead, before the adoption itself was "
+             "reversed 2026-08-03 on the real-rock evidence. The "
              "alpha0 span is the durable story (comp_concentration.png): medians run ~170 "
              "for garnet to ~40,000 for quartz, ordered by how constrained each mineral's "
              "chemistry really is; the earlier untuned model compressed everything into "
@@ -1086,7 +1093,7 @@ def s_cond_head_anatomy(prs):
                     "mean/std (raw-unit cold-start fix).",
         dials_line="dials (configs/heads/joint_heads.yaml): cond_n_components 3 . "
                    "cond_sigma_eps 1e-3 . cond_hidden 512 . cond_layers 2 (adopted from "
-                   "the architecture mini-sweep) . dropout 0.160 . lambda_cond 0.01 -- fixed "
+                   "the architecture mini-sweep) . dropout 0.348 . lambda_cond 0.01 -- fixed "
                    "in code: GELU, AdamW, per-head grad-clip 1.0, linear units (no log "
                    "transform of T/P/H2O)",
         loss_boxes=[
@@ -1101,7 +1108,7 @@ def s_cond_head_anatomy(prs):
                "best, so λ_cond only absorbs the raw-unit scale in the total",)], PURPLE),
         ],
         notes_text="Anatomy of CondHead (trains in the joint trainer, "
-             "checkpoints/joint_heads_regen_tuned_seed0). Interface: concat(h [256], presence [21]) "
+             "checkpoints/joint_heads_supportmag_seed0, the production run). Interface: concat(h [256], presence [21]) "
              "in; (log_w, mu, sigma) each [3 axes, K] out; one training example is one "
              "(bulk, draw, rung) row with targets (T_end from the rung row; P_kbar, H2O "
              "from the draw). Param counts pulled from the checkpoint (cond_hidden 512, "
@@ -1153,20 +1160,19 @@ def s_cond_head_coverage(prs):
         ("the mixture catch the",),
         ("truth ~68% of rows?",)], GREEN, size=11)
     box(s, 0.55, 4.0, 5.9, 1.15, ["teacher-forced (true list): honest",
-        ("68% band catches truth on 69.9% of rows (T),",),
-        ("66.2% (P), 65.5% (H2O) . NLL 7.36 nats/row",)], GREEN, size=12)
+        ("68% band catches truth on 71.0% of rows (T),",),
+        ("67.4% (P), 67.9% (H2O) . NLL 8.31 nats/row",)], GREEN, size=12)
     box(s, 6.85, 4.0, 6.05, 1.15, ["ModeHead-sampled list: the exposure gap",
-        ("coverage falls to 33% (T), 44% (P), 45% (H2O) . NLL +1.2 to +2.7",),
-        ("nats/axis -- sharper under truth = more wrong under mismatch",)],
+        ("coverage falls to 26% (T), 34% (P), 34% (H2O) . NLL +2.4 to +4.0",),
+        ("nats/axis -- sharp under truth = more wrong under mismatch",)],
         REDX, size=12)
     caption(s, 0.55, 5.4, 12.2, "the gap is a deliberate debt: the head trains and is "
-            "graded teacher-forced (mineralogy-first -- conditions are the bonus product), "
-            "and tuning made the head sharper, which widened the gap. It is measured, "
-            "tracked (#31, P3), and untouched by design until the mineralogy heads are "
-            "done.", 11, INK, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 6.15, 12.2, "population: all 222,717 val-roster rows, both scoring "
+            "graded teacher-forced (mineralogy-first -- conditions are the bonus product). "
+            "It is measured, tracked (#31, P3), and untouched by design until the "
+            "mineralogy heads are done.", 11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.15, 12.2, "population: all 55,576 val-roster rows, both scoring "
             "passes on the same rows with a fixed sampling seed. per-axis NLL (production, "
-            "teacher-forced): T 4.73, P 1.56, H2O 1.07 -- summed 7.36.",
+            "teacher-forced): T 4.97, P 1.82, H2O 1.52 -- summed 8.31.",
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.9, 12.2, "current limits: axes are independent mixtures (no (T, P) "
             "correlation, deferred per ADR 006); T is a derived cooling endpoint, not a "
@@ -1180,12 +1186,12 @@ def s_cond_head_coverage(prs):
              "reproducibility). Mixture drawing illustrative but to scale for a bimodal "
              "amp/opx bulk (deep-wet vs shallow-dry is the flagship condition "
              "multimodality). Real numbers from runs/cond_head/"
-             "joint_heads_regen_tuned_seed0/metrics.json against the same-corpus pre-sweep "
-             "run: teacher-forced NLL 7.40 -> 7.36 (T 4.762 -> 4.727, P 1.562 -> 1.558, "
-             "H2O 1.080 -> 1.072) while coverage drifted DOWN, 0.727/0.683/0.669 -> "
-             "0.699/0.662/0.655, and the exposure delta widened on every axis (T 2.22 -> "
-             "2.66, P 1.16 -> 1.36, H2O 1.03 -> 1.23) -- the sharper head is more wrong "
-             "under mismatched supports, and slightly under-covering under matched ones. "
+             "joint_heads_supportmag_seed0/metrics.json (the production run): teacher-forced "
+             "per-axis NLL T 4.97 / P 1.82 / H2O 1.52, coverage-68 0.710/0.674/0.679, "
+             "exposure delta T 4.00 / P 2.73 / H2O 2.40 nats with sampled coverage falling "
+             "to 0.26/0.34/0.34. (The later traced-corpus sweep sharpened NLL slightly while "
+             "coverage drifted down and the exposure delta widened -- one strand of the "
+             "evidence behind the 2026-08-03 adoption reversal.) "
              "The sampled-support inf rows that used to appear here were a float32 "
              "underflow in the density guard, not a modelling failure; the per-axis NLL "
              "now goes through logsumexp, and those rows read 118-141 nats. Coverage is "
@@ -1240,19 +1246,19 @@ def s_joint_loss(prs):
         REDX, lit=False, size=12)
     box(s, 0.55, 5.98, 12.25, 0.62,
         ["L = L_presence + λ_mag·L_magnitude + λ_comp·L_comp + λ_cond·L_cond + λ_bal·L_closure",
-         ("λ_mag 7.76 . λ_comp 1.0 . λ_cond 0.01 . λ_bal 0.0118 (joint HPO, ADR 006) -- "
+         ("λ_mag 0.25 . λ_comp 1.0 . λ_cond 0.01 . λ_bal 54.5 (joint HPO, ADR 006) -- "
           "one scalar, one backward pass, one AdamW step; the branches share no weights, "
           "so each λ balances terms rather than arbitrating a trunk",)], PURPLE, size=14)
     caption(s, 0.55, 6.64, 12.25, "895,169 params on the frozen 3.23M encoder (~28%): "
             "mode 410,922 . comp 65,404 . cond 418,843 -- from "
-            "checkpoints/joint_heads_regen_tuned_seed0/heads_best.pt", 10.5, INK,
+            "checkpoints/joint_heads_supportmag_seed0/heads_best.pt", 10.5, INK,
             align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 6.92, 12.25, "dials (configs/heads/joint_heads.yaml): dropout 0.160 . "
-            "lr 3.36e-4 . weight_decay 1.59e-4 . batch 1024 . epochs 120 / patience 10 -- "
+    caption(s, 0.55, 6.92, 12.25, "dials (stamped in the production checkpoint): dropout 0.348 . "
+            "lr 2.15e-4 . weight_decay 1.04e-5 . batch 1024 . epochs 120 / patience 10 -- "
             "in code: GELU, AdamW, grad-clip 1.0 per head", 9.5, GRAYT, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 7.14, 12.25, "L_presence is meaned over the 21 phases while "
             "L_magnitude sums them, so against a per-phase-SUM BCE the same weight reads "
-            "21 x 7.76 = 163", 9.5, REDX, align=PP_ALIGN.LEFT)
+            "21 x 0.25 = ~5.3 (the reversed trial-22 dials ran 21 x 7.76 = 163)", 9.5, REDX, align=PP_ALIGN.LEFT)
     notes(s, "The joint view the three anatomy slides decompose: every branch reads the same "
              "frozen 256-d h, and the four likelihood terms plus the closure penalty sum to one "
              "scalar. Two arrows are not plain feed-forward: the magnitude branch and CondHead "
@@ -1265,7 +1271,8 @@ def s_joint_loss(prs):
              "the input; squared-L2 is a constraint penalty, not a head likelihood, so the "
              "no-MSE rule for heads does not apply. It is the one term coupling two heads. "
              "Weights and param counts are from the production run "
-             "(checkpoints/joint_heads_regen_tuned_seed0, trial-22 dials adopted 2026-07-29). "
+             "(checkpoints/joint_heads_supportmag_seed0; the trial-22 adoption of 2026-07-29 "
+             "was reversed 2026-08-03 -- the traced-corpus retrains lose on real rocks). "
              "The reduction asymmetry in the last caption is a real footgun when transcribing "
              "the equation: BCE reduces over batch AND phases, the Dirichlet NLL over batch "
              "only, so magnitude_weight in the config is 1/21 of the coefficient you would "
