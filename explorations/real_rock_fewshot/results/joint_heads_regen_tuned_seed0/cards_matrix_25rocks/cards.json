@@ -1,0 +1,67 @@
+{
+  "checkpoint": "checkpoints/joint_heads_regen_tuned_seed0/heads_best.pt",
+  "tier": "matrix",
+  "conditioning_rocks": 25,
+  "conditioning_units": 10,
+  "draw_seed": 0,
+  "test_joint_zero_shot": 19.500027494174077,
+  "test_joint_adapted": 7.810620483890814,
+  "rocks": [
+    {
+      "pick": "best",
+      "bulk_id": "dubray_ds764|10SB025A",
+      "sio2": 62.87,
+      "joint_zero_shot": 6.751875135228528,
+      "joint_adapted": -4.895356234620227,
+      "scenarios": [
+        {
+          "groups": [
+            "fsp",
+            "px",
+            "amp",
+            "bi",
+            "opq"
+          ],
+          "prob": 0.26171875
+        },
+        {
+          "groups": [
+            "fsp",
+            "px",
+            "bi",
+            "opq"
+          ],
+          "prob": 0.201171875
+        }
+      ]
+    },
+    {
+      "pick": "median",
+      "bulk_id": "dubray_ds764|01BA25",
+      "sio2": 62.7516108349012,
+      "joint_zero_shot": 16.744656438889265,
+      "joint_adapted": 2.084561151048664,
+      "scenarios": [
+        {
+          "groups": [
+            "fsp",
+            "px",
+            "bi",
+            "opq"
+          ],
+          "prob": 0.1142578125
+        },
+        {
+          "groups": [
+            "fsp",
+            "px",
+            "bi",
+            "opq",
+            "q"
+          ],
+          "prob": 0.0859375
+        }
+      ]
+    }
+  ]
+}

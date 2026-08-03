@@ -1304,11 +1304,15 @@ def _card_panels(ax0, ax1, ax2, p7, pred, benchmark, row: int,
             ax2.plot(max(benchmark.magnitude[row, i], floor), i + 0.15, "o",
                      ms=5, color="tab:blue")
         elif benchmark.censored[row, i]:
-            ax2.annotate("", xy=(max(benchmark.censor_bound[row, i], floor),
-                                 i + 0.15),
-                         xytext=(1.0, i + 0.15),
-                         arrowprops={"arrowstyle": "->", "color": "tab:blue",
-                                     "lw": 0.9, "alpha": 0.7})
+            bound = max(benchmark.censor_bound[row, i], floor)
+            ax2.plot(bound, i + 0.15, marker="|", ms=9, mew=1.2,
+                     color="tab:blue", alpha=0.7)
+            head = max(bound * 10 ** -0.45, floor)
+            if head < bound:
+                ax2.annotate("", xy=(head, i + 0.15),
+                             xytext=(bound, i + 0.15),
+                             arrowprops={"arrowstyle": "->", "color": "tab:blue",
+                                         "lw": 0.9, "alpha": 0.7})
         value = max(pred[row, i], floor)
         if interval is not None and np.isfinite(interval[0][row, i]):
             lo = max(interval[0][row, i], floor)

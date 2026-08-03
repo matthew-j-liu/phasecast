@@ -123,7 +123,8 @@ def _rock_ticks(ax, rows) -> None:
     ax.minorticks_off()
 
 
-def plot_curve(baseline, rows, out_path: Path, subtitle: str) -> None:
+def plot_curve(baseline, rows, out_path: Path, subtitle: str,
+               slice_label: str = "test") -> None:
     """The two headline panels: Dirichlet term and per-group share error."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.5, 4.2))
 
@@ -135,7 +136,7 @@ def plot_curve(baseline, rows, out_path: Path, subtitle: str) -> None:
                  color="0.35")
     ax1.set_xscale("log")
     ax1.set_xlabel("labelled real rocks (drawn as whole units)", fontsize=9)
-    ax1.set_ylabel("Dirichlet NLL on the test slice (nats)", fontsize=9)
+    ax1.set_ylabel(f"Dirichlet NLL on the {slice_label} slice (nats)", fontsize=9)
     ax1.set_title("mode magnitude: the headline", fontsize=10)
     ax1.legend(fontsize=8)
     _rock_ticks(ax1, rows)
@@ -158,7 +159,8 @@ def plot_curve(baseline, rows, out_path: Path, subtitle: str) -> None:
     print(f"saved {out_path}")
 
 
-def plot_units_axis(rows, out_path: Path, subtitle: str) -> None:
+def plot_units_axis(rows, out_path: Path, subtitle: str,
+                    slice_label: str = "test") -> None:
     """The same budget expressed in eruptions, which is how rocks are harvested."""
     fig, ax = plt.subplots(figsize=(5.6, 4.0))
     for tier in TIERS:
@@ -167,7 +169,7 @@ def plot_units_axis(rows, out_path: Path, subtitle: str) -> None:
             ax.plot(*zip(*pts), "o", ms=3.5, alpha=0.5,
                     color=TIER_COLOR[tier], label=tier)
     ax.set_xlabel("labelled stratigraphic units (eruptions)", fontsize=9)
-    ax.set_ylabel("Dirichlet NLL on the test slice (nats)", fontsize=9)
+    ax.set_ylabel(f"Dirichlet NLL on the {slice_label} slice (nats)", fontsize=9)
     ax.set_title(f"the same curve priced in eruptions -- {subtitle}", fontsize=10)
     ax.legend(fontsize=8)
     fig.tight_layout()
@@ -182,6 +184,9 @@ def main() -> None:
     parser.add_argument("--draws", type=int, default=10)
     parser.add_argument("--select-wd", action="store_true",
                         help="re-select weight decay on val before the curve")
+    parser.add_argument("--eval-split", choices=("test", "val"), default="test",
+                        help="slice the curve is scored on; val keeps the "
+                             "test slice sealed")
     parser.add_argument("--tag", default=None)
     args = parser.parse_args()
 
@@ -211,17 +216,22 @@ def main() -> None:
             wd_records[tier] = records
             print(f"selected weight_decay[{tier}] = {best:g}")
 
+    eval_data = {"test": test, "val": val}[args.eval_split]
     baseline, rows = run_curve(
-        train, test, budgets=BUDGETS, n_draws=args.draws,
+        train, eval_data, budgets=BUDGETS, n_draws=args.draws,
         weight_decay=weight_decay,
     )
 
     tag = args.tag or args.checkpoint.parent.name
     out_dir = RESULTS / tag
     out_dir.mkdir(parents=True, exist_ok=True)
-    subtitle = f"{len(test)} test rocks, {len(np.unique(test.unit))} units"
-    plot_curve(baseline, rows, out_dir / "learning_curve.png", subtitle)
-    plot_units_axis(rows, out_dir / "curve_by_units.png", subtitle)
+    suffix = "" if args.eval_split == "test" else f"_{args.eval_split}"
+    subtitle = (f"{len(eval_data)} {args.eval_split} rocks, "
+                f"{len(np.unique(eval_data.unit))} units")
+    plot_curve(baseline, rows, out_dir / f"learning_curve{suffix}.png",
+               subtitle, args.eval_split)
+    plot_units_axis(rows, out_dir / f"curve_by_units{suffix}.png",
+                    subtitle, args.eval_split)
 
     # the full-data fit, whose per-group constants are what a reader compares
     # against the measured residual shape
@@ -232,6 +242,7 @@ def main() -> None:
     payload = {
         "checkpoint": str(args.checkpoint),
         "benchmark": "eruption-v2",
+        "eval_split": args.eval_split,
         "weight_decay": weight_decay,
         "weight_decay_selection": wd_records,
         "splits": {
@@ -250,8 +261,8 @@ def main() -> None:
         "full_train_offsets": full,
         "curve": rows,
     }
-    (out_dir / "curve.json").write_text(json.dumps(payload, indent=2))
-    print(f"saved {out_dir / 'curve.json'}")
+    (out_dir / f"curve{suffix}.json").write_text(json.dumps(payload, indent=2))
+    print(f"saved {out_dir / f'curve{suffix}.json'}")
 
 
 if __name__ == "__main__":
