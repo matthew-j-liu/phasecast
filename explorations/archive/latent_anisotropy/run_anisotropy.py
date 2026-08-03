@@ -20,7 +20,7 @@ The canonical latent is anchored against its own raw-input representations
 Gaussian reference at matched N, d.
 
 Run (module form so the cross-exploration import resolves from repo root):
-    conda run -n alignn_fix python -m explorations.latent_anisotropy.run_anisotropy \
+    conda run -n alignn_fix python -m explorations.archive.latent_anisotropy.run_anisotropy \
         --checkpoint checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
 """
 
@@ -44,7 +44,7 @@ import torch
 from cnmineral.eval.latent import extract_latents, load_encoder_from_checkpoint
 from cnmineral.training import create_dataset, pick_device, reserve_test
 from cnmineral.training.checkpoint import checkpoint_tag
-from explorations.input_knn_ceiling.run_ceiling import build_raw_representations
+from explorations.archive.input_knn_ceiling.run_ceiling import build_raw_representations
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 

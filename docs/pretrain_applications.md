@@ -55,7 +55,7 @@ its imputation outputs were always a side effect. Under the *original*
 linear-frac SSL objective those outputs were decent on majors but collapsed on
 traces: a linear-frac loss is dominated by the majors, so trace predictions
 optimized to a near-constant and went negative in log-space R2. The
-trace-imputation gate (`explorations/trace_signal_in_latent/`, JOURNAL
+trace-imputation gate (`explorations/archive/trace_signal_in_latent/`, JOURNAL
 2026-06-15) showed this is a *head-objective* problem, not encoder capacity --
 XGBoost on the frozen masked latent reaches ~94% of the input-element XGBoost
 ceiling across the 13 traces. So the fix is the right objective on the

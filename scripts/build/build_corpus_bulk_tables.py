@@ -16,7 +16,7 @@ Writes data/corpus/train_bulks.csv and data/corpus/valtest_bulks.csv.
 already on disk) under temperature-smoothed rare-class quotas
 (`expansion_quotas`, quota ~ pool^alpha) and writes
 data/corpus/train_bulks_expansion.csv; the existing tables are left untouched.
-Rationale and candidate comparison in explorations/rare_class_quota/.
+Rationale and candidate comparison in explorations/archive/rare_class_quota/.
 `--expand-block M` orders the emitted table as two shuffled blocks -- the
 M-budget quota selection first, then the increment -- so an orchestrator
 stopped mid-run still realizes the quota shape at the achieved size.

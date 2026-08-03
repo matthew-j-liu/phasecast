@@ -28,6 +28,11 @@ isn't held to production standards.
   `docs/decisions/` if it changes a production choice. The exploration dir is the
   backing exhibit + repro; cross-link both ways.
 - **Name by responsibility**, not date/number/phase.
+- **Closed studies retire to `archive/`.** Once the question is settled and the
+  verdict journaled, `git mv explorations/<name> explorations/archive/<name>`
+  (history follows), remove its mirrored test (git keeps it), and move its
+  index row to [archive/README.md](archive/README.md). Active top level stays
+  minimal.
 
 ## Layout
 
@@ -42,17 +47,12 @@ tests/explorations/test_<name>.py   mirrored tripwire test
 
 ## Index
 
+Active studies. Closed ones live in [archive/](archive/README.md) with a
+one-line verdict each.
+
 | Exploration | Question |
 |---|---|
-| [condition_sampling](condition_sampling/README.md) | How should the Track B corpus sample `(P, H2O)` per bulk so it commits only to coverage -- what proposal `q`, what N, off the density-biased product grid? |
-| [equilibrium_multimodality](equilibrium_multimodality/README.md) | Does the mineralogy posterior stay multimodal in phase identity under the locked equilibrium generator, or collapse to "same phases, different proportions"? |
-| [imputation_head_design](imputation_head_design/README.md) | How should the trace-imputation head on the frozen latent be built (the ablation behind the shipped `LogImputationHead`; code retired, verdict kept)? |
-| [input_knn_ceiling](input_knn_ceiling/README.md) | How separable is qap_name by raw chemistry at all -- is the latent's weak kNN purity a data ceiling or a fixable representation gap? |
-| [latent_anisotropy](latent_anisotropy/README.md) | How anisotropic is the canonical latent, in both the mean/cone (first-order) and covariance-shape (second-order) senses? |
-| [lepr_validation](lepr_validation/README.md) | Can LEPR lab experiments supply (bulk -> assemblage) validation pairs with *measured* (P, T, H2O)? Harvested, 2368 pairs; use not yet decided. |
-| [magmadb_analogs](magmadb_analogs/README.md) | Can MagmaDB anchor latent-neighbor analogs with measured conditions? Shelved: too sparse/narrow for single-sample duty. |
-| [real_mineralogy](real_mineralogy/README.md) | The sim-to-real benchmark: real volcanic rocks with measured modal mineralogy, harvested + EDA'd. Zero-shot gap measured (10.406 nats over 640 rocks, `eruption-v2`); split by stratigraphic unit and adapted on from there. |
+| [corpus_scaling](corpus_scaling/README.md) | How do the heads scale with training bulks and draws? Corpus-axis answer measured (#27); the real-rock-axis rerun is #60. |
+| [real_mineralogy](real_mineralogy/README.md) | The sim-to-real benchmark: real volcanic rocks with measured modal mineralogy, harvested + EDA'd. Zero-shot gap measured (10.406 nats over 640 rocks, `eruption-v2`); split by stratigraphic unit and adapted on from there. Stays active: `harvest.py` is the sole builder of the gitignored benchmark inputs. |
 | [real_rock_fewshot](real_rock_fewshot/README.md) | How many labelled real rocks close the sim-to-real gap while still generalizing to unseen eruptions? ~25 rocks (8 eruptions) recovers 3.4-3.8 of the 5.0 nats the full 368 recover; coupling pays, nonlinearity does not. |
-| [real_rock_mapping](real_rock_mapping/README.md) | Does any defensible reading of the benchmark's truth mapping (densities, trace bound, freshness cut, support forcing) change a sim-to-real conclusion? Robust where it encodes a measurement; the invented support rule is a 3.5-nat lever. |
-| [trace_signal_in_latent](trace_signal_in_latent/README.md) | Why does the frozen encoder+head impute majors well but fail on traces, and which layer should be fixed? |
-| [volcanic_proxy_definition](volcanic_proxy_definition/README.md) | Which moment of the simulated cooling story is the training label? Resolved: phenocryst regime, rungs 60/50/40/30, pre-screened against the real benchmark. |
+| [real_rock_mapping](real_rock_mapping/README.md) | Does any defensible reading of the benchmark's truth mapping (densities, trace bound, freshness cut, support forcing) change a sim-to-real conclusion? Robust where it encodes a measurement; the invented support rule is a 3.5-nat lever. Stays active: the benchmark's error-bar instrument. |

@@ -39,7 +39,7 @@ from cnmineral.eval.imputation import _regression_metrics
 from cnmineral.eval.latent import load_encoder_from_checkpoint
 from cnmineral.training import checkpoint_tag, create_dataset, pick_device, reserve_test
 
-from explorations.trace_signal_in_latent.run_gate import (
+from explorations.archive.trace_signal_in_latent.run_gate import (
     RESULTS_ROOT,
     _N_MAJORS,
     _TRACE_POSITIONS,

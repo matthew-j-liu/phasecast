@@ -575,73 +575,8 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ## explorations/
 
-### test_trace_signal_in_latent.py
-
-1. `test_log_feature_matrix_absent_is_nan` -- populated entries map to log10(frac) and absent entries become NaN (XGBoost native-missing input feature).
-2. `test_masked_encode_cannot_leak_target` -- masking token e makes the encoded latent independent of e's input value, the invariant that keeps the 1b latent baseline from reading the held-out element off `h`.
-3. `test_run_diagnostic_end_to_end_on_fixture` -- `run_imputation_diagnostic` produces both controlled arms (1a/1b) per element, a populated gate block, and the metrics JSON + R2 chart.
-
-### test_input_knn_ceiling.py
-
-1. `test_build_raw_representations_shapes_and_absent_fill` -- the raw-frac and std-log test matrices are `[n_test, N_TOKENS]` and finite, and absent elements are filled with the neutral standardized 0.
-2. `test_build_raw_representations_standardization_matches_train_stats` -- std-log on populated positions equals `(log10(frac) - mean) / std` from the train-split stats, and raw-frac is the unmodified frac.
-
-### test_fe_redox_attribution.py
-
-1. `test_anhydrous_basis_drops_h2o_and_renormalizes` -- per-bulk features from `bulk_11` drop the per-draw H2O column, renormalize to sum 1, and recover the bulk-constant anhydrous vector.
-2. `test_anhydrous_basis_rejects_within_bulk_variation` -- anhydrous chemistry that varies across a bulk's rows raises instead of silently averaging (the feature basis contract).
-3. `test_without_excess_o_renormalizes_away_the_deficit` -- dropping the excess-O column renormalizes the remaining oxides so a tree can't read the redox column back off the row-sum deficit.
-4. `test_provenance_by_bulk_join_contract` -- the draws-table join returns one `fe_provenance` per bulk and raises on conflicting stamps.
-5. `test_group_slices_partitions_and_scores` -- group slicing partitions bulks by label and scores each group's MAE independently.
-6. `test_bootstrap_delta_ci_sign_and_null` -- the bootstrap CI on the MAE delta collapses to (0, 0) under zero error, hits the exact delta for constant errors, and stays off zero for a real gap.
-
-### test_presence_fraction_ceiling.py
-
-1. `test_log_feature_matrix_nan_exactly_where_absent` -- populated entries map to log10(frac) and absent entries become NaN (XGBoost native-missing input feature).
-2. `test_binomial_floor_matches_halfnormal_mean` -- the per-phase floor equals the half-normal mean `sqrt(2/pi) * sqrt(f(1-f)/n)` and vanishes at degenerate rates.
-3. `test_score_arm_perfect_and_antiperfect` -- a perfect predictor scores MAE 0 / r 1 per phase; a constant predictor degrades to NaN r instead of crashing.
-4. `test_knn_frequency_recovers_cluster_means` -- on two separated latent clusters the cosine-kNN read returns each cluster's own mean f.
-5. `test_fraction_probe_output_shape` -- the 1-hidden-layer latent probe emits `[B, N_PHASES]` logits.
-6. `test_build_verdict_routes` -- the advisory verdict routes to corpus-ceiling / head-side-fix / skip-connection under the agreed MAE-margin criterion.
-
-### test_magmadb_analogs.py
-
-1. `test_eight_majors_populated_cr_and_traces_padded` -- MagmaDB starting-bulk tokenization populates 8 major slots, padding Cr (production `include_cr2o3=False`) and all 13 traces.
-2. `test_si_frac_is_cation_wt_pct_over_100` -- the Si slot is oxide wt% times the cation factor over 100, matching the production gard conversion.
-3. `test_fe_blends_feo_and_fe2o3` -- the Fe slot blends FeO + Fe2O3 cation contributions like `_resolve_iron`.
-
-### test_condition_sampling.py
-
-1. `test_lhs_draws_inside_envelope_and_stratified` -- Latin-Hypercube `(P, H2O)` draws stay inside the declared proposal envelope and place exactly one point per stratum on each axis (unbiased coverage).
-2. `test_grid_cell_centered_inside_envelope` -- the product-grid helper returns cell-centered points strictly inside the envelope.
-
-### test_equilibrium_multimodality.py
-
-1. `test_endpoint_picks_highest_T_below_tau` -- the near-solidus pick returns the highest-T converged point below the liq threshold, and the pick moves with tau (1% vs 5%).
-2. `test_endpoint_attrition_when_never_below_tau` -- when no point crosses the threshold the pick falls to the coldest point and flags attrition.
-3. `test_endpoint_ignores_nonconverged_points` -- non-converged points are excluded before the endpoint search.
-4. `test_classifier_flags_amp_opx_identity_switch` -- an anti-correlated amp/opx cloud is classified phase-identity-multimodal with the amp<->opx switch set.
-5. `test_classifier_proportion_only_is_not_multimodal` -- a fixed identity set with only modal variation is NOT multimodal (amphibole present on every path is not a flip).
-
-(The driver's former flat-box LHS test moved to `tests/data/test_condition_proposal.py` with the sampler itself. The volcanic-core subset builder it once owned lives at `tests/data/test_volcanic_subset.py` since its promotion to `src/`.)
-
-### test_lepr_validation.py
-
-1. `test_coarse_map_and_drop_codes_disjoint` -- no LEPR phase code is both mapped to the coarse vocabulary and dropped.
-2. `test_parse_phases_splits_and_strips` -- comma-separated phase strings split and strip; NaN degrades to a harmless unmapped code.
-3. `test_dedup_experiments_drops_conflicting_keys` -- (Citation, Experiment) keys with conflicting T/P/Phases are dropped; exact duplicates collapse to one row.
-4. `test_dedup_bulk_flags_disagreeing_duplicates` -- duplicate bulks disagreeing by >0.01 wt% on any oxide are flagged `bulk_conflict`; within-tolerance duplicates are clean.
-
-### test_latent_anisotropy.py
-
-1. `test_isotropic_reference_is_nearly_isotropic` -- an isotropic Gaussian scores effective-rank fraction near 1 and mean random-pair cosine near 0 (both anisotropy metrics read "isotropic").
-2. `test_rank_one_matrix_collapses_to_effective_rank_one` -- a rank-1 cloud scores effective rank ~1 with >99% variance in the top component (second-order collapse detected).
-3. `test_mean_offset_creates_first_order_cone_removed_by_centering` -- a shared mean offset reads as first-order cone (high pair cosine) that centering removes, while the covariance spectrum stays full-rank.
-
-### test_rare_class_quota.py
-
-1. `test_hybrid_takes_all_tail_then_smooths_the_rest` -- the rejected hybrid candidate exhausts availability-bound classes and allocates the remaining budget by alpha=0.82 smoothing, meeting the budget exactly.
-2. `test_powerlaw_figure_fits_exact_law` -- an exact rank^-2 series recovers slope -2 with R2 ~ 1 and writes a nonempty PNG.
+Tests for archived explorations (moved to `explorations/archive/`,
+2026-08-03) were removed with their studies; git history keeps them.
 
 ### test_corpus_scaling.py
 

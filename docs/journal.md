@@ -5133,3 +5133,50 @@ every optimum, and the figure prints the `k` that buys each ceiling.
 above, and on the production adjudication now that the tuned arm's
 real-rock penalty is measured as recalibrator-absorbable. The 423 censored
 trace-only observations remain outside the fit objective.
+
+## 2026-08-03 -- lepr_validation: closing disposition
+
+**Q.** What did the LEPR harvest settle, before its directory is archived?
+
+**Closure.** The harvest stands at 2,368 deduplicated (bulk -> assemblage)
+pairs with measured (P, T, H2O) -- presence-only, no modes, no melt
+fraction. Fine-tuning on it was rejected 2026-07-14 (imposed lab conditions,
+no modal targets); the surviving honest role is presence-level generator
+validation, unscheduled. Recorded as the study's own closure line because
+its disposition was previously scattered across two 2026-07-14 entries.
+
+## 2026-08-03 -- explorations archived to the minimal active set; closed-era runs/ flushed
+
+**Q.** The working tree carried 18 explorations (~580MB) and 13 `runs/`
+snapshot dirs (189MB) spanning closed eras -- what is the minimal informative
+set to carry forward?
+
+**Motion.** Fourteen closed studies moved to `explorations/archive/` via
+`git mv` (history follows); each has its verdict journaled and a one-line
+summary in `explorations/archive/README.md`. Their ten mirrored tests were
+removed (git keeps them; `tests/TESTS.md` updated). Four stay active, each
+for a reason beyond preference: `real_rock_fewshot` (current workbench),
+`corpus_scaling` (#60 reuses its machinery), `real_mineralogy` (its
+`harvest.py` is the sole builder of the gitignored benchmark inputs
+`data/real_mineralogy/{samples,modes}.csv`), `real_rock_mapping` (the
+benchmark's error-bar instrument).
+
+Deleted outright: `equilibrium_multimodality/work/` (532MB of untracked
+MAGEMin ladders). This engages the 2026-07-14 note that kept it for
+`volcanic_proxy_definition` reruns -- that reason expired with the corpus
+regen landing 2026-07-27, and the ladders live in the verified desktop
+backup (`crabnet-mineral-v2_2026_08_03`) and regenerate in ~25 min. Also
+flushed from `runs/` (all gitignored, all in the same backup): `imputation`,
+`imputation_hpo`, `imputation_hpo_wide`, `probe`, `probe_hpo`,
+`pretrain_hpo`, `summary` -- closed-era snapshots whose headline numbers
+live in the scorecard/ledger/journal. Held pending the production
+adjudication paperwork: `real_rock`, `heads_hpo`, `pretrain`, `comp_head`,
+`cond_head`, `mode_head`. Optuna sweep state was verified to live in
+`data/optuna/journals/`, untouched by any of this.
+
+Companion edits so nothing dangles: `GATE_RESULTS_ROOT` in
+`cnmineral/eval/imputation.py` repointed to the archive (it was a silent
+soft-fail read), four cross-exploration imports rewritten to
+`explorations.archive.*`, doc links repointed (scorecard, corpus_regen_spec,
+pretrain_applications, ADR 004, two build-script docstrings), and the
+`.gitignore` scratch pattern deepened to `explorations/**/work/`.

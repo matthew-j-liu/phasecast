@@ -39,7 +39,7 @@ from cnmineral.eval.joint_heads import val_dataset_and_latents
 from cnmineral.eval.supergroup import map_qap_array
 from cnmineral.training import checkpoint_tag, pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
-from explorations.presence_fraction_ceiling.run_probe import (
+from explorations.archive.presence_fraction_ceiling.run_probe import (
     HEADLINE,
     _fit_xgb,
     binomial_floor,

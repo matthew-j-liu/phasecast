@@ -10,7 +10,7 @@
 /tmp/
 
 # Exploration scratch: large regenerable MAGEMin inputs/outputs (results/ stays tracked)
-explorations/*/work/
+explorations/**/work/
 
 # Models
 checkpoints/

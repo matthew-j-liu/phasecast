@@ -33,7 +33,7 @@ Consequences:
 
 Rationale, locked decisions, and the composition-stratified equilibrium test
 that validates the near-solidus assemblage behavior live in
-`docs/corpus_regen_spec.md` and `explorations/equilibrium_multimodality/`.
+`docs/corpus_regen_spec.md` and `explorations/archive/equilibrium_multimodality/`.
 
 ## Resolution
 

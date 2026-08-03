@@ -19,8 +19,8 @@ import pandas as pd
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1]))
 
-from explorations.volcanic_proxy_definition import endpoint_repick as er
-from explorations.volcanic_proxy_definition import felsic_saturation as fs
+from explorations.archive.volcanic_proxy_definition import endpoint_repick as er
+from explorations.archive.volcanic_proxy_definition import felsic_saturation as fs
 RESULTS = HERE / "results"
 RUNS = {"flat": HERE / "work", "bounded": HERE / "work" / "bounded"}
 

@@ -29,8 +29,8 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   substitutes `p(c)/q(c)` exactly as before (see Output stance); the draws
   table additionally stamps the proposal's tier/rung routing. Dry-run
   measurements and adoption reasoning:
-  `explorations/trace_conditional_proposal/`. Grid-density artifact confirmed
-  real; MC matches a balanced grid (`explorations/condition_sampling/`).
+  `explorations/archive/trace_conditional_proposal/`. Grid-density artifact confirmed
+  real; MC matches a balanced grid (`explorations/archive/condition_sampling/`).
 - **Water bound `S(P)`:** the Newman & Lowenstern 2002 (VolatileCalc)
   rhyolite-curve H2O solubility — the more water-generous of their two
   published curves, since a composition-independent bound must cover all
@@ -57,7 +57,7 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
   50%-melt rung at 0.95/0.50 vs real 0.53/0.49), real felsic lavas are the
   crystal-poorest, and near-solidus invents felsic phenocrysts in mafic bulks
   (quartz 61%, biotite 91% vs 0% real). Evidence:
-  `explorations/volcanic_proxy_definition/` (`endpoint_repick.py`,
+  `explorations/archive/volcanic_proxy_definition/` (`endpoint_repick.py`,
   `felsic_saturation.py`). The amp/opx multimodality headline survives the
   entire 70-1% melt range.
 - **Primary label: crystals-renormalized solid assemblage.** liq and fl are
@@ -81,7 +81,7 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
 - **Scale, two tiers:** REVISED 2026-07-23 (#45, sized by #27): production =
   the existing 10k stratified train table plus a rare-class-quota expansion
   (alpha=0.5 temperature smoothing, emitted nested-block so an early stop
-  realizes the quota shape at the achieved size; `explorations/rare_class_quota/`)
+  realizes the quota shape at the achieved size; `explorations/archive/rare_class_quota/`)
   at **24 draws/bulk**, budget 80-100 h stamped on #45 at launch + a
   **high-precision tier 2000 bulks x 128 draws** assigned to val/test
   (training tolerates noise, measurement doesn't). #27 measured the bulk axis
@@ -163,7 +163,7 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
     conditions as transparent evidence + a coarse OOD flag -- was assessed against
     MagmaDB and shelved: too sparse/narrow (78 distinct bulks, ~29% igneous coverage,
     arc basalt-andesite only). Revisit only with a better reference set. See
-    `explorations/magmadb_analogs/`.
+    `explorations/archive/magmadb_analogs/`.
   - **User-supplied constraints** (observed assemblage, thermometry): strongest
     de-circularizer; issue #21.
 - Scenario weights are labeled "prior-weighted plausibility," never nature's
@@ -187,12 +187,12 @@ implementation, the pilot, and two re-measurements. See "Remaining work."
    holds at every rung (0.57–0.60, intermediates unchanged); biotite did NOT
    move — the gap is an inference-prior question (dry draws kept by design),
    not corpus coverage. Results:
-   `explorations/equilibrium_multimodality/results/water_ab_*.csv`.
+   `explorations/archive/equilibrium_multimodality/results/water_ab_*.csv`.
 4. **Pilot (~500 bulks, production config)** — RUN 2026-07-14, health gates
    passed (attrition ≤1.4% per rung, fully-failed draws 0.8%, closure p95
    3.5e-5 with the >1e-3 tail 0.1% and concentrated in tagged oversaturated
    draws). Pre-screen run at both cutoffs
-   (`explorations/volcanic_proxy_definition/results/rung_prescreen_*.csv`):
+   (`explorations/archive/volcanic_proxy_definition/results/rung_prescreen_*.csv`):
    rung 50 best on aggregate presence MAE and rank Spearman at both cutoffs;
    intermediate-band biotite still zero at 60/50 and matching real only at 30.
    **Rung pick made (owner, 2026-07-14): train on rungs 50 + 30** — 50 as the
@@ -235,7 +235,7 @@ Only 5 remains (1-4 landed).
 - CLAUDE.md "Settled decisions"
 - issues: #9 (this corpus, tracker), #13 (inverse model), #21 (optional conditioning)
 - memory: comphead-parameterization-options (CompHead + emFrac recon stats)
-- endpoint evidence: `explorations/volcanic_proxy_definition/` (ladder re-pick +
-  felsic saturation probe), `explorations/equilibrium_multimodality/`
+- endpoint evidence: `explorations/archive/volcanic_proxy_definition/` (ladder re-pick +
+  felsic saturation probe), `explorations/archive/equilibrium_multimodality/`
   (multimodality verdict), `explorations/real_mineralogy/` (benchmark + EDA)
-- condition sampling: `explorations/condition_sampling/` (LHS, ESS table)
+- condition sampling: `explorations/archive/condition_sampling/` (LHS, ESS table)

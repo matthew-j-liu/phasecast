@@ -47,7 +47,7 @@ from cnmineral.training.imputation_head import ImputationHeadCheckpoint
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RUNS_ROOT = REPO_ROOT / "runs"
 GATE_RESULTS_ROOT = (
-    REPO_ROOT / "explorations" / "trace_signal_in_latent" / "results"
+    REPO_ROOT / "explorations" / "archive" / "trace_signal_in_latent" / "results"
 )
 
 _N_MAJORS = len(MAJORS)

@@ -6,7 +6,7 @@ closure (mode sum and bulk reconstruction), per-phase coverage, and the label
 mode distributions. Read-only; prints tables and writes health_*.csv next to
 the chunks. `--figures` additionally writes the corpus-statistics EDA plots to
 `<corpus>/figures/` (regenerable, gitignored; the sim-vs-real comparison plots
-live with the rung pre-screen in explorations/volcanic_proxy_definition/).
+live with the rung pre-screen in explorations/archive/volcanic_proxy_definition/).
 
     conda run -n alignn_fix python scripts/build/report_corpus_health.py --corpus data/corpus/train --figures
 """

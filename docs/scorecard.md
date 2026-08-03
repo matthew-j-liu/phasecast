@@ -12,7 +12,7 @@ occasional vibe.
   meaningless on its own; the signal is where the current value sits *between its
   floor (no information) and its ceiling (the most any method extracts)*. An axis
   without anchors does not belong here -- that is the lesson of
-  [input_knn_ceiling](../explorations/input_knn_ceiling/README.md). The "fluff"
+  [input_knn_ceiling](../explorations/archive/input_knn_ceiling/README.md). The "fluff"
   trap is reporting a value with nothing to compare it to.
 - **Status is a lifecycle, not a grade.** `candidate` = an axis we intend to
   measure (usually has an open issue); `provisional` = measured and anchored but
@@ -53,8 +53,8 @@ rock_group axis and redox slot as its first realized evidence.
 
 | axis | metric | current | floor -> ceiling | status | source |
 |---|---|---|---|---|---|
-| trace imputation | median log-R2, 13 traces | 0.832 (prev 0.836) | ~0 (mean-fill) -> 0.877 (latent-XGB) -> 0.892 (input-XGB); gates stamped to the previous corpus, not re-run | provisional | #8, [trace_signal_in_latent](../explorations/trace_signal_in_latent/README.md) |
-| major imputation | median log-R2, majors | 0.894 (prev 0.891) | ~0 (mean-fill) -> input-XGB per-major ceiling | provisional | #8, [imputation_head_design](../explorations/imputation_head_design/README.md) |
+| trace imputation | median log-R2, 13 traces | 0.832 (prev 0.836) | ~0 (mean-fill) -> 0.877 (latent-XGB) -> 0.892 (input-XGB); gates stamped to the previous corpus, not re-run | provisional | #8, [trace_signal_in_latent](../explorations/archive/trace_signal_in_latent/README.md) |
+| major imputation | median log-R2, majors | 0.894 (prev 0.891) | ~0 (mean-fill) -> input-XGB per-major ceiling | provisional | #8, [imputation_head_design](../explorations/archive/imputation_head_design/README.md) |
 | qap decodability | probe acc (MLP / logreg) | 0.759 / 0.704 (prev 0.769 / 0.722) | 0.100 (random) -> *TBD* | provisional | probe eval |
 | supergroup decodability | probe acc (MLP / logreg) | 0.814 / 0.731 (prev 0.821 / 0.749) | 0.151 (random) -> *TBD* | provisional | probe eval |
 | rock_group decodability | probe acc (MLP / logreg), full all-rock test split | 0.919 / 0.894 | 0.810 (majority: always-igneous) -> *TBD* | provisional | probe eval |
@@ -87,8 +87,8 @@ test. Without it, "beats raw-input ceiling" does not separate *learning* from
 
 | axis | metric | current | floor -> ceiling | status | source |
 |---|---|---|---|---|---|
-| qap kNN purity | cosine k=5 | 0.577 (prev 0.582) | 0.100 (random) -> 0.607 (raw-input, previous-corpus measurement) | provisional | [input_knn_ceiling](../explorations/input_knn_ceiling/README.md) |
-| supergroup kNN purity | cosine k=5 | 0.670 (previous encoder; not re-measured this cascade) | 0.151 (random) -> 0.676 (raw-input) | provisional | [input_knn_ceiling](../explorations/input_knn_ceiling/README.md) |
+| qap kNN purity | cosine k=5 | 0.577 (prev 0.582) | 0.100 (random) -> 0.607 (raw-input, previous-corpus measurement) | provisional | [input_knn_ceiling](../explorations/archive/input_knn_ceiling/README.md) |
+| supergroup kNN purity | cosine k=5 | 0.670 (previous encoder; not re-measured this cascade) | 0.151 (random) -> 0.676 (raw-input) | provisional | [input_knn_ceiling](../explorations/archive/input_knn_ceiling/README.md) |
 | distance-metric recoverability | post-hoc kNN lift toward probe | *TBD* | raw-distance kNN -> probe acc | candidate | #16 |
 
 qap is ~96% of a data ceiling that is itself well below 1.0 (qap is largely not
@@ -99,8 +99,8 @@ gap a learned/whitened metric recovers without re-pretraining.
 
 | axis | metric | current | ideal <- latent -> input | status | source |
 |---|---|---|---|---|---|
-| first-order (mean cone) | mean random-pair cosine | 0.266 (centered 0.003; prev 0.259) | 0.000 (isotropic) <- 0.266 -> 0.531 (raw_frac, all-rock) | provisional | [latent_anisotropy](../explorations/latent_anisotropy/README.md) |
-| second-order (shape) | effective rank / d | 0.191 (48.9/256; top-10 var 0.546; prev 0.125) | 0.996 (isotropic) <- 0.191 -> 0.101 (raw_frac, all-rock) | provisional | [latent_anisotropy](../explorations/latent_anisotropy/README.md) |
+| first-order (mean cone) | mean random-pair cosine | 0.266 (centered 0.003; prev 0.259) | 0.000 (isotropic) <- 0.266 -> 0.531 (raw_frac, all-rock) | provisional | [latent_anisotropy](../explorations/archive/latent_anisotropy/README.md) |
+| second-order (shape) | effective rank / d | 0.191 (48.9/256; top-10 var 0.546; prev 0.125) | 0.996 (isotropic) <- 0.191 -> 0.101 (raw_frac, all-rock) | provisional | [latent_anisotropy](../explorations/archive/latent_anisotropy/README.md) |
 
 The encoder removes the compositional input cone (first-order, harmless to
 kNN); the all-rock latent spreads variance over ~49 effective dims, up from
