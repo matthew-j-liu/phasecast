@@ -1,15 +1,21 @@
-"""Cross-version trajectory figure: raw headline NLLs over shipped versions.
+"""Cross-version trajectory figure on the real-rock axis.
 
 The private progress summary (results/README.md). Reads
-`results/ledger.yaml` (one entry per shipped model version) and renders
-per-head small-multiple panels of raw headline NLL with the y-axis
-inverted (up = better). Versions measured on different instruments (the
-ledger's `instrument` stamp) are drawn as disconnected segments -- NLLs
-are comparable only within one instrument, never across the boundary.
-Regenerates from the ledger alone, so it survives checkpoint and runs/
-cleaning. Thin CLI: `scripts/view/trajectory.py`.
+`results/real_rock_ledger.yaml` (one zero-shot entry per model version on
+the eruption benchmark) and renders joint NLL over versions with the y-axis
+inverted (up = better). Entries scored on different benchmark versions are
+drawn as disconnected segments -- numbers compare only within one benchmark.
+The real rocks are the one instrument that survives corpus-era churn, which
+is why the trajectory lives on this axis; per-era corpus numbers stay in
+`results/ledger.yaml`, comparable only within their own instrument. When the
+tracked checkpoint contrast (`explorations/real_rock_fewshot/results/
+checkpoint_contrast_<tier>.json`) covers a version, its post-recalibration
+val-slice level is overlaid as a second series. Regenerates from tracked
+files alone, so it survives checkpoint and runs/ cleaning. Thin CLI:
+`scripts/view/trajectory.py`.
 """
 
+import json
 from itertools import groupby
 from pathlib import Path
 
@@ -19,78 +25,83 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import yaml
 
-HEADS = ("mode", "comp", "cond")
-HEADLINE_KEY = {"mode": "joint_nll", "comp": "comp_nll", "cond": "cond_nll"}
-PANEL_TITLE = {
-    "mode": "ModeHead (hurdle NLL / row)",
-    "comp": "CompHead (Dirichlet NLL / present (row, phase))",
-    "cond": "CondHead (GMM NLL / row, 3 axes)",
-}
+REQUIRED = {"version", "date", "checkpoint_tag", "benchmark", "changes",
+            "n", "joint_nll"}
 
 
 def load_ledger(path):
-    """Validated version entries, ledger order preserved."""
+    """Validated real-rock version entries, ledger order preserved."""
     with open(path) as f:
         payload = yaml.safe_load(f)
     entries = payload.get("versions") if isinstance(payload, dict) else None
     if not entries:
         raise ValueError(f"{path}: expected a top-level `versions` list")
-    instruments = payload.get("instruments") or {}
+    benchmarks = payload.get("benchmarks") or {}
     for e in entries:
-        missing = {
-            "version", "date", "checkpoint_tag", "instrument", "changes", "heads"
-        } - set(e)
+        missing = REQUIRED - set(e)
         if missing:
-            raise ValueError(f"ledger entry {e.get('version', '?')}: missing {sorted(missing)}")
-        if e["instrument"] not in instruments:
             raise ValueError(
-                f"ledger entry {e['version']}: instrument `{e['instrument']}` "
-                f"not defined under `instruments:`"
+                f"ledger entry {e.get('version', '?')}: missing {sorted(missing)}"
             )
-        unknown = set(e["heads"]) - set(HEADS)
-        if unknown:
-            raise ValueError(f"ledger entry {e['version']}: unknown heads {sorted(unknown)}")
-        for head, metrics in e["heads"].items():
-            if HEADLINE_KEY[head] not in metrics:
-                raise ValueError(
-                    f"ledger entry {e['version']}: head `{head}` lacks "
-                    f"`{HEADLINE_KEY[head]}`"
-                )
+        if e["benchmark"] not in benchmarks:
+            raise ValueError(
+                f"ledger entry {e['version']}: benchmark `{e['benchmark']}` "
+                f"not defined under `benchmarks:`"
+            )
     return entries
 
 
-def build_trajectory_figure(entries, out_path):
-    """Per-head NLL panels over versions, one disconnected segment per instrument."""
-    names = [e["version"] for e in entries]
+def load_adapted_levels(path):
+    """(benchmark, {tag: post-recalibration val joint NLL}), or (None, {}).
+
+    The contrast JSON is a tracked exploration artifact; absence just means
+    no overlay, never an error -- the zero-shot trajectory must regenerate
+    from the ledger alone. The benchmark rides along so the overlay only
+    attaches to ledger entries scored on the same benchmark version.
+    """
+    path = Path(path)
+    if not path.exists():
+        return None, {}
+    contrast = json.loads(path.read_text())
+    levels = {
+        tag: by_slice["val"]["adapted_joint"]
+        for tag, by_slice in contrast.get("levels", {}).items()
+        if "val" in by_slice
+    }
+    return contrast.get("benchmark"), levels
+
+
+def build_trajectory_figure(entries, out_path, adapted=None,
+                            adapted_benchmark=None):
+    """Joint NLL over versions, one disconnected segment per benchmark."""
+    names = [f"{e['version']}\n({e['benchmark']})" for e in entries]
     segments = []
     start = 0
-    for instrument, run in groupby(entries, key=lambda e: e["instrument"]):
+    for benchmark, run in groupby(entries, key=lambda e: e["benchmark"]):
         stop = start + len(list(run))
-        segments.append((instrument, start, stop))
+        segments.append((benchmark, start, stop))
         start = stop
-    fig, axes = plt.subplots(1, len(HEADS), figsize=(11.5, 3.8))
-    for head, ax in zip(HEADS, axes):
-        for instrument, seg_start, seg_stop in segments:
-            xs = [
-                i for i in range(seg_start, seg_stop) if head in entries[i]["heads"]
-            ]
-            ys = [entries[i]["heads"][head][HEADLINE_KEY[head]] for i in xs]
-            ax.plot(xs, ys, marker="o", color="tab:blue")
-        for _, seg_start, _ in segments[1:]:
-            ax.axvline(seg_start - 0.5, ls=":", color="0.6", lw=0.8)
-        ax.set_xticks(range(len(names)), names, rotation=20, ha="right", fontsize=8)
-        ax.set_xlim(-0.4, len(names) - 0.6)
-        ax.set_title(PANEL_TITLE[head], fontsize=9)
-        ax.invert_yaxis()
-    if len(segments) > 1:
-        for ax in axes:
-            for instrument, seg_start, seg_stop in segments:
-                ax.text(
-                    (seg_start + seg_stop - 1) / 2, 0.03, instrument,
-                    transform=ax.get_xaxis_transform(), ha="center", va="bottom",
-                    fontsize=6, color="0.4",
-                )
-    axes[0].set_ylabel("NLL (nats; up = better)")
+    fig, ax = plt.subplots(figsize=(7.2, 4.2))
+    for benchmark, seg_start, seg_stop in segments:
+        xs = list(range(seg_start, seg_stop))
+        ax.plot(xs, [entries[i]["joint_nll"] for i in xs], marker="o",
+                color="tab:blue",
+                label="zero-shot (headline rocks)" if seg_start == 0 else None)
+    for _, seg_start, _ in segments[1:]:
+        ax.axvline(seg_start - 0.5, ls=":", color="0.6", lw=0.8)
+    adapted = adapted or {}
+    pts = [(i, adapted[e["checkpoint_tag"]]) for i, e in enumerate(entries)
+           if e["checkpoint_tag"] in adapted
+           and (adapted_benchmark is None or e["benchmark"] == adapted_benchmark)]
+    if pts:
+        ax.plot(*zip(*pts), marker="s", ls="--", color="tab:orange",
+                label="after matrix recalibration (val slice)")
+    ax.legend(fontsize=8)
+    ax.set_xticks(range(len(names)), names, fontsize=7.5, rotation=12)
+    ax.set_xlim(-0.4, len(names) - 0.6)
+    ax.set_ylabel("real-rock joint NLL (nats; up = better)")
+    ax.set_title("model versions on the eruption benchmark", fontsize=10)
+    ax.invert_yaxis()
     fig.tight_layout()
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)

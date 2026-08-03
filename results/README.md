@@ -19,12 +19,16 @@ Cross-model, at the root:
   source of truth for those constants: the heads-HPO tiebreak reads
   `tie_band_nats` from the stanza via `ledger_tie_band`) measured it, and
   is never re-measured on a later instrument -- when the valtest rows
-  change, a new instrument starts a new trajectory segment, and numbers
+  change, a new instrument starts a new segment, and numbers
   compare only within a segment. Cross-instrument model comparison is the
   real-rock benchmark's job.
-- `trajectory.png` -- raw headline NLL per head across shipped versions,
-  one disconnected segment per instrument
-  (`scripts/view/trajectory.py`; regenerates from the ledger alone).
+- `trajectory.png` -- real-rock joint NLL across shipped versions (the one
+  axis that survives corpus-era churn), zero-shot from
+  `real_rock_ledger.yaml` with a post-recalibration val-slice overlay from
+  the tracked checkpoint contrast, one disconnected segment per benchmark
+  version (`scripts/view/trajectory.py`; regenerates from tracked files
+  alone). The per-era corpus NLLs stay in `ledger.yaml`, comparable only
+  within their instrument, and are no longer drawn as a trajectory.
 
 Per-model, one subdirectory per checkpoint tag (e.g. `joint_heads_seed0/`),
 written directly by the view scripts and overwritten on regeneration:

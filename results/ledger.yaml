@@ -84,3 +84,31 @@ versions:
       mode: {joint_nll: -2.4565, bernoulli_nll: 4.9973, dirichlet_nll: -7.4538}
       comp: {comp_nll: -53.8954}
       cond: {cond_nll: 8.3114, coverage_68: [0.710, 0.674, 0.679]}
+  - version: regen-baseline
+    date: 2026-07-29
+    checkpoint_tag: joint_heads_regen_seed0
+    instrument: valtest128-traced@2000
+    changes: heads retrained at the incumbent joint-tuned dials on the
+      traced corpus -- first entry on the traced instrument, measuring the
+      corpus change alone. NOT production; on the real-rock benchmark this
+      version loses to support-conditioned-magnitude after identical
+      recalibration (journal 2026-08-03), so production stays on the old
+      broad-draw corpus.
+    heads:
+      mode: {joint_nll: -5.4187, bernoulli_nll: 3.5934, dirichlet_nll: -9.0122}
+      comp: {comp_nll: -56.2998}
+      cond: {cond_nll: 7.4035, coverage_68: [0.727, 0.683, 0.669]}
+  - version: regen-tuned
+    date: 2026-07-29
+    checkpoint_tag: joint_heads_regen_tuned_seed0
+    instrument: valtest128-traced@2000
+    changes: weights-only mini-HPO winner (trial 22; magnitude_weight 0.25
+      -> 7.76 = effective lambda 163, lr 3.4e-4, dropout 0.16,
+      lambda_balance 0.012). Provisionally adopted 2026-07-29, adoption
+      REVERSED 2026-08-03 -- worse than regen-baseline on every paired
+      real-rock metric; the corrected selection criterion this motivated is
+      recorded in docs/heads.md.
+    heads:
+      mode: {joint_nll: -5.4774, bernoulli_nll: 3.6291, dirichlet_nll: -9.1065}
+      comp: {comp_nll: -56.2860}
+      cond: {cond_nll: 7.3577, coverage_68: [0.699, 0.662, 0.655]}

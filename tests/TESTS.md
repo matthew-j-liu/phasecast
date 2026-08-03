@@ -563,8 +563,10 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_trajectory.py
 
-1. `test_load_ledger_validates_schema` -- a well-formed two-instrument ledger loads in order; missing keys (including the instrument stamp), unknown head names, a head lacking its headline NLL, and an instrument absent from the `instruments:` block each raise.
-2. `test_build_trajectory_figure_smoke` -- a 3-entry ledger spanning two instruments (one version missing comp/cond) renders a nonempty PNG.
+1. `test_load_ledger_validates_schema` -- a well-formed real-rock ledger spanning two benchmark versions loads in order; missing keys and a benchmark absent from the `benchmarks:` block each raise.
+2. `test_load_adapted_levels_missing_file_is_empty` -- an absent checkpoint-contrast JSON yields no overlay rather than an error (the zero-shot trajectory regenerates from the ledger alone).
+3. `test_load_adapted_levels_reads_val_slice` -- the overlay reads each tag's post-recalibration val-slice joint NLL plus the contrast's benchmark, skipping tags without a val slice.
+4. `test_build_trajectory_figure_smoke` -- a 3-entry ledger spanning two benchmarks with an adapted overlay renders a nonempty PNG.
 
 ### test_training_curves.py
 

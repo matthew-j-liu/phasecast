@@ -95,7 +95,8 @@ versions:
     date: 2026-07-25
     checkpoint_tag: joint_heads_supportmag_seed0
     benchmark: eruption-v2
-    changes: the same frozen checkpoint re-scored after Pinatubo chemistry
+    changes: >-
+      the same frozen checkpoint re-scored after Pinatubo chemistry
       landed, so the few-shot adaptation curve (#52) and its zero-shot
       baseline share one benchmark version. Still zero-shot. The headline
       moves +0.002 nats over 5 more rocks, which is the transcription's
@@ -111,3 +112,36 @@ versions:
     dirichlet_nll: 4.658
     mean_composition_size: 3.614
     censored_prob: 0.445
+  - version: regen-baseline
+    date: 2026-07-30
+    checkpoint_tag: joint_heads_regen_seed0
+    benchmark: eruption-v2
+    changes: zero-shot after the traced-corpus retrain at unchanged dials.
+      The corpus change alone costs ~+8 nats, ~95% of it the dirichlet
+      term -- sharper trace-conditional labels state more confidence than
+      real rocks support. Calibration, not accuracy -- ranking and MAE
+      flat; assemblage ranking and quartz presence improved. After
+      identical matrix recalibration this version still trails
+      support-conditioned-magnitude (sealed test 0.769 vs 0.478; contrasts
+      in explorations/real_rock_fewshot/results/).
+    n: 640
+    joint_nll: 18.396
+    bernoulli_nll: 6.308
+    dirichlet_nll: 12.087
+    mean_composition_size: 3.614
+    censored_prob: 0.481
+  - version: regen-tuned
+    date: 2026-07-30
+    checkpoint_tag: joint_heads_regen_tuned_seed0
+    benchmark: eruption-v2
+    changes: zero-shot for the reversed trial-22 winner -- the sweep's
+      sharpness adds ~+6 nats over regen-baseline, again nearly all
+      dirichlet width. Worse than regen-baseline on every paired real-rock
+      metric (sealed test 1.371); adoption reversal and the criterion
+      correction journaled 2026-08-03.
+    n: 640
+    joint_nll: 24.412
+    bernoulli_nll: 6.514
+    dirichlet_nll: 17.898
+    mean_composition_size: 3.614
+    censored_prob: 0.507
