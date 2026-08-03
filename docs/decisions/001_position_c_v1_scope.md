@@ -1,7 +1,7 @@
 # Decision 001: v1 paper scope
 
 **Date:** 2026-05-12
-**Status:** Active
+**Status:** Historical -- the scope held (Position C corpus, unimodal CrabNet-style model, mineralML classifiers as post-processor), with drift recorded elsewhere: the contribution is now framed around the SSL encoder + multimodal posterior (`docs/encoder.md`, `docs/heads.md`), and the deep ensemble is still unbuilt.
 
 ## Decision
 

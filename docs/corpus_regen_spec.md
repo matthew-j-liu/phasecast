@@ -1,12 +1,17 @@
-# Track B corpus regen — spec and open items
+# Track B corpus regen — spec (LANDED 2026-07-27)
 
-Prospective spec and the shared source of truth across the parallel work
-sessions. This is a planning doc: items collapse to pointers as they land, and
-the doc is deleted once regen ships. Reasoning is not repeated here — see the
-cross-references. Issue #9 is the tracker; this doc is the detail.
+**Status.** The regen this doc specified shipped in full 2026-07-27 (train
+35k bulks x 24 traced draws; valtest 2000 x 128, roster 887/1112). Under its
+own planning-doc rule this file is due for deletion; it is held as the
+generation-parameter record until the owner retires it. One verdict the spec
+could not know: heads trained on the traced corpus **lost to the old-corpus
+production model on the real-rock benchmark** after identical recalibration
+(journal 2026-08-03), so the traced corpus is a measured non-production arm
+-- production and cascade 2 use the old broad-draw corpus -- and its wins
+are quartz presence and assemblage ranking. Nothing below should be read as
+describing the production training corpus.
 
-All design decisions are now locked (2026-07-14); what remains is
-implementation, the pilot, and two re-measurements. See "Remaining work."
+Original header follows. Issue #9 was the tracker; this doc is the detail.
 
 ## Locked decisions
 

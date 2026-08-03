@@ -31,7 +31,9 @@ Three things this captures that "MAGEMin surrogate" doesn't:
    concrete: same bulk, different (P, H2O), modal abundance varies up to
    100% relative for hydrous phases. The right output is a distribution.
 
-3. **Foundation-model encoder.** SSL pretraining on ~167k real bulks
+3. **Foundation-model encoder.** SSL pretraining on real bulks (~167k
+   igneous in the 22-token generation, ~788k all-rock in the accepted
+   23-token generation)
    organizes the latent by petrogenetic structure WITHOUT MAGEMin labels.
    Empirically: ~80% supergroup MLP-probe accuracy with zero supervision
    (vs ~76% for v2 cell-c); strong k-NN neighborhood structure on
@@ -79,6 +81,9 @@ INPUTS (per sample)
     majors (9): Si Al Ca Mg Fe K Na Ti Cr
     traces (13): Sr Zr Ba Y Rb Ni Nb V La Ce Nd Yb Th
 
+  The all-rock generation (pretrain_allrock_redox_seed0) appends a 23rd
+  token: the Fe-redox ratio, fed where measured and padded elsewhere.
+
 ENCODER (shared across all heads)
   element embedding (mat2vec)  -> per-token vector
   + frac projection             -> per-token vector
@@ -117,11 +122,9 @@ What it IS useful for:
    `||G_sys_predicted - G_sys_from_(M, C)||^2` ties the heads via
    thermodynamics, not just mass balance.
 
-**Critical**: the current production corpus DISCARDED G_sys during FC. The
-column doesn't exist in `data/train_fc_v1.parquet`. A G_sys head requires
-either (a) the v3 corpus regen to persist `res["sys"]["G"]` (or equivalent
-PTT key), or (b) post-hoc re-extraction by re-running FC on each bulk just
-to grab the scalar -- expensive but doable.
+The early v1 corpus discarded G_sys during FC; the regen persists it per
+rung (see `docs/corpus_regen_spec.md` storage shape), so a G_sys head is
+now a free decision -- no corpus cost either way.
 
 **Don't add G_sys in v3 if it would delay shipping.** It's a Tier 2 head,
 worth a section in the regen if it's cheap, but not blocking.
@@ -130,28 +133,32 @@ worth a section in the regen if it's cheap, but not blocking.
 
 Three corpora, all generated upstream of the model:
 
-1. **SSL pretrain corpus**: `data/bulks/gard2019.csv`, filtered to ~167k bulks
-   (igneous, all 9 majors reported including both FeO and Fe2O3, non-null
-   `qap_name` in a class of >=25; see `bulk_chemistry.py` for the walk).
-   Inputs only (no labels). Used for masked-element pretraining. An earlier
-   ~474k figure corresponded to a looser pre-Fe-convention filter (JOURNAL
-   2026-06-04). Decided 2026-07-23 for the next re-pretrain (the one the
-   #46 redox token already forces): relax to the Fe fallback chain and
-   drop the igneous filter (~737k bulks, all rock types). Strict Fe pairs
-   matter for MAGEMin label generation, not for encoder pretraining --
-   the redox nuance the pair carries moves into the optional redox input
-   token, fed where measured and padded elsewhere. Guardrails and
-   stratification changes in #24; JOURNAL 2026-07-23.
+1. **SSL pretrain corpus**: `data/bulks/gard2019.csv`. Two generations.
+   The igneous 22-token generation filtered to ~167k bulks (igneous, all 9
+   majors reported including both FeO and Fe2O3, non-null `qap_name` in a
+   class of >=25; see `bulk_chemistry.py` for the walk) and pretrained
+   `pretrain_v3_logmse_std_seed0` -- the encoder still under the production
+   heads. The all-rock 23-token generation (LANDED 2026-07-28,
+   `pretrain_allrock_redox_seed0`, the canonical accepted encoder) relaxes
+   to the Fe fallback chain, drops the igneous filter (~788k rows, all rock
+   types), and adds the optional Fe-redox ratio input token, fed where
+   measured and padded elsewhere -- strict Fe pairs matter for MAGEMin
+   label generation, not encoder pretraining. Acceptance record in
+   `docs/scorecard.md`; guardrails in #24; JOURNAL 2026-07-23/28.
 
 2. **Supervised corpus**: gard2019 bulks with MAGEMin FC labels, chunked
-   parquet under `data/corpus/{train,valtest}/`. Shipped shape (2026-07-17
-   regen): 10,000 train bulks × 48 draws + 500 valtest bulks × 128 draws;
-   each draw's ladder is read out at the locked rungs 50/30, one row per
-   (bulk, draw, rung) -> ~960k train / ~128k valtest rows for the
-   supervised loss. Per-row targets: T, P, H2O, solid modes over the
-   21-phase vocabulary, per-phase oxide composition. The committed
-   val/test roster (`cnmineral/data/valtest_split.csv`) covers 499 of the
-   valtest bulks, 221 val / 278 test.
+   parquet under `data/corpus/`. Two measured generations. The old
+   broad-draw corpus -- the one the PRODUCTION heads
+   (`joint_heads_supportmag_seed0`) were trained on, and the one cascade 2
+   trains on: 10,000 train bulks × 48 draws + 500 valtest bulks × 128
+   draws, rungs 50/30, committed roster 221 val / 278 test. The traced
+   regen (`data/corpus/train_traced`, 2026-07-27): 35k train bulks × 24
+   trace-conditional draws + 2000 valtest × 128 on the frozen 887/1112
+   roster (instrument `valtest128-traced@2000`). Heads trained on the
+   traced corpus lost to the old-corpus model on the real-rock benchmark
+   after identical recalibration (journal 2026-08-03), so the traced
+   corpus is a measured non-production arm; its wins are quartz presence
+   and assemblage ranking.
 
 3. **Held-out evaluation corpora**: real-rock targets (mineralML grains at
    `data/grains/mineralml.csv` for CompHead evaluation; EDS maps if available)

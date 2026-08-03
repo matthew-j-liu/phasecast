@@ -31,13 +31,17 @@ epochs directly (JOURNAL 2026-06-24, #15).
 The canonical SSL objective is **per-element standardized log-space
 masked MSE** (ADR 007, adopted 2026-06-18); it measures higher on
 every probe and the trace-imputation gate than the original
-linear-space MSE, which is retired to reference.  Canonical
-checkpoint lives at
-`checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`.
+linear-space MSE, which is retired to reference.  Two encoder
+generations exist: `pretrain_v3_logmse_std_seed0` (igneous-only,
+22-token -- the one under the production heads) and the canonical
+accepted encoder `pretrain_allrock_redox_seed0` (all-rock, 23-token
+with the Fe-redox ratio; accepted ride-as-is 2026-07-28, scored in
+`docs/scorecard.md`).  Cascade 2 trains heads on the new one.
 
-Probe results on the 20-epoch encoder (`scripts/eval/probe_encoder.py`,
-library-default probe HPs; figures + JSON under
-`runs/probe/pretrain_v3_logmse_std_seed0_epoch_best/`):
+Probe results on the 20-epoch igneous encoder
+(`scripts/eval/probe_encoder.py`, library-default probe HPs; probe
+snapshots are transient `runs/` artifacts, regenerable; current
+numbers live in `docs/scorecard.md`):
 
 | probe | test accuracy | v2 cell-c bar |
 |---|---|---|
@@ -48,7 +52,7 @@ library-default probe HPs; figures + JSON under
 | qap_name LR    | 0.722 | -- |
 
 The tuned row is the same encoder probed at the
-probe-HPO best params (`runs/probe_hpo/`); the
+probe-HPO best params; the
 library-default rows are the apples-to-apples comparison against
 v2 cell-c.
 
@@ -59,9 +63,9 @@ into qap-coherent neighborhoods without ever seeing a label.
 Stops here: the encoder is the durable contribution.  Two follow-up
 tracks came out of it: **Track A part 2** (`pretrain_applications.md`)
 and **Track B** (below; its gating corpus regen shipped via
-`docs/corpus_regen_spec.md` / #9).  A re-pretrain on the ~737k
-all-rock relaxed-Fe bulk set (#24) is queued behind the corpus
-cascade -- see "Current status" at the end of this doc.
+`docs/corpus_regen_spec.md` / #9).  The all-rock relaxed-Fe
+re-pretrain (#24) LANDED 2026-07-28 as `pretrain_allrock_redox_seed0`
+-- see "Current status" at the end of this doc.
 
 A third thread, **Track A part 3** (epic #15, on the
 `encoder-representation` branch), pursues a *stronger* encoder via new
@@ -101,10 +105,12 @@ with the journal holding each record:
   Under the segmented-ledger convention this benchmark is the
   cross-instrument judge.
 
-Still open in this area, sequenced behind the corpus cascade: G_sys
-head (#43), prediction-set output (#47), amp within-support mixture
-(#49), K-seed ensemble + calibration (the one original-table row not
-yet built).
+Still open in this area, sequenced behind cascade 2: the ModeHead
+Dirichlet mixture (the scheduled next architecture change, motivated
+by amp bimodality + the heavier-than-Beta real-rock residual + the
+value of broad-draw hedging; #49 is its amp-specific ancestor), G_sys
+head (#43), prediction-set output (#47), K-seed ensemble + calibration
+(the one original-table row not yet built).
 
 ### Track C: end-to-end fine-tune (optional, last)
 
@@ -114,30 +120,42 @@ fine-tune with all heads end-to-end at a low encoder LR
 ablation against the Track-B frozen-encoder version. Ship whichever
 calibrates better.
 
-## Current status and next steps (2026-07-28)
+## Current status and next steps (2026-08-03)
 
-Both traced tiers are generated and healthy (train 35k bulks x 24 draws,
-`data/corpus/train_traced`; valtest 2000 x 128 on the frozen-assignment
-887/1112 roster, instrument `valtest128-traced@2000`). The corpus cascade
-is in flight: heads configs point at the traced tiers, the instrument's
-noise floor is measured automatically at eval
-(`eval.mode_head.binomial_floor`) and the HPO tie band reads from the
-ledger's instrument stanza (journal 2026-07-28); the baseline heads
-retrain (`joint_heads_regen_seed0`) is queued behind the encoder
-session's GPU use. Sequencing runs corpus first, then encoder, so each
-change is attributed separately:
+Full decision record in `docs/2026_08_03_recap.md`; journal entries
+2026-07-31 through 2026-08-03 hold the measurements.
 
-1. **Corpus cascade**: build the training corpus from the traced
-   tiers, retrain the heads, mini-HPO, re-score on the new
-   instrument. The real-rock benchmark judges the era transition --
-   the zero-shot ledger entry plus the #52 curve re-run are the
-   regen's transfer evidence.
-2. **Encoder re-pretrain** (#24): ~737k all-rock relaxed-Fe bulks
-   (strict Fe stays a label-generation concern). A second era
-   boundary: heads retrain again on the new latent, and the #53
-   fresh-head control decomposes encoder-vs-head contribution on the
-   real-rock benchmark.
-3. **Paper progression**: the real-rock benchmark is the cross-era
+**Cascade 1 (heads on the traced corpus) is complete and adjudicated
+against.** Both regen checkpoints (`joint_heads_regen_seed0`,
+`joint_heads_regen_tuned_seed0`) were trained, measured, and lost to
+the old-corpus production model on the real-rock benchmark under
+identical recalibration (sealed test joint NLL 0.478 / 0.769 / 1.371;
+all pairwise unit-clustered contrasts exclude zero; few-shot curves
+show no crossover at any labelled budget). **Production remains
+`joint_heads_supportmag_seed0`**; the 2026-07-29 trial-22 adoption is
+reversed, and the regen checkpoints are measured non-production arms.
+The traced corpus's real wins (quartz presence, assemblage ranking)
+and the sharpening lesson are the paper story, not a production
+upgrade. The real-rock **test slice is spent**; recalibrator work
+validates on train/val only. The all-rock encoder re-pretrain (#24)
+landed and was accepted 2026-07-28 (`pretrain_allrock_redox_seed0`).
+
+Next, one change at a time, each judged on the real-rock benchmark:
+
+1. **Cascade 2 -- encoder swap on the old corpus.** Retrain heads on
+   the all-rock 23-token encoder x the OLD broad-draw corpus,
+   baseline-first at production dials (isolates the encoder effect),
+   then the sweep under the corrected criterion: effective lambda
+   (21x nominal `magnitude_weight`) reported and searched at or below
+   1, sampled-support NLL in the tiebreak. The #53 fresh-head control
+   decomposes encoder-vs-head contribution.
+2. **ModeHead Dirichlet mixture**, on the old corpus with whichever
+   encoder wins; kept only if better.
+3. **Recalibrator upgrades** after the mixture verdict (SiO2
+   magnitude-side term and constant offsets needed regardless).
+4. **#60 real-rock-axis corpus scaling** after cascade 2 -- decides
+   whether a larger broad-draw regen is generated.
+5. **Paper progression**: the real-rock benchmark is the cross-era
    spine, plus a one-time table re-scoring archived era checkpoints
    on the final valtest instrument. Era production checkpoints
    (encoder + heads) therefore stay loadable and archived until that

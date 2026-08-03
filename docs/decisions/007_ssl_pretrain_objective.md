@@ -10,13 +10,17 @@ log-space masked-element MSE** loss (`loss: {type: log_mse, standardize:
 true}`), replacing the linear-space masked MSE used by the prior canonical
 encoder `pretrain_v3_seed0`.
 
-Canonical checkpoint: `checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`
+First canonical checkpoint under this objective:
+`checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`
 (architecture unchanged: d_model 256 / 4 layers / 8 heads; 20 epochs on Gard
 2019 igneous bulks). Optimization hyperparameters from the per-objective
 Optuna sweep (`configs/pretrain/pretrain_hpo.yaml`).
 
-Downstream consumers (corpus regen, supervised heads, imputation read-out
-tune, all encoder-application probes) load this checkpoint.
+The objective carried unchanged into the all-rock re-pretrain: the canonical
+accepted encoder is now `checkpoints/pretrain_allrock_redox_seed0` (accepted
+2026-07-28, `docs/scorecard.md`), riding these same ADR-007 hyperparameters.
+The production heads still load the igneous checkpoint until cascade 2
+retrains them on the new latent.
 
 ## Why this decision
 

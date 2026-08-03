@@ -5,7 +5,7 @@
 
 ## Decision
 
-The v1 model takes **10 anhydrous oxide wt%** as input. `h2o_tot` is dropped.
+The model takes anhydrous inputs only -- `h2o_tot` is dropped (the v1 shape was 10 anhydrous oxide wt%; the current 22/23-token cation+trace vector keeps the same anhydrous rule).
 The CondHead infers H2O genuinely from anhydrous chemistry.
 
 ## Context

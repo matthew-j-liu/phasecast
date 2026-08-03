@@ -385,6 +385,9 @@ techniques:
       - "fit_recalibrator"
       - "pin_amp_magnitude"
       - "recalibrator_nll"
+      - "score_recalibrator"
+      - "select_weight_decay"
+      - "lift_group_presence_to_phases"
   - name: unit_grouped_split
     type: preprocessing
     patterns:

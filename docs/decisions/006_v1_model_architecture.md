@@ -1,7 +1,7 @@
 # Decision 006: v1 model architecture — shared encoder + Dirichlet ModeHead + GMM CondHead + joint Optuna HPO
 
 **Date:** 2026-05-19
-**Status:** Active
+**Status:** Historical -- the decision principles hold (shared encoder, probabilistic heads, NLL losses, joint single-stage HPO), but the concrete v1 shapes below are superseded: current input is the 22-token cation+trace vector (23 with the redox token), ModeHead is the hurdle presence+magnitude head, CondHead is support-conditioned, and no K-seed ensemble is built yet. Current architecture in `docs/heads.md` / `docs/encoder.md`.
 
 ## Decision
 

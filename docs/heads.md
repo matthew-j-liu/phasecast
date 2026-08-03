@@ -328,7 +328,12 @@ metric:
 - **Objective:** the joint hurdle NLL, assembled explicitly at eval (the
   training loss is a sum of two surrogates -- BCE + masked-Dirichlet-NLL --
   so compute the joint likelihood of the modal vector directly, do not assume
-  training loss equals it), plus calibration of `p_i` against empirical
+  training loss equals it). Scale trap in that sum: the BCE averages over the
+  21 phases while the Dirichlet term does not, so the effective weight on the
+  magnitude factor is **21x the nominal `magnitude_weight`** -- the joint
+  hurdle log-density (effective lambda = 1) sits at `magnitude_weight` 0.048.
+  Report and reason in effective lambda. Also compute calibration of `p_i`
+  against empirical
   presence frequency `f_i` and CondHead coverage. Report **stratified by phase
   rarity**, so rare-phase failure cannot hide inside an aggregate dominated by
   common phases.
@@ -352,17 +357,23 @@ metric:
   corpus entries are stamped to a valtest instrument and never re-measured
   across instruments, so the real rocks are what compares models from
   different corpus eras.
-- **Checkpoint selection and HPO ranking (locked 2026-07-19):** each head is
-  snapshotted at its own best raw val epoch (mode on the unweighted
-  assemblage NLL `bce + Dirichlet`, comp/cond on their own NLLs) -- a single
-  weighted-total epoch let the largest term decide and starved cond.  The
-  joint HPO ranks trials on mode's raw assemblage NLL at mode's best epoch,
-  ties within the val-roster wobble band broken by comp then cond; no
-  weighted aggregate anywhere in selection, since the weights are the
-  search variables and any aggregate re-imports an arbitrary exchange rate
-  between heads.  Cross-head consistency of mixed-epoch heads is measured
-  by the predicted-modes closure residual, which doubles as the OOD
-  diagnostic.
+- **Checkpoint selection and HPO ranking (locked 2026-07-19; criterion
+  corrected 2026-08-03):** each head is snapshotted at its own best raw val
+  epoch (mode on the unweighted assemblage NLL `bce + Dirichlet`, comp/cond
+  on their own NLLs) -- a single weighted-total epoch let the largest term
+  decide and starved cond.  The joint HPO ranks trials on mode's raw
+  assemblage NLL at mode's best epoch, ties within the val-roster wobble band
+  broken by comp then cond; no weighted aggregate anywhere in selection,
+  since the weights are the search variables and any aggregate re-imports an
+  arbitrary exchange rate between heads.  Two corrections from the trial-22
+  reversal (journal 2026-08-03): the `magnitude_weight` search range must
+  stay at or below effective lambda = 1 (nominal 0.048) -- tempering the
+  suspect likelihood factor down, never up -- and **sampled-support NLL joins
+  the tiebreak as a veto**, because teacher-forced val NLL alone reliably
+  selects overconfident models (it chose trial 22, which regressed every
+  real-rock and sampled-support metric).  Cross-head consistency of
+  mixed-epoch heads is measured by the predicted-modes closure residual,
+  which doubles as the OOD diagnostic.
 
 ## How this design was arrived at (durable summary of the review)
 

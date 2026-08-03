@@ -2,19 +2,20 @@
 
 The SSL-pretrained encoder is a **rock-chemistry foundation model**, not
 just a feature extractor for the mineralogy task. Trained via masked-element
-modeling on ~167k unlabeled igneous bulks from `data/bulks/gard2019.csv`, it
+modeling on unlabeled bulks from `data/bulks/gard2019.csv` (~167k igneous in
+the 22-token generation, ~788k all-rock in the 23-token generation), it
 organizes rocks in a latent space that captures real geochemical
 structure. Mineralogy is one downstream application. This doc enumerates the
 others -- capabilities the existing encoder already supports with no further
 training, or with tiny supervised heads on the pretrained latent.
 
-**v3 encoder is available.**  Canonical checkpoint at
-`checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt` (per-element
-standardized log-space masked MSE, ADR 007); hyperparameters in
-`configs/pretrain/pretrain_production.yaml`.  See
-`docs/roadmap.md` for current probe numbers and gate-close
-status.  All capabilities in this doc target the v3 encoder;
-v2's encoder remains usable as a reference.
+**Canonical accepted encoder:** `checkpoints/pretrain_allrock_redox_seed0`
+(all-rock, 23-token with the Fe-redox ratio; accepted 2026-07-28), riding
+the ADR-007 objective and hyperparameters.  The earlier igneous checkpoint
+`pretrain_v3_logmse_std_seed0` remains the one under the production heads
+until cascade 2.  Current probe numbers and acceptance record live in
+`docs/scorecard.md`.  Capability numbers below were measured on the encoder
+generation named in each entry.
 
 Living document; update as capabilities are built or evaluated.
 
@@ -64,11 +65,14 @@ standardized log-space (ADR 007), and this separately-tuned read-out head reads
 the frozen latent at the imputation task's own capacity.
 
 **Shipped.** The production head is Optuna-tuned (single-stage sweep, objective
-median trace log-R2 on a held-out val split) and reaches test median trace
-log-R2 0.836 = 95% of the 0.877 frozen-latent yardstick, with no major
-regression; per-trace 95-98% of the yardstick (JOURNAL 2026-06-24).
-`configs/imputation/imputation_head.yaml` regenerates it on the canonical
-encoder; the checkpoint + readout artifacts are gitignored (regenerable).
+median trace log-R2 on a held-out val split); on the igneous encoder it
+reached test median trace log-R2 0.836 = 95% of the 0.877 frozen-latent
+yardstick (JOURNAL 2026-06-24), and the re-tune on the all-rock encoder ties
+at 0.832 (acceptance 2026-07-28; the 0.877/0.892 gates are stamped to the
+previous corpus, not re-run).
+`configs/imputation/imputation_head_allrock_redox.yaml` regenerates it on the
+canonical encoder (`imputation_head.yaml` for the igneous one); the
+checkpoint + readout artifacts are gitignored (regenerable).
 
 Implementation (built):
 - `cnmineral.models.imputation_head.LogImputationHead` -- linear or

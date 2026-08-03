@@ -126,7 +126,12 @@ before-number for any future anti-collapse objective.
 
 | axis | metric | current | floor -> ceiling | status | source |
 |---|---|---|---|---|---|
-| head task performance | ModeHead / CondHead / CompHead NLL + calibration | *TBD* | marginal/prior baseline -> oracle | candidate | Track B (#9) |
+| head task performance | ModeHead / CondHead / CompHead NLL + calibration | measured per version | marginal/prior baseline -> oracle | provisional | `results/ledger.yaml` (corpus), `results/real_rock_ledger.yaml` + journal 2026-08-03 (real rocks) |
 
-The heads are the application and the real remaining risk (whether ~32 effective
-dims support a multimodal posterior). Assessed as Track B lands, not pre-emptively.
+Track B landed; head performance is tracked per version in the ledgers rather
+than as one scorecard number, and the real-rock benchmark is the cross-era
+judge (production `joint_heads_supportmag_seed0`: sealed-test joint NLL 0.478
+after recalibration, vs 0.769/1.371 for the traced-corpus arms). The
+multimodal-posterior risk resolved in the corpus's favor: the latent supports
+it, and the surviving gap is output-family width (single Dirichlet vs the
+measured bimodality), not latent capacity.
