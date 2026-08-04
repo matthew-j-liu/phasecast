@@ -11,96 +11,220 @@ Venue: Sim2Science (NeurIPS 2026 workshop), 5-page track excluding
 references, unlimited appendix, non-archival, double-blind, checklist
 mandatory after references. Deadline 2026-08-29.
 
-## Title candidates (owner picks or rewrites)
+## Title (working; owner-picked 2026-08-04)
 
-1. Emulating an imperfect thermodynamic simulator: mineralogy transfer
-   fails in confidence, not accuracy
-2. Broad simulator supervision transfers, sharp supervision does not:
-   sim-to-real mineralogy from a rock-chemistry foundation encoder
-3. A probabilistic emulator of MAGEMin under uncertain conditions,
-   evaluated on measured volcanic mineralogy
+> Simulated petrological labels enable transfer learning for
+> probabilistic mineralogy prediction from rock geochemistry
 
-## Abstract (draft prose, ~170 words)
+Runner-up kept for reference: "Simulated petrological labels and few-shot
+transfer to measured rocks enable probabilistic mineralogy prediction from
+bulk chemistry". Open micro-option: "whole-rock geochemistry" as the
+field-standard term for the input, at the cost of one word.
 
-> Thermodynamic equilibrium codes such as MAGEMin compute the mineral
-> assemblage of a rock composition at one specified pressure, temperature,
-> and water content. Real rocks form at unknown conditions, and the codes'
-> equilibrium labels are an imperfect proxy for the mineralogy geologists
-> measure. We present a system that emulates the simulator integrated over
-> uncertain conditions: a transformer encoder pretrained self-supervised on
-> \sysPretrainBulksAllrock measured rock compositions, probabilistic heads
-> trained on simulator assemblages sampled over many plausible
-> (pressure, water) paths per rock, and a \sysRecalibParams-parameter
-> recalibrator fit on measured volcanic mineralogy. Scored zero-shot on
-> \rrBenchN erupted rocks, the system ranks minerals and rocks correctly
-> but overstates its confidence; the small recalibrator recovers most of
-> the gap, and 25 labeled rocks recover most of the rest. Two findings
-> bear on learning from imperfect scientific models: sharper, more
-> realistic simulator sampling made real-rock transfer worse, because
-> broad sampling had been supplying condition uncertainty the model needs;
-> and model selection on validation likelihood reliably chose
-> overconfident models, which we trace to a hidden 21x loss-weight
-> mismatch and correct.
+## Abstract (draft v5, 2026-08-04; punctuation budget + ML-audience glosses; ~230 words)
+
+> Mineralogy, the identity and abundance of the mineral phases in a
+> rock, guides both petrological interpretation and industrial
+> extraction. Measuring it is slow. An expert must count mineral grains
+> under a microscope, or run diffraction measurements on carefully
+> prepared samples. Whole-rock chemical assays are the opposite case,
+> with standardized instruments reporting a rock's elemental
+> concentrations cheaply and at scale. Predicting mineralogy from an
+> assay would therefore convert an abundant measurement into the
+> quantity decisions act on. Two obstacles stand in the way. The mapping
+> is one-to-many, since a single composition crystallizes into different
+> mineral assemblages depending on formation conditions the rock does
+> not record, and no compilation pairs rock chemistry with measured
+> mineralogy at training scale. Here, we supervise probabilistic
+> mineralogy predictors with simulated petrological labels: a
+> transformer encoder pretrained self-supervised on
+> \sysPretrainBulksAllrock measured whole-rock compositions, heads
+> trained on equilibrium assemblages from the MAGEMin thermodynamic
+> simulator along \sysCorpusTrainDraws sampled (pressure, water) paths
+> per composition, and a \sysRecalibParams-parameter recalibration fit
+> on measured volcanic mineralogy. Scored zero-shot against \rrBenchN
+> erupted rocks, the model ranks minerals and rocks correctly but
+> overstates confidence. Recalibration recovers most of the gap. A
+> further \sysFewshotBudgetKnee labeled rocks recover most of the
+> remainder. Notably, sharper simulator sampling degraded transfer while
+> improving every simulator-side metric, and selecting models on
+> validation likelihood favored overconfidence through a hidden
+> \sysEffLambdaFactor{}x loss-weight mismatch we identify and correct.
+> Simulated labels thereby enable transfer learning where measured
+> labels cannot exist at scale.
 
 ## 1. Introduction (draft prose, ~0.75 page)
 
 Paragraph plan with draft text; macros stand where numbers go.
 
-> **P1 -- the problem.** A thermodynamic simulator answers a conditional
-> question: given a bulk composition and one set of formation conditions,
-> which minerals form. The scientific question is usually marginal and
-> inverse: given only the composition, what mineralogy is plausible, and
-> under what conditions. Integrating the simulator over geologically
-> plausible conditions is what a petrologist does mentally and what the
-> simulator does not natively compute. Beyond that, the simulator's answer
-> is imperfect for the rocks we care about: equilibrium crystal cargo at a
-> sampled condition is a proxy for the phenocryst modes measured on an
-> erupted rock, and no public compilation pairs bulk chemistry with
-> measured modal mineralogy at training scale.
->
-> **P2 -- the system.** We train a system in three layers with different
-> exposure to the simulator. A transformer encoder is pretrained
-> self-supervised on \sysPretrainBulksAllrock measured rock compositions
-> (masked-element prediction), so the representation never sees anything
-> synthetic. Probabilistic heads read the frozen latent and are trained on
-> simulator labels: for each of \sysCorpusTrainBulks training compositions
-> we run MAGEMin fractional crystallization along \sysCorpusTrainDraws
-> sampled (pressure, water) paths, so the within-rock spread of assemblages
-> across paths becomes the trained uncertainty rather than noise to average
-> out. A hurdle head factorizes presence from abundance-given-presence; a
-> conditions head learns the inverse posterior over (T, P, H2O)
-> conditioned on the assemblage. Finally a \sysRecalibParams-parameter
-> recalibrator -- per-mineral constant corrections -- is fit on measured
-> volcanic mineralogy, confining sim-to-real correction to a module the
-> size of a linear probe.
->
-> **P3 -- what we measure.** We evaluate on \rrBenchN erupted rocks with
-> point-counted or estimated phenocryst modes, split by stratigraphic unit.
-> Zero-shot, ranking and accuracy transfer while stated confidence does
-> not: the failure is predictive width, not location. The recalibrator
-> absorbs most of the penalty; a few-shot curve over labeled-rock budgets
-> shows 25 rocks buy most of the remaining gain. What no constant
-> correction absorbs is rock-dependent width: residuals are heavier-tailed
-> than the head's distributional family at the fitted mean.
->
-> **P4 -- the two workshop findings + contributions.** First, a corpus
-> regeneration that made simulator sampling sharper and more realistic per
-> rock -- conditioning the sampled paths on trace-element chemistry --
-> improved every simulator-side validation metric and made real-rock
-> transfer worse, surviving identical recalibration. Broad condition
-> sampling had been functioning as a transfer asset: implicit hedging over
-> conditions the sharper corpus deleted. Second, hyperparameter selection
-> on validation likelihood chose an overconfident model even
-> in-distribution; a hidden averaging mismatch meant the tuned loss weight
-> sat at \sysEffLambdaTuned{}x the properly-scored joint density, and the
-> literature's prescription under misspecification points the opposite
-> direction (temper the suspect factor down). We contribute: (i) the
-> system and its measured zero-/few-shot transfer, (ii) the
-> sharper-supervision result, (iii) the corrected selection criterion.
+Draft v5, 2026-08-04, written against style.md incl. the punctuation
+budget (one colon, one semicolon per section, [cite]/[slot] brackets
+exempt) and ML-audience glosses (techniques described plainly, domain
+shorthand spelled out). Five paragraphs. The intro's one colon is spent
+on P2's simulator triplet, its one semicolon on P5's width-not-location
+sentence. The old P5/P6 collapse into the tour, and the (i)(ii)(iii)
+contributions list is absorbed by it (restorable if reviewers expect
+explicit bullets).
 
-- Related-work option A: short standalone section 6 (below). Option B:
-  fold citation families into P1/P4 and drop section 6 for space. Owner
-  picks; I recommend A while the page budget allows.
+> **P1 -- the funnel.** Mineralogy is the identity and abundance of the
+> mineral phases in a rock. It is the starting material of petrological
+> investigation, because crystals record the temporal, compositional,
+> and thermal evolution of the magmatic systems that grew them [cite
+> mineralML and refs therein]. The same phases govern industrial
+> processing. How a critical element is extracted, from the choice of
+> acid to the temperature to the separation route, depends on which
+> mineral hosts it and what surrounds that host [cite Minerals 2025].
+> Identical elemental content can therefore demand entirely different
+> processing. Demand for these elements is projected to grow steeply
+> under the energy transition, and recovering them from ores and waste
+> streams is a stated policy priority [cite DOE 2023; IEA 2024].
+> Determining mineralogy, however, stays expensive. The standard routes
+> are an expert counting mineral grains under a microscope on a prepared
+> slice of rock, or X-ray diffraction on powdered samples, and both
+> demand preparation and expert time [cite mineralML]. Whole-rock
+> chemical assays sit at the opposite extreme. Instruments such as X-ray
+> fluorescence (XRF) and inductively coupled plasma (ICP) spectrometry
+> report a rock's elemental concentrations, are standardized and cheap,
+> and already run at scale in exploration and production [cite NRMP
+> 2023]. Thus, reading mineralogy directly from a chemical assay would
+> convert the measurement everyone has into the quantity decisions act
+> on. The assay alone could then inform how separations are designed.
+>
+> **P2 -- what exists (a one-condition equilibrium simulator).**
+> Predicting mineralogy from chemistry means modeling rock formation,
+> and rock formation resists direct attack. Melts stall, cool, and
+> crystallize over kilometers and millennia. Thermodynamics, kinetics,
+> and transport couple across those length and time scales, and no
+> instrument observes the process end to end. Laboratory petrology
+> constrains the endpoint one point at a time, with each experiment
+> equilibrating one composition at one pressure, temperature, and water
+> content. Decades of such experiments have been distilled into
+> thermodynamic databases [cite database]. Gibbs-energy minimizers such
+> as MAGEMin turn those databases into a fast forward simulator [cite
+> Riel 2022]: one composition, one fully specified condition, the
+> equilibrium assemblage. To date, first principles reach no further.
+> The full formation process is too multi-scale and multi-physics to
+> simulate outright.
+>
+> **P3 -- the inverse gap, named.** The question practitioners ask runs
+> opposite to the simulator. An assay fixes the composition, while the
+> mineralogy and the conditions that produced it are unknown. That
+> inverse is one-to-many. A single bulk composition can crystallize
+> into, in principle, infinitely many mineral sets and abundances,
+> depending on the pressure and water path it followed. An honest
+> predictor must therefore return a distribution over mineralogies
+> rather than an answer. Supervised learning cannot close the gap
+> directly, because no public compilation pairs rock chemistry with
+> measured modal mineralogy at training scale. A model fit to the small
+> labeled collections that exist would be confined to their
+> compositions, with no notion of its own uncertainty. Existing tools
+> bracket the problem without solving it. Normative calculations
+> idealize an anhydrous equilibrium mineralogy from bulk chemistry [cite
+> CIPW/pyrolite]. Grain-level classifiers such as mineralML identify
+> minerals from chemistry measured on individual crystals [cite
+> mineralML]. Sibling fields in materials informatics routinely train
+> composition models on simulated labels, precisely because measured
+> ones are scarce [cite]. Thus, the obstacle is a label gap, and
+> simulated petrological labels are the available way through.
+>
+> **P4 -- the system (three reasoned bets).** We therefore built the
+> predictor in three layers, each a bet on where its information should
+> come from. We pretrained our own transformer encoder self-supervised
+> on \sysPretrainBulksAllrock measured whole-rock compositions [cite
+> gard2019]. The hypothesis was that a representation learned from
+> nature, never from the simulator, keeps user inputs in-distribution
+> regardless of the label source. The architecture adapts the core logic
+> of CrabNet and none of its surrounding machinery [cite CrabNet]. Each
+> element enters as a text-mined embedding (mat2vec [cite]) summed with
+> a learned encoding of its abundance, which plays the role position
+> embeddings play in language models. We also reasoned from
+> transfer-learning theory. The feature space of the pretrained model
+> determines its capability to transfer downstream ("features are fate"
+> [cite Rotskoff group, ICML 2025]), so pretraining should happen on
+> exactly the features practitioners measure. The \sysInputTokens
+> elements of a routine assay are cheap and high-throughput physically,
+> and by that theory they form the one representation positioned to
+> serve both simulator-labeled training and measured-rock transfer. We
+> then supervised probabilistic heads on the frozen encoder with
+> simulated petrological labels. Each of \sysCorpusTrainBulks
+> compositions is crystallized along \sysCorpusTrainDraws sampled
+> pressure and water paths, so the within-rock spread of assemblages
+> becomes trained uncertainty. A hurdle head factorizes which minerals
+> are present from their abundances given presence. A conditions head
+> returns the inverse posterior over temperature, pressure, and water
+> content, conditioned on the assemblage. Last, we fit a
+> \sysRecalibParams-parameter recalibration on measured volcanic
+> mineralogy, confining the sim-to-real correction to a module the size
+> of a linear probe.
+>
+> **P5 -- in this work.** In this work, we evaluated the stack on
+> \rrBenchTotal erupted rocks compiled with both whole-rock chemistry
+> and measured mineral proportions, of which \rrBenchN least-altered
+> rocks form the headline cohort, split by geological unit. Zero-shot,
+> with heads that had never seen a real rock, ranking and per-mineral
+> discrimination transfer while stated confidence does not; the failure
+> concentrates in predictive width, not location. The recalibration
+> absorbs most of the penalty. A few-shot curve shows
+> \sysFewshotBudgetKnee labeled rocks buy most of the remaining gain.
+> What no constant correction absorbs is rock-dependent width, with
+> residuals running heavier-tailed than the head's distributional family
+> at the fitted mean. Importantly, two controlled comparisons expose how
+> the simulator should be used. Regenerating the corpus with sharper,
+> per-rock condition sampling improved every simulator-side validation
+> metric and degraded real-rock transfer, surviving identical
+> recalibration [slot: cascade-2 winner]. Broad condition sampling had
+> been hedging over exactly the uncertainty real rocks present. And
+> selecting loss weights on validation likelihood favored an
+> overconfident model even in-distribution, through a hidden averaging
+> mismatch that put the tuned weight at \sysEffLambdaTuned{}x the
+> properly scored joint density, where misspecification theory
+> prescribes tempering down [cite Grunwald; Bissiri et al.]. Overall, this work establishes
+> simulated petrological labels as a workable supervision source for
+> probabilistic mineralogy prediction, and demonstrates that how the
+> simulator is sampled, and how models are selected against it, decide
+> whether the result transfers. The encoder and heads are
+> re-supervisable slots, laying a foundation for label sources beyond
+> the simulator as measured compilations grow.
+
+Related work is now partially folded (option B in effect): P3 carries
+the existing-tools survey (CIPW/pyrolite, mineralML, materials
+informatics precedent); the methodological citation families (claims.md
+A-G) ride sections 4-5 where each is used; the fuller family-by-family
+discussion (mineralML and other models, in the ANN-sample register)
+moves to the appendix. Section 6 in the skeleton below stays only if the
+owner wants a visible stub.
+
+The five-paragraph intro runs ~1 page against the 0.75 budgeted; section
+2 tightens to compensate, and the motivation is owner-directed emphasis,
+so the budget bends around it, not the reverse.
+
+Scope guard for P1's industrial framing: the system predicts phase
+presence and abundances (the "surrounding mineralogical environment"),
+NOT per-element host-phase assignment -- trace partitioning is a deferred
+head. Motivation prose stays on "informs separations"; never "identifies
+the host of element X".
+
+Motivation pillars (owner, 2026-08-04), worked into draft v2 above --
+kept here as the record of what the prose must always carry:
+
+1. For a CS audience, establish how vast, unexplored, and complicated
+   crustal rock formation is: real measurements are hard; lab experiments
+   are hard in their own right; those experiments are what calibrated the
+   thermodynamic databases MAGEMin minimizes over. First principles alone
+   cannot be thrown at a system that traverses length and time scales
+   with coupled kinetics, thermodynamics, and transport -- so a simulator
+   is unavoidable. What distinguishes this work is judicious use of that
+   simulator to supervise an encoder that is itself trained on a large
+   corpus of measured rock compositions, which is what enables transfer.
+2. The problem is inherently one-to-many: a single bulk measurement can
+   be produced by, in principle, infinitely many mineral sets and
+   abundances. The mathematics is intractable as a point-prediction
+   problem, not just the physics -- which is why the modeling is
+   probabilistic and why the corpus explores many (P, H2O) paths per
+   rock.
+
+The confluence of the two is the stated reason the work takes a
+sim-to-real approach to probabilistic prediction.
 
 ## 2. System: a probabilistic emulator of an imperfect simulator (bullets, ~1 page incl. Fig 1)
 
