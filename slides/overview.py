@@ -218,7 +218,7 @@ def pipeline(s, lit_through, hide_after=None):
 
 def s_scenarios(prs):
     s = new_slide(prs)
-    header(s, "HEADS", "The coherent answer: ranked scenarios")
+    header(s, "HEADS -- CURRENT CANONICAL OUTPUT", "The coherent answer: ranked scenarios")
     caption(s, 0.55, 1.15, 12.2, "the marginal table can't show WHICH minerals trade off; "
             "scenarios can -- sample the posterior, cluster by assemblage, rank by weight",
             13, GRAYT, align=PP_ALIGN.LEFT)
@@ -1286,7 +1286,8 @@ def s_joint_loss(prs):
 
 def s_outputs(prs):
     s = new_slide(prs)
-    header(s, "HEADS", "What the heads emit (distributions, not point estimates)")
+    header(s, "HEADS -- CURRENT CANONICAL OUTPUT",
+           "What the heads emit (distributions, not point estimates)")
     box(s, 0.55, 2.9, 2.5, 1.7, ["example bulk", "", ("SiO2 50  Al2O3 16",), ("MgO 7.5  FeO 11",),
         ("Sr 400 ppm ...",)], BLUE, size=12)
     flow_arrow(s, 3.15, 3.55, 0.5, 0.4)
@@ -1328,6 +1329,65 @@ def s_outputs(prs):
              "closure teacher-forces the label melt fraction at training. Numbers illustrative.")
 
 
+def s_mode_mixture_proposal(prs):
+    s = new_slide(prs)
+    header(s, "HEADS -- PROPOSED CANONICAL OUTPUT (K=2 DISTRIBUTIONS)",
+           "Proposed: the ModeHead dirichlet layer (mixture) -- built, not yet trained")
+    caption(s, 0.55, 1.15, 12.2, "same bulk, same h, same presence Bernoullis -- only the "
+            "'how much, given this mineral set' answer changes: two full-assemblage "
+            "components chosen by a gate, instead of one Dirichlet per (rock, support)",
+            13, GRAYT, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 1.8, 12.2, "amphibole's conditional share, one fixed support "
+            "(same minerals present, path deep-wet or shallow-dry):", 12, INK,
+            align=PP_ALIGN.LEFT)
+    gaussian(s, 0.9, 2.35, 3.2, 1.3, [(0.15, 0.05, 0.6), (0.50, 0.06, 0.4)], GREEN,
+             "truth across paths: two humps")
+    gaussian(s, 5.05, 2.35, 3.2, 1.3, [(0.29, 0.15, 1.0)], REDX,
+             "current: one Dirichlet -- mean in the valley")
+    gaussian(s, 9.2, 2.35, 3.2, 1.3, [(0.15, 0.055, 0.6), (0.50, 0.065, 0.4)], ORANGE,
+             "proposed: K=2 -- mass on the humps")
+    box(s, 0.9, 4.5, 3.6, 1.5, ["gate (the new piece)",
+        ("w = [0.60, 0.40] for this rock",),
+        ("softmax over 2 logits from the",),
+        ("magnitude trunk on [h, support]",),
+        ("H(w) -> 0 = commits to one answer",)], PURPLE, size=12)
+    gaussian(s, 5.05, 4.85, 3.2, 1.1, [(0.47, 0.09, 1.0)], TEAL,
+             "plag: components coincide -- unimodal phases unchanged")
+    box(s, 9.0, 4.5, 3.7, 1.5, ["scenario view gains one field",
+        ("a sample = support -> component",),
+        ("-> abundances; each scenario now",),
+        ("commits to a hump instead of",),
+        ("predicting the valley",)], GREEN, size=12)
+    caption(s, 0.55, 6.25, 12.2, "unchanged: presence branch, CompHead, CondHead, closure. "
+            "K=1 is the current head exactly (same parameters, same loss), so production "
+            "checkpoints load untouched and the drop path is one deleted code branch.",
+            11, INK, align=PP_ALIGN.LEFT)
+    caption(s, 0.55, 6.9, 12.2, "kept only if better on real rocks: recalibrated val paired "
+            "NLL vs the same-dials single-Dirichlet control; PIT/coverage break an NLL tie. "
+            "distribution numbers illustrative.", 10, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Proposal slide for the ModeHead dirichlet layer (mixture), built 2026-08-04 "
+             "behind the K=1-identity `mode_n_components` dial -- no trained checkpoint "
+             "yet, so the canonical output is unchanged; drawn so "
+             "the contrast with the two current-output slides is visual. Motivating "
+             "measurements: 45% of sampled bulks bimodal in conditional amp proportion "
+             "(2026-07-17 corpus exam), 34% of testable bimodal bulks still bimodal within "
+             "their dominant support (the part support-conditioning cannot represent); amp "
+             "two-sided PIT groups 0.026 -> 0.114 when support-conditioning landed (truth "
+             "escaping both tails = mean parked between humps); real-rock residual heavier-"
+             "tailed than any Beta at the fitted mean. Design locked with the owner: K=2 "
+             "fixed (not an HPO dial yet), assemblage-level components (one gate choosing "
+             "whole alpha vectors -- on a simplex a per-phase mixture is not even coherent, "
+             "and the humps co-vary through the shared hidden (P, H2O) path, cf. the 51% "
+             "amp<->opx switch), no gate regularizer in the first build (gate entropy is a "
+             "read-after diagnostic; collapse = H~0 everywhere plus identical components), "
+             "all-rock encoder with the allrock-tuned dials, control = "
+             "joint_heads_allrock_tuned_seed0 as trained. Loss is logsumexp(log w_k + "
+             "log Dir_k) on the present support -- CondHead's GMM pattern moved onto the "
+             "Dirichlet. Build gate: K=1 under the new code must reproduce production "
+             "metrics to float precision before any K=2 run. Old broad-draw corpus; "
+             "verdict on the real-rock benchmark, val only, test untouched.")
+
+
 if __name__ == "__main__":
     prs = make()
     s_title(prs)
@@ -1340,7 +1400,7 @@ if __name__ == "__main__":
     s_comp_head_anatomy(prs); s_comp_head_pit(prs)
     s_cond_head_anatomy(prs); s_cond_head_coverage(prs)
     s_joint_loss(prs)
-    s_outputs(prs); s_scenarios(prs)
+    s_outputs(prs); s_scenarios(prs); s_mode_mixture_proposal(prs)
     out = Path(__file__).resolve().parent / "overview.pptx"
     prs.save(out)
     print(f"wrote {out}  ({len(prs.slides._sldIdLst)} slides)")
