@@ -112,3 +112,20 @@ versions:
       mode: {joint_nll: -5.4774, bernoulli_nll: 3.6291, dirichlet_nll: -9.1065}
       comp: {comp_nll: -56.2860}
       cond: {cond_nll: 7.3577, coverage_68: [0.699, 0.662, 0.655]}
+  - version: allrock-baseline
+    date: 2026-08-03
+    checkpoint_tag: joint_heads_allrock_seed0
+    instrument: valtest128-broad
+    changes: heads retrained at the support-conditioned-magnitude production
+      dials on the old broad-draw corpus with only the encoder swapped to
+      the all-rock 23-token pretrain (pretrain_allrock_redox_seed0; redox
+      slot padded throughout, so the swap measures the representation change
+      alone). Teacher-forced mode improved ~0.16 nats over production on
+      this instrument while sampled-support regressed ~0.28; on the
+      real-rock benchmark zero-shot costs ~+1.0 nats and the recalibrated
+      val contrast is a statistical tie (journal 2026-08-03). NOT
+      production; both encoders proceed to corrected-criterion sweeps.
+    heads:
+      mode: {joint_nll: -2.6157, bernoulli_nll: 4.8850, dirichlet_nll: -7.5007}
+      comp: {comp_nll: -53.9821}
+      cond: {cond_nll: 8.2953, coverage_68: [0.711, 0.669, 0.672]}

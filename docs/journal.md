@@ -5240,3 +5240,49 @@ Recorded with rationale in `docs/2026_08_03_recap.md`; terse ledger here.
    magnitude-side term and constant offsets are needed regardless.
 5. **#60 filed**: corpus scaling re-measured on the real-rock axis, after
    cascade 2; decides whether a larger broad-draw regen is generated.
+
+## 2026-08-03 -- Cascade-2 baseline: the encoder swap alone is a real-rock tie; both encoders go to corrected sweeps
+
+**Q.** Does the all-rock 23-token encoder transfer better than the
+igneous-only 22-token one, with everything else pinned to production?
+
+**Context.** Baseline per decision 2: heads retrained on the old broad-draw
+corpus at the support-conditioned-magnitude production dials with only
+`encoder_checkpoint` swapped to `pretrain_allrock_redox_seed0`
+(`joint_heads_allrock_seed0`). The redox slot stays padded throughout, so
+heads-train, eval, and deployment share one regime and the swap measures
+the representation change alone; the fed-where-measured arm is filed as
+#61. The corrected sweep criterion also landed in code this session:
+`magnitude_weight` search bounded at or below 0.048 (effective lambda <= 1)
+in the sweep configs, `dirichlet_nll_sampled_support` as a band-veto in
+`tiebreak_best` (attr-less pre-criterion trials exempt), and
+`effective_lambda` stamped on every trial.
+
+**Result.** Corpus val (valtest128-broad, 218 bulks): teacher-forced joint
+NLL -2.6157 vs production's -2.4565 (better ~0.16 nats) while
+sampled-support dirichlet regressed -1.5884 -> -1.3074 (~0.28 nats).
+Real-rock zero-shot (eruption-v2, 640 rocks): 11.412 vs 10.406, +1.0 nats,
+nearly all dirichlet width. Under the identical matrix recalibration (fit
+on the 368-rock train roster) the paired unit-clustered val contrast is
++0.078 [-0.396, +0.407] -- a statistical tie; the test slice was not
+touched. Reading: the encoder swap alone is roughly neutral where it
+counts, it carries the all-rock encoder's independent merits at no measured
+real-rock cost, and the corpus/real-rock divergence appeared again -- with
+the sampled-support axis agreeing with the rocks, the first live
+confirmation that the veto metric tracks the transfer direction while
+teacher-forced NLL points the other way.
+
+**Decision (owner).** Sweep BOTH encoders under the corrected criterion at
+matched budget: identical search space (ModeHead architecture re-opened per
+#54), instrument, sampler seed, and 48-trial ceiling --
+`configs/heads/joint_heads_hpo.yaml` (all-rock) and
+`configs/heads/joint_heads_igneous_hpo.yaml` (igneous-only), separate
+journals. Each sweep's tiebreak winner retrains at 120 epochs and the
+paired real-rock protocol re-judges the encoders at their tuned best.
+
+**Also.** `run_checkpoint_contrast.py` writes a fixed output name, so
+today's two-checkpoint run overwrote the tracked three-way JSON that held
+the sealed-test record; restored from git history as
+`checkpoint_contrast_matrix_three_way.json` alongside the current one.
+Ledger entries appended (`allrock-baseline` in both ledgers, measured on
+production's own instrument); trajectory regenerated.

@@ -145,3 +145,24 @@ versions:
     dirichlet_nll: 17.898
     mean_composition_size: 3.614
     censored_prob: 0.507
+  - version: allrock-baseline
+    date: 2026-08-03
+    checkpoint_tag: joint_heads_allrock_seed0
+    benchmark: eruption-v2
+    changes: zero-shot after the encoder-only swap (all-rock 23-token
+      pretrain, redox slot padded) at production dials on the old broad-draw
+      corpus. Costs ~+1.0 nats vs support-conditioned-magnitude, nearly all
+      dirichlet width, while the bernoulli term slightly improves; after
+      identical matrix recalibration the val contrast vs production is a
+      statistical tie, +0.078 [-0.396, +0.407] unit-clustered
+      (explorations/real_rock_fewshot/results/checkpoint_contrast_matrix.json,
+      test untouched). Corpus teacher-forced NLL moved the other way --
+      the corpus/real-rock divergence again, with the sampled-support axis
+      agreeing with the rocks. Both encoders proceed to corrected-criterion
+      sweeps (journal 2026-08-03).
+    n: 640
+    joint_nll: 11.412
+    bernoulli_nll: 5.679
+    dirichlet_nll: 5.732
+    mean_composition_size: 3.614
+    censored_prob: 0.446
