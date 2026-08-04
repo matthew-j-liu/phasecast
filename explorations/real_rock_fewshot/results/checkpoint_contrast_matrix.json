@@ -21,6 +21,15 @@
         "adapted_bernoulli": 2.872485978576903,
         "n_rocks": 111
       }
+    },
+    "joint_heads_allrock_tuned_seed0": {
+      "val": {
+        "zero_shot_joint": 13.44363703061916,
+        "adapted_joint": 1.2769208134097645,
+        "adapted_dirichlet": -1.619389690105514,
+        "adapted_bernoulli": 2.8963105035152794,
+        "n_rocks": 111
+      }
     }
   },
   "paired_contrasts_adapted_joint": {
@@ -29,6 +38,20 @@
         "mean": 0.07766049330217135,
         "lo": -0.3956719289383492,
         "hi": 0.40724982493679207,
+        "n_rocks": 111,
+        "n_units": 39
+      },
+      "joint_heads_supportmag_seed0 - joint_heads_allrock_tuned_seed0": {
+        "mean": 0.09890175124903447,
+        "lo": -0.3947813534489908,
+        "hi": 0.5011840779575005,
+        "n_rocks": 111,
+        "n_units": 39
+      },
+      "joint_heads_allrock_seed0 - joint_heads_allrock_tuned_seed0": {
+        "mean": 0.021241257946863108,
+        "lo": -0.271381342362215,
+        "hi": 0.23670044049206354,
         "n_rocks": 111,
         "n_units": 39
       }
