@@ -129,3 +129,20 @@ versions:
       mode: {joint_nll: -2.6157, bernoulli_nll: 4.8850, dirichlet_nll: -7.5007}
       comp: {comp_nll: -53.9821}
       cond: {cond_nll: 8.2953, coverage_68: [0.711, 0.669, 0.672]}
+  - version: allrock-tuned
+    date: 2026-08-04
+    checkpoint_tag: joint_heads_allrock_tuned_seed0
+    instrument: valtest128-broad
+    changes: first corrected-criterion sweep winner retrained at the
+      production horizon (joint_heads_allrock_hpo trial 32 -- effective
+      lambda 0.59, ModeHead 512x3, dropout 0.26; the sampled-support
+      band-veto's first live exercise dropped 10 of 11 tied trials to pick
+      it). Teacher-forced mode improves ~0.06 nats over allrock-baseline
+      and sampled-support dirichlet recovers past production (-1.9620 vs
+      -1.3074 baseline / -1.5884 production). NOT production; real-rock
+      zero-shot and the recalibrated val contrast are the deciders (see
+      real_rock_ledger.yaml, journal 2026-08-04).
+    heads:
+      mode: {joint_nll: -2.6713, bernoulli_nll: 4.8598, dirichlet_nll: -7.5311}
+      comp: {comp_nll: -53.4515}
+      cond: {cond_nll: 8.2932, coverage_68: [0.698, 0.680, 0.655]}

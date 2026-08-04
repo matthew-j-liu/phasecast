@@ -166,3 +166,21 @@ versions:
     dirichlet_nll: 5.732
     mean_composition_size: 3.614
     censored_prob: 0.446
+  - version: allrock-tuned
+    date: 2026-08-04
+    checkpoint_tag: joint_heads_allrock_tuned_seed0
+    benchmark: eruption-v2
+    changes: zero-shot for the corrected-criterion sweep winner (all-rock
+      encoder, effective lambda 0.59, ModeHead 512x3) retrained at the
+      production horizon. +0.23 nats vs allrock-baseline -- the bernoulli
+      term improves (5.679 -> 5.506) while dirichlet width widens the gap
+      (5.732 -> 6.132), so tempering lambda below 1 did not by itself close
+      the zero-shot confidence gap. Recalibrated val contrast not yet run;
+      that comparison, not zero-shot, is the decision-grade number
+      (journal 2026-08-04).
+    n: 640
+    joint_nll: 11.638
+    bernoulli_nll: 5.506
+    dirichlet_nll: 6.132
+    mean_composition_size: 3.614
+    censored_prob: 0.452
