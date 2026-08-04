@@ -1,42 +1,46 @@
-# Joint HPO for the three heads (ADR 006) on the traced corpus: the shared
-# training environment only, ranked on the raw assemblage NLL at ModeHead's
-# own best epoch. Head sizes are locked in `base:` -- capacity answers are
-# properties of the frozen encoder latent, which a corpus change does not
-# touch, so only the training knobs are re-searched here. When the encoder
-# itself changes the full space re-opens: main sweep with ModeHead
-# architecture + comp/cond mini-sweeps (issue #54). Per-head best
-# checkpointing in the trainer means trials never arbitrate stopping;
-# comp/cond bests ride along as user attrs. The tie band resolves from the
-# named instrument's stanza in results/ledger.yaml, never written here.
-# Resumable via JournalStorage; n_trials is a ceiling, stop anytime.
+# Joint HPO for the three heads (ADR 006), cascade 2: the all-rock encoder
+# on the old broad-draw corpus, ranked on the raw assemblage NLL at
+# ModeHead's own best epoch. The encoder changed, so the ModeHead
+# architecture re-opens in the main sweep (#54: capacity answers are
+# properties of the frozen latent); comp/cond mini-sweeps follow the winner.
+# Counterpart sweep on the igneous-only encoder:
+# configs/heads/joint_heads_igneous_hpo.yaml -- identical below the study
+# identity and encoder_checkpoint; edit them together.
+# Per-head best checkpointing in the trainer means trials never arbitrate
+# stopping; comp/cond bests ride along as user attrs. The tie band resolves
+# from the named instrument's stanza in results/ledger.yaml, never written
+# here. Resumable via JournalStorage; n_trials is a ceiling, stop anytime.
+#
+# Corrected selection criterion (docs/heads.md, trial-22 reversal):
+# magnitude_weight searches at or below 0.048 -- effective lambda <= 1, the
+# 21x averaging mismatch; temper the suspect Dirichlet factor down, never up
+# -- and `dirichlet_nll_sampled_support` acts as a band-veto in the tiebreak
+# (`tiebreak_best`), because teacher-forced val NLL alone reliably selects
+# overconfident models.
 #
 # `base:` carries the locked knobs; `search_space:` the swept ones --
 # disjoint, same convention as configs/imputation/imputation_head_hpo.yaml.
-# `baseline:` is enqueued as trial 0: the regen-baseline dials as the
-# comparable reference and TPE seed point (NOT production -- production is
-# joint_heads_supportmag_seed0; the winner this sweep produced was reversed
-# 2026-08-03). Any future sweep applies the corrected criterion: search
-# magnitude_weight at or below 0.048 (effective lambda <= 1, the 21x
-# averaging mismatch) and add sampled-support NLL to the tiebreak as a veto.
+# `baseline:` is enqueued as trial 0, the TPE seed point: production dials
+# with magnitude_weight clamped to the corrected ceiling (production's actual
+# 0.2501 is effective lambda ~5.25, outside the corrected range by design)
+# and the production ModeHead architecture.
 
-study_name: joint_heads_traced_hpo
-storage_path: data/optuna/journals/joint_heads_traced_hpo.journal
+study_name: joint_heads_allrock_hpo
+storage_path: data/optuna/journals/joint_heads_allrock_hpo.journal
 output_dir: runs/heads_hpo
 
 objective: mode
-instrument: valtest128-traced@2000
+instrument: valtest128-broad
 sampler_seed: 42
-n_trials: 24
-n_startup_trials: 10
+n_trials: 48
+n_startup_trials: 12
 
 base:
-  encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
-  corpus_dir: data/corpus/train_traced
-  valtest_corpus_dir: data/corpus/valtest_traced
+  encoder_checkpoint: checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt
+  corpus_dir: data/corpus/train
+  valtest_corpus_dir: data/corpus/valtest
   rungs: [50, 30]
   comp_eps: 1.0e-4
-  mode_hidden: 256
-  mode_layers: 3
   comp_hidden: null
   comp_layers: 1
   cond_hidden: 512
@@ -54,13 +58,19 @@ base:
 search_space:
   lr:               {type: float, low: 1.0e-4, high: 1.0e-2, log: true}
   weight_decay:     {type: float, low: 1.0e-7, high: 1.0e-2, log: true}
-  magnitude_weight: {type: float, low: 0.1, high: 10.0, log: true}
+  # effective lambda = 21x nominal (docs/heads.md); this range spans
+  # lambda 0.1 .. 1 -- the corrected criterion caps at 1 (0.048)
+  magnitude_weight: {type: float, low: 4.8e-3, high: 4.8e-2, log: true}
   lambda_balance:   {type: float, low: 1.0e-3, high: 1.0e+4, log: true}
   dropout:          {type: float, low: 0.0, high: 0.4}
+  mode_hidden:      {type: categorical, choices: [64, 128, 256, 512]}
+  mode_layers:      {type: int, low: 1, high: 3}
 
 baseline:
   lr: 2.1469012235795473e-04
   weight_decay: 1.0397924477833218e-05
-  magnitude_weight: 0.2501388179331724
+  magnitude_weight: 4.8e-2
   lambda_balance: 54.52629573235609
   dropout: 0.3479155007864341
+  mode_hidden: 256
+  mode_layers: 3

@@ -1,14 +1,17 @@
-# These dials are the cascade-1 sweep winner (trial 22). Its adoption was
-# REVERSED 2026-08-03: production heads are joint_heads_supportmag_seed0 (old
-# broad-draw corpus), and this magnitude_weight is effective lambda ~163
-# (21x nominal), above the corrected criterion of lambda <= 1
-# (magnitude_weight <= 0.048). Cascade 2 re-authors this config: old corpus,
-# all-rock encoder, baseline-first. See docs/2026_08_03_recap.md.
-encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
+# Cascade-2 baseline: the all-rock 23-token encoder swapped into the
+# production dials (joint_heads_supportmag_seed0) on the old broad-draw
+# corpus, so the comparison to production isolates the encoder's effect;
+# adjudicated on the real-rock benchmark. Production remains
+# joint_heads_supportmag_seed0 until that adjudication. The redox slot stays
+# padded: with no `data_kwargs` the dataset emits 22 tokens, which the
+# 23-token encoder treats identically to padded-23, and heads-train, eval,
+# and deployment then share one regime (a fed-where-measured arm is a
+# separate priced change). See docs/2026_08_03_recap.md.
+encoder_checkpoint: checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt
 
 # labels (semantics stamped into the checkpoint; must match at re-eval)
-corpus_dir: data/corpus/train_traced
-valtest_corpus_dir: data/corpus/valtest_traced   # val roster of valtest_split.csv drives early stopping
+corpus_dir: data/corpus/train
+valtest_corpus_dir: data/corpus/valtest   # val roster of valtest_split.csv drives early stopping
 rungs: [50, 30]
 comp_eps: 1.0e-4      # hard-zero oxide clip before renormalizing comp targets
 
@@ -19,25 +22,28 @@ comp_hidden: null
 comp_layers: 1
 cond_hidden: 512
 cond_layers: 2
-dropout: 0.16038238787281758
+dropout: 0.3479155007864341
 alpha_eps: 1.0e-6
 cond_n_components: 3
 cond_sigma_eps: 1.0e-3
 
-# loss weights (swept by joint_heads_hpo, ADR 006)
-magnitude_weight: 7.761536125422827
+# loss weights (swept by joint_heads_hpo, ADR 006). magnitude_weight here is
+# effective lambda ~5.25 (21x nominal, docs/heads.md) -- the production dial,
+# replicated deliberately; the corrected lambda <= 1 criterion governs the
+# sweep search space, not this baseline.
+magnitude_weight: 0.2501388179331724
 lambda_comp: 1.0
 lambda_cond: 0.01     # cond NLL is in raw (T, P, H2O) units, so this also absorbs the scale gap
-lambda_balance: 0.01177462344437114
+lambda_balance: 54.52629573235609
 
 # optimization (patience is per-head: training stops when every head is
 # `early_stop_patience` epochs past its own best)
 epochs: 120
 early_stop_patience: 10
 batch_size: 1024
-lr: 3.3641876904101674e-04
-weight_decay: 1.5946942975809576e-04
+lr: 2.1469012235795473e-04
+weight_decay: 1.0397924477833218e-05
 seed: 0
 
-head_checkpoint_dir: checkpoints/joint_heads_regen_tuned_seed0
+head_checkpoint_dir: checkpoints/joint_heads_allrock_seed0
 head_checkpoint_filename: heads_best.pt
