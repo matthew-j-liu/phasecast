@@ -203,6 +203,67 @@ simulator-to-real shift.
   `connor1969concepts`, `koslovsky2023bayesian`) is the existing formalism for
   our censored trace entries -- adopt rather than invent.
 
+## K. Motivation: mineralogy is the gateway from chemical assay to action
+
+Owner-directed 2026-08-04; carried by abstract sentence 1 and intro P1.
+None of these entries are in references.bib yet -- fields get pulled from
+primary sources at the verification pass. Scope guard: the system predicts
+phase presence and abundances, not per-element host assignment; prose says
+"informs separations", never "identifies the host of element X".
+
+**Claim.**  Mineralogy, not bulk chemistry, is what geological
+interpretation and industrial extraction act on; it is measured slowly
+(point counting, XRD) while whole-rock chemical assays (XRF, ICP) are
+rapid and routine, so predicting mineralogy from assay chemistry bridges
+the abundant measurement to downstream decisions -- including selective
+extraction of critical elements, whose procedures depend on the host
+phase and the surrounding mineralogical environment.
+
+- mineralML paper (PDF: `~/Downloads/mineralml_tex_eartharxiv_withsi.pdf`)
+  -- **supports** the fundamental-geology half (phase assemblages as the
+  basis of petrological investigation; crystals record magmatic
+  evolution) and orients the reader on measurement methods; cite its refs
+  therein (Putirka 2008, Blundy & Cashman 2008, ...) selectively rather
+  than wholesale. PENDING bib fields.
+- Minerals 2025, 15(5) 533 -- **supports** the critical-materials
+  extraction half. UNVERIFIED: owner-supplied locator only; confirm
+  authors/title/scope before citing.
+- US DOE Critical Materials Assessment, 2023 -- **contextualizes** supply
+  pull. Government report; fields from the primary document.
+- IEA, Recycling of Critical Minerals, 2024 -- **contextualizes**. NOTE:
+  the body is the International Energy AGENCY (owner note said
+  Association); fix at bib entry.
+- Nature Reviews Methods Primers (2023) 3:52 -- **supports** the assay
+  orientation (ICP methods). UNVERIFIED: confirm the primer's identity
+  and scope from the primary source.
+
+## L. Encoder design rationale: decisions borrowed from AI for science
+
+Owner-directed 2026-08-04; carried by intro P4 (the "rationale
+hypothesis" framing is the owner's and should survive editing). Neither
+entry is in references.bib yet.
+
+**Claim.**  The encoder is our own, with two borrowed decisions: CrabNet's
+core logic (element embeddings summed with a fractional-abundance
+encoding, standing where position embeddings stand in language models)
+without its surrounding machinery; and the choice to pretrain on exactly
+the feature space users measure (routine XRF/ICP assay elements), which
+has a physical motivation (cheap, high-throughput, commonly measured) and
+a theoretical one (the pretrained feature space determines transfer
+capability, so one representation can serve both the simulator-labeled
+corpus and real-rock transfer).
+
+- CrabNet (Wang et al., npj Computational Materials 2021; PDF on disk:
+  `s41524-021-00545-1-4.pdf`) -- **supports** the adapted core logic.
+  Companion cite needed wherever mat2vec is named: Tshitoyan et al. 2019
+  (Nature), the embedding's source. PENDING bib entries.
+- "Features are fate: a theory of transfer learning in high-dimensional
+  regression" (Rotskoff group, ICML 2025 per owner) -- **supports** the
+  rationale hypothesis. The owner-supplied thesis quote ("the feature
+  space of the pretrained model determines the capability of the model to
+  transfer to downstream tasks") must be verified verbatim against the
+  paper; authors/venue unconfirmed on disk. PENDING bib fields.
+
 ## I. Do not cite / do not confuse
 
 - **Bickel (2007)** is *not* about log-score outlier robustness (it concerns
