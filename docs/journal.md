@@ -5286,3 +5286,50 @@ the sealed-test record; restored from git history as
 `checkpoint_contrast_matrix_three_way.json` alongside the current one.
 Ledger entries appended (`allrock-baseline` in both ledgers, measured on
 production's own instrument); trajectory regenerated.
+
+## 2026-08-04 -- Cascade-2 all-rock arm complete: corrected-criterion winner ties production on recalibrated val at no measured cost
+
+**Q.** At the all-rock encoder's tuned best under the corrected criterion,
+does the model transfer better to real rocks?
+
+**Context.** The joint_heads_allrock_hpo sweep completed its full 48-trial
+ceiling on natural termination (~18 min/trial). The corrected criterion's
+first live exercise was decisive in both halves: TPE explored the interior
+of the lambda <= 1 range rather than railing at the cap (tie set spans
+lambda 0.13-0.83), and the sampled-support band-veto dropped 10 of an
+11-trial mode tie set -- including the raw Optuna best (trial 23) -- to
+pick trial 32 (effective lambda 0.59, ModeHead 512x3, dropout 0.26; the
+re-opened architecture went to the largest searched trunk). Retrained at
+the production 120-epoch horizon (`joint_heads_allrock_tuned_seed0`),
+early-stopped at 66 with per-head bests replicating the sweep trial
+exactly, confirming the 60-epoch sweep horizon was adequate.
+
+**Result.** Corpus (valtest128-broad, val 218): best numbers on record on
+both axes -- teacher-forced joint -2.6713 and sampled-support dirichlet
+-1.9620 (vs -1.3074 allrock-baseline / -1.5884 production), so the
+corrected criterion recovered the baseline's sampled-support regression
+without giving up teacher-forced ground. Real-rock zero-shot (eruption-v2,
+640): 11.638, worst of the three arms -- bernoulli improves (5.679 ->
+5.506) while dirichlet width widens (5.732 -> 6.132); tempering lambda
+below 1 does not by itself close the sim-to-real confidence gap, because
+that gap is a property of the corpus-to-rocks shift, not the loss
+weighting. Under identical matrix recalibration (fit on the 368-rock train
+roster) the paired val contrast is a three-way statistical tie with the
+tuned model's point estimate best -- 1.376 production / 1.298 baseline /
+1.277 tuned; production minus tuned +0.099 [-0.395, +0.501], baseline
+minus tuned +0.021 [-0.271, +0.237]. Reading: the corrected criterion's
+pick transfers at no measured cost and did NOT lose after correction (the
+zero-shot penalty was absorbable width, as predicted), but a real-rock win
+claim is unproven -- val's third consecutive non-separation, and a test
+read remains an owner-authorized disclosed second look.
+
+**Decision (owner).** Production unchanged pending the encoder verdict.
+The igneous twin sweep (joint_heads_igneous_hpo, matched budget and seed)
+launched 2026-08-04 to run in the background -- Ctrl-C-resumable, so it
+does not block the queue; the owner's prior expectation, recorded here, is
+a small tuned-vs-tuned difference, with the sweep's value being measured
+attribution for the adoption argument (all-rock encoder's independent
+merits at no measured real-rock cost). The broader order of operations
+proceeds meanwhile to the ModeHead Dirichlet mixture -- the component
+aimed at the rock-dependent width that constant recalibration provably
+cannot fix.

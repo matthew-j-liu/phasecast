@@ -175,9 +175,13 @@ versions:
       production horizon. +0.23 nats vs allrock-baseline -- the bernoulli
       term improves (5.679 -> 5.506) while dirichlet width widens the gap
       (5.732 -> 6.132), so tempering lambda below 1 did not by itself close
-      the zero-shot confidence gap. Recalibrated val contrast not yet run;
-      that comparison, not zero-shot, is the decision-grade number
-      (journal 2026-08-04).
+      the zero-shot confidence gap. Under identical matrix recalibration
+      (fit on the 368-rock train roster) the paired val contrast is a
+      three-way statistical tie with this model's point estimate best
+      (1.277 vs 1.298 allrock-baseline / 1.376 production; vs production
+      +0.099 [-0.395, +0.501], vs allrock-baseline +0.021 [-0.271, +0.237]
+      unit-clustered) -- the corrected criterion's pick transfers at no
+      measured cost. Val only, test untouched (journal 2026-08-04).
     n: 640
     joint_nll: 11.638
     bernoulli_nll: 5.506

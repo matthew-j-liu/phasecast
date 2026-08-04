@@ -139,9 +139,10 @@ versions:
       band-veto's first live exercise dropped 10 of 11 tied trials to pick
       it). Teacher-forced mode improves ~0.06 nats over allrock-baseline
       and sampled-support dirichlet recovers past production (-1.9620 vs
-      -1.3074 baseline / -1.5884 production). NOT production; real-rock
-      zero-shot and the recalibrated val contrast are the deciders (see
-      real_rock_ledger.yaml, journal 2026-08-04).
+      -1.3074 baseline / -1.5884 production). NOT production; after
+      identical matrix recalibration the paired real-rock val contrast is a
+      three-way statistical tie with this model's point estimate best
+      (real_rock_ledger.yaml, journal 2026-08-04).
     heads:
       mode: {joint_nll: -2.6713, bernoulli_nll: 4.8598, dirichlet_nll: -7.5311}
       comp: {comp_nll: -53.4515}
