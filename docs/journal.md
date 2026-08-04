@@ -5333,3 +5333,59 @@ merits at no measured real-rock cost). The broader order of operations
 proceeds meanwhile to the ModeHead Dirichlet mixture -- the component
 aimed at the rock-dependent width that constant recalibration provably
 cannot fix.
+
+## 2026-08-04 -- ModeHead dirichlet layer (mixture) built: K=2 assemblage-level components behind a K=1-identity dial
+
+**Q.** Build the mixture-of-Dirichlets magnitude branch -- the component
+aimed at rock-dependent width -- such that dropping it costs one commit
+and production is never at risk.
+
+**Context.** Three measured evidence lines motivate it: 34% of testable
+bimodal bulks stay bimodal within their dominant support (the residue
+support-conditioning cannot represent in principle; amp two-sided PIT
+groups 0.026 -> 0.114 when #25 landed), the recalibrator residual is
+heavier-tailed than any Beta at the fitted mean, and the broad-draw
+corpus's hedging value. Design settled in conversation before any code.
+
+**Considered.** Per-phase mixtures: rejected -- on a simplex a
+single-phase mixture is not a coherent object (moved amp mass must come
+from somewhere), and the humps co-vary through the shared hidden (P, H2O)
+path (the 51% amp<->opx switch), the same argument that locked
+support-conditioned CondHead. An explorations/ pilot: rejected on the #25
+precedent (a standalone pilot drops closure coupling and tuned weights;
+droppability comes from the K=1 identity plus checkpoint separation, not
+directory placement). A gate entropy regularizer: rejected for build 1 --
+measure before medicating; gate entropy and component separation ship as
+read-after engagement diagnostics instead, so collapse reads as "never
+engaged", not a verdict. Per-component recalibrator corrections: rejected
+-- one shared per-group correction applies to every component so
+recalibration capacity stays fixed across arms.
+
+**Decision.** Built and gated. One gate over K=2 whole-assemblage alpha
+vectors on the magnitude trunk (`mode_n_components`, soft default 1);
+loss is logsumexp over components (CondHead's GMM pattern moved onto the
+Dirichlet); ancestral samples draw a component, so every scenario commits
+to one hump. K=1 is the pre-mixture head at the parameter level -- the
+build gate PASSED: both `joint_heads_supportmag_seed0` and
+`joint_heads_allrock_tuned_seed0` load strictly under the new code and
+reproduce their ledgered numbers digit-for-digit (-2.4565 = 4.9973 -
+7.4538, sampled -1.5884; -2.6713, sampled -1.9620). Full suite 427
+passed (12 new tests). Config ready:
+`configs/heads/joint_heads_mixture.yaml` (allrock-tuned dials + K=2 ->
+`joint_heads_allrock_mixture_seed0`). Verdict pre-registered before any
+result exists: recalibrated val paired NLL against the same-dials
+single-Dirichlet control is primary; an NLL tie with two-sided PIT
+collapsing toward base rate, coverage toward nominal, and no per-phase
+regression counts as better; a tie on both axes drops it (the K>1 code
+path is deleted -- point-estimate metrics cannot judge this component,
+the mixture mean stays in the valley by construction). Deferred to a
+visualization pass: mixture quantiles (`share_interval` has no closed
+form under a mixture), card whisker semantics, beta-overlay K-curves;
+those paths skip with a printed note or refuse loudly at K>1.
+
+**Next.** Owner trains K=2 (GPU frees when the igneous twin sweep is
+Ctrl-C'd after its current trial; resumable by study name), then the
+interrogation and the pre-registered verdict. A mixture kept likely moots
+the recalibrator's heavy-tail extension; dropped sends recalibrator work
+forward against the single-Dirichlet reality. If the igneous twin WINS
+rather than ties, the mixture config's encoder + dials re-point first.

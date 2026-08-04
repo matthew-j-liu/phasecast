@@ -154,8 +154,15 @@ Next, one change at a time, each judged on the real-rock benchmark:
    winner retrains at 120 epochs and the paired val contrast renders
    the encoder verdict at tuned best. The #53 fresh-head control
    still decomposes encoder-vs-head contribution when scheduled.
-2. **ModeHead Dirichlet mixture**, on the old corpus with whichever
-   encoder wins; kept only if better.
+2. **ModeHead dirichlet layer (mixture)**, on the old corpus with
+   whichever encoder wins; kept only if better. BUILT 2026-08-04
+   (journal): K=2 assemblage-level components behind a K=1-identity
+   `mode_n_components` dial, both production-era checkpoints reproduce
+   their ledgered numbers digit-for-digit under the new code, verdict
+   pre-registered (recalibrated val paired NLL primary, PIT/coverage
+   break a tie). Awaiting the K=2 train
+   (`configs/heads/joint_heads_mixture.yaml`) once the igneous sweep
+   frees the GPU, then interrogation.
 3. **Recalibrator upgrades** after the mixture verdict (SiO2
    magnitude-side term and constant offsets needed regardless).
 4. **#60 real-rock-axis corpus scaling** after cascade 2 -- decides
