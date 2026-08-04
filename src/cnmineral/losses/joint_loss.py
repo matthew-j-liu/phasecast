@@ -37,22 +37,30 @@ def joint_heads_loss(
     lambda_comp: float = 1.0,
     lambda_cond: float = 1.0,
     lambda_balance: float = 1.0,
+    mode_log_w: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """All-head loss; returns each unweighted term for logging.
 
     Presence is the teacher-forced true mask everywhere it appears: the mode
     magnitude slice, the comp mask, the CondHead input (upstream), and the
-    closure modes.
+    closure modes. `mode_log_w` is None for the single-Dirichlet ModeHead
+    (mode_alpha [B, P]); the mixture head passes gate log-weights with
+    mode_alpha [B, K, P], and closure uses the gate-weighted mixture mean.
     """
     mode = mode_head_loss(
         mode_logits, mode_alpha, presence, magnitude,
-        magnitude_weight=magnitude_weight,
+        magnitude_weight=magnitude_weight, log_w=mode_log_w,
     )
     comp_nll = masked_comp_dirichlet_nll(comp_alpha, comp_target, presence)
     cond_nll = gmm_nll(*cond_params, cond_target)
 
-    masked_alpha = presence * mode_alpha
-    cond_modes = masked_alpha / masked_alpha.sum(-1, keepdim=True).clamp_min(1e-12)
+    if mode_log_w is None:
+        masked_alpha = presence * mode_alpha
+        cond_modes = masked_alpha / masked_alpha.sum(-1, keepdim=True).clamp_min(1e-12)
+    else:
+        masked_alpha = presence.unsqueeze(1) * mode_alpha
+        component_modes = masked_alpha / masked_alpha.sum(-1, keepdim=True).clamp_min(1e-12)
+        cond_modes = (mode_log_w.exp().unsqueeze(-1) * component_modes).sum(1)
     comp_mean = comp_alpha / comp_alpha.sum(-1, keepdim=True)
     closure = closure_loss(
         cond_modes, comp_mean, f_liq, f_fl, c_liq, c_fl, bulk_11

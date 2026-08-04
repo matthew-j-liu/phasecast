@@ -20,9 +20,13 @@ import numpy as np
 import torch
 
 from ..data.phase_vocab import GROUP_INDEX, GROUPS, MODEL_TO_GROUP, PHASE_INDEX
-from ..eval.mode_head import conditional_mean, magnitude_parity_stats
+from ..eval.mode_head import (
+    conditional_mean,
+    magnitude_parity_stats,
+    mixture_conditional_mean,
+)
 from ..eval.real_rock import coarsen_presence
-from ..losses.mode_loss import masked_dirichlet_nll
+from ..losses.mode_loss import masked_dirichlet_nll, mixture_dirichlet_nll
 from ..models.real_rock_recalibrator import RealRockRecalibrator
 
 
@@ -43,6 +47,7 @@ class GroupPredictions:
     magnitude: torch.Tensor
     numeric: torch.Tensor
     unit: np.ndarray
+    log_w: torch.Tensor | None = None
 
     def __len__(self) -> int:
         return len(self.sio2)
@@ -54,6 +59,7 @@ class GroupPredictions:
             logits7=self.logits7[t], alpha7=self.alpha7[t], sio2=self.sio2[t],
             presence=self.presence[t], magnitude=self.magnitude[t],
             numeric=self.numeric[t], unit=self.unit[mask],
+            log_w=None if self.log_w is None else self.log_w[t],
         )
 
 
@@ -72,6 +78,7 @@ def build_group_predictions(
 
     pred = predict(head, latents, benchmark)
     p7 = np.clip(pred["p7"], 1e-7, 1 - 1e-7)
+    log_w = pred.get("log_w")
     return GroupPredictions(
         logits7=torch.as_tensor(np.log(p7 / (1 - p7)), dtype=torch.float64),
         alpha7=torch.as_tensor(pred["alpha7"], dtype=torch.float64),
@@ -80,6 +87,8 @@ def build_group_predictions(
         magnitude=torch.as_tensor(benchmark.magnitude, dtype=torch.float64),
         numeric=torch.as_tensor(benchmark.numeric.astype(np.float64)),
         unit=benchmark.unit,
+        log_w=None if log_w is None
+        else torch.as_tensor(log_w, dtype=torch.float64),
     )
 
 
@@ -89,6 +98,7 @@ def recalibrator_nll(
     presence: torch.Tensor,
     magnitude: torch.Tensor,
     numeric: torch.Tensor,
+    log_w: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Per-rock hurdle NLL in group space, differentiable.
 
@@ -106,10 +116,16 @@ def recalibrator_nll(
     bern = torch.nn.functional.binary_cross_entropy_with_logits(
         logits7, presence, reduction="none",
     ).sum(-1)
-    safe_alpha = torch.where(numeric > 0, alpha7, torch.ones_like(alpha7))
-    dirichlet = masked_dirichlet_nll(
-        safe_alpha, magnitude, numeric, reduction="none",
-    )
+    mask = numeric if log_w is None else numeric.unsqueeze(1)
+    safe_alpha = torch.where(mask > 0, alpha7, torch.ones_like(alpha7))
+    if log_w is None:
+        dirichlet = masked_dirichlet_nll(
+            safe_alpha, magnitude, numeric, reduction="none",
+        )
+    else:
+        dirichlet = mixture_dirichlet_nll(
+            log_w, safe_alpha, magnitude, numeric, reduction="none",
+        )
     return {"bernoulli": bern, "dirichlet": dirichlet, "joint": bern + dirichlet}
 
 
@@ -142,9 +158,12 @@ def fit_recalibrator(
     opt = torch.optim.Adam(recalibrator.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(epochs):
         opt.zero_grad()
-        logits, alpha = recalibrator(train.logits7, train.alpha7, train.sio2)
+        logits, alpha = recalibrator(
+            train.logits7, train.alpha7, train.sio2, log_w=train.log_w
+        )
         loss = recalibrator_nll(
             logits, alpha, train.presence, train.magnitude, train.numeric,
+            log_w=train.log_w,
         )["joint"].mean()
         loss.backward()
         opt.step()
@@ -163,12 +182,20 @@ def score_recalibrator(
     if recalibrator is None:
         logits, alpha = data.logits7, data.alpha7
     else:
-        logits, alpha = recalibrator(data.logits7, data.alpha7, data.sio2)
+        logits, alpha = recalibrator(
+            data.logits7, data.alpha7, data.sio2, log_w=data.log_w
+        )
     nll = recalibrator_nll(
         logits, alpha, data.presence, data.magnitude, data.numeric,
+        log_w=data.log_w,
     )
     numeric = data.numeric.numpy().astype(bool)
-    cond_mean = conditional_mean(alpha.numpy(), numeric.astype(np.float64))
+    if data.log_w is None:
+        cond_mean = conditional_mean(alpha.numpy(), numeric.astype(np.float64))
+    else:
+        cond_mean = mixture_conditional_mean(
+            alpha.numpy(), data.log_w.numpy(), numeric.astype(np.float64)
+        )
     parity = magnitude_parity_stats(
         cond_mean, data.magnitude.numpy(), numeric.astype(np.float64),
     )

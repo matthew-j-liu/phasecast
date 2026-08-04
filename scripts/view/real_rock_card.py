@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.mode_head import conditional_mean
+from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
 from cnmineral.eval.real_rock import (
     climatology,
     load_benchmark,
@@ -60,12 +60,22 @@ def main() -> None:
 
     clean = benchmark.clean & benchmark.has_magnitude
     p7, alpha7 = pred["p7"], pred["alpha7"]
-    forced_share = conditional_mean(alpha7, benchmark.numeric.astype(np.float64))
-    model_share = conditional_mean(
-        pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
-    )
+    log_w = pred.get("log_w")
+    if log_w is None:
+        forced_share = conditional_mean(alpha7, benchmark.numeric.astype(np.float64))
+        model_share = conditional_mean(
+            pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
+        )
+    else:
+        forced_share = mixture_conditional_mean(
+            alpha7, log_w, benchmark.numeric.astype(np.float64)
+        )
+        model_share = mixture_conditional_mean(
+            pred["alpha7_model_support"], pred["log_w_model_support"],
+            pred["model_support7"].astype(np.float64),
+        )
     nll = real_rock_nll(p7, alpha7, benchmark.presence, benchmark.magnitude,
-                        benchmark.numeric)
+                        benchmark.numeric, log_w=log_w)
     null = climatology(benchmark)
     null_nll = real_rock_nll(null["p7"], null["alpha7"], benchmark.presence,
                              benchmark.magnitude, benchmark.numeric)

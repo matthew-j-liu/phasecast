@@ -48,6 +48,7 @@ from cnmineral.data.phase_vocab import (  # noqa: F401
 from cnmineral.eval.mode_head import (
     conditional_mean,
     magnitude_parity_stats,
+    mixture_conditional_mean,
     presence_scores,
     reliability_table,
 )
@@ -58,7 +59,7 @@ from cnmineral.eval.summary_cards import (
     TITLE_FS,
     XLABEL_FS,
 )
-from cnmineral.losses.mode_loss import masked_dirichlet_nll
+from cnmineral.losses.mode_loss import masked_dirichlet_nll, mixture_dirichlet_nll
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BENCHMARK_DIR = REPO_ROOT / "data" / "real_mineralogy"
@@ -487,12 +488,12 @@ def coarsen_alpha(
     off-vocabulary mass, which reads as how much of the predicted assemblage
     the benchmark structurally cannot see.
     """
-    on = alpha * support
-    out = np.zeros((len(alpha), len(GROUPS)), dtype=np.float64)
+    on = alpha * support if alpha.ndim == 2 else alpha * support[:, None, :]
+    out = np.zeros(on.shape[:-1] + (len(GROUPS),), dtype=np.float64)
     for phase, group in MODEL_TO_GROUP.items():
-        out[:, GROUP_INDEX[group]] += on[:, PHASE_INDEX[phase]]
+        out[..., GROUP_INDEX[group]] += on[..., PHASE_INDEX[phase]]
     off_vocab = np.array(
-        [on[:, PHASE_INDEX[ph]] for ph in SOLID_PHASES if ph not in MODEL_TO_GROUP]
+        [on[..., PHASE_INDEX[ph]] for ph in SOLID_PHASES if ph not in MODEL_TO_GROUP]
     ).sum(0)
     return out, off_vocab
 
@@ -542,6 +543,7 @@ def real_rock_nll(
     presence: np.ndarray,
     magnitude: np.ndarray,
     numeric: np.ndarray,
+    log_w: np.ndarray | None = None,
 ) -> dict[str, np.ndarray]:
     """The hurdle NLL in group space -- the headline, and the recalibrator's loss.
 
@@ -556,6 +558,9 @@ def real_rock_nll(
     Rocks whose observed sub-composition has a single group contribute exactly
     0 to the Dirichlet term (a degenerate point mass, not a free win); the
     caller reports how many.
+
+    `log_w` is None for a single-Dirichlet alpha7 [R, 7]; the mixture head
+    passes gate log-weights with alpha7 [R, K, 7].
     """
     p = torch.as_tensor(np.clip(p7, 1e-7, 1 - 1e-7), dtype=torch.float64)
     bern = F.binary_cross_entropy(
@@ -566,13 +571,23 @@ def real_rock_nll(
     # gives 0 * inf = NaN instead of the intended no-op. Coarsening produces
     # exact zeros wherever a group has no member on the support, and those
     # groups are excluded by the mask anyway, so any positive filler works.
-    alpha = np.where(numeric, alpha7, 1.0)
-    dirichlet = masked_dirichlet_nll(
-        torch.as_tensor(alpha, dtype=torch.float64),
-        torch.as_tensor(magnitude, dtype=torch.float64),
-        torch.as_tensor(numeric, dtype=torch.float64),
-        reduction="none",
-    )
+    mask = numeric if log_w is None else numeric[:, None, :]
+    alpha = np.where(mask, alpha7, 1.0)
+    if log_w is None:
+        dirichlet = masked_dirichlet_nll(
+            torch.as_tensor(alpha, dtype=torch.float64),
+            torch.as_tensor(magnitude, dtype=torch.float64),
+            torch.as_tensor(numeric, dtype=torch.float64),
+            reduction="none",
+        )
+    else:
+        dirichlet = mixture_dirichlet_nll(
+            torch.as_tensor(log_w, dtype=torch.float64),
+            torch.as_tensor(alpha, dtype=torch.float64),
+            torch.as_tensor(magnitude, dtype=torch.float64),
+            torch.as_tensor(numeric, dtype=torch.float64),
+            reduction="none",
+        )
     return {
         "bernoulli": bern.numpy(),
         "dirichlet": dirichlet.numpy(),
@@ -629,6 +644,7 @@ def censored_consistency(
     support: np.ndarray,
     censored: np.ndarray,
     censor_bound: np.ndarray,
+    log_w: np.ndarray | None = None,
 ) -> dict[str, np.ndarray]:
     """How well the model respects the bounds on present-but-unquantified phases.
 
@@ -646,17 +662,25 @@ def censored_consistency(
     per-instance probabilities and its own NLL, which is what a recalibrator would
     add to the objective if these instances should inform the fit.
     """
-    alpha0 = (alpha7 * support).sum(-1, keepdims=True)
-    beta = np.clip(alpha0 - alpha7, 1e-9, None)
-    prob = np.full(alpha7.shape, np.nan)
+    # per-component Beta tails, gate-weighted at the end; the log_w=None path
+    # is the K=1 special case with weight exactly 1
+    a = alpha7 if log_w is not None else alpha7[:, None, :]
+    w = np.exp(log_w) if log_w is not None else np.ones((len(a), 1))
+    alpha0 = (a * support[:, None, :]).sum(-1, keepdims=True)
+    beta = np.clip(alpha0 - a, 1e-9, None)
+    prob_k = np.full(a.shape, np.nan)
     where = censored & (censor_bound > 0)
-    prob[where] = betainc(
-        alpha7[where], beta[where], np.clip(censor_bound[where], 1e-12, 1 - 1e-12)
+    where_k = np.broadcast_to(where[:, None, :], a.shape)
+    bound_k = np.broadcast_to(
+        np.clip(censor_bound, 1e-12, 1 - 1e-12)[:, None, :], a.shape
     )
-    mean_share = np.divide(
-        alpha7, np.clip(alpha0, 1e-12, None), out=np.zeros_like(alpha7),
+    prob_k[where_k] = betainc(a[where_k], beta[where_k], bound_k[where_k])
+    prob = (w[..., None] * prob_k).sum(1)
+    mean_share_k = np.divide(
+        a, np.clip(alpha0, 1e-12, None), out=np.zeros_like(a),
         where=alpha0 > 0,
     )
+    mean_share = (w[..., None] * mean_share_k).sum(1)
     return {
         "prob_below_bound": prob,
         "nll": -np.log(np.clip(prob, 1e-12, None)),
@@ -1552,25 +1576,26 @@ def predict(head, latents: torch.Tensor, benchmark: RealRockBenchmark) -> dict:
         p21 = torch.sigmoid(head.presence_logits(latents)).cpu().numpy()
     support = truth_forced_support(benchmark.presence, p21)
     model_support = (p21 > 0.5).astype(np.float64)
+    support_t = torch.as_tensor(support, dtype=latents.dtype, device=latents.device)
+    model_support_t = torch.as_tensor(
+        model_support, dtype=latents.dtype, device=latents.device
+    )
+    out = {"p7": coarsen_presence(p21),
+           "model_support7": coarsen_support(model_support),
+           "support21": support}
     with torch.no_grad():
-        alpha = head.magnitude_alpha(
-            latents, torch.as_tensor(support, dtype=latents.dtype,
-                                     device=latents.device),
-        ).cpu().numpy()
-        alpha_model = head.magnitude_alpha(
-            latents, torch.as_tensor(model_support, dtype=latents.dtype,
-                                     device=latents.device),
-        ).cpu().numpy()
-    alpha7, off_vocab = coarsen_alpha(alpha, support)
-    alpha7_model, _ = coarsen_alpha(alpha_model, model_support)
-    return {
-        "p7": coarsen_presence(p21),
-        "alpha7": alpha7,
-        "alpha7_model_support": alpha7_model,
-        "model_support7": coarsen_support(model_support),
-        "off_vocab_alpha": off_vocab,
-        "support21": support,
-    }
+        if head.n_components == 1:
+            alpha = head.magnitude_alpha(latents, support_t).cpu().numpy()
+            alpha_model = head.magnitude_alpha(latents, model_support_t).cpu().numpy()
+        else:
+            alpha_t, log_w_t = head.magnitude_mixture(latents, support_t)
+            alpha_m_t, log_w_m_t = head.magnitude_mixture(latents, model_support_t)
+            alpha, alpha_model = alpha_t.cpu().numpy(), alpha_m_t.cpu().numpy()
+            out["log_w"] = log_w_t.cpu().numpy()
+            out["log_w_model_support"] = log_w_m_t.cpu().numpy()
+    out["alpha7"], out["off_vocab_alpha"] = coarsen_alpha(alpha, support)
+    out["alpha7_model_support"], _ = coarsen_alpha(alpha_model, model_support)
+    return out
 
 
 @torch.no_grad()
@@ -1594,17 +1619,24 @@ def run_real_rock_eval(
     print(f"output:  {output_dir}")
 
     head = ckpt.build_mode_head().to(device)
+    n_components = head.n_components
     pred = predict(head, latents, benchmark)
     p7, alpha7 = pred["p7"], pred["alpha7"]
-    cond_mean = conditional_mean(alpha7, benchmark.numeric.astype(np.float64))
+    log_w = pred.get("log_w")
+    numeric_mask = benchmark.numeric.astype(np.float64)
+    if log_w is None:
+        cond_mean = conditional_mean(alpha7, numeric_mask)
+    else:
+        cond_mean = mixture_conditional_mean(alpha7, log_w, numeric_mask)
 
     clean = benchmark.clean & benchmark.has_magnitude
     nll = real_rock_nll(
-        p7, alpha7, benchmark.presence, benchmark.magnitude, benchmark.numeric
+        p7, alpha7, benchmark.presence, benchmark.magnitude, benchmark.numeric,
+        log_w=log_w,
     )
     nll_model_support = real_rock_nll(
         p7, pred["alpha7_model_support"], benchmark.presence, benchmark.magnitude,
-        benchmark.numeric,
+        benchmark.numeric, log_w=pred.get("log_w_model_support"),
     )
     # the exposure probe asks what the magnitudes would cost if the model had
     # to stand on its own assemblage rather than the measured one. It is only
@@ -1612,13 +1644,16 @@ def run_real_rock_eval(
     # measured share: a group the model calls absent gets no concentration at
     # all, and the density of an observed share under it is undefined, not
     # merely bad. Reported with its coverage so the conditioning is visible.
+    alpha_model_on = pred["alpha7_model_support"] > 0
+    if alpha_model_on.ndim == 3:
+        # coarsened zeros are support-driven, identical across components
+        alpha_model_on = alpha_model_on.all(1)
     covered = clean & (
-        (benchmark.numeric & (pred["alpha7_model_support"] > 0)).sum(1)
-        == benchmark.numeric.sum(1)
+        (benchmark.numeric & alpha_model_on).sum(1) == benchmark.numeric.sum(1)
     )
     censoring = censored_consistency(
         alpha7, (benchmark.numeric | benchmark.censored).astype(np.float64),
-        benchmark.censored, benchmark.censor_bound,
+        benchmark.censored, benchmark.censor_bound, log_w=log_w,
     )
 
     subtitle = f"{int(clean.sum())} least-altered rocks"
@@ -1636,35 +1671,49 @@ def run_real_rock_eval(
         cond_mean[benchmark.clean], clean_bench.magnitude,
         clean_bench.numeric.astype(np.float64),
     )
-    plot_magnitude_parity(
-        alpha7[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
-        mag_stats, output_dir / "magnitude_parity.png", subtitle,
-    )
+    if n_components == 1:
+        plot_magnitude_parity(
+            alpha7[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
+            mag_stats, output_dir / "magnitude_parity.png", subtitle,
+        )
+    else:
+        print("magnitude_parity skipped: Beta-quantile bands have no closed "
+              "form under a mixture (awaits the visualization pass)")
     plot_gap_summary(
         p7[benchmark.clean], cond_mean[benchmark.clean], clean_bench,
         output_dir / "gap_summary.png", subtitle,
     )
-    card_row = int(np.flatnonzero(clean)[np.argsort(nll["joint"][clean])[
-        int(clean.sum()) // 2]])
-    # the card normalizes over every measured group, trace ones included, so
-    # a mineral logged only as a trace still shows what the model says about
-    # it next to the bound it has to sit under.
-    card_mask = (benchmark.numeric | benchmark.censored).astype(np.float64)
-    card_med, _ = share_interval(alpha7, card_mask, q=(0.5, 0.5))
-    real_rock_card(
-        p7, card_med, benchmark, card_row,
-        output_dir / "real_rock_card.png",
-        interval=share_interval(alpha7, card_mask, q=CARD_INTERVAL_Q),
-    )
+    if n_components == 1:
+        card_row = int(np.flatnonzero(clean)[np.argsort(nll["joint"][clean])[
+            int(clean.sum()) // 2]])
+        # the card normalizes over every measured group, trace ones included, so
+        # a mineral logged only as a trace still shows what the model says about
+        # it next to the bound it has to sit under.
+        card_mask = (benchmark.numeric | benchmark.censored).astype(np.float64)
+        card_med, _ = share_interval(alpha7, card_mask, q=(0.5, 0.5))
+        real_rock_card(
+            p7, card_med, benchmark, card_row,
+            output_dir / "real_rock_card.png",
+            interval=share_interval(alpha7, card_mask, q=CARD_INTERVAL_Q),
+        )
+    else:
+        print("real_rock_card skipped: whisker form under a mixture awaits "
+              "the visualization pass")
 
     null = climatology(benchmark)
     null_nll = real_rock_nll(
         null["p7"], null["alpha7"], benchmark.presence, benchmark.magnitude,
         benchmark.numeric,
     )
-    model_share = conditional_mean(
-        pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
-    )
+    if n_components == 1:
+        model_share = conditional_mean(
+            pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
+        )
+    else:
+        model_share = mixture_conditional_mean(
+            pred["alpha7_model_support"], pred["log_w_model_support"],
+            pred["model_support7"].astype(np.float64),
+        )
     plot_cohort_card(
         p7[clean], cond_mean[clean], model_share[clean],
         pred["model_support7"][clean], benchmark.subset(clean),
@@ -1686,10 +1735,20 @@ def run_real_rock_eval(
 
     thresholded = presence_scores(p7[benchmark.clean],
                                   benchmark.presence[benchmark.clean])
-    alpha0 = (alpha7 * (benchmark.numeric | benchmark.censored)).sum(1)
-    off_vocab_share = pred["off_vocab_alpha"] / np.clip(
-        alpha0 + pred["off_vocab_alpha"], 1e-12, None
-    )
+    scored_mask = benchmark.numeric | benchmark.censored
+    if n_components == 1:
+        alpha0 = (alpha7 * scored_mask).sum(1)
+        off_vocab_share = pred["off_vocab_alpha"] / np.clip(
+            alpha0 + pred["off_vocab_alpha"], 1e-12, None
+        )
+    else:
+        # per-component off-vocab share, gate-weighted (concentrations from
+        # different components are not summable)
+        alpha0_k = (alpha7 * scored_mask[:, None, :]).sum(-1)
+        share_k = pred["off_vocab_alpha"] / np.clip(
+            alpha0_k + pred["off_vocab_alpha"], 1e-12, None
+        )
+        off_vocab_share = (np.exp(log_w) * share_k).sum(1)
 
     per_group = []
     for i, group in enumerate(GROUPS):

@@ -38,6 +38,32 @@ def masked_dirichlet_nll(
     raise ValueError(f"unknown reduction: {reduction}")
 
 
+def mixture_dirichlet_nll(
+    log_w: torch.Tensor,
+    alpha: torch.Tensor,
+    magnitude: torch.Tensor,
+    presence: torch.Tensor,
+    reduction: str = "mean",
+) -> torch.Tensor:
+    """NLL of a K-component Dirichlet mixture on the present support.
+
+    `log_w` [B, K] normalized log gate weights; `alpha` [B, K, P] positive;
+    `magnitude` / `presence` [B, P] as in `masked_dirichlet_nll`. Each
+    component is the same masked sub-composition density; the mixture
+    combines them in log space (`cond_loss.gmm_nll` pattern). At K=1 with
+    `log_w` zeros this reproduces `masked_dirichlet_nll` exactly.
+    """
+    comp_nll = masked_dirichlet_nll(
+        alpha, magnitude.unsqueeze(1), presence.unsqueeze(1), reduction="none"
+    )
+    nll = -torch.logsumexp(log_w - comp_nll, dim=-1)
+    if reduction == "mean":
+        return nll.mean()
+    if reduction == "none":
+        return nll
+    raise ValueError(f"unknown reduction: {reduction}")
+
+
 def mode_head_loss(
     logits: torch.Tensor,
     alpha: torch.Tensor,
@@ -45,14 +71,20 @@ def mode_head_loss(
     magnitude: torch.Tensor,
     *,
     magnitude_weight: float = 1.0,
+    log_w: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Combined ModeHead loss; returns each term for logging.
 
     `total` is what to backpropagate; `presence_bce` and `dirichlet_nll` are
-    the unweighted terms.
+    the unweighted terms. `log_w` is None for the single-Dirichlet head
+    (alpha [B, P]); the mixture head passes gate log-weights with alpha
+    [B, K, P].
     """
     bce = F.binary_cross_entropy_with_logits(logits, presence)
-    nll = masked_dirichlet_nll(alpha, magnitude, presence)
+    if log_w is None:
+        nll = masked_dirichlet_nll(alpha, magnitude, presence)
+    else:
+        nll = mixture_dirichlet_nll(log_w, alpha, magnitude, presence)
     return {
         "total": bce + magnitude_weight * nll,
         "presence_bce": bce,

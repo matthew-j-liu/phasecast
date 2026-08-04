@@ -26,7 +26,7 @@ from scipy.stats import beta
 
 from cnmineral.data.mineralogy_dataset import JointHeadDataset, load_valtest_split
 from cnmineral.data.phase_vocab import SOLID_PHASES
-from cnmineral.losses.mode_loss import masked_dirichlet_nll
+from cnmineral.losses.mode_loss import masked_dirichlet_nll, mixture_dirichlet_nll
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -179,15 +179,23 @@ def hurdle_nll_rows(
     alpha: torch.Tensor,
     presence: torch.Tensor,
     magnitude: torch.Tensor,
+    log_w: torch.Tensor | None = None,
 ) -> dict[str, np.ndarray]:
     """Per-row terms of the joint hurdle NLL.
 
     Returns `bernoulli` [R] (summed over phases), `dirichlet` [R], `joint`
     [R], and the per-phase Bernoulli decomposition `bce_per_phase` [R, P].
+    `log_w` is None for the single-Dirichlet head (alpha [R, P]); the
+    mixture head passes gate log-weights with alpha [R, K, P].
     """
     with torch.no_grad():
         bce = F.binary_cross_entropy_with_logits(logits, presence, reduction="none")
-        dir_nll = masked_dirichlet_nll(alpha, magnitude, presence, reduction="none")
+        if log_w is None:
+            dir_nll = masked_dirichlet_nll(alpha, magnitude, presence, reduction="none")
+        else:
+            dir_nll = mixture_dirichlet_nll(
+                log_w, alpha, magnitude, presence, reduction="none"
+            )
     bern = bce.sum(-1)
     return {
         "bernoulli": bern.cpu().numpy(),
@@ -213,7 +221,11 @@ def magnitude_alpha_rows(
     presence: torch.Tensor,
     batch_size: int = 8192,
 ) -> torch.Tensor:
-    """Row-level teacher-forced alphas: magnitude branch on (bulk latent, true support)."""
+    """Row-level teacher-forced alphas: magnitude branch on (bulk latent, true support).
+
+    Single-Dirichlet heads only (`magnitude_alpha` refuses K>1); mixture-aware
+    callers use `magnitude_mixture_rows`.
+    """
     outs = []
     with torch.no_grad():
         for start in range(0, len(row_bulk), batch_size):
@@ -224,6 +236,30 @@ def magnitude_alpha_rows(
     return torch.cat(outs)
 
 
+def magnitude_mixture_rows(
+    head,
+    latents: torch.Tensor,
+    row_bulk: np.ndarray,
+    presence: torch.Tensor,
+    batch_size: int = 8192,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Row-level teacher-forced mixture: (alpha [R, K, P], log_w [R, K]).
+
+    Valid at any K (K=1: one component, log_w exactly 0), so eval code can
+    take one path and stay float-identical to the single-Dirichlet numbers.
+    """
+    alphas, log_ws = [], []
+    with torch.no_grad():
+        for start in range(0, len(row_bulk), batch_size):
+            idx = torch.as_tensor(row_bulk[start:start + batch_size],
+                                  device=latents.device)
+            s = presence[start:start + batch_size].to(latents.device)
+            a, lw = head.magnitude_mixture(latents[idx], s)
+            alphas.append(a)
+            log_ws.append(lw)
+    return torch.cat(alphas), torch.cat(log_ws)
+
+
 def sample_supports(
     p: np.ndarray, rng: np.random.Generator
 ) -> np.ndarray:
@@ -232,14 +268,21 @@ def sample_supports(
 
 
 def support_alpha_fn(head, latent_row: torch.Tensor):
-    """`alpha_fn` for `sample_assemblages`: one bulk latent, alphas per support."""
-    def alpha_fn(supports: np.ndarray) -> np.ndarray:
+    """`alpha_fn` for `sample_assemblages`: one bulk latent, alphas per support.
+
+    K=1 keeps the historical contract (supports [U, P] -> alphas [U, P]);
+    a K>1 head returns (alphas [U, K, P], log_w [U, K]) and the sampler
+    draws a component per sample.
+    """
+    def alpha_fn(supports: np.ndarray):
+        s = torch.as_tensor(supports, dtype=latent_row.dtype,
+                            device=latent_row.device)
+        h = latent_row.expand(len(supports), -1)
         with torch.no_grad():
-            return head.magnitude_alpha(
-                latent_row.expand(len(supports), -1),
-                torch.as_tensor(supports, dtype=latent_row.dtype,
-                                device=latent_row.device),
-            ).cpu().numpy()
+            if head.n_components == 1:
+                return head.magnitude_alpha(h, s).cpu().numpy()
+            alpha, log_w = head.magnitude_mixture(h, s)
+        return alpha.cpu().numpy(), log_w.cpu().numpy()
     return alpha_fn
 
 
@@ -289,6 +332,64 @@ def beta_pit(
     x = np.clip(magnitude, 1e-12, 1.0 - 1e-12)
     pit[valid] = betainc(alpha[valid], b[valid], x[valid])
     return pit
+
+
+def mixture_conditional_mean(
+    alpha: np.ndarray, log_w: np.ndarray, mask: np.ndarray
+) -> np.ndarray:
+    """Gate-weighted mixture mean on `mask`: alpha [R, K, P], log_w [R, K].
+
+    Each component's sub-composition mean is renormalized before weighting
+    (the mixture mean is the weighted mean of component means, not the mean
+    of summed concentrations). At K=1 identical to `conditional_mean`.
+    """
+    component = conditional_mean(alpha, mask[:, None, :])
+    return (np.exp(log_w)[..., None] * component).sum(1)
+
+
+def mixture_beta_pit(
+    alpha: np.ndarray, log_w: np.ndarray, presence: np.ndarray, magnitude: np.ndarray
+) -> np.ndarray:
+    """PIT under the mixture marginal: gate-weighted sum of component Beta CDFs.
+
+    The mixture CDF is the weighted sum of component CDFs (closed form, no
+    inversion), so `beta_pit` applies per component. At K=1 identical to
+    `beta_pit`.
+    """
+    pit = np.stack(
+        [beta_pit(alpha[:, k], presence, magnitude) for k in range(alpha.shape[1])],
+        axis=1,
+    )
+    return (np.exp(log_w)[..., None] * pit).sum(1)
+
+
+def gate_entropy(log_w: np.ndarray) -> np.ndarray:
+    """Per-row gate entropy H(w) in nats; 0 = committed to one component."""
+    w = np.exp(log_w)
+    with np.errstate(invalid="ignore"):
+        return -np.where(w > 0, w * log_w, 0.0).sum(-1)
+
+
+def component_separation(
+    alpha: np.ndarray, log_w: np.ndarray, mask: np.ndarray
+) -> np.ndarray:
+    """Per-row mean pairwise L1 distance between component means on `mask`.
+
+    Near-zero everywhere = the components coincide (the mixture degenerated
+    to a single Dirichlet regardless of what the gate says). log_w is
+    accepted for signature symmetry; separation is unweighted so a collapsed
+    gate cannot hide surviving component structure.
+    """
+    del log_w
+    component = conditional_mean(alpha, mask[:, None, :])
+    k = component.shape[1]
+    if k == 1:
+        return np.zeros(component.shape[0])
+    dists = [
+        np.abs(component[:, i] - component[:, j]).sum(-1)
+        for i in range(k) for j in range(i + 1, k)
+    ]
+    return np.mean(dists, axis=0)
 
 
 PIT_GROUP_MIN_ROWS = 20
@@ -1056,8 +1157,12 @@ def run_mode_head_eval(
     rung = dataset.rung.numpy()
     qap = _qap_labels(dataset.bulk_qap_names[row_bulk])
     p_rows = p_bulk[row_bulk]
-    alpha_rows_t = magnitude_alpha_rows(head, latents, row_bulk, dataset.presence)
+    n_components = head.n_components
+    alpha_rows_t, log_w_rows_t = magnitude_mixture_rows(
+        head, latents, row_bulk, dataset.presence
+    )
     alpha_rows = alpha_rows_t.cpu().numpy()
+    log_w_rows = log_w_rows_t.cpu().numpy()
     support_size = presence.sum(-1).astype(np.int64)
 
     nll = hurdle_nll_rows(
@@ -1065,6 +1170,7 @@ def run_mode_head_eval(
         alpha_rows_t,
         torch.as_tensor(presence, device=device),
         torch.as_tensor(magnitude, device=device),
+        log_w=log_w_rows_t,
     )
 
     n_bulks = len(dataset.bulk_ids)
@@ -1085,7 +1191,7 @@ def run_mode_head_eval(
     )
     pf = plot_pf_scatter(p_bulk, f_all, output_dir / "p_vs_frequency.png", split_tag)
     plot_pf_subset(p_bulk, f_all, output_dir / "p_vs_frequency_subset.png", split_tag)
-    cm_true = conditional_mean(alpha_rows, presence)
+    cm_true = mixture_conditional_mean(alpha_rows, log_w_rows, presence)
     sigma_wb = within_bulk_conditional_sigma(magnitude, presence, row_bulk)
     band = within_bulk_sigma_profile(magnitude, presence, row_bulk)
     parity = plot_magnitude_parity(
@@ -1096,47 +1202,65 @@ def run_mode_head_eval(
         cm_true, magnitude, presence, sigma_wb, band,
         output_dir / "magnitude_parity_subset.png", split_tag,
     )
-    pit = beta_pit(alpha_rows, presence, magnitude)
+    pit = mixture_beta_pit(alpha_rows, log_w_rows, presence, magnitude)
     plot_pit(pit, output_dir / "magnitude_pit.png", split_tag)
     plot_pit_subset(pit, output_dir / "magnitude_pit_subset.png", split_tag)
     pit_support = support_group_pit_stats(pit, presence, row_bulk)
     plot_pit_by_support(pit, pit_support,
                         output_dir / "magnitude_pit_by_support.png", split_tag)
-    plot_beta_overlay(alpha_rows, presence, magnitude, row_bulk,
-                      dataset.bulk_ids, output_dir / "amp_beta_overlay.png",
-                      split_tag)
+    if n_components == 1:
+        plot_beta_overlay(alpha_rows[:, 0], presence, magnitude, row_bulk,
+                          dataset.bulk_ids, output_dir / "amp_beta_overlay.png",
+                          split_tag)
+    else:
+        print("amp_beta_overlay skipped: K-curve form awaits the mixture "
+              "visualization pass")
     # exposure bias: alphas conditioned on the model's own sampled supports,
     # still scored on the true-support sub-composition (the target lives there)
     rng = np.random.default_rng(exposure_seed)
     sampled = sample_supports(p_rows, rng)
-    alpha_s_t = magnitude_alpha_rows(
+    alpha_s_t, log_w_s_t = magnitude_mixture_rows(
         head, latents, row_bulk, torch.as_tensor(sampled)
     )
-    dir_nll_s = masked_dirichlet_nll(
+    dir_nll_s = mixture_dirichlet_nll(
+        log_w_s_t,
         alpha_s_t,
         torch.as_tensor(magnitude, device=device),
         torch.as_tensor(presence, device=device),
         reduction="none",
     ).cpu().numpy()
     parity_s = magnitude_parity_stats(
-        conditional_mean(alpha_s_t.cpu().numpy(), presence), magnitude, presence
+        mixture_conditional_mean(
+            alpha_s_t.cpu().numpy(), log_w_s_t.cpu().numpy(), presence
+        ),
+        magnitude, presence,
     )
 
-    alpha0 = (alpha_rows * presence).sum(-1)
-    plot_alpha_concentration(
-        alpha0, support_size, output_dir / "alpha_concentration.png", split_tag
-    )
+    if n_components == 1:
+        alpha0 = (alpha_rows[:, 0] * presence).sum(-1)
+        plot_alpha_concentration(
+            alpha0, support_size, output_dir / "alpha_concentration.png", split_tag
+        )
+    else:
+        print("alpha_concentration skipped: per-component form awaits the "
+              "mixture visualization pass")
     plot_rung_frequency(
         f50, f30, p_bulk, output_dir / "rung_frequency.png", split_tag
     )
     plot_rung_subset(
         f50, f30, p_bulk, output_dir / "rung_frequency_subset.png", split_tag
     )
+    pred_support = torch.as_tensor(p_bulk > 0.5, device=device, dtype=latents.dtype)
     with torch.no_grad():
-        alpha_pred_bulk = head.magnitude_alpha(
-            latents, torch.as_tensor(p_bulk > 0.5, device=device,
-                                     dtype=latents.dtype)
-        ).cpu().numpy()
+        if n_components == 1:
+            alpha_pred_bulk = head.magnitude_alpha(latents, pred_support).cpu().numpy()
+        else:
+            # fp_fn_mass only reads the conditional mean, so hand it the
+            # gate-weighted mixture mean (its internal renorm is then a no-op)
+            a_k, lw = head.magnitude_mixture(latents, pred_support)
+            alpha_pred_bulk = mixture_conditional_mean(
+                a_k.cpu().numpy(), lw.cpu().numpy(), p_bulk > 0.5
+            )
     masses = fp_fn_mass(p_rows, alpha_pred_bulk[row_bulk], presence, magnitude)
     plot_mass_guardrails(
         masses["fp_mass"], masses["fn_mass"], output_dir / "mass_guardrails.png",
@@ -1193,6 +1317,7 @@ def run_mode_head_eval(
         "dirichlet_nll_sampled_support": float(dir_nll_s.mean()),
         "exposure_bias_nll_delta": float(dir_nll_s.mean() - nll["dirichlet"].mean()),
         "exposure_seed": exposure_seed,
+        "mode_n_components": int(n_components),
         "joint_nll_by_rung": stratified_mean(nll["joint"], rung),
         "joint_nll_by_qap": stratified_mean(nll["joint"], qap),
         "joint_nll_by_support_size": stratified_mean(nll["joint"], support_size),
@@ -1227,6 +1352,15 @@ def run_mode_head_eval(
         },
         "per_phase": per_phase,
     }
+    if n_components > 1:
+        # gate engagement: distinguishes "mixture tried and lost" from
+        # "mixture never engaged" (collapse = entropy ~0 everywhere AND
+        # components coincident) before any verdict is read
+        ent = gate_entropy(log_w_rows)
+        sep = component_separation(alpha_rows, log_w_rows, presence)
+        metrics["gate_entropy_mean"] = float(ent.mean())
+        metrics["gate_entropy_median"] = float(np.median(ent))
+        metrics["component_separation_mean"] = float(sep.mean())
     with open(output_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
@@ -1237,6 +1371,11 @@ def run_mode_head_eval(
     print(f"dirichlet on sampled supports: "
           f"{metrics['dirichlet_nll_sampled_support']:.4f} "
           f"(exposure bias delta {metrics['exposure_bias_nll_delta']:+.4f})")
+    if n_components > 1:
+        print(f"gate: K={n_components} entropy mean "
+              f"{metrics['gate_entropy_mean']:.4f} (median "
+              f"{metrics['gate_entropy_median']:.4f}, max {np.log(n_components):.4f}) "
+              f"component separation mean {metrics['component_separation_mean']:.4f}")
     print("by rung:", {k: round(v["mean"], 4)
                        for k, v in metrics["joint_nll_by_rung"].items()})
     print(f"binomial floor (presence-fraction units): max {floors.max():.4f} "

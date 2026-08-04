@@ -2,7 +2,11 @@ import torch
 import torch.nn.functional as F
 from torch.distributions import Dirichlet
 
-from cnmineral.losses.mode_loss import masked_dirichlet_nll, mode_head_loss
+from cnmineral.losses.mode_loss import (
+    masked_dirichlet_nll,
+    mixture_dirichlet_nll,
+    mode_head_loss,
+)
 
 
 def _random_hurdle_batch(n=16, p=8, seed=0):
@@ -63,6 +67,58 @@ def test_mode_head_loss_composition():
     assert torch.isclose(terms["presence_bce"], bce)
     assert torch.isclose(terms["dirichlet_nll"], nll)
     assert torch.isclose(terms["total"], bce + 0.5 * nll)
+
+
+def test_mixture_k1_is_exactly_single_dirichlet():
+    alpha, magnitude, presence = _random_hurdle_batch()
+    log_w = torch.zeros(len(alpha), 1)
+    mix = mixture_dirichlet_nll(log_w, alpha.unsqueeze(1), magnitude, presence,
+                                reduction="none")
+    single = masked_dirichlet_nll(alpha, magnitude, presence, reduction="none")
+    assert torch.equal(mix, single)
+
+
+def test_mixture_k2_matches_hand_logsumexp():
+    alpha, magnitude, presence = _random_hurdle_batch()
+    alpha2, _, _ = _random_hurdle_batch(seed=1)
+    stacked = torch.stack([alpha, alpha2], dim=1)
+    log_w = torch.log_softmax(torch.randn(len(alpha), 2,
+                                          generator=torch.Generator().manual_seed(2)),
+                              dim=-1)
+    ours = mixture_dirichlet_nll(log_w, stacked, magnitude, presence,
+                                 reduction="none")
+    for i in range(len(alpha)):
+        s = presence[i] > 0
+        comp = torch.stack([
+            Dirichlet(stacked[i, k, s]).log_prob(magnitude[i, s])
+            for k in range(2)
+        ])
+        ref = -torch.logsumexp(log_w[i] + comp, dim=-1)
+        assert torch.allclose(ours[i], ref, atol=1e-5)
+
+
+def test_mixture_absent_phases_get_zero_gradient_per_component():
+    alpha, magnitude, presence = _random_hurdle_batch()
+    alpha2, _, _ = _random_hurdle_batch(seed=3)
+    stacked = torch.stack([alpha, alpha2], dim=1).clone().requires_grad_(True)
+    log_w = torch.log_softmax(torch.randn(len(alpha), 2), dim=-1)
+    mixture_dirichlet_nll(log_w, stacked, magnitude, presence).backward()
+    absent = (presence == 0).unsqueeze(1).expand_as(stacked)
+    assert torch.all(stacked.grad[absent] == 0)
+    assert stacked.grad[~absent].abs().sum() > 0
+
+
+def test_mode_head_loss_routes_mixture_log_w():
+    alpha, magnitude, presence = _random_hurdle_batch()
+    alpha2, _, _ = _random_hurdle_batch(seed=4)
+    stacked = torch.stack([alpha, alpha2], dim=1)
+    log_w = torch.log_softmax(torch.randn(len(alpha), 2), dim=-1)
+    logits = torch.randn_like(alpha)
+    terms = mode_head_loss(logits, stacked, presence, magnitude,
+                           magnitude_weight=0.5, log_w=log_w)
+    nll = mixture_dirichlet_nll(log_w, stacked, magnitude, presence)
+    assert torch.isclose(terms["dirichlet_nll"], nll)
+    assert torch.isclose(terms["total"], terms["presence_bce"] + 0.5 * nll)
 
 
 def test_gradient_reaches_unfrozen_encoder():

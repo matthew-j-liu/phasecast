@@ -62,6 +62,34 @@ def _dataset(pattern_counts_per_bulk):
     )
 
 
+def test_sample_assemblages_mixture_draws_components_from_gate():
+    rng = np.random.default_rng(0)
+    p = np.array([1.0, 1.0, 0.0])
+    # component 0 concentrates on phase 0, component 1 on phase 1; a one-hot
+    # gate must produce only its own component's regime
+    alpha = np.array([[[200.0, 2.0, 1.0], [2.0, 200.0, 1.0]]])
+
+    def one_hot_fn(supports):
+        n = len(supports)
+        return np.tile(alpha, (n, 1, 1)), np.tile(
+            np.log(np.array([[1.0 - 1e-12, 1e-12]])), (n, 1)
+        )
+
+    modes = sample_assemblages(p, one_hot_fn, 100, rng)
+    np.testing.assert_allclose(modes.sum(1), 1.0, atol=1e-9)
+    assert (modes[:, 0] > 0.8).all()
+
+    def mixed_fn(supports):
+        n = len(supports)
+        return np.tile(alpha, (n, 1, 1)), np.tile(
+            np.log(np.array([[0.5, 0.5]])), (n, 1)
+        )
+
+    modes = sample_assemblages(p, mixed_fn, 200, np.random.default_rng(1))
+    share0 = (modes[:, 0] > 0.8).mean()
+    assert 0.3 < share0 < 0.7  # both regimes appear at roughly gate frequency
+
+
 def test_pick_ambiguous_bulk_prefers_even_split():
     a, b = [1, 1, 0, 0], [0, 0, 1, 1]
     presence, row_bulk, rung = _dataset([

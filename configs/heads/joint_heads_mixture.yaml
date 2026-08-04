@@ -1,0 +1,48 @@
+# The ModeHead dirichlet layer (mixture), K=2, on the cascade-2 tuned dials:
+# identical to joint_heads.yaml except mode_n_components and the checkpoint
+# dir, so the contrast against joint_heads_allrock_tuned_seed0 isolates the
+# mixture mechanism. Kept only if better on real rocks (recalibrated val
+# paired contrast; PIT/coverage break an NLL tie); dropped otherwise. No
+# gate regularizer: gate entropy is a read-after diagnostic, and collapse
+# (H ~ 0 everywhere + identical components) reads as "never engaged", not
+# as a verdict. See docs/heads.md for the hurdle parameterization.
+encoder_checkpoint: checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt
+
+# labels (semantics stamped into the checkpoint; must match at re-eval)
+corpus_dir: data/corpus/train
+valtest_corpus_dir: data/corpus/valtest   # val roster of valtest_split.csv drives early stopping
+rungs: [50, 30]
+comp_eps: 1.0e-4      # hard-zero oxide clip before renormalizing comp targets
+
+# head architecture (per-head trunks; null hidden -> d_model // 2)
+mode_hidden: 512
+mode_layers: 3
+mode_n_components: 2
+comp_hidden: null
+comp_layers: 1
+cond_hidden: 512
+cond_layers: 2
+dropout: 0.2598824097998362
+alpha_eps: 1.0e-6
+cond_n_components: 3
+cond_sigma_eps: 1.0e-3
+
+# loss weights (magnitude_weight is effective lambda ~0.59 -- 21x nominal,
+# docs/heads.md; the mixture NLL keeps the same reduction convention so the
+# weight's meaning is unchanged)
+magnitude_weight: 0.02805912651261943
+lambda_comp: 1.0
+lambda_cond: 0.01     # cond NLL is in raw (T, P, H2O) units, so this also absorbs the scale gap
+lambda_balance: 0.00307948289927652
+
+# optimization (patience is per-head: training stops when every head is
+# `early_stop_patience` epochs past its own best)
+epochs: 120
+early_stop_patience: 10
+batch_size: 1024
+lr: 4.703766518931478e-04
+weight_decay: 2.456466790845704e-05
+seed: 0
+
+head_checkpoint_dir: checkpoints/joint_heads_allrock_mixture_seed0
+head_checkpoint_filename: heads_best.pt

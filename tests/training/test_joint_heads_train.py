@@ -83,6 +83,46 @@ def test_train_smoke_and_checkpoint_roundtrip(
     assert log_w.shape == mu.shape == sigma.shape == (3, 3, k)
 
 
+def test_mixture_train_roundtrip_and_legacy_config_defaults_k1(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+    tmp_path, monkeypatch,
+):
+    """K=2 trains, stamps its K, and rebuilds a gated head; a head_config
+    without the key (every pre-mixture checkpoint) rebuilds the K=1 head."""
+    config = _setup_config(
+        tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+        tmp_path, monkeypatch,
+    )
+    ckpt = train_joint_heads(
+        {**config, "mode_n_components": 2}, torch.device("cpu")
+    )
+    assert ckpt.head_config["mode_n_components"] == 2
+
+    path = tmp_path / "ckpt" / "heads_best.pt"
+    loaded = JointHeadCheckpoint.load(path)
+    head = loaded.build_mode_head()
+    assert head.n_components == 2
+    d_model = loaded.head_config["d_model"]
+    logits, alpha, log_w = head(torch.randn(3, d_model), torch.zeros(3, N_PHASES))
+    assert alpha.shape == (3, 2, N_PHASES) and log_w.shape == (3, 2)
+
+    # a pre-mixture checkpoint carries no mode_n_components key and a K=1
+    # state dict; build_mode_head must reconstruct it strictly
+    from cnmineral.models.mode_head import ModeHead
+    k1 = ModeHead(d_model=d_model, hidden=loaded.head_config["mode_hidden"],
+                  layers=loaded.head_config["mode_layers"])
+    legacy = JointHeadCheckpoint(
+        mode_state=k1.state_dict(), comp_state=loaded.comp_state,
+        cond_state=loaded.cond_state,
+        head_config={k: v for k, v in loaded.head_config.items()
+                     if k != "mode_n_components"},
+        loss_config=loaded.loss_config, encoder_checkpoint="",
+        label_config={}, monitor={},
+    )
+    rebuilt = legacy.build_mode_head()
+    assert rebuilt.n_components == 1 and not hasattr(rebuilt, "gate_out")
+
+
 def test_per_head_selection_restores_each_heads_best(
     tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
     tmp_path, monkeypatch,

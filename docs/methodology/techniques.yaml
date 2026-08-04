@@ -69,6 +69,15 @@ techniques:
       - "alpha_out"
       - "presence_logits"
       - "magnitude_alpha"
+  - name: mixture_dirichlet_magnitude
+    type: architecture
+    patterns:
+      - "mixture_dirichlet_nll"
+      - "magnitude_mixture"
+      - "mode_n_components"
+      - "gate_out"
+      - "gate_entropy"
+      - "component_separation"
   - name: comp_dirichlet_head
     type: architecture
     patterns:
