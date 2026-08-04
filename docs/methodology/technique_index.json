@@ -10,6 +10,7 @@
     "dropout": [
       "configs/heads/joint_heads.yaml",
       "configs/heads/joint_heads_hpo.yaml",
+      "configs/heads/joint_heads_igneous_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/imputation/imputation_head.yaml",
@@ -47,6 +48,7 @@
     "gmm_cond_head": [
       "configs/heads/joint_heads.yaml",
       "configs/heads/joint_heads_hpo.yaml",
+      "configs/heads/joint_heads_igneous_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "src/cnmineral/models/cond_head.py",
@@ -228,6 +230,7 @@
     "joint_heads_hpo": [
       "configs/heads/joint_heads.yaml",
       "configs/heads/joint_heads_hpo.yaml",
+      "configs/heads/joint_heads_igneous_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "scripts/training/joint_heads.py",
@@ -266,6 +269,7 @@
     ],
     "optuna_tpe_sampler": [
       "configs/heads/joint_heads_hpo.yaml",
+      "configs/heads/joint_heads_igneous_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/imputation/imputation_head_hpo.yaml",
@@ -357,6 +361,7 @@
     "mass_balance_closure": [
       "configs/heads/joint_heads.yaml",
       "configs/heads/joint_heads_hpo.yaml",
+      "configs/heads/joint_heads_igneous_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "src/cnmineral/eval/comp_head.py",
@@ -467,6 +472,7 @@
     "early_stopping": [
       "configs/heads/joint_heads.yaml",
       "configs/heads/joint_heads_hpo.yaml",
+      "configs/heads/joint_heads_igneous_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/imputation/imputation_head.yaml",

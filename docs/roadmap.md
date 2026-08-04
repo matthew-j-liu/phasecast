@@ -120,10 +120,10 @@ fine-tune with all heads end-to-end at a low encoder LR
 ablation against the Track-B frozen-encoder version. Ship whichever
 calibrates better.
 
-## Current status and next steps (2026-08-03)
+## Current status and next steps (2026-08-04)
 
 Full decision record in `docs/2026_08_03_recap.md`; journal entries
-2026-07-31 through 2026-08-03 hold the measurements.
+2026-07-31 through 2026-08-04 hold the measurements.
 
 **Cascade 1 (heads on the traced corpus) is complete and adjudicated
 against.** Both regen checkpoints (`joint_heads_regen_seed0`,
@@ -142,13 +142,18 @@ landed and was accepted 2026-07-28 (`pretrain_allrock_redox_seed0`).
 
 Next, one change at a time, each judged on the real-rock benchmark:
 
-1. **Cascade 2 -- encoder swap on the old corpus.** Retrain heads on
-   the all-rock 23-token encoder x the OLD broad-draw corpus,
-   baseline-first at production dials (isolates the encoder effect),
-   then the sweep under the corrected criterion: effective lambda
-   (21x nominal `magnitude_weight`) reported and searched at or below
-   1, sampled-support NLL in the tiebreak. The #53 fresh-head control
-   decomposes encoder-vs-head contribution.
+1. **Cascade 2 -- encoder swap on the old corpus.** All-rock arm
+   complete (journal 2026-08-03/04): the baseline at production dials
+   tied production on recalibrated val, and the corrected-criterion
+   sweep winner (`joint_heads_allrock_tuned_seed0`, effective lambda
+   0.59, ModeHead 512x3, picked by the sampled-support veto's first
+   live exercise) posted the best corpus numbers on both axes and
+   again ties on recalibrated val with the best point estimate -- no
+   measured transfer cost, win unproven at val power. The matched
+   igneous-encoder sweep (`joint_heads_igneous_hpo`) is running; its
+   winner retrains at 120 epochs and the paired val contrast renders
+   the encoder verdict at tuned best. The #53 fresh-head control
+   still decomposes encoder-vs-head contribution when scheduled.
 2. **ModeHead Dirichlet mixture**, on the old corpus with whichever
    encoder wins; kept only if better.
 3. **Recalibrator upgrades** after the mixture verdict (SiO2
