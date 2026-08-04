@@ -10,9 +10,12 @@ three heads' bests, best epochs, and the predicted-modes closure as user
 attrs -- the scatter that audits the single-objective choice.  Trial 0 is
 enqueued from `baseline:` (the untuned reference, fully comparable and a
 TPE seed point).  The winner is read post-hoc by `tiebreak_best`, not
-`study.best_params`: mode ties within `tie_band` nats break to comp then
-cond, and mini-sweep winners must hold mode within `tie_band` of
-`mode_reference`.  JournalStorage + `load_if_exists` resume; no pruner --
+`study.best_params`: mode ties within `tie_band` nats first pass the
+sampled-support band-veto (teacher-forced val NLL alone reliably selects
+overconfident models -- it chose trial 22; docs/heads.md records the
+corrected criterion), then break to comp then cond, and mini-sweep winners
+must hold mode within `tie_band` of `mode_reference`.  JournalStorage +
+`load_if_exists` resume; no pruner --
 pruning would cut cond's tail and the user attrs to save minutes on
 already-cheap trials.  Trials never save checkpoints; production ships from
 `train_joint_heads` on the updated heads config.
@@ -36,8 +39,11 @@ from optuna.visualization.matplotlib import (
     plot_param_importances,
 )
 
+from cnmineral.data.phase_vocab import N_PHASES
 from cnmineral.eval.comp_head import predicted_modes_closure
 from cnmineral.eval.joint_heads import val_dataset_and_latents
+from cnmineral.eval.mode_head import magnitude_alpha_rows, sample_supports
+from cnmineral.losses.mode_loss import masked_dirichlet_nll
 from cnmineral.training import pick_device
 from cnmineral.training.hpo import _sample_hyperparameter
 from cnmineral.training.joint_heads import (
@@ -83,12 +89,15 @@ def tiebreak_best(
     """The locked winner read-out over completed trials.
 
     `objective: mode`: trials within `tie_band` nats of the incumbent are
-    ties, broken by comp NLL then cond NLL.  `objective: comp | cond`
-    (mini-sweeps): trials are admissible only if their mode best stays
-    within `tie_band` of `mode_reference` (the main-sweep winner); the best
-    admissible trial by the objective wins.  Returns None when no trial is
-    admissible -- itself a finding (the head's architecture moves mode
-    through the closure coupling).
+    ties; tied trials whose `dirichlet_nll_sampled_support` sits more than
+    `tie_band` above the tie set's best on that axis are vetoed (the
+    corrected criterion, docs/heads.md -- trials without the attr predate it
+    and are exempt), and survivors break to comp NLL then cond NLL.
+    `objective: comp | cond` (mini-sweeps): trials are admissible only if
+    their mode best stays within `tie_band` of `mode_reference` (the
+    main-sweep winner); the best admissible trial by the objective wins.
+    Returns None when no trial is admissible -- itself a finding (the head's
+    architecture moves mode through the closure coupling).
     """
     complete = [
         t for t in trials
@@ -99,6 +108,19 @@ def tiebreak_best(
     if objective == "mode":
         leader = min(t.value for t in complete)
         tied = [t for t in complete if t.value <= leader + tie_band]
+        vetoable = [
+            t for t in tied
+            if "dirichlet_nll_sampled_support" in t.user_attrs
+        ]
+        if vetoable:
+            best_sampled = min(
+                t.user_attrs["dirichlet_nll_sampled_support"] for t in vetoable
+            )
+            tied = [
+                t for t in tied
+                if t.user_attrs.get("dirichlet_nll_sampled_support", best_sampled)
+                <= best_sampled + tie_band
+            ]
         return min(
             tied,
             key=lambda t: (t.user_attrs["comp_best"], t.user_attrs["cond_best"]),
@@ -228,15 +250,41 @@ def run_hpo(
         if "data" not in closure_cache:
             closure_cache["data"] = val_dataset_and_latents(ckpt, device)
         dataset, latents = closure_cache["data"]
+        mode_head = ckpt.build_mode_head().to(device)
         with torch.no_grad():
             residual = predicted_modes_closure(
-                ckpt.build_mode_head().to(device),
+                mode_head,
                 ckpt.build_comp_head().to(device),
                 dataset, latents,
             )
         trial.set_user_attr(
             "closure_l2_mean",
             float(np.linalg.norm(residual, axis=1).mean()),
+        )
+        # veto axis for `tiebreak_best`: magnitude branch conditioned on the
+        # head's own Bernoulli support draw, scored on the true-support
+        # target -- same protocol as `run_mode_head_eval`'s exposure block,
+        # seed fixed so trials share one draw stream
+        row_bulk = dataset.row_bulk_idx.numpy()
+        with torch.no_grad():
+            p_bulk = torch.sigmoid(
+                mode_head.presence_logits(latents)
+            ).cpu().numpy()
+        sampled = sample_supports(p_bulk[row_bulk], np.random.default_rng(0))
+        nll_sampled = masked_dirichlet_nll(
+            magnitude_alpha_rows(
+                mode_head, latents, row_bulk, torch.as_tensor(sampled)
+            ),
+            dataset.magnitude.to(device),
+            dataset.presence.to(device),
+            reduction="none",
+        )
+        trial.set_user_attr(
+            "dirichlet_nll_sampled_support", float(nll_sampled.mean())
+        )
+        trial.set_user_attr(
+            "effective_lambda",
+            float(merged.get("magnitude_weight", 1.0) * N_PHASES),
         )
         return bests[objective_head]
 

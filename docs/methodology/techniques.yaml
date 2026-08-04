@@ -291,6 +291,7 @@ techniques:
       - "ledger_tie_band"
       - "mode_reference"
       - "_sample_hyperparameter"
+      - "dirichlet_nll_sampled_support"
 
   # ---- evaluation ----
   - name: mlp_probe

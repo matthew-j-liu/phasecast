@@ -61,7 +61,8 @@
       "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/models/mode_head.py",
-      "src/cnmineral/training/joint_heads.py"
+      "src/cnmineral/training/joint_heads.py",
+      "src/cnmineral/training/joint_heads_hpo.py"
     ],
     "imputation_readout_head": [
       "src/cnmineral/eval/imputation.py",
@@ -145,7 +146,8 @@
     ],
     "exposure_bias_measurement": [
       "src/cnmineral/eval/cond_head.py",
-      "src/cnmineral/eval/mode_head.py"
+      "src/cnmineral/eval/mode_head.py",
+      "src/cnmineral/training/joint_heads_hpo.py"
     ],
     "few_shot_learning_curve": [
       "scripts/view/plot_training.py",
@@ -225,9 +227,11 @@
   "hpo": {
     "joint_heads_hpo": [
       "configs/heads/joint_heads.yaml",
+      "configs/heads/joint_heads_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "scripts/training/joint_heads.py",
+      "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/training/hpo.py",
@@ -340,6 +344,7 @@
       "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/losses/mode_loss.py",
       "src/cnmineral/training/joint_heads.py",
+      "src/cnmineral/training/joint_heads_hpo.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ],
     "masked_element_log_mse": [

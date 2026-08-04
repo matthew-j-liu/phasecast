@@ -1,12 +1,14 @@
 """Tests for `cnmineral.training.joint_heads_hpo`.
 
 `tiebreak_best` is unit-tested on fabricated trials (the locked winner
-read-out: mode ties break to comp then cond; mini-sweep admissibility under
-`mode_reference`).  `ledger_tie_band` is unit-tested against a ledger
-fixture (the instruments stanza is the single source of truth; an unfilled
-stanza refuses to sweep).  The end-to-end test runs a 2-trial sweep on the
-synthetic joint corpus: enqueued baseline trial, per-head user attrs incl.
-the predicted-modes closure, tiebreak winner in the summary, journal +
+read-out: mode ties pass the sampled-support band-veto then break to comp
+then cond, with attr-less trials exempt from the veto; mini-sweep
+admissibility under `mode_reference`).  `ledger_tie_band` is unit-tested
+against a ledger fixture (the instruments stanza is the single source of
+truth; an unfilled stanza refuses to sweep).  The end-to-end test runs a
+2-trial sweep on the synthetic joint corpus: enqueued baseline trial,
+per-head user attrs incl. the predicted-modes closure and the
+sampled-support veto axis, tiebreak winner in the summary, journal +
 figures on disk.
 """
 
@@ -28,10 +30,12 @@ from cnmineral.training.joint_heads_hpo import (
 )
 
 
-def _trial(value, *, mode=None, comp=0.0, cond=0.0):
+def _trial(value, *, mode=None, comp=0.0, cond=0.0, sampled=None):
     attrs = {"comp_best": comp, "cond_best": cond}
     if mode is not None:
         attrs["mode_best"] = mode
+    if sampled is not None:
+        attrs["dirichlet_nll_sampled_support"] = sampled
     return optuna.trial.create_trial(
         params={}, distributions={}, value=value, user_attrs=attrs,
     )
@@ -51,6 +55,37 @@ def test_tiebreak_mode_ties_break_to_comp_then_cond():
         [leader, tied_better_comp, cond_breaks], "mode", tie_band=0.03,
     )
     assert winner is cond_breaks
+
+
+def test_tiebreak_sampled_support_vetoes_tied_trial():
+    leader = _trial(-5.750, comp=-50.0, sampled=-1.50)
+    tied_better_comp = _trial(-5.740, comp=-51.0, sampled=-1.40)
+    winner = tiebreak_best(
+        [leader, tied_better_comp], "mode", tie_band=0.03,
+    )
+    assert winner is leader
+
+    within_veto_band = _trial(-5.740, comp=-51.0, sampled=-1.48)
+    winner = tiebreak_best(
+        [leader, within_veto_band], "mode", tie_band=0.03,
+    )
+    assert winner is within_veto_band
+
+
+def test_tiebreak_veto_can_reject_the_value_leader():
+    leader = _trial(-5.750, comp=-51.0, sampled=-1.40)
+    tied_best_sampled = _trial(-5.745, comp=-50.0, sampled=-1.50)
+    winner = tiebreak_best(
+        [leader, tied_best_sampled], "mode", tie_band=0.03,
+    )
+    assert winner is tied_best_sampled
+
+
+def test_tiebreak_trials_without_sampled_attr_are_exempt():
+    pre_criterion = _trial(-5.750, comp=-51.0)
+    scored = _trial(-5.740, comp=-50.0, sampled=-1.50)
+    winner = tiebreak_best([pre_criterion, scored], "mode", tie_band=0.03)
+    assert winner is pre_criterion
 
 
 def test_tiebreak_minisweep_requires_mode_within_band():
@@ -161,9 +196,13 @@ def test_run_joint_heads_hpo_end_to_end(
     winner = summary["tiebreak_winner"]
     assert winner is not None and "lr" in winner["params"]
     for key in ("mode_best", "mode_best_epoch", "comp_best", "cond_best",
-                "closure_l2_mean"):
+                "closure_l2_mean", "dirichlet_nll_sampled_support",
+                "effective_lambda"):
         assert key in winner["user_attrs"]
     assert np.isfinite(winner["user_attrs"]["closure_l2_mean"])
+    assert np.isfinite(winner["user_attrs"]["dirichlet_nll_sampled_support"])
+    # base config carries no magnitude_weight -> trainer default 1.0 x 21 phases
+    assert winner["user_attrs"]["effective_lambda"] == pytest.approx(21.0)
     # trial 0 is the enqueued baseline
     assert summary["config"]["baseline"] == {"lr": 1e-3, "mode_layers": 1}
 

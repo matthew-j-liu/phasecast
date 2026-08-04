@@ -404,10 +404,13 @@ rename, or repurpose a test) updates this file in the same change.**
 ### test_joint_heads_hpo.py
 
 1. `test_tiebreak_mode_ties_break_to_comp_then_cond` -- mode-objective read-out: trials within the tie band are ties broken by comp NLL then cond NLL; outside-band trials never win.
-2. `test_tiebreak_minisweep_requires_mode_within_band` -- comp-objective read-out admits only trials whose mode best stays within the band of `mode_reference`, returning None when none qualify.
-3. `test_ledger_tie_band_reads_the_instrument_stanza` -- the tie band resolves from the ledger's instruments stanza, the single source of truth.
-4. `test_ledger_tie_band_refuses_unmeasured_instrument` -- a null `tie_band_nats` (unmeasured instrument) and an undefined instrument both raise instead of falling back to a default.
-5. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: tie band resolved from a ledger fixture (not a config copy), enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
+2. `test_tiebreak_sampled_support_vetoes_tied_trial` -- a tied trial whose sampled-support NLL sits more than the band above the tie set's best is vetoed (the comp tiebreak falls back past it); one within the veto band still wins on comp.
+3. `test_tiebreak_veto_can_reject_the_value_leader` -- the veto applies to the objective leader itself when a tied trial holds the better sampled-support NLL.
+4. `test_tiebreak_trials_without_sampled_attr_are_exempt` -- pre-criterion trials lacking the attr are never vetoed; the comp/cond tiebreak decides as before.
+5. `test_tiebreak_minisweep_requires_mode_within_band` -- comp-objective read-out admits only trials whose mode best stays within the band of `mode_reference`, returning None when none qualify.
+6. `test_ledger_tie_band_reads_the_instrument_stanza` -- the tie band resolves from the ledger's instruments stanza, the single source of truth.
+7. `test_ledger_tie_band_refuses_unmeasured_instrument` -- a null `tie_band_nats` (unmeasured instrument) and an undefined instrument both raise instead of falling back to a default.
+8. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: tie band resolved from a ledger fixture (not a config copy), enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure + sampled-support veto axis + effective lambda in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
 
 ### test_real_rock_recalibrator_train.py
 
