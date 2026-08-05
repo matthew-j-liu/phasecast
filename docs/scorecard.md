@@ -30,7 +30,11 @@ all-rock corpus filters) with the redox token padded -- the deployment
 regime, and the condition the previous canonical encoder can be compared
 under. Values in parentheses marked "prev" are the previous canonical
 encoder `pretrain_v3_logmse_std_seed0` re-scored on the same rows (its
-recorded own-split values are close but not identical). The standing
+recorded own-split values are close but not identical). The canonical
+designation was confirmed downstream 2026-08-05: cascade 2's
+tuned-vs-tuned heads contrast on recalibrated real-rock val tied
+leaning all-rock, and the production heads
+(`joint_heads_allrock_tuned_seed0`) now sit on this encoder. The standing
 trigger: every new canonical encoder (the #15 pretext cascade -- re-probe,
 re-tune head, re-confirm ADR 007) **re-scores on these axes in the same
 pass**. When an axis stabilizes into a criterion worth fixing, it

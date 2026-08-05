@@ -188,3 +188,26 @@ versions:
     dirichlet_nll: 6.132
     mean_composition_size: 3.614
     censored_prob: 0.452
+  - version: igneous-tuned
+    date: 2026-08-05
+    checkpoint_tag: joint_heads_igneous_tuned_seed0
+    benchmark: eruption-v2
+    changes: zero-shot for the igneous-arm corrected-criterion winner (old
+      igneous encoder, effective lambda 0.609, ModeHead 512x3) retrained at
+      the production horizon -- the tuned-vs-tuned twin completing the
+      encoder contrast. Near-identical to allrock-tuned zero-shot (+0.05
+      joint; bernoulli 5.513 vs 5.506, dirichlet 6.178 vs 6.132). Under
+      identical matrix recalibration (fit on the 368-rock train roster) the
+      paired val contrast leans allrock-tuned without separating --
+      allrock-tuned minus igneous-tuned -0.209 [-0.460, +0.090]
+      unit-clustered; adapted levels 1.486 vs 1.277 allrock-tuned / 1.376
+      production, vs production -0.110 [-0.425, +0.129]. On the old encoder
+      the corrected-criterion dials tie production with the point lean
+      negative -- the sweep's corpus gain did not buy real-rock transfer.
+      Val only, test untouched (journal 2026-08-05).
+    n: 640
+    joint_nll: 11.691
+    bernoulli_nll: 5.513
+    dirichlet_nll: 6.178
+    mean_composition_size: 3.614
+    censored_prob: 0.457

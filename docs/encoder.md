@@ -137,9 +137,12 @@ Three corpora, all generated upstream of the model:
    The igneous 22-token generation filtered to ~167k bulks (igneous, all 9
    majors reported including both FeO and Fe2O3, non-null `qap_name` in a
    class of >=25; see `bulk_chemistry.py` for the walk) and pretrained
-   `pretrain_v3_logmse_std_seed0` -- the encoder still under the production
-   heads. The all-rock 23-token generation (LANDED 2026-07-28,
-   `pretrain_allrock_redox_seed0`, the canonical accepted encoder) relaxes
+   `pretrain_v3_logmse_std_seed0` -- the previous canonical encoder,
+   superseded by the cascade-2 encoder verdict (2026-08-05). The all-rock
+   23-token generation (LANDED 2026-07-28, `pretrain_allrock_redox_seed0`)
+   is the canonical encoder and the one under the production heads: the
+   tuned-vs-tuned contrast against the igneous encoder was a statistical
+   tie leaning all-rock, so adoption rides its independent merits. It relaxes
    to the Fe fallback chain, drops the igneous filter (~788k rows, all rock
    types), and adds the optional Fe-redox ratio input token, fed where
    measured and padded elsewhere -- strict Fe pairs matter for MAGEMin
@@ -149,8 +152,8 @@ Three corpora, all generated upstream of the model:
 2. **Supervised corpus**: gard2019 bulks with MAGEMin FC labels, chunked
    parquet under `data/corpus/`. Two measured generations. The old
    broad-draw corpus -- the one the PRODUCTION heads
-   (`joint_heads_supportmag_seed0`) were trained on, and the one cascade 2
-   trains on: 10,000 train bulks × 48 draws + 500 valtest bulks × 128
+   (`joint_heads_allrock_tuned_seed0`) were trained on, and the one cascade 2
+   trained on: 10,000 train bulks × 48 draws + 500 valtest bulks × 128
    draws, rungs 50/30, committed roster 221 val / 278 test. The traced
    regen (`data/corpus/train_traced`, 2026-07-27): 35k train bulks × 24
    trace-conditional draws + 2000 valtest × 128 on the frozen 887/1112

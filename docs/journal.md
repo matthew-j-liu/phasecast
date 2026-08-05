@@ -5488,3 +5488,60 @@ offset term is a known cheap addition only if K>1 is ever fielded), then
 backing exhibit at explorations/archive/mode_mixture/ (born-archived: the
 question is settled here); the bimodality analysis doubles as #62's
 candidate-benchmark screening test, reusable for any phase.
+
+## 2026-08-05 -- Cascade-2 igneous arm complete: encoder verdict ties leaning all-rock; all-rock encoder canonical, allrock-tuned promoted to production
+
+**Q.** At tuned best on both encoders, does the old igneous encoder hold
+a real-rock edge that should block all-rock adoption?
+
+**Context.** The igneous twin sweep (`joint_heads_igneous_hpo`, matched
+budget/seed/criterion) resumed after the mixture pause and completed its
+48-trial ceiling on natural termination (~20 min/trial). The corrected
+criterion repeated its all-rock-arm behavior: TPE explored the
+lambda <= 1 interior, the 0.03 band held 12 trials, and the
+sampled-support band-veto dropped 11 -- including the raw Optuna best
+(mode -7.2480, sampled-support -0.862) and the runner-up by 0.007 --
+leaving trial 43 (effective lambda 0.609, ModeHead 512x3, dropout 0.36,
+sampled-support -1.820, the band's best on the veto axis; lambda_balance
+soft-railed at ~0.002, the balance-off finding again). Production-dials
+trial 0, the sole tie-set member at the 14-trial pause, finished rank 23
+of 48. The two arms' winners converged on near-identical dials (0.59 vs
+0.609, both 512x3), strengthening the matched-treatment claim. Retrained
+120 epochs as `joint_heads_igneous_tuned_seed0`: mode best replicated
+the sweep exactly (-7.2343 at epoch 18); comp/cond kept improving to
+epochs 117/114, so the run reached the cap rather than early-stopping.
+
+**Result.** Corpus (valtest128-broad, val 218): trails allrock-tuned on
+both axes (teacher-forced joint -2.5547 vs -2.6713, sampled-support
+-1.8200 vs -1.9620). Zero-shot (eruption-v2, 640): 11.691 vs 11.638 --
+near-identical. Under identical matrix recalibration (368-rock train
+roster; val 111 rocks / 39 units): adapted joint 1.486 vs 1.277
+allrock-tuned / 1.376 production; allrock-tuned minus igneous-tuned
+-0.209 [-0.460, +0.090], a statistical tie leaning all-rock; supportmag
+minus igneous-tuned -0.110 [-0.425, +0.129], so on the old encoder the
+corrected-criterion dials tie production with the point lean negative --
+the sweep's corpus gain bought no real-rock transfer (the corpus/real
+divergence again, now with tuning treatment matched across encoders).
+Every axis ties or leans all-rock; none leans igneous.
+
+**Decision (owner).** The pre-registered rule fires -- a tie licenses
+adoption on independent merits (redox recovers the qap probe, effective
+rank 49 vs 32, ~788k-row SSL corpus): `pretrain_allrock_redox_seed0` is
+the canonical encoder and `joint_heads_allrock_tuned_seed0` is promoted
+to production (ledger prose amended per the regen-tuned precedent;
+per-model results/ figures generated at promotion). #54 closes -- the
+comp/cond mini-sweeps are waived as superseded: the planned re-tunes
+re-open the full search space anyway. NeurIPS-window strategy (deadline
+2026-08-29): freeze this stack and write; run #60 corpus scaling as the
+background priority (D over C -- the corpus axis owns every large
+measured real-rock effect, and Sim2Science is a simulator-side venue);
+#55 encoder re-HPO stays open, parked past the deadline; no fixed
+swap-cutoff date, the owner owns any late-swap decision. Work branches
+into two sessions: one on #60, one on paper analysis (recalibrator
+upgrades first, then the few-shot curve re-run on production, then the
+padded-calibration eval, which gates the implicit-marginalization
+claim).
+
+**Next.** Ship-flow figures for the promoted model; deck refresh rides
+the paper-analysis session; the recalibrator design conversation opens
+that session.

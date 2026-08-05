@@ -33,10 +33,12 @@ masked MSE** (ADR 007, adopted 2026-06-18); it measures higher on
 every probe and the trace-imputation gate than the original
 linear-space MSE, which is retired to reference.  Two encoder
 generations exist: `pretrain_v3_logmse_std_seed0` (igneous-only,
-22-token -- the one under the production heads) and the canonical
-accepted encoder `pretrain_allrock_redox_seed0` (all-rock, 23-token
-with the Fe-redox ratio; accepted ride-as-is 2026-07-28, scored in
-`docs/scorecard.md`).  Cascade 2 trains heads on the new one.
+22-token -- the previous canonical) and the canonical encoder
+`pretrain_allrock_redox_seed0` (all-rock, 23-token with the Fe-redox
+ratio; accepted ride-as-is 2026-07-28, adopted as canonical 2026-08-05
+on the cascade-2 tuned-vs-tuned encoder verdict; scored in
+`docs/scorecard.md`).  The production heads sit on the canonical
+encoder.
 
 Probe results on the 20-epoch igneous encoder
 (`scripts/eval/probe_encoder.py`, library-default probe HPs; probe
@@ -120,10 +122,10 @@ fine-tune with all heads end-to-end at a low encoder LR
 ablation against the Track-B frozen-encoder version. Ship whichever
 calibrates better.
 
-## Current status and next steps (2026-08-04)
+## Current status and next steps (2026-08-05)
 
 Full decision record in `docs/2026_08_03_recap.md`; journal entries
-2026-07-31 through 2026-08-04 hold the measurements.
+2026-07-31 through 2026-08-05 hold the measurements.
 
 **Cascade 1 (heads on the traced corpus) is complete and adjudicated
 against.** Both regen checkpoints (`joint_heads_regen_seed0`,
@@ -131,9 +133,11 @@ against.** Both regen checkpoints (`joint_heads_regen_seed0`,
 the old-corpus production model on the real-rock benchmark under
 identical recalibration (sealed test joint NLL 0.478 / 0.769 / 1.371;
 all pairwise unit-clustered contrasts exclude zero; few-shot curves
-show no crossover at any labelled budget). **Production remains
-`joint_heads_supportmag_seed0`**; the 2026-07-29 trial-22 adoption is
-reversed, and the regen checkpoints are measured non-production arms.
+show no crossover at any labelled budget). Production stayed
+`joint_heads_supportmag_seed0` through the cascades (the 2026-07-29
+trial-22 adoption is reversed; the regen checkpoints are measured
+non-production arms) until the cascade-2 verdict promoted
+`joint_heads_allrock_tuned_seed0` on 2026-08-05 (step 1 below).
 The traced corpus's real wins (quartz presence, assemblage ranking)
 and the sharpening lesson are the paper story, not a production
 upgrade. The real-rock **test slice is spent**; recalibrator work
@@ -142,18 +146,24 @@ landed and was accepted 2026-07-28 (`pretrain_allrock_redox_seed0`).
 
 Next, one change at a time, each judged on the real-rock benchmark:
 
-1. **Cascade 2 -- encoder swap on the old corpus.** All-rock arm
-   complete (journal 2026-08-03/04): the baseline at production dials
-   tied production on recalibrated val, and the corrected-criterion
-   sweep winner (`joint_heads_allrock_tuned_seed0`, effective lambda
-   0.59, ModeHead 512x3, picked by the sampled-support veto's first
-   live exercise) posted the best corpus numbers on both axes and
-   again ties on recalibrated val with the best point estimate -- no
-   measured transfer cost, win unproven at val power. The matched
-   igneous-encoder sweep (`joint_heads_igneous_hpo`) is running; its
-   winner retrains at 120 epochs and the paired val contrast renders
-   the encoder verdict at tuned best. The #53 fresh-head control
-   still decomposes encoder-vs-head contribution when scheduled.
+1. **Cascade 2 -- encoder swap on the old corpus. COMPLETE, verdict
+   rendered 2026-08-05.** All-rock arm (journal 2026-08-03/04): the
+   baseline at production dials tied production on recalibrated val,
+   and the corrected-criterion sweep winner
+   (`joint_heads_allrock_tuned_seed0`, effective lambda 0.59, ModeHead
+   512x3) posted the best corpus numbers on both axes and tied with
+   the best point estimate. The matched igneous sweep independently
+   picked near-identical dials (trial 43 -- effective lambda 0.609,
+   512x3); its 120-epoch retrain (`joint_heads_igneous_tuned_seed0`)
+   trails on both corpus axes and the paired recalibrated val contrast
+   leans all-rock without separating (-0.209 [-0.460, +0.090]). Per
+   the pre-registered rule the tie licenses adoption on independent
+   merits: **the all-rock encoder is canonical and
+   `joint_heads_allrock_tuned_seed0` is production** (journal
+   2026-08-05). #54 closed -- comp/cond mini-sweeps waived, superseded
+   by planned re-tunes that re-open the full search. The #53
+   fresh-head control still decomposes encoder-vs-head contribution
+   when scheduled.
 2. **ModeHead dirichlet layer (mixture)** -- VERDICT RENDERED 2026-08-04
    (journal, two entries): kept as a dial, K=1 stays the default.
    Trained K=2 wins the corpus on both axes and collapses the amp
@@ -170,8 +180,11 @@ Next, one change at a time, each judged on the real-rock benchmark:
    reality: SiO2 magnitude-side term and constant offsets needed
    regardless; heavy-tail extension un-mooted by the mixture verdict;
    gate-offset term only if K>1 is ever fielded.
-4. **#60 real-rock-axis corpus scaling** after cascade 2 -- decides
-   whether a larger broad-draw regen is generated.
+4. **#60 real-rock-axis corpus scaling** (now unblocked) -- decides
+   whether a larger broad-draw regen is generated. Prioritized over
+   #55 encoder re-HPO for the NeurIPS window: the corpus axis owns
+   every large measured real-rock effect, and the venue is the
+   simulator side; #55 stays open, parked past the deadline.
 5. **Paper progression**: the real-rock benchmark is the cross-era
    spine, plus a one-time table re-scoring archived era checkpoints
    on the final valtest instrument. Era production checkpoints

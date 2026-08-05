@@ -139,11 +139,36 @@ versions:
       band-veto's first live exercise dropped 10 of 11 tied trials to pick
       it). Teacher-forced mode improves ~0.06 nats over allrock-baseline
       and sampled-support dirichlet recovers past production (-1.9620 vs
-      -1.3074 baseline / -1.5884 production). NOT production; after
+      -1.3074 baseline / -1.5884 supportmag, production at the time). After
       identical matrix recalibration the paired real-rock val contrast is a
       three-way statistical tie with this model's point estimate best
-      (real_rock_ledger.yaml, journal 2026-08-04).
+      (real_rock_ledger.yaml, journal 2026-08-04). PROMOTED TO PRODUCTION
+      2026-08-05 on the encoder verdict -- the igneous twin sweep completed
+      the tuned-vs-tuned contrast as a statistical tie leaning this model
+      (journal 2026-08-05), and the all-rock encoder was adopted as
+      canonical on its independent merits at no measured real-rock cost.
     heads:
       mode: {joint_nll: -2.6713, bernoulli_nll: 4.8598, dirichlet_nll: -7.5311}
       comp: {comp_nll: -53.4515}
       cond: {cond_nll: 8.2932, coverage_68: [0.698, 0.680, 0.655]}
+  - version: igneous-tuned
+    date: 2026-08-05
+    checkpoint_tag: joint_heads_igneous_tuned_seed0
+    instrument: valtest128-broad
+    changes: igneous twin of the corrected-criterion sweep, completing the
+      tuned-vs-tuned encoder contrast (joint_heads_igneous_hpo trial 43 --
+      effective lambda 0.609, ModeHead 512x3, dropout 0.36; the
+      sampled-support veto dropped 11 of 12 tied trials incl. the raw
+      Optuna best, and production-dials trial 0 finished rank 23 of 48).
+      Old igneous encoder on the old broad-draw corpus at matched
+      budget/seed/criterion to allrock-tuned; the 120-epoch retrain
+      replicated the sweep's mode best exactly (epoch 18). Trails
+      allrock-tuned on both corpus axes (teacher-forced -2.5547 vs
+      -2.6713, sampled-support -1.8200 vs -1.9620); after identical matrix
+      recalibration the real-rock val contrast is a statistical tie
+      leaning allrock-tuned (-0.209 [-0.460, +0.090] unit-clustered;
+      real_rock_ledger.yaml, journal 2026-08-05). NOT production.
+    heads:
+      mode: {joint_nll: -2.5547, bernoulli_nll: 4.9386, dirichlet_nll: -7.4932}
+      comp: {comp_nll: -54.0714}
+      cond: {cond_nll: 8.3123, coverage_68: [0.715, 0.674, 0.672]}
