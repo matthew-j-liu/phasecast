@@ -5424,9 +5424,9 @@ is exactly the shape that wins corpus NLL and pays width on rocks.
 **Decision (owner).** Kept as a dial -- the pre-registered binary
 (promote/delete) resolved to neither. `mode_n_components` stays, K=1
 remains the soft default for investigations; the corpus beta-overlay
-artifact (genuinely bimodal truth with the two components on the humps,
-tmp mockups) demonstrated the mechanism captures real corpus structure
-worth keeping reachable. Main-line figure semantics stay K=1; K>1
+artifact (genuinely bimodal truth with the two components on the humps)
+demonstrated the mechanism captures real corpus structure worth keeping
+reachable. Main-line figure semantics stay K=1; K>1
 visualization remains a design conversation if ever promoted. Standing
 figure preference recorded: for main-paper real-rock cards the owner
 prefers the full predicted density drawn against the measured dot over
@@ -5484,5 +5484,7 @@ search criterion.
 **Next.** Locked order resumes: igneous sweep tail -> encoder verdict,
 then recalibrator upgrades against the K=1 default reality (the gate-
 offset term is a known cheap addition only if K>1 is ever fielded), then
-#60. Real-data bimodality analysis is reusable for any phase, not just
-amp (tmp/real_bimodality.py pattern, journaled here since tmp/ flushes).
+#60. Scripts, figures, and the K=2 figure mockups are parked as the
+backing exhibit at explorations/archive/mode_mixture/ (born-archived: the
+question is settled here); the bimodality analysis doubles as #62's
+candidate-benchmark screening test, reusable for any phase.
