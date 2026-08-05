@@ -91,8 +91,9 @@ with the journal holding each record:
   heads-study epic #32 (main sweep, architecture mini-sweeps,
   production retrain; journal 2026-07-21/22), then the
   support-conditioned magnitude branch (#25: joint hurdle NLL
-  -1.16 -> -2.46, amp magnitude r 0.715 -> 0.876). Production
-  checkpoint `joint_heads_supportmag_seed0`; evals behind the single
+  -1.16 -> -2.46, amp magnitude r 0.715 -> 0.876). Shipped as
+  `joint_heads_supportmag_seed0` (production until the 2026-08-05
+  cascade-2 promotion); evals behind the single
   `scripts/eval/joint_heads.py` entry point.
 - Presence-side architecture work stopped on evidence: the ceiling
   probe measured the corpus, not the architecture, as the
