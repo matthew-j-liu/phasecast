@@ -154,17 +154,22 @@ Next, one change at a time, each judged on the real-rock benchmark:
    winner retrains at 120 epochs and the paired val contrast renders
    the encoder verdict at tuned best. The #53 fresh-head control
    still decomposes encoder-vs-head contribution when scheduled.
-2. **ModeHead dirichlet layer (mixture)**, on the old corpus with
-   whichever encoder wins; kept only if better. BUILT 2026-08-04
-   (journal): K=2 assemblage-level components behind a K=1-identity
-   `mode_n_components` dial, both production-era checkpoints reproduce
-   their ledgered numbers digit-for-digit under the new code, verdict
-   pre-registered (recalibrated val paired NLL primary, PIT/coverage
-   break a tie). Awaiting the K=2 train
-   (`configs/heads/joint_heads_mixture.yaml`) once the igneous sweep
-   frees the GPU, then interrogation.
-3. **Recalibrator upgrades** after the mixture verdict (SiO2
-   magnitude-side term and constant offsets needed regardless).
+2. **ModeHead dirichlet layer (mixture)** -- VERDICT RENDERED 2026-08-04
+   (journal, two entries): kept as a dial, K=1 stays the default.
+   Trained K=2 wins the corpus on both axes and collapses the amp
+   two-sided PIT residue, but leans against the K=1 control on
+   recalibrated real-rock val (-0.365 [-0.864, +0.118], all in the
+   magnitude term). Attribution measured: the 7-group instrument passes
+   61% of the corpus advantage (not the bottleneck); the real amp
+   population at matched chemistry has the corpus's total width but ONE
+   hump (the second hump is a property of the broad hidden-(P, H2O)
+   prior); a single gate-offset recalibration parameter recovers ~60%
+   of the penalty, to a tie, never a win. `joint_heads_allrock_mixture_
+   seed0` stays on disk as the K=2 reference; no ledger entries.
+3. **Recalibrator upgrades** (now active) against the K=1 default
+   reality: SiO2 magnitude-side term and constant offsets needed
+   regardless; heavy-tail extension un-mooted by the mixture verdict;
+   gate-offset term only if K>1 is ever fielded.
 4. **#60 real-rock-axis corpus scaling** after cascade 2 -- decides
    whether a larger broad-draw regen is generated.
 5. **Paper progression**: the real-rock benchmark is the cross-era

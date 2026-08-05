@@ -5389,3 +5389,100 @@ interrogation and the pre-registered verdict. A mixture kept likely moots
 the recalibrator's heavy-tail extension; dropped sends recalibrator work
 forward against the single-Dirichlet reality. If the igneous twin WINS
 rather than ties, the mixture config's encoder + dials re-point first.
+
+## 2026-08-04 -- Mixture trained and interrogated: corpus wins on both axes, real rocks lean against, verdict is a third path -- kept as a dial
+
+**Q.** Does K=2 earn the pre-registered keep?
+
+**Context.** Trained on the owner's GPU (`joint_heads_allrock_mixture_seed0`,
+early stop at 58, mode best at epoch 8; the igneous sweep was Ctrl-C'd at 14
+of 48 complete to free the GPU -- resumable by study name, production-dials
+trial 0 leading its mode tie set outright at the pause). Engagement first,
+as pre-registered: the gate is alive (entropy mean 0.6021 of a 0.6931 max,
+component separation mean 0.2635), so the result is a verdict, not a
+never-engaged diagnosis.
+
+**Result.** Corpus (valtest128-broad, val 218): best numbers on record on
+both axes -- teacher-forced joint -3.0819 (vs control -2.6713), sampled-
+support dirichlet -2.1161 (vs -1.9620), the gain entirely in the magnitude
+term (bernoulli 4.877 vs 4.860). The targeted residue collapsed: amp
+two-sided PIT groups 0.120 -> 0.023, afs 0.079 -> 0.011, mu 0.087 -> 0, no
+material two-sided regression anywhere (q 0.014 -> 0.024 is 2 groups of
+210). No per-phase regression: magnitude MAE/r improve or hold on
+essentially every phase; presence flat. Real rocks: zero-shot 13.799 vs the
+control's 11.638 (eruption-v2, 640), and unlike the tuned arm's regression
+last round this one is NOT absorbable width -- under identical matrix
+recalibration the paired val contrast leans against the mixture, control
+1.277 vs 1.642, difference -0.365 [-0.864, +0.118], located entirely in the
+dirichlet term (adapted bernoulli identical across arms). The coverage
+clause of the pre-registered rule proved unmeasurable at K>1 (the share-
+interval instrument skips; the PIT diagnostic's `coverage` field is
+data-side). The gate hedges rather than switches: weights near 50/50 on
+showcase bulks, broad gate-weight distribution -- always-on hedging, which
+is exactly the shape that wins corpus NLL and pays width on rocks.
+
+**Decision (owner).** Kept as a dial -- the pre-registered binary
+(promote/delete) resolved to neither. `mode_n_components` stays, K=1
+remains the soft default for investigations; the corpus beta-overlay
+artifact (genuinely bimodal truth with the two components on the humps,
+tmp mockups) demonstrated the mechanism captures real corpus structure
+worth keeping reachable. Main-line figure semantics stay K=1; K>1
+visualization remains a design conversation if ever promoted. Standing
+figure preference recorded: for main-paper real-rock cards the owner
+prefers the full predicted density drawn against the measured dot over
+the point-and-whisker summary. No results/ or ledger entries -- the
+mixture is not adopted. Interpretation of the transfer failure ran in the
+same session (next entry); #62 (find more real benchmarks) filed P1 out
+of the discussion.
+
+## 2026-08-04 -- Why the mixture does not transfer: the instrument passes it, nature is one-humped at matched chemistry, and gate re-pointing only ties
+
+**Q.** Three candidate mechanisms for the real-rock lean: the 7-group
+instrument marginalizes the residue away; the real conditional lacks the
+corpus's second hump; the gate is population-mis-weighted with no
+recalibration lever.
+
+**Considered / Result.** Three experiments, tmp/ scripts, one session.
+(1) Instrument transplant -- population fixed, instrument changed: corpus
+val rows scored through the real-rock coarsening (on-support concentration
+sums, off-vocab mass dropped, sub-composition renormalized; off-vocab truth
+mass mean 4%). The mixture-minus-control teacher-forced dirichlet gap goes
+-0.4279 (21-phase) -> -0.2618 (7-group): 61% survives, and amp's marginal
+Beta gap survives intact (-0.105 -> -0.104; amp maps to its own group).
+Refuted as the primary mechanism -- had real rocks been distributed like
+corpus draws, the mixture would have won the real contrast. (2) Real-data
+bimodality -- 312 clean rocks with numeric nonzero amp (75 units), k-NN=30
+neighborhoods in the frozen encoder latent with per-unit cap 3, 1-vs-2
+component GMM BIC on log share: 38.8% prefer two components (9.6% strongly,
+median dBIC -1.9), and the model-free SiO2-window check agrees (27%/18%,
+median -4.3). The matched corpus reference (nearest val bulk in the same
+latent space, within-bulk draws at rung 50) prefers two components in 100%
+of testable bulks (73.7% strongly, median dBIC +26.3). The twist: total
+log-share spread is nearly identical (median std 0.305 real vs 0.312
+corpus) -- nature at matched chemistry is as uncertain as the corpus says,
+but organizes that width into ONE hump. Chemistry variation inside real
+neighborhoods biases toward finding humps, so the negative is a fortiori.
+(3) Gate-offset probe -- one global scalar on component B's gate logit,
+matrix recalibrator refit at every grid point on the train roster,
+selection on train NLL: delta -1.50 (mean gate weight on B 0.58 -> 0.26)
+takes val 1.642 -> 1.415 and the paired contrast to -0.138 [-0.615,
++0.281] -- a clean tie, ~60% of the penalty recovered by one parameter.
+Full collapse onto either single component is worse than the partial shift
+and never reaches the control: each component is individually narrower
+than nature's single wide hump (they split the corpus width between them),
+consistent with the recalibrator-residual under-dispersion finding.
+
+**Reading.** The mixture learned true corpus structure; the corpus's
+second hump is a property of the deliberately broad hidden-(P, H2O) prior,
+not of this benchmark's population. The real penalty decomposes ~60%
+population-level gate weighting (recoverable by one recalibration
+parameter, to a tie -- never a win) and ~40% hump shape (components too
+narrow once separated). A population that genuinely crystallizes both wet
+and dry at matched bulk chemistry is where K=2 would pay -- that is #62's
+search criterion.
+
+**Next.** Locked order resumes: igneous sweep tail -> encoder verdict,
+then recalibrator upgrades against the K=1 default reality (the gate-
+offset term is a known cheap addition only if K>1 is ever fielded), then
+#60. Real-data bimodality analysis is reusable for any phase, not just
+amp (tmp/real_bimodality.py pattern, journaled here since tmp/ flushes).

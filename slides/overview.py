@@ -1331,8 +1331,9 @@ def s_outputs(prs):
 
 def s_mode_mixture_proposal(prs):
     s = new_slide(prs)
-    header(s, "HEADS -- PROPOSED CANONICAL OUTPUT (K=2 DISTRIBUTIONS)",
-           "Proposed: the ModeHead dirichlet layer (mixture) -- built, not yet trained")
+    header(s, "HEADS -- K=2 MIXTURE: EVALUATED, KEPT AS A DIAL (K=1 STAYS CANONICAL)",
+           "The ModeHead dirichlet layer (mixture) -- trained 2026-08-04; wins the corpus, "
+           "leans against on real rocks")
     caption(s, 0.55, 1.15, 12.2, "same bulk, same h, same presence Bernoullis -- only the "
             "'how much, given this mineral set' answer changes: two full-assemblage "
             "components chosen by a gate, instead of one Dirichlet per (rock, support)",
@@ -1362,13 +1363,27 @@ def s_mode_mixture_proposal(prs):
             "K=1 is the current head exactly (same parameters, same loss), so production "
             "checkpoints load untouched and the drop path is one deleted code branch.",
             11, INK, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 6.9, 12.2, "kept only if better on real rocks: recalibrated val paired "
-            "NLL vs the same-dials single-Dirichlet control; PIT/coverage break an NLL tie. "
-            "distribution numbers illustrative.", 10, GRAYT, align=PP_ALIGN.LEFT)
-    notes(s, "Proposal slide for the ModeHead dirichlet layer (mixture), built 2026-08-04 "
-             "behind the K=1-identity `mode_n_components` dial -- no trained checkpoint "
-             "yet, so the canonical output is unchanged; drawn so "
-             "the contrast with the two current-output slides is visual. Motivating "
+    caption(s, 0.55, 6.9, 12.2, "verdict 2026-08-04: corpus best-on-record on both axes, amp "
+            "two-sided PIT 0.120 -> 0.023, but recalibrated real-rock val leans against the "
+            "K=1 control (-0.365 [-0.864, +0.118]) -- the real amp population is one-humped "
+            "at matched chemistry; the second hump belongs to the broad hidden-(P, H2O) "
+            "prior. kept as the `mode_n_components` dial, K=1 default. drawings "
+            "illustrative.", 10, GRAYT, align=PP_ALIGN.LEFT)
+    notes(s, "Slide for the ModeHead dirichlet layer (mixture), built and evaluated "
+             "2026-08-04 behind the K=1-identity `mode_n_components` dial. VERDICT "
+             "(owner, same day): kept as a dial, K=1 stays the canonical output -- the "
+             "trained K=2 posts the best corpus numbers on record on both axes "
+             "(teacher-forced -3.0819 vs control -2.6713, sampled-support -2.1161 vs "
+             "-1.9620) and collapses the targeted amp two-sided PIT residue, but the "
+             "recalibrated real-rock val contrast leans against the same-dials control "
+             "(1.642 vs 1.277, -0.365 [-0.864, +0.118], all in the magnitude term) and "
+             "the gate hedges near 50/50 rather than switching. Attribution (journal "
+             "2026-08-04, second entry): the 7-group instrument passes 61% of the corpus "
+             "advantage; the real amp population at matched chemistry has the same total "
+             "spread but ONE hump (GMM BIC 39% vs 100% of matched corpus bulks); a single "
+             "gate-offset recalibration parameter recovers ~60% of the penalty, to a tie, "
+             "never a win. Drawn so the contrast with the two current-output slides is "
+             "visual. Motivating "
              "measurements: 45% of sampled bulks bimodal in conditional amp proportion "
              "(2026-07-17 corpus exam), 34% of testable bimodal bulks still bimodal within "
              "their dominant support (the part support-conditioning cannot represent); amp "
