@@ -63,8 +63,24 @@ Status: abstracts only -- paragraph-scale rules await intro samples.
 - At most ONE semicolon per section, same accounting.
 - Punctuation inside [cite ...] and [slot: ...] brackets is exempt (it
   compiles to \citep and markers, not prose).
-- Long sentences get broken up, with pithy short sentences interspersed
-  ("Measuring it is slow.").
+- Long sentences get broken up, with shorter sentences interspersed --
+  but short means a complete formal sentence of roughly 12-20 words,
+  never a fragment. The owner's own shortest abstract sentences stay
+  full clauses with subjects and qualified objects.
+
+## Verdict log (owner-adjudicated exemplars; append as feedback lands)
+
+- BAD, too informal (2026-08-04): "Measuring it is slow." Ultra-short
+  fragments read casual. Break long sentences into mid-length formal
+  ones instead.
+- BAD, too qualitative (2026-08-04): "Recalibration recovers most of
+  the gap." Magnitude claims carry numbers with provenance, via macros
+  ("reduces validation joint NLL from X to Y nats"), never "most".
+- GOOD (2026-08-04): "Instruments such as X-ray fluorescence (XRF) and
+  inductively coupled plasma (ICP) spectrometry report a rock's
+  elemental concentrations, are standardized and cheap, and already run
+  at scale in exploration and production [cite NRMP 2023]." Mid-length,
+  a series of three concrete predicates, acronyms glossed once, cited.
 
 ## Audience calibration (owner rule, 2026-08-04)
 

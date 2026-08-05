@@ -25,9 +25,10 @@ field-standard term for the input, at the cost of one word.
 
 > Mineralogy, the identity and abundance of the mineral phases in a
 > rock, guides both petrological interpretation and industrial
-> extraction. Measuring it is slow. An expert must count mineral grains
-> under a microscope, or run diffraction measurements on carefully
-> prepared samples. Whole-rock chemical assays are the opposite case,
+> extraction. Measuring it remains slow, requiring an expert to count
+> mineral grains under a microscope or diffraction measurements on
+> carefully prepared samples. Whole-rock chemical assays are the
+> opposite case,
 > with standardized instruments reporting a rock's elemental
 > concentrations cheaply and at scale. Predicting mineralogy from an
 > assay would therefore convert an abundant measurement into the
@@ -44,9 +45,11 @@ field-standard term for the input, at the cost of one word.
 > per composition, and a \sysRecalibParams-parameter recalibration fit
 > on measured volcanic mineralogy. Scored zero-shot against \rrBenchN
 > erupted rocks, the model ranks minerals and rocks correctly but
-> overstates confidence. Recalibration recovers most of the gap. A
-> further \sysFewshotBudgetKnee labeled rocks recover most of the
-> remainder. Notably, sharper simulator sampling degraded transfer while
+> overstates confidence. A recalibration fit on \sysBenchTrainRocks
+> training rocks reduces validation joint negative log-likelihood from
+> \rrValZsProd to \rrValAdProd nats, and \sysFewshotBudgetKnee labeled
+> rocks alone reach a median \fsTwentyFiveMatrixProd. Notably, sharper
+> simulator sampling degraded transfer while
 > improving every simulator-side metric, and selecting models on
 > validation likelihood favored overconfidence through a hidden
 > \sysEffLambdaFactor{}x loss-weight mismatch we identify and correct.
@@ -164,9 +167,10 @@ explicit bullets).
 > with heads that had never seen a real rock, ranking and per-mineral
 > discrimination transfer while stated confidence does not; the failure
 > concentrates in predictive width, not location. The recalibration
-> absorbs most of the penalty. A few-shot curve shows
-> \sysFewshotBudgetKnee labeled rocks buy most of the remaining gain.
-> What no constant correction absorbs is rock-dependent width, with
+> reduces validation joint NLL from \rrValZsProd to \rrValAdProd nats.
+> A few-shot curve over labeled-rock budgets reaches a median
+> \fsTwentyFiveMatrixProd nats at \sysFewshotBudgetKnee rocks. What no
+> constant correction absorbs is rock-dependent width, with
 > residuals running heavier-tailed than the head's distributional family
 > at the fitted mean. Importantly, two controlled comparisons expose how
 > the simulator should be used. Regenerating the corpus with sharper,

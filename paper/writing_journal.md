@@ -248,6 +248,20 @@ access, 8 compute, 13 new assets, 16 LLM declaration). Commits handed
 to the owner (4 thematic: prose+title+numbers, style sheet, claims
 sections, journal).
 
+**Verdict log opened (owner feedback on v5).** style.md gains a
+verdict-log section for iterative GOOD/BAD exemplars; the pithy rule is
+corrected (short = 12-20 word formal sentence, never a fragment) and
+qualitative magnitude claims are banned in favor of macro-carried
+numbers. Fixes applied to v5: "Measuring it is slow." merged into a
+formal sentence; "Recalibration recovers most of the gap." replaced in
+abstract and P5 with quantitative statements (validation joint NLL
+\rrValZsProd -> \rrValAdProd nats, currently 13.6 -> 1.38; median
+\fsTwentyFiveMatrixProd = 3.86 at 25 rocks), via three new rrValZs*
+macros read from the preserved three-way JSON (numbers.tex now 72).
+Punctuation budget re-verified (abstract 1:/0;, intro 1:/1;), compile
+clean. The verdict log is the standing home for prose feedback; distill
+each entry into the rule sections when it generalizes.
+
 **Next session, in order.** (1) Owner verdict on abstract/intro v5 and
 the sheet, plus the rest of the outline (sections 2-7, appendix,
 figures). (2) Re-point the generator's encoder-swap contrast source at

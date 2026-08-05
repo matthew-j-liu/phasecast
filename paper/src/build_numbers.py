@@ -98,6 +98,8 @@ try:
         lv = tw["levels"][TAGS[short]]
         emit(f"rrTestAd{short}", fmt(lv["test"]["adapted_joint"], 2))
         emit(f"rrValAd{short}", fmt(lv["val"]["adapted_joint"], 2))
+        emit(f"rrValZs{short}", fmt(lv["val"]["zero_shot_joint"], 1),
+             "val-slice zero-shot, same rocks as the adapted number")
     emit("rrValNRocks", str(tw["levels"][TAGS["Prod"]]["val"]["n_rocks"]))
     emit("rrTestNRocks", str(tw["levels"][TAGS["Prod"]]["test"]["n_rocks"]))
     pairs = {
