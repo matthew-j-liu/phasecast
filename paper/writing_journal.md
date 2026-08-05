@@ -273,3 +273,93 @@ need bib entries from primary sources. (5) Figures F1-F4 after
 structure approval. Standing: owner nominates one reciprocal reviewer
 at submission; reconcile 788k-vs-760k pretrain count and the exact
 recalibrator parameter count before those macros ship.
+
+## 2026-08-04 -- session 3: Overleaf handoff, owner drafts solo; two backlog intakes
+
+**Owner decision: the draft moves to Overleaf and the owner writes solo
+for a few days.** This supersedes queue item 1 (the v5 verdict happened
+in the parallel session; see the verdict-log entry above). The paper
+thread stands by until handback.
+
+**Overleaf file set settled.** Four files: neurips_2026.tex +
+neurips_2026.sty + checklist.tex (owner's original drop; git confirms
+sty and checklist untouched since, the tex differs by exactly two lines
+-- \input{numbers} and the \title) + numbers.tex.
+\workshoptitle{Sim2Science} was set at drop time. Sync rules:
+numbers.tex flows one way local -> Overleaf (generated, never
+hand-edited); the tex flows back at handback (owner downloads into
+paper/, commits). references.bib goes up only at the citation pass,
+when a \bibliography block is added.
+
+**Solo-writing interface.** [cite ...] and [slot: ...] stay literal in
+prose; [n: value, source] marks a number awaiting a macro; % Q: ...
+marks questions for me. All four get harvested at handback. Macro
+spacing rule delivered: numbers.tex macros are plain \newcommand (no
+xspace), so a macro followed by a space or letter needs {} --
+\rrBenchN{} erupted -- while punctuation/hyphen need none. Paste-ready
+converted abstract/intro blocks (P-labels as % comments, LaTeX quotes,
+{} spacing) were compile-verified in scratchpad with rendered-text
+spacing confirmed via pdftotext; owner pasted their own version.
+
+**Handback protocol (agreed).** Owner says go; orientation order =
+commits -> tex -> diff against outline skeletons. Passes in order:
+mechanical (numbers regen + compile, literal-digit grep, marker
+harvest, per-section punctuation-budget count), verification (every
+factual assertion against claims.md and disk -- sign hazard,
+matrix-vs-vector tier naming, val-not-test provenance, section-K scope
+guard), style verdicts (log-format GOOD/BAD comments only, never
+touching owner prose). outline.md collapse proposed at that point, per
+the prospective-plans rule.
+
+**Two research-thread backlog intakes (owner-directed, flat priority).**
+Owner's calibration note, near-verbatim: being among the first specific
+paper inputs does not give these disproportionate priority or emphasis;
+fold them where the outline naturally reaches them, and expect the
+owner to iterate a complete figure list later. Both verified against
+docs/journal.md (the 2026-08-04 mixture entries) and the archive files
+on disk before folding:
+
+1. Candidate appendix figure -> outline table row A3: the genuinely
+   bimodal corpus amphibole-share truth histogram with the K=2
+   gate-weighted components landing on both humps. If used, regenerate
+   at paper quality from explorations/archive/mode_mixture/
+   run_mixture_figures.py; never inherit the mockup
+   results/beta_overlay_k2_amp.png.
+2. Discussion/limitations point -> one bullet each in sections 4 and 7
+   skeletons: the mixture's transfer failure decomposes to a
+   simulation-side prior limitation, not a model or procedure failure.
+   The benchmark population at matched chemistry carries the corpus's
+   full width in one hump; the corpus's second hump is manufactured by
+   the deliberately broad hidden-(P, H2O) proposal; the 7-group
+   instrument passes 61% of the corpus advantage, so coarsening is not
+   the bottleneck. Connects corpus-design choices to transfer behavior;
+   motivates #62 (benchmark populations with genuine path
+   multimodality).
+
+**End-of-session duties.** outline.md and this journal are the only
+files touched (markdown only -- no tex change, so numbers.tex and the
+compile state stand as the parallel session left them: 72 macros, one
+visible TBD, compile clean). figures/MANIFEST.md unchanged (A3 is an
+outline candidate; MANIFEST rows land when figures are built).
+Checklist audit unchanged (open owner items remain 5 open access, 8
+compute, 13 new assets, 16 LLM declaration). Commits stay with the
+owner; these edits fold into the already-modified outline.md /
+writing_journal.md set, so the previously handed commit commands remain
+correct.
+
+**Next, in order.** (1) STANDBY while the owner drafts in Overleaf;
+respond to questions as they come. (2) Handback passes per the protocol
+above. (3) Re-point the generator's encoder-swap contrast source at
+whatever JSON the research thread designates (the overwritten
+checkpoint_contrast_matrix.json currently holds the cascade-2 arms;
+val-only, all paired contrasts cross zero -- no interpretation until
+the owner adjudicates production). (4) claims.md corrections
+conversation (B, A, F, D -- one at a time, plain language). (5)
+Citation verification, pillars first; K and L need bib entries from
+primary sources. (6) Iterate the figure outline with the owner (owner-directed
+2026-08-04: the candidate table -- F1-F4, A1-A3, gated rows -- is a
+draft; a full iteration pass with the owner comes before any figure is
+built), then build after structure approval. Standing:
+owner nominates one reciprocal reviewer at submission; reconcile
+788k-vs-760k pretrain count and the exact recalibrator parameter count
+before those macros ship.

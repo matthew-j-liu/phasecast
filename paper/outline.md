@@ -307,6 +307,17 @@ sim-to-real approach to probabilistic prediction.
   constant corrections cannot restore per-rock width.
 - Convergent evidence for the same missing structure: measured amphibole
   bimodality, heavier-than-Beta residuals, the broad-draw advantage.
+- Mixture postscript, discussion register (journal 2026-08-04; exhibit
+  explorations/archive/mode_mixture/): a K=2 assemblage mixture
+  faithfully captures the corpus's two-hump amphibole structure yet
+  transfers tie-leaning-worse -- at matched chemistry the benchmark
+  population holds the corpus's full width in ONE hump, the second hump
+  being a product of the deliberately broad hidden-(P, H2O) proposal;
+  the 7-group instrument passes 61% of the corpus advantage, so
+  coarsening is not the bottleneck. A simulation-side prior limitation,
+  not a model or procedure failure -- connects corpus-design choices to
+  transfer behavior and motivates #62 (benchmark populations with
+  genuine path multimodality).
 - What the traced corpus DID buy, stated fairly: assemblage ranking; the
   quartz-presence improvement only as #57 permits (verify the issue's
   guard before this bullet ships).
@@ -362,6 +373,10 @@ sim-to-real approach to probabilistic prediction.
   section 4 hypothesized, not isolated.
 - Benchmark: visual estimates + point counts, volume-to-mass conversion,
   censored traces, thin classes caveated; one spent test read.
+- Benchmark population is one-humped at matched chemistry, so the
+  mixture mechanism is validated on corpus structure only and the dial
+  stays K=1; populations that genuinely crystallize both wet and dry at
+  matched bulk chemistry are the #62 search.
 - Recalibrator guarantee weakens under shift (Ovadia); coverage not
   recovered (claim F scope limit).
 - Conditions head evaluated against simulator draws only (no measured
@@ -393,7 +408,7 @@ sim-to-real approach to probabilistic prediction.
 - G. Compute + reproducibility statement (owner supplies hardware
   facts).
 
-## Candidate figures (build after structure approval; PNG mode)
+## Candidate figures (DRAFT -- owner iterates this list before any figure is built; PNG mode; build after structure approval)
 
 | # | figure | sources | placement |
 |---|---|---|---|
@@ -403,6 +418,7 @@ sim-to-real approach to probabilistic prediction.
 | F4 | selection divergence: teacher-forced val NLL vs sampled-support / real-rock direction across versions | ledger.yaml; runs/mode_head/*/metrics.json; real_rock_ledger.yaml | sec 5 |
 | A1 | residual decomposition (width vs location) | explorations/real_rock_fewshot residual decomposition outputs | appendix D |
 | A2 | cohort card (production) -- NOT the climatology-null panels | results/joint_heads_supportmag_seed0/cohort_card.png regenerated into paper/figures/ | appendix F |
+| A3 | mixture mechanism: bimodal corpus amphibole-share truth histogram with the K=2 gate-weighted components on both humps | regenerate at paper quality from explorations/archive/mode_mixture/run_mixture_figures.py -- do NOT inherit the mockup results/beta_overlay_k2_amp.png | appendix, beside the sec 4/7 mixture discussion |
 | (gated) | coverage panel | -- | #59-gated |
 
 ## Checklist item -> section map (born compliant)
