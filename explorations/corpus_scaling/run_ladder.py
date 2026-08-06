@@ -2,16 +2,24 @@
 
   python explorations/corpus_scaling/run_ladder.py
   python explorations/corpus_scaling/run_ladder.py --points 625,2500
+  python explorations/corpus_scaling/run_ladder.py --points 2500 --seed 1
   python explorations/corpus_scaling/run_ladder.py --draws 24,12
 
 Run from the repo root. Each point takes `configs/heads/joint_heads.yaml`
 verbatim except for the train-tier subset (`train_bulk_ids` for the bulk
-ladder, `train_draw_limit` for the draws axis), trains to
-`checkpoints/corpus_scaling_*/heads_best.pt`, then runs the ModeHead
-interrogation so metrics land at `runs/mode_head/corpus_scaling_*/
-metrics.json` for `aggregate.py`. A point whose checkpoint already exists is
-not retrained (delete its checkpoint dir to force a rerun); its eval still
-runs if the metrics file is missing.
+ladder, `train_draw_limit` for the draws axis) and the optional `--seed`
+override, trains to `checkpoints/corpus_scaling_allrock_*/heads_best.pt`,
+then runs the ModeHead interrogation so metrics land at
+`runs/mode_head/corpus_scaling_allrock_*/metrics.json`. A point whose
+checkpoint already exists is not retrained (delete its checkpoint dir to
+force a rerun); its eval still runs if the metrics file is missing.
+
+The `allrock` tag prefix marks the production stack these points train under
+(all-rock encoder, tuned dials); the `corpus_scaling_n*` / `corpus_scaling_d*`
+checkpoints are the #27 points under the earlier igneous-encoder production
+config and must not be reused. The full-N point is not on the default ladder:
+at 10000 bulks the config is exactly the production train, so scoring reuses
+`joint_heads_allrock_tuned_seed0` (see `run_realrock.py`).
 
 Bulk subsets are nested by construction: sample ids sorted by their md5 hex
 digest, prefix of length N. md5 is platform- and session-stable, unlike the
@@ -34,7 +42,8 @@ REPO = Path(__file__).resolve().parents[2]
 BASE_CONFIG = REPO / "configs" / "heads" / "joint_heads.yaml"
 TRAIN_BULKS = REPO / "data" / "corpus" / "train_bulks.csv"
 CHECKPOINTS = REPO / "checkpoints"
-BULK_LADDER = (625, 1250, 2500, 5000, 10000)
+TAG_PREFIX = "corpus_scaling_allrock"
+BULK_LADDER = (625, 1250, 2500, 5000)
 
 
 def hash_order(sample_ids: list[int]) -> list[int]:
@@ -45,9 +54,10 @@ def hash_order(sample_ids: list[int]) -> list[int]:
 
 
 def point_config(base: dict, tag: str, roster_path: Path | None,
-                 draw_limit: int | None) -> dict:
+                 draw_limit: int | None, seed: int) -> dict:
     config = dict(base)
     config["head_checkpoint_dir"] = str(CHECKPOINTS / tag)
+    config["seed"] = seed
     config.pop("train_bulk_ids", None)
     config.pop("train_draw_limit", None)
     if roster_path is not None:
@@ -58,7 +68,7 @@ def point_config(base: dict, tag: str, roster_path: Path | None,
 
 
 def run_point(base: dict, tag: str, ordered_ids: list[int],
-              n_bulks: int | None, draw_limit: int | None) -> None:
+              n_bulks: int | None, draw_limit: int | None, seed: int) -> None:
     from cnmineral.eval.joint_heads import run_joint_eval
     from cnmineral.training import pick_device
     from cnmineral.training.joint_heads import train_joint_heads
@@ -78,7 +88,7 @@ def run_point(base: dict, tag: str, ordered_ids: list[int],
     if ckpt_path.exists():
         print(f"{tag}: checkpoint exists, skipping train")
     else:
-        config = point_config(base, tag, roster_path, draw_limit)
+        config = point_config(base, tag, roster_path, draw_limit, seed)
         train_joint_heads(config, pick_device())
 
     if metrics_path.exists():
@@ -98,21 +108,26 @@ def main() -> None:
         help="comma-separated draw limits at full bulk count "
              "(e.g. 24,12; the bulks-vs-draws axis), instead of the bulk ladder",
     )
+    parser.add_argument(
+        "--seed", type=int, default=0,
+        help="training seed; nonzero appends _seed{N} to the point tags",
+    )
     args = parser.parse_args()
 
     with open(BASE_CONFIG) as f:
         base = yaml.safe_load(f)
     ordered_ids = hash_order(pd.read_csv(TRAIN_BULKS)["sample_id"].tolist())
 
+    suffix = f"_seed{args.seed}" if args.seed else ""
     if args.draws:
-        points = [(f"corpus_scaling_d{int(k)}", None, int(k))
+        points = [(f"{TAG_PREFIX}_d{int(k)}{suffix}", None, int(k))
                   for k in args.draws.split(",")]
     else:
-        points = [(f"corpus_scaling_n{int(n)}", int(n), None)
+        points = [(f"{TAG_PREFIX}_n{int(n)}{suffix}", int(n), None)
                   for n in args.points.split(",")]
     for tag, n_bulks, draw_limit in points:
         print(f"\n== {tag} ==")
-        run_point(base, tag, ordered_ids, n_bulks, draw_limit)
+        run_point(base, tag, ordered_ids, n_bulks, draw_limit, args.seed)
 
 
 if __name__ == "__main__":

@@ -79,6 +79,11 @@ def collect_points() -> list[dict]:
     points = []
     for metrics_path in sorted((REPO / "runs" / "mode_head").glob(f"{TAG_PREFIX}*/metrics.json")):
         tag = metrics_path.parent.name
+        # only the #27 corpus-side points ([nd]<int> suffix); the glob also
+        # matches the corpus_scaling_allrock_* real-rock ladder (run_realrock.py)
+        suffix = tag.removeprefix(TAG_PREFIX)
+        if not (suffix[:1] in ("n", "d") and suffix[1:].isdigit()):
+            continue
         with open(metrics_path) as f:
             metrics = json.load(f)
         ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / tag / "heads_best.pt")

@@ -88,3 +88,43 @@ measured under the current broad P/H2O proposal; the #48 dry run checks
 whether the trace-conditional proposal changes per-draw redundancy.
 Final bulk count flexes with actual weekend hours; locked by the owner on
 #45, not here.
+
+## The same ladder on the real-rock axis (#60)
+
+The corpus-side curve above is measured on held-out MAGEMin labels, and the
+traced-corpus regen showed corpus-side and real-rock performance can move in
+opposite directions (sealed three-way contrast 2026-07-31). So the "no
+saturation" conclusion is unknown on the axis that matters. This re-run
+retrains the same nested subsets on the frozen production stack (all-rock
+encoder, `joint_heads_allrock_hpo` trial-32 dials, old broad-draw corpus,
+120 epochs) and scores every point on the eruption benchmark. The curve's
+shape is the decision input for whether a larger broad-draw regen is worth
+generating; the owner adjudicates from the numbers.
+
+### Method
+
+- Same md5-nested bulk subsets 625 / 1250 / 2500 / 5000 / 10000, retrained
+  by `run_ladder.py` under the `corpus_scaling_allrock_` tag prefix (the
+  untagged `corpus_scaling_n*` checkpoints are the #27 points under the
+  earlier production stack -- different encoder and dials, not comparable).
+  The 10000 point reuses `joint_heads_allrock_tuned_seed0` directly: at
+  full N the point config is exactly the production train.
+- One seed repeat at 2500 bulks (`--seed 1`) prices training stochasticity
+  on this axis, which #27 never measured.
+- `run_realrock.py` scores each point three ways: corpus-side val
+  (valtest128-broad, teacher-forced hurdle -- the #27 axis at the new
+  dials), zero-shot eruption-v2 (headline 640), and matrix-recalibrated
+  val (tier fit on the full 368-rock train roster, weight decay 1.0,
+  identical protocol per point; val slice only -- the test slice was spent
+  2026-07-31).
+- Levels on a ~110-rock / 39-unit slice carry more unit noise than
+  per-doubling effects, so the readable statistics are paired: all pairwise
+  unit-clustered bootstrap contrasts on adapted val joint NLL, plus
+  per-rock slopes of adapted NLL against log2(bulks) -- full-ladder (the
+  best-powered average per-doubling gain) and top-of-ladder 2500/5000/10000
+  (the extrapolation-relevant one, since the corpus-side curve is concave).
+
+### Result
+
+Pending -- the ladder trains next; numbers land in
+`results/scaling_realrock.json` / `.png` and on #60.
