@@ -5625,3 +5625,32 @@ shared-simplex cost.
 
 **Next.** Few-shot curve re-run on production (vector/matrix/tailed),
 owner-run; then padded-redox calibration; then provenance swaps + deck.
+
+## 2026-08-06 -- Few-shot curve re-run on production: #52's shape holds, the contamination needs claims history
+
+**Q.** Does the labelled-rock learning curve keep its shape on the frozen
+production stack, and does the tailed tier's tail insurance pay at small
+labelled budgets?
+
+**Context.** `run_curve.py --select-wd` on
+`joint_heads_allrock_tuned_seed0`, val-scored per the post-spend convention,
+#52 conventions otherwise (whole-unit draws, budgets 25-400, 10 draws each,
+paired across tiers); curve tiers vector/matrix/tailed, mlp off per the #52
+finding. Weight decay re-selected on this checkpoint's val: vector 0.1,
+matrix 1.0, tailed 1.0 -- unchanged from the recorded constants. Owner-run.
+
+**Result.** Zero-shot magnitude 7.63 nats; full-train tailed reaches -1.92
+(cross-instrument consistent with the acceptance read's -1.924). The #52
+headline survives, slightly stronger: ~26 rocks recover ~77% of the 9.6-nat
+magnitude gain, steeply diminishing after. Tier ordering: matrix and tailed
+are indistinguishable at ~26 rocks (paired per-draw delta -0.001) -- the
+contamination's two parameters are fit to rare interval misses and 25 rocks
+carry too few to identify them -- then tailed wins 10/10 paired draws at
+every budget from 50 up with a monotonically growing margin (-0.002 at 50,
+-0.11 at 100, -0.29 at 200, -0.30 at full train). Vector lags from 50 rocks
+on and never goes negative (+0.2 to +0.6 across budgets). At 25 rocks the
+10-90 draw band spans ~2.5 nats, so which eruptions were drawn dominates
+which tier was fit.
+
+**Next.** Padded-redox calibration eval (gates the implicit-marginalization
+claim); then provenance swaps + deck.
