@@ -1,12 +1,13 @@
-# Cascade-2 igneous-arm winner: the tiebreak winner of the
-# joint_heads_igneous_hpo sweep (corrected criterion -- effective lambda
-# <= 1, sampled-support band-veto) retrained at the production 120-epoch
-# horizon. Old igneous 22-token encoder on the old broad-draw corpus --
-# the matched-treatment twin of joint_heads_allrock_tuned_seed0 (same
-# budget, seed, and criterion) for the encoder verdict on the real-rock
-# benchmark. Production remains joint_heads_supportmag_seed0 until that
-# adjudication. See docs/2026_08_03_recap.md.
-encoder_checkpoint: checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
+# Production joint heads: the cascade-2 tuned winner (joint_heads_allrock_hpo
+# trial 32, corrected criterion -- effective lambda <= 1, sampled-support
+# band-veto) retrained at the production 120-epoch horizon, promoted
+# 2026-08-05 when the encoder verdict tied leaning all-rock (journal).
+# Canonical all-rock 23-token encoder on the old broad-draw corpus. The
+# redox slot stays padded: with no `data_kwargs` the dataset emits 22
+# tokens, which the 23-token encoder treats identically to padded-23, and
+# heads-train, eval, and deployment then share one regime (a
+# fed-where-measured arm is a separate priced change).
+encoder_checkpoint: checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt
 
 # labels (semantics stamped into the checkpoint; must match at re-eval)
 corpus_dir: data/corpus/train
@@ -15,35 +16,35 @@ rungs: [50, 30]
 comp_eps: 1.0e-4      # hard-zero oxide clip before renormalizing comp targets
 
 # head architecture (per-head trunks; null hidden -> d_model // 2).
-# ModeHead dims were re-opened in the cascade-2 sweep (#54); both arms'
-# winners took the largest searched trunk.
+# ModeHead dims were re-opened in the cascade-2 sweep (#54); the winner
+# took the largest searched trunk.
 mode_hidden: 512
 mode_layers: 3
 comp_hidden: null
 comp_layers: 1
 cond_hidden: 512
 cond_layers: 2
-dropout: 0.3626513833131583
+dropout: 0.2598824097998362
 alpha_eps: 1.0e-6
 cond_n_components: 3
 cond_sigma_eps: 1.0e-3
 
 # loss weights (swept by joint_heads_hpo, ADR 006). magnitude_weight here is
-# effective lambda ~0.61 (21x nominal, docs/heads.md) -- inside the corrected
-# lambda <= 1 range, and within 0.02 of the all-rock arm's winning lambda.
-magnitude_weight: 0.02898049770682474
+# effective lambda ~0.59 (21x nominal, docs/heads.md) -- inside the corrected
+# lambda <= 1 range.
+magnitude_weight: 0.02805912651261943
 lambda_comp: 1.0
 lambda_cond: 0.01     # cond NLL is in raw (T, P, H2O) units, so this also absorbs the scale gap
-lambda_balance: 0.0020068421345288603
+lambda_balance: 0.00307948289927652
 
 # optimization (patience is per-head: training stops when every head is
 # `early_stop_patience` epochs past its own best)
 epochs: 120
 early_stop_patience: 10
 batch_size: 1024
-lr: 2.1873556814196827e-04
-weight_decay: 5.128101012796342e-06
+lr: 4.703766518931478e-04
+weight_decay: 2.456466790845704e-05
 seed: 0
 
-head_checkpoint_dir: checkpoints/joint_heads_igneous_tuned_seed0
+head_checkpoint_dir: checkpoints/joint_heads_allrock_tuned_seed0
 head_checkpoint_filename: heads_best.pt
