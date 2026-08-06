@@ -5936,3 +5936,32 @@ sedimentary extension: clays, carbonates and evaporites are low-temperature
 diagenetic products outside MAGEMin's regime, so "simulate sediments" means a
 different generator and a vocabulary extension, not the current pipeline
 pointed at sediment bulks.
+
+## 2026-08-06 -- canon stays all-rock; the sediment result goes in the main claim, not an appendix
+
+**Decision (owner).** The framing left open in the Andrews entry above is
+settled: **no canon swap.** The headline stack stays
+`joint_heads_allrock_tuned_seed0`, the freeze holds, and nothing is re-run
+against the igneous-tuned twin. Reverting to an igneous-only headline would
+have bought narrative tidiness ("igneous end to end, so du Bray is
+unsurprising") at the cost of re-running the recalibrator fit, the #52 curve
+and the five figures three weeks from the deadline.
+
+The rhetoric inverts instead, and lands stronger. Rather than "we were igneous
+throughout, and separately here is an appendix where broadening did not help",
+the claim is: *the canonical encoder already saw sedimentary chemistry, so the
+representation is not the limitation, and sedimentary prediction still fails*
+-- which localises the gap to head supervision by construction rather than by a
+side experiment the reader has to trust. The sediment-aware encoder sits inside
+the main claim. The igneous-vs-all-rock du Bray tie (-0.209 [-0.460, +0.090])
+becomes a supporting line, and the Andrews arm contrast supplies the mechanism:
+breadth improves recognition, cannot touch quantification.
+
+Unchanged by this: the claim that the encoder is not the limitation is still
+inferred rather than controlled, and #53 remains the experiment that would
+underwrite it.
+
+**Next.** #24 closed with the measured verdict. Andrews proposition (b) --
+fitting the recalibration layer on an Andrews slice to price how much of the
+failure is recoverable by rescaling -- is unrun and newly more interesting,
+since the failure is reliability rather than resolution.
