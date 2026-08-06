@@ -29,13 +29,16 @@ def test_hash_order_prefixes_nest() -> None:
 
 def test_point_config_overrides_only_the_subset_keys() -> None:
     base = {"epochs": 120, "head_checkpoint_dir": "checkpoints/prod",
-            "train_bulk_ids": "stale.csv"}
-    config = point_config(base, "corpus_scaling_n625", None, draw_limit=24)
+            "train_bulk_ids": "stale.csv", "seed": 0}
+    config = point_config(base, "corpus_scaling_allrock_n625", None,
+                          draw_limit=24, seed=1)
     assert config["epochs"] == 120
-    assert config["head_checkpoint_dir"].endswith("corpus_scaling_n625")
+    assert config["head_checkpoint_dir"].endswith("corpus_scaling_allrock_n625")
     assert "train_bulk_ids" not in config
     assert config["train_draw_limit"] == 24
+    assert config["seed"] == 1
     assert base["head_checkpoint_dir"] == "checkpoints/prod"
+    assert base["seed"] == 0
 
 
 def _metrics(joint_nll: float, pf_r: float) -> dict:

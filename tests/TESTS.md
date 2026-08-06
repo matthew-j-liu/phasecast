@@ -601,7 +601,7 @@ Tests for archived explorations (moved to `explorations/archive/`,
 
 1. `test_hash_order_deterministic_and_input_order_independent` -- the md5 roster order is a fixed permutation of the ids regardless of input order.
 2. `test_hash_order_prefixes_nest` -- a shorter prefix of the hash order is a strict subset of a longer one (the nested-subset ladder contract).
-3. `test_point_config_overrides_only_the_subset_keys` -- per-point configs change only checkpoint dir + subset knobs, drop stale subset keys from the base, and leave the base dict untouched.
+3. `test_point_config_overrides_only_the_subset_keys` -- per-point configs change only checkpoint dir + subset knobs + seed, drop stale subset keys from the base, and leave the base dict untouched.
 4. `test_point_record_parses_both_axes` -- `corpus_scaling_n*` / `corpus_scaling_d*` tags parse into bulk/draw axis coordinates with the right nominal row counts and per-phase metrics.
 5. `test_last_doubling_deltas` -- the slope table compares the two largest bulk points only (draw points excluded) and is empty with fewer than two.
 

@@ -190,11 +190,15 @@ Next, one change at a time, each judged on the real-rock benchmark:
    production: matrix and tailed indistinguishable at ~26 rocks,
    tailed wins every paired draw from 50 rocks up, and ~26 rocks
    still recover ~77% of the magnitude gain.
-4. **#60 real-rock-axis corpus scaling** (now unblocked) -- decides
-   whether a larger broad-draw regen is generated. Prioritized over
-   #55 encoder re-HPO for the NeurIPS window: the corpus axis owns
-   every large measured real-rock effect, and the venue is the
-   simulator side; #55 stays open, parked past the deadline.
+4. **#60 real-rock-axis corpus scaling** -- measured and closed
+   2026-08-06: corpus-side scaling replicates (no saturation) but the
+   real-rock axis is flat across 16x of training bulks -- zero-shot
+   worsens with corpus size (all Dirichlet width) and recalibrated
+   val is flat under the tailed tier (top-of-ladder slope -0.013
+   [-0.236, +0.203] nats/doubling). The larger broad-draw regen is
+   dead; the sim-to-real gap is not a data-quantity problem. The
+   freed background thread is #63 (real-data expansion + eruption-v2
+   provenance audit). #55 stays open, parked past the deadline.
 5. **Paper progression**: the real-rock benchmark is the cross-era
    spine, plus a one-time table re-scoring archived era checkpoints
    on the final valtest instrument. Era production checkpoints
