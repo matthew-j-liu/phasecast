@@ -26,7 +26,6 @@ import numpy as np
 from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.real_rock import load_benchmark, split_mask
-from cnmineral.models.real_rock_recalibrator import TIERS
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import (
@@ -45,17 +44,24 @@ RESULTS = Path(__file__).resolve().parent / "results"
 # Chosen once on the val slice by `select_weight_decay`; see README. Recorded
 # rather than re-selected on every run so the curve is reproducible and the
 # val slice's contribution stays one scalar per tier.
-WEIGHT_DECAY: dict[str, float] = {"vector": 0.1, "matrix": 1.0, "mlp": 3.0}
+WEIGHT_DECAY: dict[str, float] = {
+    "vector": 0.1, "matrix": 1.0, "mlp": 3.0, "tailed": 1.0,
+}
+
+# The curve compares vector, matrix and tailed; mlp is off the curve because
+# its capacity never repaid itself at any labelled budget (#52).
+CURVE_TIERS: tuple[str, ...] = ("vector", "matrix", "tailed")
 
 BUDGETS: tuple[int, ...] = (25, 50, 100, 200, 400)
-TIER_COLOR = {"vector": "tab:blue", "matrix": "tab:orange", "mlp": "tab:green"}
+TIER_COLOR = {"vector": "tab:blue", "matrix": "tab:orange", "mlp": "tab:green",
+              "tailed": "tab:red"}
 
 
 def run_curve(train, test, *, budgets, n_draws, weight_decay, seed=0):
     """One fit per (tier, budget, draw), each scored on the fixed eval slice."""
     baseline = score_recalibrator(None, test)
     rows = []
-    for tier in TIERS:
+    for tier in CURVE_TIERS:
         for budget in budgets:
             # reseeded per budget rather than carried across tiers, so all
             # three tiers see the identical draws and the tier comparison is
@@ -128,7 +134,7 @@ def plot_curve(baseline, rows, out_path: Path, subtitle: str,
     """The two headline panels: Dirichlet term and per-group share error."""
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.5, 4.2))
 
-    for tier in TIERS:
+    for tier in CURVE_TIERS:
         _band(ax1, rows, tier, "dirichlet", TIER_COLOR[tier])
     ax1.axhline(baseline["dirichlet"].mean(), lw=1.0, color="0.35", ls="--")
     ax1.annotate("zero-shot", (0.02, baseline["dirichlet"].mean()),
@@ -141,7 +147,7 @@ def plot_curve(baseline, rows, out_path: Path, subtitle: str,
     ax1.legend(fontsize=8)
     _rock_ticks(ax1, rows)
 
-    for tier in TIERS:
+    for tier in CURVE_TIERS:
         _band(ax2, rows, tier, "share_mae", TIER_COLOR[tier])
     ax2.axhline(baseline["share_mae_mean"], lw=1.0, color="0.35", ls="--")
     ax2.set_xscale("log")
@@ -163,7 +169,7 @@ def plot_units_axis(rows, out_path: Path, subtitle: str,
                     slice_label: str = "test") -> None:
     """The same budget expressed in eruptions, which is how rocks are harvested."""
     fig, ax = plt.subplots(figsize=(5.6, 4.0))
-    for tier in TIERS:
+    for tier in CURVE_TIERS:
         pts = [(r["n_units"], r["dirichlet"]) for r in rows if r["tier"] == tier]
         if pts:
             ax.plot(*zip(*pts), "o", ms=3.5, alpha=0.5,
@@ -211,7 +217,7 @@ def main() -> None:
     weight_decay = dict(WEIGHT_DECAY)
     wd_records = {}
     if args.select_wd:
-        for tier in TIERS:
+        for tier in CURVE_TIERS:
             best, records = select_weight_decay(train, val, tier=tier)
             weight_decay[tier] = best
             wd_records[tier] = records
@@ -238,7 +244,7 @@ def main() -> None:
     # against the measured residual shape
     full = {tier: per_group_offsets(
         fit_recalibrator(train, tier=tier, weight_decay=weight_decay[tier])
-    ) for tier in TIERS}
+    ) for tier in CURVE_TIERS}
 
     payload = {
         "checkpoint": str(args.checkpoint),

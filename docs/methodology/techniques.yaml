@@ -398,6 +398,13 @@ techniques:
       - "score_recalibrator"
       - "select_weight_decay"
       - "lift_group_presence_to_phases"
+  - name: precision_contamination
+    type: architecture
+    patterns:
+      - "contam_logit"
+      - "contam_logk"
+      - "CONTAM_LOGIT_BIAS"
+      - "mixture_share_interval"
   - name: unit_grouped_split
     type: preprocessing
     patterns:

@@ -158,12 +158,12 @@ def fit_recalibrator(
     opt = torch.optim.Adam(recalibrator.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(epochs):
         opt.zero_grad()
-        logits, alpha = recalibrator(
+        logits, alpha, log_w = recalibrator(
             train.logits7, train.alpha7, train.sio2, log_w=train.log_w
         )
         loss = recalibrator_nll(
             logits, alpha, train.presence, train.magnitude, train.numeric,
-            log_w=train.log_w,
+            log_w=log_w,
         )["joint"].mean()
         loss.backward()
         opt.step()
@@ -180,21 +180,21 @@ def score_recalibrator(
     correction, which is what makes a difference read as nats recovered.
     """
     if recalibrator is None:
-        logits, alpha = data.logits7, data.alpha7
+        logits, alpha, log_w = data.logits7, data.alpha7, data.log_w
     else:
-        logits, alpha = recalibrator(
+        logits, alpha, log_w = recalibrator(
             data.logits7, data.alpha7, data.sio2, log_w=data.log_w
         )
     nll = recalibrator_nll(
         logits, alpha, data.presence, data.magnitude, data.numeric,
-        log_w=data.log_w,
+        log_w=log_w,
     )
     numeric = data.numeric.numpy().astype(bool)
-    if data.log_w is None:
+    if log_w is None:
         cond_mean = conditional_mean(alpha.numpy(), numeric.astype(np.float64))
     else:
         cond_mean = mixture_conditional_mean(
-            alpha.numpy(), data.log_w.numpy(), numeric.astype(np.float64)
+            alpha.numpy(), log_w.numpy(), numeric.astype(np.float64)
         )
     parity = magnitude_parity_stats(
         cond_mean, data.magnitude.numpy(), numeric.astype(np.float64),
@@ -346,7 +346,7 @@ def lift_group_presence_to_phases(
     whose feldspar is half the crystal cargo.
     """
     with torch.no_grad():
-        corrected, _ = recalibrator(logits7, torch.ones_like(logits7), sio2)
+        corrected, _, _ = recalibrator(logits7, torch.ones_like(logits7), sio2)
     target = torch.sigmoid(corrected).numpy()
     now = coarsen_presence(p21)
 

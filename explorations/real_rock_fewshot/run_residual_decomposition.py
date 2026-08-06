@@ -219,7 +219,7 @@ def _corrected_alpha(recalibrator, gp) -> np.ndarray:
     if recalibrator is None:
         return gp.alpha7.numpy()
     with torch.no_grad():
-        _, alpha = recalibrator(gp.logits7, gp.alpha7, gp.sio2)
+        _, alpha, _ = recalibrator(gp.logits7, gp.alpha7, gp.sio2)
     return alpha.numpy()
 
 

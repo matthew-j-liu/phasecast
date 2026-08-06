@@ -96,6 +96,11 @@
       "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ],
+    "precision_contamination": [
+      "scripts/view/real_rock_card.py",
+      "src/cnmineral/eval/real_rock.py",
+      "src/cnmineral/models/real_rock_recalibrator.py"
+    ],
     "pretrain_head_mlp": [
       "src/cnmineral/eval/latent.py",
       "src/cnmineral/models/imputation_head.py",

@@ -9,7 +9,12 @@ where the three tiers nest exactly.  Encoder and heads stay frozen; fitting
 lives in `cnmineral.training.real_rock_recalibrator`.
 
 The tiers are `vector` in `matrix` in `mlp`, so the ~23-parameter per-group
-affine is the degenerate case of the MLP rather than a rival to it.
+affine is the degenerate case of the MLP rather than a rival to it.  `tailed`
+forks from `matrix` instead of `mlp`: matrix plus a mean-preserving precision
+contamination that fattens the tails a single Dirichlet cannot reach -- the
+failure the post-fit residual decomposition measured.  (A pure-location
+silica slope on px/bi/q magnitudes was built and measured alongside it,
+added +0.007 [-0.004, +0.016] nats, and was excised; journal 2026-08-06.)
 """
 
 import torch
@@ -17,13 +22,18 @@ from torch import nn
 
 from ..data.phase_vocab import GROUP_INDEX, GROUPS
 
-TIERS: tuple[str, ...] = ("vector", "matrix", "mlp")
+TIERS: tuple[str, ...] = ("vector", "matrix", "mlp", "tailed")
 
 # The residual-vs-silica read gives a slope to q and amp presence and nothing
 # else: magnitude residuals are flat against silica for every group, and so is
 # presence outside these two.  Fitting the other twelve slopes would spend
 # parameters on noise.
 SIO2_PRESENCE_GROUPS: tuple[str, ...] = ("q", "amp")
+
+# Weight decay pulls parameters toward zero, so the contamination weight is
+# parameterized as an offset from this prior logit (eps ~ 0.05): fully shrunk
+# means "rare contamination", not the eps = 0.5 a raw logit would decay to.
+CONTAM_LOGIT_BIAS: float = -3.0
 
 # SiO2 enters centred and scaled so the slope is O(1) and the intercepts stay
 # interpretable as the per-group offsets that were measured.
@@ -81,9 +91,12 @@ class RealRockRecalibrator(nn.Module):
             ]),
         )
 
-        if tier in ("matrix", "mlp"):
+        if tier in ("matrix", "mlp", "tailed"):
             self.presence_mix = nn.Parameter(torch.zeros(n, n))
             self.magnitude_mix = nn.Parameter(torch.zeros(n, n))
+        if tier == "tailed":
+            self.contam_logit = nn.Parameter(torch.zeros(()))
+            self.contam_logk = nn.Parameter(torch.zeros(()))
         if tier == "mlp":
             self.trunk = nn.Sequential(
                 nn.Linear(2 * n + 1, hidden), nn.GELU(), nn.Linear(hidden, 2 * n)
@@ -99,8 +112,14 @@ class RealRockRecalibrator(nn.Module):
         alpha7: torch.Tensor,
         sio2: torch.Tensor,
         log_w: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """([B, 7] presence logits, [B, 7] alpha, [B] SiO2 wt%) -> corrected pair.
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+        """([B, 7] presence logits, [B, 7] alpha, [B] SiO2 wt%) -> corrected
+        (logits, alpha, log_w).
+
+        The returned log_w is the input log_w passed through unchanged, except
+        for the `tailed` tier, whose contamination makes the output a
+        two-component mixture even on single-Dirichlet input: alpha comes back
+        [B, 2, 7] (or [B, 2K, 7]) with the matching gate log-weights.
 
         A mixture head passes alpha7 [B, K, 7] with gate log-weights: the one
         per-group correction is applied identically to every component and the
@@ -130,7 +149,7 @@ class RealRockRecalibrator(nn.Module):
         )
         d_magnitude = self.magnitude_offset.expand_as(alpha_feat)
 
-        if self.tier in ("matrix", "mlp"):
+        if self.tier in ("matrix", "mlp", "tailed"):
             d_presence = d_presence + logits7 @ self.presence_mix
             d_magnitude = d_magnitude + log_alpha @ self.magnitude_mix
         if self.tier == "mlp":
@@ -142,7 +161,27 @@ class RealRockRecalibrator(nn.Module):
         correction = (d_magnitude * self.magnitude_free).exp()
         if alpha7.dim() == 3:
             correction = correction.unsqueeze(1)
-        return d_presence, alpha7 * correction
+        alpha = alpha7 * correction
+
+        if self.tier != "tailed":
+            return d_presence, alpha, log_w
+
+        # Precision contamination: with weight eps the same-mean forecast is
+        # diluted by k, so the tail fattens without widening the central
+        # interval -- the failure mode the decomposition measured (residual
+        # heavier-tailed than any Beta at the fitted mean).  k = 1 at init
+        # collapses the mixture, keeping the identity-at-init contract.
+        biased = self.contam_logit + CONTAM_LOGIT_BIAS
+        log_eps = nn.functional.logsigmoid(biased)
+        log_keep = nn.functional.logsigmoid(-biased)
+        k = self.contam_logk.exp()
+        if alpha.dim() == 2:
+            alpha = torch.stack([alpha, alpha * k], dim=1)
+            log_w_out = torch.stack([log_keep, log_eps]).expand(len(alpha), 2)
+        else:
+            alpha = torch.cat([alpha, alpha * k], dim=1)
+            log_w_out = torch.cat([log_w + log_keep, log_w + log_eps], dim=1)
+        return d_presence, alpha, log_w_out
 
     def extra_repr(self) -> str:
         return f"tier={self.tier}, pin_amp_magnitude={self.pin_amp_magnitude}"

@@ -31,7 +31,6 @@ from cnmineral.eval.real_rock import (
     real_rock_nll,
     split_mask,
 )
-from cnmineral.models.real_rock_recalibrator import TIERS
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import (
@@ -50,7 +49,10 @@ WEIGHT_DECAY = {"vector": 0.1, "matrix": 1.0, "mlp": 3.0}
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--tier", choices=TIERS, default="matrix")
+    # single-Dirichlet tiers only: the interval and mean panels here read the
+    # Beta marginal directly, which the tailed tier's mixture output breaks
+    parser.add_argument("--tier", choices=("vector", "matrix", "mlp"),
+                        default="matrix")
     args = parser.parse_args()
 
     ckpt = JointHeadCheckpoint.load(args.checkpoint)
@@ -76,7 +78,7 @@ def main() -> None:
           f"{after['dirichlet'].mean():.3f}")
 
     with torch.no_grad():
-        adj_logits, adj_alpha = recalibrator(val.logits7, val.alpha7, val.sio2)
+        adj_logits, adj_alpha, _ = recalibrator(val.logits7, val.alpha7, val.sio2)
     p7 = torch.sigmoid(adj_logits).numpy()
     numeric = benchmark.numeric[val_mask].astype(np.float64)
     forced_share = conditional_mean(adj_alpha.numpy(), numeric)
@@ -96,7 +98,7 @@ def main() -> None:
     alpha7_model, _ = coarsen_alpha(alpha21, support21)
     model_support7 = coarsen_support(support21)
     with torch.no_grad():
-        _, adj_alpha_model = recalibrator(
+        _, adj_alpha_model, _ = recalibrator(
             gp.logits7, torch.as_tensor(alpha7_model, dtype=gp.alpha7.dtype),
             gp.sio2,
         )

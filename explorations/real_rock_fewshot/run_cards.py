@@ -42,7 +42,6 @@ from cnmineral.eval.real_rock import (
     split_mask,
 )
 from cnmineral.models.cond_head import COND_AXES
-from cnmineral.models.real_rock_recalibrator import TIERS
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import (
@@ -90,7 +89,11 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--budget", type=int, default=25,
                         help="labelled rocks to condition on, drawn as whole units")
-    parser.add_argument("--tier", choices=TIERS, default="matrix")
+    # single-Dirichlet tiers only: the card intervals and the scenario-view
+    # correction read the Beta marginal directly, which the tailed tier's
+    # mixture output breaks
+    parser.add_argument("--tier", choices=("vector", "matrix", "mlp"),
+                        default="matrix")
     parser.add_argument("--draw-seed", type=int, default=0)
     parser.add_argument("--n-samples", type=int, default=1024,
                         help="assemblage samples for scenario extraction")
@@ -162,7 +165,7 @@ def main() -> None:
         )
 
         with torch.no_grad():
-            adj_logits, adj_alpha = recalibrator(
+            adj_logits, adj_alpha, _ = recalibrator(
                 test.logits7[local:local + 1], test.alpha7[local:local + 1],
                 test.sio2[local:local + 1],
             )
@@ -198,7 +201,7 @@ def main() -> None:
 
         def correct(alpha7, _row=local):
             with torch.no_grad():
-                _, out = recalibrator(
+                _, out, _ = recalibrator(
                     test.logits7[_row:_row + 1].expand(len(alpha7), -1),
                     torch.as_tensor(alpha7, dtype=torch.float64),
                     test.sio2[_row:_row + 1].expand(len(alpha7)),
