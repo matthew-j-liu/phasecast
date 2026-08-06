@@ -23,6 +23,7 @@ from cnmineral.eval.real_rock import (
     censored_consistency,
     load_benchmark,
     load_real_rock_split,
+    mixture_share_interval,
     murphy,
     parse_alteration_grade,
     real_rock_nll,
@@ -588,3 +589,42 @@ def test_brier_decomposes_into_uncertainty_resolution_reliability():
     uncertainty = y.mean() * (1 - y.mean())
     assert ((p - y) ** 2).mean() == pytest.approx(uncertainty - res + rel,
                                                   abs=5e-3)
+
+
+def test_mixture_share_interval_reduces_to_share_interval_at_one_component():
+    """The bisected mixture quantiles must agree with the closed-form Beta
+    ones when the mixture is a single component, or the tailed recalibrator's
+    coverage numbers are not comparable with the single-Dirichlet arms'."""
+    from cnmineral.eval.real_rock import share_interval
+
+    rng = np.random.default_rng(5)
+    alpha = rng.uniform(0.5, 8.0, (40, len(GROUPS)))
+    mask = (rng.uniform(size=(40, len(GROUPS))) < 0.6).astype(float)
+    mask[:, :2] = 1.0
+    lo_ref, hi_ref = share_interval(alpha, mask)
+    lo, hi = mixture_share_interval(
+        alpha[:, None, :], np.zeros((40, 1)), mask
+    )
+    m = mask > 0
+    np.testing.assert_allclose(lo[m], lo_ref[m], atol=1e-9)
+    np.testing.assert_allclose(hi[m], hi_ref[m], atol=1e-9)
+    assert np.isnan(lo[~m]).all() and np.isnan(hi[~m]).all()
+
+
+def test_mixture_share_interval_contamination_widens_the_interval():
+    """A diluted second component fattens the tails, so the mixture interval
+    is strictly wider than the sharp component's -- that widening is the whole
+    point of the precision contamination.  (The upper quantile alone need not
+    move up: on a small-share group the diluted component piles mass near
+    zero, so the widening can come entirely from the lower end.)"""
+    rng = np.random.default_rng(6)
+    alpha = rng.uniform(1.0, 8.0, (30, len(GROUPS)))
+    mask = np.ones((30, len(GROUPS)))
+    from cnmineral.eval.real_rock import share_interval
+
+    lo_sharp, hi_sharp = share_interval(alpha, mask)
+    stack = np.stack([alpha, alpha * 0.05], axis=1)
+    log_w = np.log(np.tile([0.8, 0.2], (30, 1)))
+    lo, hi = mixture_share_interval(stack, log_w, mask)
+    assert (lo <= lo_sharp + 1e-9).all()
+    assert ((hi - lo) > (hi_sharp - lo_sharp)).all()

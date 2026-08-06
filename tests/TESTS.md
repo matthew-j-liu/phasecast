@@ -321,12 +321,14 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_real_rock_recalibrator.py
 
-1. `test_recalibrator_is_the_identity_at_initialization` -- an unfit recalibrator reproduces the zero-shot outputs exactly, which is what lets a fitted one's gain read as nats recovered on the ledger's scale.
+1. `test_recalibrator_is_the_identity_at_initialization` -- an unfit recalibrator reproduces the zero-shot outputs exactly (for `tailed`, dilution 1 at init collapses the mixture so both components equal the input), which is what lets a fitted one's gain read as nats recovered on the ledger's scale.
 2. `test_structural_zeros_survive_the_magnitude_correction` -- coarsening leaves alpha 0 where a group has no member on the support; the correction is multiplicative so those stay 0 rather than becoming -inf.
-3. `test_richer_tiers_contain_the_vector_tier_exactly` -- copying a fitted vector tier's parameters into `matrix` / `mlp` reproduces it, so the 23-param affine is the degenerate case rather than a rival.
-4. `test_amphibole_magnitude_is_pinned_at_every_tier` -- the pin holds through the mixing matrix and the MLP, not only the constant, since a coupled correction would be the same unidentifiable quantity reparameterized.
+3. `test_richer_tiers_contain_the_vector_tier_exactly` -- copying a fitted vector tier's parameters into `matrix` / `mlp` / `tailed` reproduces it, so the 23-param affine is the degenerate case rather than a rival.
+4. `test_amphibole_magnitude_is_pinned_at_every_tier` -- the pin holds through the mixing matrix and the MLP, not only the constant; for `tailed` it means no amp-specific term -- the sharp component's amp alpha is the input exactly and the wide component dilutes amp by the same global factor as every group.
 5. `test_off_support_groups_contribute_a_neutral_log_feature` -- scaling the mixing weights that read an off-support column is a no-op, which only holds if that column enters as 0 rather than log(tiny).
-6. `test_unknown_tier_is_rejected` -- a mistyped tier raises rather than silently falling back.
+6. `test_tailed_contamination_is_mean_preserving` -- the wide component is the sharp one diluted: identical mean shares, lower precision, normalized gate weights.
+7. `test_tailed_composes_with_mixture_head_input` -- K-component input comes back as a 2K-component mixture with normalized weights.
+8. `test_unknown_tier_is_rejected` -- a mistyped tier raises rather than silently falling back.
 
 ## training/
 
@@ -563,6 +565,8 @@ rename, or repurpose a test) updates this file in the same change.**
 37. `test_climatology_concentration_beats_its_grid_neighbours` -- the null's one free parameter is the grid optimum on the fit rows, so the baseline is the strongest version of itself rather than a straw man.
 38. `test_murphy_terms_separate_calibration_from_discrimination` -- quoting the base rate scores zero reliability and zero resolution; naming the outcome scores zero reliability and resolution equal to the uncertainty.
 39. `test_brier_decomposes_into_uncertainty_resolution_reliability` -- the two terms account for the Brier score rather than merely describing it.
+40. `test_mixture_share_interval_reduces_to_share_interval_at_one_component` -- the bisected mixture quantiles agree with the closed-form Beta ones at K=1, so the tailed recalibrator's coverage numbers stay comparable with the single-Dirichlet arms'.
+41. `test_mixture_share_interval_contamination_widens_the_interval` -- a diluted second component yields a strictly wider interval than the sharp component's, though on a small-share group the widening can come entirely from the lower end.
 
 ### test_summary_cards.py
 

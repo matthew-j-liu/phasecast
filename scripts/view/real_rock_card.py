@@ -1,14 +1,15 @@
 """
 Real-rock headline figures: what the model does on real rocks, and what it costs.
 
-Four canvases from a joint-heads checkpoint, scored zero-shot on the
+Five canvases from a joint-heads checkpoint, scored zero-shot on the
 least-altered rocks of the eruption benchmark:
 
-    cohort_card.png      inputs, which minerals the model calls, how much of
-                         each on the measured and on its own assemblage
-    magnitude_ratio.png  per-rock magnitude error, paired
-    nll_distribution.png the headline split by term, against climatology
-    presence_brier.png   presence Brier and its Murphy decomposition
+    cohort_card.png         inputs, which minerals the model calls, how much
+                            of each on the measured and on its own assemblage
+    magnitude_ratio.png     per-rock magnitude error, paired
+    nll_distribution.png    the headline split by term, against climatology
+    presence_brier.png      presence Brier and its Murphy decomposition
+    coverage_sharpness.png  80% interval coverage and the width it costs
 
     python scripts/view/real_rock_card.py \\
         --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt
@@ -32,12 +33,15 @@ from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
 from cnmineral.eval.real_rock import (
     climatology,
     load_benchmark,
+    mixture_share_interval,
     plot_cohort_card,
+    plot_coverage_sharpness,
     plot_magnitude_ratio,
     plot_nll_distribution,
     plot_presence_brier,
     predict,
     real_rock_nll,
+    share_interval,
 )
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
@@ -103,6 +107,18 @@ def main() -> None:
     plot_presence_brier(
         p7[clean], null["p7"][clean], benchmark.presence[clean],
         benchmark.unit[clean], out_dir / "presence_brier.png", subtitle,
+    )
+    mask = benchmark.numeric.astype(np.float64)
+    if log_w is None:
+        lo, hi = share_interval(alpha7, mask)
+    else:
+        lo, hi = mixture_share_interval(alpha7, log_w, mask)
+    null_lo, null_hi = share_interval(null["alpha7"], mask)
+    plot_coverage_sharpness(
+        {"model": (lo[clean], hi[clean]),
+         "climatology": (null_lo[clean], null_hi[clean])},
+        benchmark.magnitude[clean], benchmark.numeric[clean],
+        benchmark.unit[clean], out_dir / "coverage_sharpness.png", subtitle,
     )
 
 

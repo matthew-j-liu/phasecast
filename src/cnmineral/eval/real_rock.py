@@ -1247,7 +1247,88 @@ def plot_presence_brier(
     ax2.set_title("Murphy decomposition, per group\nreliability (lower better) "
                   "vs resolution (higher better)", fontsize=TITLE_FS)
     _finish(fig, f"presence Brier and its decomposition -- {subtitle}\n"
-                 "whiskers: unit-clustered bootstrap 95%; dotted: climatology",
+                 "whiskers: unit-clustered bootstrap 95%; dotted: climatology; "
+                 "means weight each group equally",
+            out_path)
+
+
+ARM_COLORS = ("#2a78d6", "#d9622b", "#7a52a1")
+
+
+def plot_coverage_sharpness(
+    arms: dict[str, tuple[np.ndarray, np.ndarray]],
+    magnitude: np.ndarray, numeric: np.ndarray, unit: np.ndarray,
+    out_path: Path, subtitle: str, nominal: float = 0.8,
+) -> None:
+    """Do the stated credible intervals contain the measured shares?
+
+    Coverage alone is gameable -- diluting every forecast until the intervals
+    span the simplex reaches nominal vacuously -- so the companion panel shows
+    the median interval width that coverage was bought at.  Read together:
+    an honest fix moves coverage toward nominal while the width stays useful.
+
+    `arms` maps a label to that forecast's `(lo, hi)` interval arrays; a
+    "climatology" arm is drawn dotted like the other promoted panels.  Rocks
+    with a single quantified group are excluded: their marginal is a point
+    mass that always covers, so they carry no calibration information.
+    """
+    numeric_b = numeric.astype(bool)
+    eligible = numeric_b & (numeric_b.sum(1, keepdims=True) >= 2)
+    x = np.arange(len(GROUPS) + 1)
+    model_arms = [label for label in arms if label != "climatology"]
+    width = 0.8 / max(len(model_arms), 1)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.5, 4.2))
+    for j, label in enumerate(model_arms):
+        lo, hi = arms[label]
+        covered = np.where(
+            eligible, (magnitude >= lo) & (magnitude <= hi), np.nan
+        ).astype(float)
+
+        def stat(rows, _c=covered):
+            with np.errstate(invalid="ignore"):
+                per_group = np.nanmean(_c[rows], axis=0)
+            return np.append(per_group, np.nanmean(per_group))
+
+        value = stat(np.arange(len(magnitude)))
+        ci_lo, ci_hi = _unit_bootstrap(stat, unit)
+        pos = x + (j - (len(model_arms) - 1) / 2) * width
+        color = ARM_COLORS[j % len(ARM_COLORS)]
+        ax1.bar(pos, value, width * 0.92, color=color, label=label)
+        ax1.errorbar(pos, value,
+                     yerr=[np.maximum(value - ci_lo, 0),
+                           np.maximum(ci_hi - value, 0)],
+                     fmt="none", ecolor="0.25", elinewidth=1.0, capsize=2)
+        med = [np.nanmedian(np.where(eligible[:, g], hi[:, g] - lo[:, g],
+                                     np.nan)) for g in range(len(GROUPS))]
+        ax2.bar(pos[:-1], med, width * 0.92, color=color, label=label)
+
+    if "climatology" in arms:
+        lo, hi = arms["climatology"]
+        cov = np.where(eligible, (magnitude >= lo) & (magnitude <= hi),
+                       np.nan).astype(float)
+        with np.errstate(invalid="ignore"):
+            per_group = np.nanmean(cov, axis=0)
+        for xi, v in zip(x, np.append(per_group, np.nanmean(per_group))):
+            ax1.plot([xi - 0.45, xi + 0.45], [v, v], ls=":", lw=1.8,
+                     color="0.35", label="climatology" if xi == 0 else None)
+
+    ax1.axhline(nominal, lw=1.0, color="0.2", ls="--")
+    ax1.annotate(f"nominal {nominal:.0%}", (0.01, nominal), ha="left",
+                 va="bottom", xycoords=("axes fraction", "data"), fontsize=8,
+                 color="0.2")
+    ax1.set_xticks(x, list(GROUPS) + ["mean"], fontsize=TICK_FS)
+    ax1.set_ylim(0, 1.02)
+    ax1.set_ylabel("empirical coverage of the stated 80% interval",
+                   fontsize=XLABEL_FS)
+    ax1.set_title("coverage per group", fontsize=TITLE_FS)
+    ax1.legend(fontsize=LEGEND_FS - 2)
+    ax2.set_xticks(x[:-1], list(GROUPS), fontsize=TICK_FS)
+    ax2.set_ylabel("median interval width (share units)", fontsize=XLABEL_FS)
+    ax2.set_title("sharpness: what that coverage costs", fontsize=TITLE_FS)
+    _finish(fig, f"interval calibration and its price -- {subtitle}\n"
+                 "whiskers: unit-clustered bootstrap 95%; dotted: climatology; "
+                 "means weight each group equally; single-group rocks excluded",
             out_path)
 
 
@@ -1273,6 +1354,38 @@ def share_interval(
         for p in q
     )
     return lo, hi
+
+
+def mixture_share_interval(
+    alpha7: np.ndarray, log_w: np.ndarray, mask: np.ndarray,
+    q: tuple[float, float] = (0.1, 0.9),
+) -> tuple[np.ndarray, np.ndarray]:
+    """`share_interval` for a K-component Dirichlet mixture.
+
+    Each component's marginal on the conditioned support is a Beta, so the
+    mixture CDF is the gate-weighted sum of Beta CDFs -- but its quantiles
+    have no closed form, so bisection finds them.  Fifty halvings of [0, 1]
+    put the answer well below any share the benchmark resolves.  At K = 1
+    this agrees with `share_interval` to that tolerance.
+    """
+    w = np.exp(log_w)
+    on = alpha7 * mask[:, None, :]
+    a = np.clip(on, 1e-9, None)
+    b = np.clip(on.sum(-1, keepdims=True) - on, 1e-9, None)
+
+    def cdf(t):
+        return (w[..., None] * betainc(a, b, t[:, None, :])).sum(1)
+
+    bounds = []
+    for p in q:
+        lo_t, hi_t = np.zeros(mask.shape), np.ones(mask.shape)
+        for _ in range(50):
+            mid = 0.5 * (lo_t + hi_t)
+            below = cdf(mid) < p
+            lo_t = np.where(below, mid, lo_t)
+            hi_t = np.where(below, hi_t, mid)
+        bounds.append(np.where(mask > 0, 0.5 * (lo_t + hi_t), np.nan))
+    return bounds[0], bounds[1]
 
 
 CARD_SHARE_FLOOR = 5e-4
