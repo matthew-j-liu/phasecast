@@ -5839,3 +5839,100 @@ wording (still "fed where measured", against the locked populated/padded
 terminology) gets corrected. Pricing probe and populated-arm retrain stay
 parked; the retrain re-scores if the real-data session finds a benchmark
 carrying FeO and Fe2O3.
+
+## 2026-08-06 -- sediments do not transfer, and the encoder is not what is missing: Andrews XRD through the canonical figures
+
+**Q.** Does the frozen stack transfer to sedimentary rocks measured a
+different way, and does the all-rock encoder -- which saw sedimentary
+chemistry at pretraining -- predict sediments any better than the igneous-only
+one?
+
+**Context.** The Andrews set (`dp_crab_Andrews.pkl` in the old CrabNet-Mineral
+repo, reached from #24) is 605 sedimentary rocks with bulk chemistry and modal
+mineralogy quantified by XRD. An independent measurement modality and an
+independent rock class, so it tests #63's worry that the recalibrator's
+heavy-tail structure partly models du Bray's visual-estimate style. Built in
+`tmp/` as a mock-up: the source is anonymised `Rock_N` with no locality,
+formation, freshness grading or identified publication, so nothing here is a
+reportable benchmark number. Shaped into `RealRockBenchmark` so every shipped
+plot function runs unmodified; the five canonical canvases were produced on
+`joint_heads_allrock_tuned_seed0`, and the shipped du Bray figures re-ran
+byte-identical afterwards.
+
+Compatibility, measured first. 7 of 22 input tokens populate (no Ti, no Cr, no
+traces; Cl and S are reported but have no token, and they are what predict the
+halite and pyrite the truth contains). Truth resolves 5 of the 7 groups --
+olivine and biotite appear in zero rocks -- and 43% of measured modal mass
+(carbonates, evaporite, sulfide, clays) has no slot in the 21-phase vocabulary
+(off-vocabulary share p5 0.151, median 0.426, p95 0.641). Chlorite, dropped
+from the vocabulary at the <0.1% presence floor on igneous statistics, is in
+100% of Andrews rocks. The tokenised inputs also sit on a different scale:
+implied oxide total median 59.3 wt% against ~98 for gard and ~99.7 for du
+Bray, because carbonate, water and chloride mass is untokenised. That is a
+40% offset, not the 2% #56 was written around, and it is a confound this
+mock-up does not separate from rock class.
+
+**Result.** No transfer, and the raw score inverts without the null. Joint NLL
+is *lower* on Andrews than on du Bray (7.893 vs 11.638) because sediments are
+an easier forecast -- every rock is feldspar plus quartz, so climatology scores
+-5.301. Against their own nulls the model is +13.194 nats on Andrews and
++10.111 on du Bray. Presence Brier 0.34 against a 0.027 null; 80% intervals
+cover 50%. The model calls quartz in 23% of rocks that all contain it (-77 pp)
+and olivine in 46% that contain none.
+
+The resolution term is not evidence of anything: four of seven groups have
+zero presence variance on Andrews (fsp 1.000, q 1.000, ol 0.000, bi 0.000) and
+climatology's resolution is also exactly 0, so there is nothing for either to
+resolve. The failure is reliability, which is the kind a correction layer can
+in principle address.
+
+The encoder contrast is the load-bearing result. Igneous-tuned against
+all-rock-tuned on the same 605 rocks, paired, all-rock minus igneous:
+presence **-1.156** [-1.470, -0.842], composition **+3.583** [+3.134, +4.021],
+joint **+2.427** [+1.813, +3.047]. Pretraining on sedimentary chemistry made
+the model measurably better at knowing which minerals are present and worse at
+sizing them, net worse, with both arms 10.8 and 13.2 nats behind ignoring the
+rock. The composition regression carries #60's signature -- broader training
+sharpening the size distribution in a direction real rocks do not support --
+and the per-group ratios agree, all-rock being more extreme in both directions
+(amp x4.54 -> x8.77, fsp x0.64 -> x0.39). This is an arm contrast, not an
+encoder-only ablation: each arm carries its own tuned head dials.
+
+Per-group magnitude ratios flip sign wholesale between the two benchmarks
+(du Bray then Andrews, same checkpoint): fsp x1.14 / x0.39, px x0.76 / x2.42,
+amp x0.92 / x8.77, opq x0.34 / x3.39, q **x2.01 / x1.01**. A correction layer
+fit on du Bray is not portable across rock class. The quartz entry is
+supporting evidence for #57 from a test that could have refuted it: the
+over-call vanishes exactly where the proposed mechanism cannot operate, since
+a sandstone has no glass and its quartz is detrital.
+
+Side measurement, since Andrews has no units to cluster on: on du Bray the
+per-rock bootstrap is **2.08x narrower** than the unit-clustered one (135
+units, 640 rocks). Andrews intervals are the per-rock kind and are captioned
+with that factor.
+
+**Framing (owner, in progress).** The sediment failure becomes structure
+rather than an aside: preempt the reviewer who is unsurprised that an igneous
+pipeline scored on igneous rocks, and point future work at simulating
+sedimentary samples, which the workshop is about. The measured claim is
+*not* "broadening the encoder changed nothing" -- it is the division of labour
+above, representation breadth improving recognition and leaving quantification
+untouched, which localises the gap to head supervision. Existing results that
+carry the same load: the ledgered igneous-vs-all-rock du Bray contrast is a
+tie (-0.209 [-0.460, +0.090]); #55 measured the all-rock encoder ~0.7-1pp
+*under* the igneous one on igneous probes; #60 measured the real-rock axis
+flat across 16x corpus scaling; #52 measured ~26 labelled real rocks
+recovering ~77% of the magnitude gain. Open: whether the headline swaps to
+igneous-tuned canon (narratively cleaner, costs re-running the recalibrator,
+the #52 curve and the figures against the freeze) or keeps all-rock-tuned and
+inverts the rhetoric (free, and puts the sediment-aware encoder inside the
+claim rather than beside it). Also open, and #53 is the experiment for it:
+the claim that the encoder is not the limitation is currently inferred, not
+controlled.
+
+**Next.** Andrews stays a `tmp/` mock-up until provenance is identified (#63
+workstream 2). The vocabulary, not just the label source, is a cap on any
+sedimentary extension: clays, carbonates and evaporites are low-temperature
+diagenetic products outside MAGEMin's regime, so "simulate sediments" means a
+different generator and a vocabulary extension, not the current pipeline
+pointed at sediment bulks.
