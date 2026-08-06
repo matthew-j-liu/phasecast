@@ -5545,3 +5545,83 @@ claim).
 **Next.** Ship-flow figures for the promoted model; deck refresh rides
 the paper-analysis session; the recalibrator design conversation opens
 that session.
+
+## 2026-08-05 -- Recalibrator tailed tier: the contamination term earns the whole gain, the silica slopes measure nothing
+
+**Q.** The 2026-07-31 decomposition prescribed two recalibrator extensions --
+an SiO2 location term on the magnitude side and heavier-tailed magnitude
+structure. Built as the `tailed` tier on the frozen production stack, do they
+deliver on the four criteria fixed before the code was written?
+
+**Context.** Design ratified with the owner before code: `tailed` = matrix
+plus (1) pure-location silica slopes on px/bi/q -- tilt then rescale the free
+block so total concentration is exactly preserved, keeping the amp pin's
+letter and spirit -- and (2) a shared two-parameter precision contamination:
+with fitted probability eps the forecast Dirichlet is diluted by fitted
+factor k, mean-preserving by construction, identity at init via k=1.
+`vector`/`matrix` stay frozen semantically so matrix-stamped verdicts remain
+reproducible; eps/k/slopes are ordinary train-fit parameters (no selection on
+the reporting slice beyond the standing weight-decay grid, which picked an
+interior optimum at 1.0: val 3.35/2.55/3.56 at wd 0.1/1/10). Instrument:
+`explorations/real_rock_fewshot/run_tailed_acceptance.py`, fit on the
+368-rock train roster, reported on val 111 (test untouched).
+
+**Result, against the pre-registered criteria.** (a) PASS, decisive: paired
+unit-bootstrap val joint NLL, matrix minus tailed +0.311 [+0.058, +0.660]
+(levels 1.277 -> 0.965), entirely in the Dirichlet term. (d) PASS: presence
+term flat to three decimals (the hurdle factorizes; the upgrade is
+magnitude-side only). (b) PARTIAL, informative: median interval widths are
+flat (no vacuous widening) but stated-80% coverage barely moves (px
+0.75->0.77, bi 0.68->0.70, opq 0.74->0.76, q 0.61->0.55). The NLL-optimal
+contamination (eps 0.052, k 0.51) fattens the tails beyond the 10-90
+quantiles rather than widening the central interval -- proper-score repair,
+not stated-interval repair, consistent with the decomposition's finding that
+nominal coverage is only reachable vacuously. (c) FAIL: Spearman(residual,
+SiO2) is unchanged (px 0.38->0.41, bi 0.53->0.53, q 0.51->0.53; note the
+matrix fit had itself already worsened q's from the 0.37 zero-shot value).
+Attribution ablation (frozen-term refits, same protocol): the contamination
+alone is the whole gain, +0.306 [+0.051, +0.660]; the slopes add +0.007
+[-0.004, +0.016] -- statistically nothing, fitted values tiny and q's
+negative against the marginal residual trend. Mechanism check: the median
+rock is a wash (-0.007); the gain concentrates exactly where the design
+aimed -- +0.471 mean on the 67% of val rocks with at least one group outside
+the matrix interval, -0.007 on fully covered rocks, top-5 rocks carrying
+roughly the entire net gain. Insurance against heavy-tail misses, purchased
+at ~log(1-eps) on well-covered rocks.
+
+**Also.** The coverage-and-sharpness panel is restored as the fifth promoted
+canvas (#59) via `plot_coverage_sharpness` + `mixture_share_interval`
+(bisected mixture quantiles); headline aggregation is equal weight per group,
+now stated in the captions of both group-aggregating panels (#58). Internal
+reference, never for the paper: climatology val joint 2.175 vs tailed 0.965
+-- the recalibrated production stack now clears the bar the zero-shot arms
+lost to.
+
+**Decision.** Owner adjudication pending at the debrief: keep or excise the
+silica slopes (measured at nothing; parsimony argues excise, the
+decomposition's evidence argued for them). The tailed tier becomes the
+headline transfer instrument going forward; rendered verdicts stay stamped
+to the matrix tier that produced them.
+
+**Next.** Few-shot curve re-run on production with vector/matrix/tailed (mlp
+off the curve per #52); then the padded-redox calibration eval; then
+provenance swaps + deck.
+
+## 2026-08-06 -- Silica slopes excised: tailed = matrix + precision contamination
+
+**Decision (owner).** The silica location term measured +0.007 [-0.004,
++0.016] nats against the full tailed fit -- statistically nothing -- so it is
+removed rather than shipped as three dead parameters. The canonical
+recalibration layer going forward is the `tailed` tier = matrix scaling plus
+the two-parameter precision contamination. Re-measured after excision on the
+production stack (same instrument, same protocol): val joint 1.277 -> 0.972,
+matrix minus tailed +0.304 [+0.049, +0.659], all in the Dirichlet term,
+presence flat; fitted eps 0.052, k 0.507; coverage/width table unchanged
+within noise. The per-group Spearman(residual, SiO2) diagnostic stays in the
+acceptance JSON; the silica hypothesis (from the 2026-07-31 decomposition) is
+recorded as tested and refuted at the joint-likelihood level -- the marginal
+correlation is real, but a location term cannot monetize it against the
+shared-simplex cost.
+
+**Next.** Few-shot curve re-run on production (vector/matrix/tailed),
+owner-run; then padded-redox calibration; then provenance swaps + deck.
