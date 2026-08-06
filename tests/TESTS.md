@@ -268,7 +268,8 @@ rename, or repurpose a test) updates this file in the same change.**
 25. `TestRedoxTokenWidth::test_redox_table_has_one_extra_row` -- `include_redox_token=True` widens the table by exactly one row.
 26. `TestRedoxTokenWidth::test_redox_row_reinitialized_nonzero` -- the REDOX_TOKEN_ID row is re-initialized non-zero (learnable, distinct from padding).
 27. `TestRedoxTokenWidth::test_redox_forward_pools_23_tokens` -- a 23-token batch with a populated redox slot pools to a finite [B, d_model] latent.
-28. `TestRedoxTokenWidth::test_width_mismatch_fails_loudly` -- loading a 22-token state dict into a redox-width model raises (no silent wrong-width scoring).
+28. `TestRedoxTokenWidth::test_padded_redox_slot_reproduces_the_22_token_latent` -- a padded 23rd slot is a no-op: 22-token and padded-23-token inputs pool to the same latent, the property the production heads config relies on.
+29. `TestRedoxTokenWidth::test_width_mismatch_fails_loudly` -- loading a 22-token state dict into a redox-width model raises (no silent wrong-width scoring).
 
 ### test_fractional_encoder.py
 
@@ -604,6 +605,13 @@ Tests for archived explorations (moved to `explorations/archive/`,
 3. `test_point_config_overrides_only_the_subset_keys` -- per-point configs change only checkpoint dir + subset knobs + seed, drop stale subset keys from the base, and leave the base dict untouched.
 4. `test_point_record_parses_both_axes` -- `corpus_scaling_n*` / `corpus_scaling_d*` tags parse into bulk/draw axis coordinates with the right nominal row counts and per-phase metrics.
 5. `test_last_doubling_deltas` -- the slope table compares the two largest bulk points only (draw points excluded) and is empty with fewer than two.
+
+### test_redox_padding.py
+
+1. `test_padded_on_the_curve_recovers_its_ratio` -- a padded latent placed exactly at a grid ratio is reported nearest to that ratio, at zero distance from the sweep curve.
+2. `test_padded_tracking_the_rock_shows_up_as_correlation` -- when each bulk's padded latent sits at that bulk's own ratio, r_star-vs-r_true correlates ~1 (the statistic separating a conditional guess from one global default).
+3. `test_constant_offset_reads_as_a_shared_direction` -- a common off-curve displacement reports near-parallel directions and is removed by the offset correction.
+4. `test_input_features_exclude_the_redox_slot` -- the missingness arms build values + presence flags over the 22 element slots only, never the target's own slot.
 
 ### test_real_rock_mapping.py
 

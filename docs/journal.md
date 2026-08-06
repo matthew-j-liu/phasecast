@@ -5762,3 +5762,80 @@ headline contrast is unaffected: it compared `measured` against
 
 **Next.** Padded-redox eval design, populated arm scoped to the `measured`
 tier per the owner's confirm (75 val bulks).
+
+## 2026-08-06 -- Padded redox does not marginalize: it is a low default, and the blank itself is a provenance signal
+
+**Q.** The docs describe a padded Fe-redox token as marginalizing implicitly
+over the unknown ratio. Padding is the deployment regime and not by choice, so
+does the padded state actually behave like an average over plausible redox, or
+like something else?
+
+**Context.** Three facts found while verifying the setup reshaped the
+question before any code. The production heads train, validate and deploy at
+22 tokens -- the pad-dropout knob left open on the cascade-2 handoff was never
+turned, it was resolved by omission, so the heads have never seen the slot
+populated. The eruption-v2 benchmark cannot populate it at all: `samples.csv`
+carries only `feo_tot` / `fe2o3_tot`, which are total-iron reportings, so 0 of
+640 rocks qualify. Consequently a forecast-level padded-vs-populated contrast
+on the frozen heads would confound "the encoder fails to marginalize" with
+"the heads met an input distribution they never saw," and the well-posed
+question lives at the encoder, which did see both regimes (24.1% populated in
+pretraining, no dropout). Measured in `explorations/redox_padding`, label-free
+throughout, on the 3070 `measured`-tier bulks (the tier that coincides exactly
+with the tokenizer's populated condition) and the 787,721-row SSL corpus. The
+owner scoped this to the descriptive measurements; pricing what padding costs
+on the labels, and any populated-arm retrain, are parked.
+
+**Result.** Four readings, and the claim fails on three of them.
+
+Padding is exactly a no-op: a padded 23-token input reproduces the 22-token
+latent to 0.0 absolute difference on the production weights. Nothing in the
+token path is position-aware, `src == 0` masks the slot out of attention, and
+the pool divides by the non-padding count. The production config's one-regime
+assumption is correct and is now pinned by a unit test rather than an
+argument.
+
+The token is not inert -- sweeping the ratio over 0.05-0.95 moves a bulk's
+latent by 26% of the median between-rock distance (p10-p90 0.20-0.33) -- but
+the padded state sits off the populated family rather than inside it: 0.52 of
+the sweep's own span from the nearest curve point, 0.31 after stripping the
+displacement component shared by every bulk (padding drops a token from the
+pool, so part of the gap is arithmetic; the shared direction is real, median
+pairwise cosine 0.62). Where it lands imitates a low fixed ratio -- nearest
+grid value median 0.15 raw, 0.25 offset-corrected, against a measured-tier
+true median of 0.33 -- and it barely tracks the individual rock: Pearson 0.23,
+Spearman 0.18, unchanged by the correction. A marginalizing state would track
+the rock; a global-default state would not.
+
+There is also little conditional to marginalize over. The imputation head
+recovers the redox slot at log-space R2 0.307 against 0.766-0.944 for all 22
+elements -- the petrologically expected answer, since the same composition
+crystallizes under different fO2, and it means any honest conditional over
+redox is wide.
+
+And the blank is not neutral. Whether a row reported the pair is predictable
+from the rest of the composition at AUROC 0.907 (raw inputs, 22 values plus
+presence flags, redox excluded), and the frozen padded latent carries
+essentially all of it at 0.898. The top features are trace presence flags (Th,
+Yb, Nd), not compositions: measured-pair analyses are overwhelmingly older
+(97% pre-1970, 10% post-2010) and older analyses ran different trace panels.
+This refutes the read offered in the 2026-08-06 provenance-tier entry, that
+the compositional flatness of the tiers made a provenance-indicator effect
+unlikely -- flat major-element distributions did not stop the encoder, because
+the signal is in which traces were run, not in what the rock is. PR-AUC (0.849
+/ 0.832) reads against the test slice's 0.374 base rate, not the corpus 0.241;
+the pinned roster over-represents measured rows by construction.
+
+**Decision.** The padded slot is a distinct learned "no speciation reported"
+state, not an implicit average over redox: it behaves like a low default, does
+not adapt to the rock, and is legible to the encoder as a fact about the
+analysis. Nothing here argues against the production configuration -- training
+and deployment share one regime, that regime is forced by what real rocks
+report, and the equivalence making it coherent is now tested. What goes is the
+mechanism story attached to it; the doc wording is the owner's to place.
+
+**Next.** Provenance swaps and the deck, which is where the encoder-doc
+wording (still "fed where measured", against the locked populated/padded
+terminology) gets corrected. Pricing probe and populated-arm retrain stay
+parked; the retrain re-scores if the real-data session finds a benchmark
+carrying FeO and Fe2O3.

@@ -242,6 +242,27 @@ class TestRedoxTokenWidth:
         assert out.shape == (4, 64)
         assert torch.isfinite(out).all()
 
+    def test_padded_redox_slot_reproduces_the_22_token_latent(self) -> None:
+        """A padded 23rd slot is a no-op: it is masked out of attention and
+        excluded from the pool's denominator, and nothing in the token path
+        is position-aware.  Production relies on this -- the joint-heads
+        config feeds 22 tokens to this 23-token encoder and treats the two
+        as one regime, so a change that made the padded slot contribute
+        would silently move every production number.
+        """
+        encoder = Encoder(
+            d_model=64, n_layers=1, n_heads=4, include_redox_token=True,
+        )
+        src, frac = _make_batch(batch_size=4)
+        pad_col_src = torch.zeros((4, 1), dtype=src.dtype)
+        pad_col_frac = torch.zeros((4, 1), dtype=frac.dtype)
+        narrow = encoder(src=src, frac=frac)
+        wide = encoder(
+            src=torch.cat([src, pad_col_src], dim=1),
+            frac=torch.cat([frac, pad_col_frac], dim=1),
+        )
+        assert torch.allclose(narrow, wide, atol=1e-6)
+
     def test_width_mismatch_fails_loudly(self) -> None:
         """A 22-token state dict must not load into a redox-width model:
         strict load_state_dict is the guard against silently scoring a
