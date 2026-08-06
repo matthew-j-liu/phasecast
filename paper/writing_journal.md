@@ -363,3 +363,29 @@ built), then build after structure approval. Standing:
 owner nominates one reciprocal reviewer at submission; reconcile
 788k-vs-760k pretrain count and the exact recalibrator parameter count
 before those macros ship.
+
+## 2026-08-05 -- citation workflow: Zotero owns the bibliography
+
+**Owner decision.** The compile-time bibliography is Zotero linked to
+Overleaf; the owner manually finds and adds to Zotero whichever of the
+paper thread's citations prove helpful. Consequences:
+
+- literature/references.bib demotes from "the bib the paper compiles"
+  to a staging/reference pool. Nothing bib-related needs uploading to
+  Overleaf (supersedes the session-3 line about references.bib going up
+  at the citation pass). The root CLAUDE.md still describes
+  references.bib as "the BibTeX the paper compiles" -- stale now;
+  owner's call whether to touch it.
+- literature/claims.md is unchanged as the working artifact: the
+  claim -> citation map, roles, do-not-cite warnings, verification
+  status. Its slugs (bissiri2016general, ...) are internal names, not
+  necessarily the citekeys Zotero exports. At the [cite]-replacement
+  pass, resolve keys against the Overleaf/Zotero bib, not
+  references.bib.
+- The citation-verification queue item's deliverable changes shape:
+  verified identity + primary-source locator (DOI / full citation) per
+  entry -- pillars first, then the K/L sets, which need identification
+  from primary sources (the exact Minerals 2025 paper, the
+  features-are-fate authors/venue, the NRMP primer), not just field
+  checks -- handed to the owner for Zotero ingestion, not authored as
+  bib entries.
