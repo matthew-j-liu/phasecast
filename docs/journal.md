@@ -5654,3 +5654,57 @@ which tier was fit.
 
 **Next.** Padded-redox calibration eval (gates the implicit-marginalization
 claim); then provenance swaps + deck.
+
+## 2026-08-06 -- #60 corpus scaling on the real-rock axis: flat, not data-limited; broad-draw regen dead; background thread pivots to real data
+
+**Q.** Does #27's corpus-side scaling (0.25-0.3 nats/doubling, no
+saturation) survive re-measurement with the real-rock benchmark as the
+y-axis -- and does a larger broad-draw regen pay?
+
+**Context.** The #27 ladder retrained on the frozen production stack
+(all-rock encoder, trial-32 dials, old broad-draw corpus, 120 epochs):
+nested md5 subsets 625/1250/2500/5000 under new `corpus_scaling_allrock_`
+tags, n10000 = the production checkpoint itself, plus a seed-1 repeat at
+2500 to price training noise. Each point scored corpus-side
+(valtest128-broad val), zero-shot (eruption-v2, 640) and recalibrated on
+the val slice (fit on the 368-rock train roster; test untouched).
+Statistics are paired and unit-clustered: all pairwise contrasts plus
+per-rock slopes of adapted NLL on log2(bulks) -- levels on a 111-rock /
+39-unit slice carry more unit noise than per-doubling effects. Scored
+under the matrix tier, then re-scored under the tailed tier the paper
+session shipped the same morning (`run_realrock.py --tier`; tier-suffixed
+results files, zero-shot shared).
+
+**Result.** Corpus-side replicates #27 at the tuned dials: -1.119 ->
+-2.671, monotone, no saturation. The real-rock axis diverges. Zero-shot
+*worsens* with corpus size (7.999 at n625 vs 11.638 at n10000), +3.1 nats
+almost entirely Dirichlet width while presence stays flat -- more data of
+the same kind sharpens confidence real rocks do not support. Adapted val
+under matrix leans harmful (slope +0.114 [-0.043, +0.333] nats/doubling;
+every contrast a tie; seed noise +0.053 [-0.244, +0.375]). Under the
+tailed tier the penalty mostly vanishes -- slope +0.031 [-0.081, +0.176],
+top-of-ladder -0.013 [-0.236, +0.203], point spread 0.54 -> 0.21 nats --
+so the harmful lean was recoverable overconfidence: the width mechanism
+confirmed by intervention, and the traced-regen signature reproduced by a
+different knob (corpus growth instead of draw narrowing). Accuracy is
+insensitive to corpus size across the full 16x range (share MAE
+0.093-0.099, adapted presence NLL 2.87-2.91). Production point
+cross-checks both sessions digit-for-digit (11.638 / 1.277 / 0.972).
+
+**Decision (owner).** No larger broad-draw regen: the real-rock axis is
+flat within ~0.1-0.2 nats/doubling under the canonical instrument, and
+the sim-to-real gap is not a data-quantity problem. #60 closes measured;
+the paper's scaling claim extends from "corpus-side measured, real-rock
+open" to measured-on-both-axes with a dose-response divergence on the
+same five models. The freed background thread pivots: the next session
+finds new real evaluation data and re-audits the existing benchmark chunk
+by chunk (source, extraction path, assumptions, notes per chunk) --
+every transfer verdict currently rests on one dataset, fit and scored on
+slices of itself, and the tailed tier's heavy-tail structure may partly
+encode its visual-estimate measurement style. New-benchmark numbers land
+as new instruments, provenance-scoped, never re-litigating frozen
+verdicts.
+
+**Next.** Real-data session opens with the audit + harvest design; paper
+session still owes the padded-redox calibration eval, provenance swaps,
+deck refresh.

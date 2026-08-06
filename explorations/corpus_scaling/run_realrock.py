@@ -1,22 +1,25 @@
 """Score the corpus-scaling ladder on the real-rock benchmark (#60).
 
   python explorations/corpus_scaling/run_realrock.py
+  python explorations/corpus_scaling/run_realrock.py --tier tailed
   python explorations/corpus_scaling/run_realrock.py --tags joint_heads_allrock_tuned_seed0
 
 Run from the repo root after `run_ladder.py` has trained the
 `corpus_scaling_allrock_*` points. Each point is scored zero-shot on the
-eruption-v2 headline slice (640 rocks) and matrix-recalibrated on the val
-slice, with the recalibrator fit on the full train roster -- the identical
+eruption-v2 headline slice (640 rocks) and recalibrated on the val slice,
+with the recalibrator fit on the full train roster -- the identical
 protocol for every point, so paired differences read as corpus-size effects.
 The test slice was spent 2026-07-31 and is never scored here. Point-to-point
 comparisons are paired unit-clustered bootstraps plus per-rock slopes of
 adapted NLL against log2(bulks); levels alone on a ~110-rock slice carry
 more unit noise than the effects being measured.
 
-Writes `results/scaling_realrock.json` and `results/scaling_realrock.png`;
-`--tags` restricts to named checkpoints and prints levels without writing
-(the production-only smoke run). Zero-shot figures land per point under
-`runs/real_rock/<tag>/` as a side effect.
+Writes `results/scaling_realrock.json` and `.png`; a non-default `--tier`
+suffixes both filenames (`scaling_realrock_tailed.*`) so each instrument
+keeps its own record -- zero-shot numbers are tier-independent and are
+reused from `runs/real_rock/<tag>/metrics.json` when present. `--tags`
+restricts to named checkpoints and prints levels without writing (the
+production-only smoke run).
 """
 
 import os
@@ -63,8 +66,8 @@ SEED_REPEAT_N = 2500
 SEED_REPEAT_TAG = "corpus_scaling_allrock_n2500_seed1"
 TOP_OF_LADDER = (2500, 5000, 10000)
 
-RECAL_TIER = "matrix"
-RECAL_WEIGHT_DECAY = 1.0  # selected on val for the matrix tier; run_curve.WEIGHT_DECAY
+# values selected on val per tier; see run_curve.WEIGHT_DECAY
+WEIGHT_DECAY = {"matrix": 1.0, "tailed": 1.0}
 
 
 def assert_nested_rosters() -> None:
@@ -91,15 +94,20 @@ def corpus_val_metrics(tag: str, ckpt_path: Path) -> dict:
     return {k: metrics[k] for k in ("joint_nll", "bernoulli_nll", "dirichlet_nll")}
 
 
-def score_point(tag: str, benchmark, latents, masks, device) -> dict:
+def score_point(tag: str, benchmark, latents, masks, device, tier: str) -> dict:
     ckpt_path = CHECKPOINTS / tag / "heads_best.pt"
     ckpt = JointHeadCheckpoint.load(ckpt_path)
-    metrics = run_real_rock_eval(ckpt, benchmark, latents, device=device, tag=tag)
+    zero_shot_path = REPO / "runs" / "real_rock" / tag / "metrics.json"
+    if zero_shot_path.exists():
+        metrics = json.loads(zero_shot_path.read_text())
+    else:
+        metrics = run_real_rock_eval(ckpt, benchmark, latents, device=device,
+                                     tag=tag)
 
     gp = build_group_predictions(ckpt.build_mode_head().to(device),
                                  benchmark, latents)
-    recalibrator = fit_recalibrator(gp.subset(masks["train"]), tier=RECAL_TIER,
-                                    weight_decay=RECAL_WEIGHT_DECAY)
+    recalibrator = fit_recalibrator(gp.subset(masks["train"]), tier=tier,
+                                    weight_decay=WEIGHT_DECAY[tier])
     val = gp.subset(masks["val"])
     zero_val = score_recalibrator(None, val)
     adapted = score_recalibrator(recalibrator, val)
@@ -134,7 +142,7 @@ def clustered_slope(per_rock: dict[int, np.ndarray], unit: np.ndarray,
 
 
 def make_figure(points: list[dict], contrasts: dict, slopes: dict,
-                repeat: dict | None, out_path: Path) -> None:
+                repeat: dict | None, out_path: Path, tier: str) -> None:
     import matplotlib.pyplot as plt
 
     ladder = [p for p in points if p["seed"] == 0]
@@ -144,7 +152,7 @@ def make_figure(points: list[dict], contrasts: dict, slopes: dict,
     panels = [
         ("corpus val joint NLL", [p["corpus_val"]["joint_nll"] for p in ladder]),
         ("zero-shot 640 joint NLL", [p["zero_shot_640"]["joint_nll"] for p in ladder]),
-        ("adapted val joint NLL", [p["adapted_val"]["joint"] for p in ladder]),
+        (f"adapted val joint NLL ({tier})", [p["adapted_val"]["joint"] for p in ladder]),
     ]
     full_level = ladder[-1]["adapted_val"]["joint"]
     for ax, (label, values) in zip(axes, panels):
@@ -160,12 +168,14 @@ def make_figure(points: list[dict], contrasts: dict, slopes: dict,
     # the full-N point, re-anchored at its own level (paired mean of deltas
     # equals the level difference exactly, same rocks)
     ax = axes[2]
-    for p in ladder[:-1]:
-        boot = contrasts[f"n{p['n_bulks']} - n10000"]
-        level = full_level + boot["mean"]
-        ax.errorbar(p["n_bulks"], level,
-                    yerr=[[boot["mean"] - boot["lo"]], [boot["hi"] - boot["mean"]]],
-                    fmt="none", ecolor="0.5", capsize=3)
+    xlim = ax.get_xlim()
+    boots = [contrasts[f"n{p['n_bulks']} - n10000"] for p in ladder[:-1]]
+    ax.errorbar([p["n_bulks"] for p in ladder[:-1]],
+                [full_level + b["mean"] for b in boots],
+                yerr=[[b["mean"] - b["lo"] for b in boots],
+                      [b["hi"] - b["mean"] for b in boots]],
+                fmt="none", ecolor="0.5", capsize=3)
+    ax.set_xlim(xlim)  # errorbar on a log axis wrecks the autoscale window
     if repeat is not None:
         ax.plot(SEED_REPEAT_N, repeat["adapted_val"]["joint"], "s",
                 mfc="none", color="black", label="seed 1")
@@ -189,6 +199,10 @@ def main() -> None:
         "--tags", default=None,
         help="comma-separated checkpoint tags to score alone (prints levels, "
              "writes nothing; the pre-ladder smoke run)",
+    )
+    parser.add_argument(
+        "--tier", choices=sorted(WEIGHT_DECAY), default="matrix",
+        help="recalibrator tier; non-default suffixes the output filenames",
     )
     args = parser.parse_args()
 
@@ -215,7 +229,7 @@ def main() -> None:
     encoder, _ = load_encoder_from_checkpoint(next(iter(encoder_stamps.values())))
     latents = bulk_latents(encoder.to(device), benchmark, device)
 
-    results = {tag: score_point(tag, benchmark, latents, masks, device)
+    results = {tag: score_point(tag, benchmark, latents, masks, device, args.tier)
                for tag in todo}
     if smoke_tags is not None:
         return
@@ -261,8 +275,8 @@ def main() -> None:
             "benchmark": "eruption-v2",
             "zero_shot_slice": "headline 640 (clean & has_magnitude)",
             "recalibration": {
-                "tier": RECAL_TIER,
-                "weight_decay": RECAL_WEIGHT_DECAY,
+                "tier": args.tier,
+                "weight_decay": WEIGHT_DECAY[args.tier],
                 "fit": f"train roster ({int(masks['train'].sum())} rocks)",
             },
             "reporting_slice": f"val ({int(masks['val'].sum())} rocks / "
@@ -285,13 +299,14 @@ def main() -> None:
                         "contrast_seed0_minus_seed1": repeat_boot},
     }
     RESULTS.mkdir(exist_ok=True)
-    out_path = RESULTS / "scaling_realrock.json"
+    suffix = "" if args.tier == "matrix" else f"_{args.tier}"
+    out_path = RESULTS / f"scaling_realrock{suffix}.json"
     out_path.write_text(json.dumps(out, indent=1))
     print(f"saved {out_path}")
 
-    fig_path = RESULTS / "scaling_realrock.png"
+    fig_path = RESULTS / f"scaling_realrock{suffix}.png"
     make_figure(points, contrasts, slopes,
-                results.get(SEED_REPEAT_TAG), fig_path)
+                results.get(SEED_REPEAT_TAG), fig_path, args.tier)
     print(f"saved {fig_path}")
 
 

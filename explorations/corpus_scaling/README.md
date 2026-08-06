@@ -126,5 +126,37 @@ generating; the owner adjudicates from the numbers.
 
 ### Result
 
-Pending -- the ladder trains next; numbers land in
-`results/scaling_realrock.json` / `.png` and on #60.
+Run 2026-08-06; `results/scaling_realrock.json` / `.png` (matrix tier) and
+`results/scaling_realrock_tailed.json` / `.png` (tailed tier, scored the
+same day it became canonical; zero-shot numbers are tier-independent and
+shared). Plumbing anchors: the n10000 point reproduces the ledger zero-shot
+(11.638) and both recalibrated production numbers (1.277 matrix / 0.972
+tailed) digit-for-digit.
+
+**Corpus-side replicates #27 at the tuned dials; the real-rock axis is
+flat.** Corpus val NLL falls -1.119 -> -2.671 across 625 -> 10000, monotone,
+no saturation. Zero-shot 640 *worsens* with corpus size (7.999 at n625 vs
+11.638 at n10000), +3.1 nats carried almost entirely by the Dirichlet width
+term while presence barely moves: more data of the same kind sharpens
+confidence that real rocks do not support. Recalibrated val under the matrix
+tier leans harmful (0.910 -> 1.277 across the ladder; per-rock slope +0.114
+[-0.043, +0.333] nats/doubling; all ten pairwise contrasts include zero;
+seed repeat at n2500 prices training noise at +0.053 [-0.244, +0.375]).
+
+**The harmful lean is recoverable overconfidence, shown by intervention.**
+Re-scored under the tailed tier (matrix + 2-param heavy-tail precision
+term), the corpus-size penalty mostly vanishes: slope +0.031 [-0.081,
++0.176], top-of-ladder -0.013 [-0.236, +0.203], point spread 0.54 -> 0.21
+nats. Accuracy is insensitive to corpus size everywhere: share MAE
+0.093-0.099 and adapted presence NLL 2.87-2.91 across the full 16x range.
+The width mechanism matches the traced-regen finding (sharper labels, worse
+zero-shot width) produced by a different knob -- corpus growth instead of
+draw narrowing -- which is the mechanism's cross-validation.
+
+### Decision
+
+No larger broad-draw regen: the real-rock axis is flat within ~0.1-0.2
+nats/doubling under the canonical instrument, against 0.25-0.30 corpus-side
+-- the sim-to-real gap is not a data-quantity problem. The freed background
+thread pivots to real-data expansion and a provenance audit of the existing
+benchmark (owner decision 2026-08-06; journal).
