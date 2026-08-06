@@ -16,7 +16,11 @@ Handled here:
 Fe provenance tier per bulk (also the item-10 provenance seed):
     measured         : both `feo` and `fe2o3` reported          -> no assumption
     assumed_class    : only a `_tot` column; class ratio applied
-    derived_partial  : one of feo/fe2o3 + a `_tot`; remainder derived
+    derived_partial  : one of feo/fe2o3 + a `_tot`; remainder derived (a real
+                       per-rock ratio).  Also a lone feo/fe2o3 with no total,
+                       which is treated as total iron and takes the class
+                       ratio; that path dominates the tier, so the name
+                       oversells how much of it carries redox information.
     no_iron          : no Fe info at all
 """
 

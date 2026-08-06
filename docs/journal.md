@@ -5708,3 +5708,57 @@ verdicts.
 **Next.** Real-data session opens with the audit + harvest design; paper
 session still owes the padded-redox calibration eval, provenance swaps,
 deck refresh.
+
+## 2026-08-06 -- Fe provenance tiers audited: `derived_partial` is mostly class-assumed, and the missingness tracks publication era, not composition
+
+**Q.** The padded-redox eval needs to know which corpus bulks carry a real
+per-rock Fe3+/total-Fe value. Where does the redox information actually live,
+and does each stamped tier mean what its name says?
+
+**Context.** Tabulated all 10,500 production-corpus bulks (10,000 train, 221
+val, 278 test, 1 unassigned) against `split_fe`'s branch structure and
+gard2019's source metadata: publication year, `data_source`, `qap_name`,
+SiO2. Read-only.
+
+**Result.** Tier counts: measured 3070, derived_partial 3095, assumed_class
+4335 (train 2915/2959/4126, val 75/56/90, test 80/79/119). The middle tier
+does not mean what its name says. Only 81 of its 3095 bulks come from the
+documented "one of feo/fe2o3 plus a `_tot`, derive the remainder" branch and
+carry a real per-rock ratio; the other ~3014 reported a lone `feo` (1742) or
+lone `fe2o3` (1259) with no total, which `split_fe` treats as total iron and
+splits with the same Middlemost class lookup `assumed_class` gets. Real
+accounting: 3151 of 10,500 bulks (30%) carry per-rock redox, 7349 (70%) carry
+a number that is a deterministic function of `qap_name`. Visible in the values
+themselves -- 3029 distinct ratios across 3070 measured bulks, 36 across 4335
+assumed_class. The SSL token's populated condition (raw `feo` and `fe2o3` both
+> 0) coincides with the `measured` tier exactly, verified by join: no bulk is
+populated for the encoder but class-assumed for the generator, or the reverse.
+
+Where the measured ones come from is publication era, overwhelmingly.
+Pre-1970 analyses are 97% measured, 1970s 88%, 1980s 53%, 1990s 32%, 2000s
+18%, 2010+ 10% (year missing for 38% of bulks). Ferrous titration was routine
+before XRF and ICP; the compilations inherit whatever the source paper
+published. By database, georoc supplies most of the measured mass (1782) at
+29%, the small regional compilations run high (ozchem 79%, geoatlas 60%,
+earthchem-usgs 49%), and earthchem navdat/petdb contributes zero measured
+bulks. By rock class the rate is flat: 26-48% across the top twelve
+`qap_name` values, median SiO2 52.9 measured vs 53.8 assumed_class.
+
+That last part revises a standing phrasing. The #46 exploration named "the
+historical wet-chemistry mafic bias" as the confound it controlled for within
+supergroups; the era half is emphatically right, the mafic half is not -- the
+tiers are compositionally near-identical. Whether a bulk has measured
+speciation is mostly a fact about when and where its analysis was published,
+which is not something a chemical analysis exposes. That makes the padded
+state less likely to act as a provenance indicator than assumed, and turns a
+worry into a directly testable question.
+
+**Correction of record.** `magemin_oxides.py`'s tier docstring described only
+the 81-bulk branch; corrected in this change to name both paths and say which
+one dominates. The 2026-05-12 entry's T2c line has the same gap and stands as
+written -- the log is append-only and this entry is the correction. #46's
+headline contrast is unaffected: it compared `measured` against
+`assumed_class` by name, so the ambiguous tier never entered the number.
+
+**Next.** Padded-redox eval design, populated arm scoped to the `measured`
+tier per the owner's confirm (75 val bulks).
