@@ -177,10 +177,19 @@ Next, one change at a time, each judged on the real-rock benchmark:
    prior); a single gate-offset recalibration parameter recovers ~60%
    of the penalty, to a tie, never a win. `joint_heads_allrock_mixture_
    seed0` stays on disk as the K=2 reference; no ledger entries.
-3. **Recalibrator upgrades** (now active) against the K=1 default
-   reality: SiO2 magnitude-side term and constant offsets needed
-   regardless; heavy-tail extension un-mooted by the mixture verdict;
-   gate-offset term only if K>1 is ever fielded.
+3. **Recalibrator upgrades -- COMPLETE, verdict 2026-08-06** (journal
+   2026-08-05/06). The `tailed` tier -- matrix plus a two-parameter
+   mean-preserving precision contamination -- is the canonical
+   recalibration layer and headline transfer instrument: val joint
+   1.277 -> 0.972, +0.304 [+0.049, +0.659] over matrix, the gain
+   concentrated on interval-miss rocks (score repair, not
+   stated-interval repair). The SiO2 magnitude-side term was built,
+   measured at +0.007 [-0.004, +0.016], and excised; the gate-offset
+   term stays contingent on K>1 ever fielding; rendered verdicts stay
+   stamped to the matrix tier. The #52 few-shot curve re-ran on
+   production: matrix and tailed indistinguishable at ~26 rocks,
+   tailed wins every paired draw from 50 rocks up, and ~26 rocks
+   still recover ~77% of the magnitude gain.
 4. **#60 real-rock-axis corpus scaling** (now unblocked) -- decides
    whether a larger broad-draw regen is generated. Prioritized over
    #55 encoder re-HPO for the NeurIPS window: the corpus axis owns

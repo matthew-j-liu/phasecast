@@ -193,9 +193,14 @@ the figure annotates each width ceiling with the `k` that buys it, so a bar at
 - `run_curve.py` -- the sweep, the figures, `results/<tag>/curve.json`
 - `run_residual_decomposition.py` -- width-vs-location residual decomposition
   after the fit, `results/<tag>/residual_decomposition.{json,png}`
+- `run_tailed_acceptance.py` -- the tailed-vs-matrix acceptance read and the
+  three-arm coverage/sharpness figure, `results/<tag>/tailed_acceptance.json`
 - `results/joint_heads_supportmag_seed0/learning_curve.png` -- the deliverable
 - `results/joint_heads_supportmag_seed0/curve_by_units.png` -- priced in eruptions
+- `results/joint_heads_allrock_tuned_seed0/learning_curve_val.png` -- the
+  production re-run with the tailed tier
 
-Backing: journal 2026-07-25 (curve), 2026-07-31 (decomposition),
+Backing: journal 2026-07-25 (curve), 2026-07-31 (decomposition), 2026-08-05/06
+(tailed tier + production curve re-run),
 `results/real_rock_ledger.yaml` (`eruption-v2`),
 `explorations/real_rock_mapping/` (the truth mapping this rests on).
