@@ -1,0 +1,18 @@
+{
+  "benchmark": "eruption-v2",
+  "n_rocks": 640,
+  "n_units": 135,
+  "statistic": "presence Brier, per group and mean",
+  "width_ratio_clustered_over_per_rock": {
+    "fsp": 1.7363133791195047,
+    "px": 2.4273814983163926,
+    "amp": 2.058345426900948,
+    "bi": 2.474088358638316,
+    "ol": 2.023842875498183,
+    "opq": 1.56822510145152,
+    "q": 2.2645116906761475,
+    "mean": 2.052098629404033
+  },
+  "summary_ratio_mean": 2.0756008700006308,
+  "summary_ratio_median": 2.0552220281524907
+}
