@@ -1,0 +1,60 @@
+{
+  "checkpoint": "checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt",
+  "n_flagged": 15,
+  "merges": [
+    {
+      "val_unit": "Trachyandesite of Mt. Biedeman, magma bleb",
+      "train_unit": "trachyandesite of mt. biedeman"
+    },
+    {
+      "val_unit": "Trachyandesite of Mt. Biedeman, plug",
+      "train_unit": "trachyandesite of mt. biedeman"
+    },
+    {
+      "val_unit": "Trachyandesite of Masonic, plug in",
+      "train_unit": "trachyandesite of masonic"
+    },
+    {
+      "val_unit": "Trachyandesite of Masonic, plug",
+      "train_unit": "trachyandesite of masonic"
+    },
+    {
+      "val_unit": "Eureka Valley Tuff, middle, By-Day Member",
+      "train_unit": "eureka valley tuff"
+    },
+    {
+      "val_unit": "Eureka Valley Tuff, upper, Upper Member, upper part",
+      "train_unit": "eureka valley tuff"
+    },
+    {
+      "val_unit": "Eureka Valley Tuff, lower, Tollhouse Flat Member",
+      "train_unit": "eureka valley tuff"
+    },
+    {
+      "val_unit": "FractionTuff",
+      "train_unit": "fraction tuff"
+    },
+    {
+      "val_unit": "Rhyodacite of Donovan Peak?",
+      "train_unit": "rhyodacite of donovan peak"
+    },
+    {
+      "val_unit": "Heller Tuff?",
+      "train_unit": "heller tuff"
+    }
+  ],
+  "val": {
+    "all": {
+      "n": 111,
+      "zero_shot_joint": 13.44363703061916,
+      "tailed_joint": 0.9724701044881684
+    },
+    "leak_free": {
+      "n": 96,
+      "zero_shot_joint": 13.88071754105018,
+      "tailed_joint": 0.8850448629805681
+    }
+  },
+  "leak_free_minus_all_tailed": -0.08742524150760034,
+  "verdict": "flagged rocks are harder than the rest -- no leak signature"
+}

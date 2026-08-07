@@ -162,22 +162,60 @@ Four data facts that surface only here, all encoded in the loader:
   benchmark appendix reads from these rather than from hand-copied numbers.
 - `run_pointcount_contrast.py` -> `results/<tag>/pointcount_contrast.{json,png}`:
   the frozen stack scored against both rulers on the 64 rocks that carry both.
+- `run_unit_leakage.py` -> `results/<tag>/unit_leakage.json`: whether the
+  fragmented unit key leaks eruptions into val, measured rather than repaired.
+  An over-permissive merge rule flags every val rock that might share an
+  eruption with a train rock, and val is scored with and without them under the
+  same fitted layer.
+- `run_scale_convention.py` -> `results/<tag>/scale_convention.json`: the frozen
+  stack scored on both analytical-total conventions (issue #56). du Bray's
+  majors are published recalculated to 100 volatile-free, which the workbooks'
+  `Total_I_pct` / `Volatile_pct` pair makes invertible per rock, so the
+  benchmark can be put back on the raw convention gard2019 carries.
 
 ## TODOs before this is a locked benchmark
 
 - freshness QC beyond `AltExtnt` (oxide totals / LOI thresholds).
-- the harvest reads 8 of 42 petrography columns and 24 of 68 chemistry columns.
-  Unread and relevant: `Cpx_Opx` (the cpx/opx split, populated on 357 rocks,
-  against a `px` group the eval currently lumps), `ClrIndx` (an independent
-  color-index estimate on 714 rocks, a free cross-check on the abundances),
-  `chem_src` (per-analysis provenance, DS 1099) and `Total_I_pct` (analytical
-  total, bearing on issue #56).
+- the harvest reads 8 of 42 petrography columns and 24 of 68 chemistry columns,
+  and never opens Appendix 1 (the sample catalog) in either source. What the
+  DS 764 / DS 1099 pamphlets' "Data Fields" sections define the unread ones to
+  be, checked against the files:
+  - `Cpx_Opx` is presence plus a dominance ordering (`C`, `O`, dominant
+    uppercase, subordinate lowercase, both uppercase = roughly equal), **not a
+    numeric ratio**. 357 benchmark rocks carry it; 299 name a single pyroxene,
+    so the `px` group the eval lumps splits exactly on those, and the other 58
+    would need an invented dominance ratio to split by magnitude.
+  - `ClrIndx` is *defined* as the sum of the hbl/bt/px/ol/opq abundances, and
+    is exactly that sum in the files (745 of 747 DS 764 rows, 416 of 416
+    DS 1099, the two exceptions being source typos). It is arithmetic on
+    columns already read -- **not** an independent cross-check on the
+    abundances.
+  - `Total_I_pct` is the pre-recalculation analytical total and `Volatile_pct`
+    its volatile part; together they reconstruct the un-recalculated majors
+    that issue #56 needs. The published majors are recalculated to 100
+    volatile-free (confirmed: they sum to 100.00 at p5, median and p95), and
+    `(Total_I_pct - Volatile_pct)/100` is the per-rock factor that
+    recalculation applied -- median 1.7% on DS 764, 3.2% on DS 1099.
+  - provenance is `Chem_Src` in DS 764's **Appendix 1** and `chem_src` in
+    DS 1099's Appendix 3, covering 713 of 717 rocks -- but constant at source 4
+    (du Bray and others, unpublished USGS data) on all 509 DS 764 benchmark
+    rocks that carry it, so the variance is confined to the 204 DS 1099 rocks.
+  - Appendix 1 also carries `Strat_Name` (a second unit labeling, below),
+    `Alt_Desc` (the alteration descriptors the freshness TODO above wants),
+    `Ign_Form` (lava / ash-flow tuff / plug) and coordinates.
 - unit labels are the raw source strings, so one eruption can appear under
   several spellings (`Fraction Tuff` / `FractionTuff`, trailing spaces, `?`
-  qualifiers, `, pumice` suffixes). That fragments the clusters the split and
-  the bootstrap group by, and one rock reaches val whose 36 same-unit siblings
-  are in train. Fixing it moves committed split assignments, so it is a
-  separate decision.
+  qualifiers, `, pumice` suffixes): 148 raw spellings collapse to 141 on case
+  and whitespace alone. That fragments the clusters the split and the bootstrap
+  group by, and one rock reaches val whose 36 same-unit siblings are in train
+  (`fractiontuff` is the only normalized key that straddles the committed
+  roster). Appendix 1's `Strat_Name` is a second labeling at the same
+  granularity (144 distinct either way) that disagrees with the petrography
+  column on 91 rows, some substantively rather than by spelling -- four rocks
+  logged as `Heller Tuff` there are `Fraction Tuff` in Appendix 1 -- and
+  regrouping on it would straddle four keys rather than one. So it is not a
+  drop-in authority. Fixing any of this moves committed split assignments, so
+  it is a separate decision.
 - more precision-tier eruptions (Unzen, Soufriere Hills, Colima, Mazama) if the
   benchmark needs weight beyond the coverage tier.
 - nothing pins which revision of the USGS workbooks is on disk: the raw files

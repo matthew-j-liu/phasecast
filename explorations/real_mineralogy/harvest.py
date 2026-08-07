@@ -29,8 +29,9 @@ REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "data" / "real_mineralogy"
 
 # du Bray phenocryst-abundance columns -> (reported name, MAGEMin phase).
-# px is unsplit cpx/opx in the source (Cpx_Opx ratio column exists but is
-# sparsely populated); opq is unsplit magnetite/ilmenite.
+# px is unsplit cpx/opx in the source (the Cpx_Opx column carries presence and
+# a dominance ordering -- `C`/`O`, dominant uppercase -- not a ratio, on 357 of
+# the 717 benchmark rocks); opq is unsplit magnetite/ilmenite.
 DUBRAY_PHASES = {
     "AbdQtz": ("quartz", "q"),
     "AbdAlkFld": ("alkali feldspar", "fsp"),

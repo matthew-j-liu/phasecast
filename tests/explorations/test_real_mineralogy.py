@@ -8,9 +8,12 @@ from cnmineral.eval.real_rock import (
     POINTCOUNT_BASIS,
     VISUAL_BASIS,
     load_benchmark,
+    split_mask,
 )
 from explorations.real_mineralogy import harvest
 from explorations.real_mineralogy import run_composition_tables as tables_script
+from explorations.real_mineralogy import run_scale_convention as scale_script
+from explorations.real_mineralogy import run_unit_leakage as leakage_script
 from explorations.real_mineralogy.harvest import (
     DATA,
     POINTCOUNT_PHASES,
@@ -161,3 +164,83 @@ def test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one():
     for group in ("px", "ol"):
         assert counted.presence[moved, GROUP_INDEX[group]].sum() == 0
     assert np.allclose(counted.magnitude[moved].sum(1), 1.0)
+
+
+def test_undoing_the_recalculation_lands_on_the_raw_analytical_total(tmp_path):
+    """The scale-convention undo reproduces the total the lab actually reported.
+
+    du Bray's published majors are recalculated to sum to 100 volatile-free, and
+    the workbooks record the pre-recalculation analytical total.  Scaling by
+    `(Total_I_pct - Volatile_pct)/100` must therefore put the full major set
+    back on exactly that raw volatile-free total -- if it does not, the factor
+    is being read against the wrong quantity and every number the contrast
+    produces is measuring the wrong translation.
+    """
+    factors = scale_script.scale_factors()
+    out, moved = scale_script.unrecalculated_dir(tmp_path, factors)
+    samples = pd.read_csv(out / "samples.csv")
+    keys = samples["source"] + "|" + samples["sample_id"].astype(str)
+
+    cols = [c for c in scale_script.RECALCULATED_COLS if c in samples.columns]
+    rescaled = keys.isin(set(moved))
+    total = samples.loc[rescaled, cols].sum(axis=1, min_count=1)
+    expected = keys[rescaled].map(factors) * 100.0
+    ok = total.notna() & expected.notna()
+    # a handful of rocks are missing a minor oxide, so the sum falls short of
+    # the target by that oxide rather than by a scaling error
+    assert (total[ok] - expected[ok]).abs().median() < 0.05
+
+    # the truth side must be untouched: this changes chemistry only
+    published = load_benchmark()
+    undone = load_benchmark(out)
+    assert np.array_equal(published.bulk_ids, undone.bulk_ids)
+    assert np.array_equal(published.magnitude, undone.magnitude)
+    assert np.array_equal(published.presence, undone.presence)
+
+
+def test_eruption_merge_rule_splits_prefixes_it_must_not_join():
+    """The leak rule may over-flag, but only along the sub-facies axis.
+
+    Two failure modes would make its answer meaningless in opposite directions.
+    Cutting at the first comma collapses every `Plio-Pleistocene, ...` unit into
+    one era, and plain substring containment lets a bare `Rhyolite` swallow
+    every rhyolite in the benchmark; either would flag most of val and turn the
+    contrast into a comparison of nothing. The comma boundary is what prevents
+    both, so it is asserted rather than assumed.
+    """
+    same = leakage_script.same_eruption
+    norm = leakage_script.normalize_unit
+
+    # sub-facies and qualifiers name the same eruption: these must merge
+    assert same(norm("Heller Tuff"), norm("Heller Tuff ?"))
+    assert same(norm("Fraction Tuff"), norm("FractionTuff"))
+    assert same(norm("Fraction Tuff"), norm("Fraction Tuff, basal vitrophyre"))
+    assert same(norm("Eureka Valley Tuff"),
+                norm("Eureka Valley Tuff, middle, By-Day Member"))
+
+    # distinct units sharing a prefix must NOT merge
+    assert not same(norm("Plio-Pleistocene, rhyolite of Spring Peak"),
+                    norm("Plio-Pleistocene, trachyandesite of Mud Spring"))
+    assert not same(norm("Rhyolite"), norm("Rhyolite of Bodie Hills"))
+    assert not same(norm("Heller Tuff"), norm("Fraction Tuff"))
+
+
+def test_leak_flagging_is_confined_to_val_and_stays_a_minority():
+    """The flag marks val rocks only, and does not swallow the slice.
+
+    Guards the rule against silently degenerating: if a normalization change
+    made it match too broadly, the leak-free arm would shrink toward nothing and
+    the contrast would read as agreement for the wrong reason.
+    """
+    benchmark = load_benchmark()
+    scored = benchmark.clean & benchmark.has_magnitude
+    train = scored & split_mask(benchmark, "train")
+    val = scored & split_mask(benchmark, "val")
+
+    leaking = leakage_script.leaking_mask(benchmark.unit, val, train)
+    assert not (leaking & ~val).any()
+    assert 0 < leaking.sum() < 0.5 * val.sum()
+
+    # every flag is explainable by a named train unit, so the report is complete
+    merges = leakage_script.merge_report(benchmark.unit, leaking, train)
+    assert {m["val_unit"] for m in merges} == set(benchmark.unit[leaking])

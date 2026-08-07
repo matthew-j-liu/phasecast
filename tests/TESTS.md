@@ -641,6 +641,9 @@ Tests for archived explorations (moved to `explorations/archive/`,
 4. `test_derived_percent_reproduces_the_published_block` -- percentages are derived from raw counts and checked against the workbook's own percent block, so a revised download fails loudly instead of shifting truth under a frozen benchmark.
 5. `test_composition_tables_partition_the_scored_set` -- every appendix table sums back to the scored total and counts a doubly-measured rock once, since these tables ship in the paper.
 6. `test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one` -- groundmass still drops under the point-count ruler, and the groups Appendix 10 never looks for (px, ol) carry no counted presence, so silence is not read as a measured zero.
+7. `test_undoing_the_recalculation_lands_on_the_raw_analytical_total` -- the scale-convention undo puts the published majors back on the pre-recalculation total the workbooks record, and moves chemistry only, so the contrast measures the translation it claims to and not some other rescale.
+8. `test_eruption_merge_rule_splits_prefixes_it_must_not_join` -- the leak rule merges sub-facies and `?` qualifiers but keeps the nineteen `Plio-Pleistocene, ...` units and a bare `Rhyolite` apart, the two over-merges that would flag most of val and make the contrast vacuous.
+9. `test_leak_flagging_is_confined_to_val_and_stays_a_minority` -- the flag marks only val rocks, stays a minority of the slice, and every flagged rock is explained by a named train unit, so a broadened normalization cannot quietly read as agreement.
 
 ### test_real_rock_fewshot.py
 

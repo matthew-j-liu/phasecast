@@ -1,0 +1,112 @@
+{
+  "checkpoint": "checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt",
+  "n_rescaled_scored_nontest": 429,
+  "n_val": 80,
+  "factor": {
+    "name": "recalculation factor",
+    "p5": 0.93906,
+    "median": 0.9811,
+    "p95": 0.9968,
+    "n": 429
+  },
+  "major_totals": [
+    {
+      "name": "benchmark as published",
+      "p5": 99.28316265577142,
+      "median": 99.63284038755738,
+      "p95": 99.94868228046893,
+      "n": 429
+    },
+    {
+      "name": "benchmark un-recalculated",
+      "p5": 93.67153757606297,
+      "median": 97.73620628653282,
+      "p95": 99.24471670798137,
+      "n": 429
+    },
+    {
+      "name": "gard2019",
+      "p5": 88.98999786376953,
+      "median": 97.82250213623047,
+      "p95": 99.91999816894531,
+      "n": 583665
+    }
+  ],
+  "latent_shift": {
+    "median_relative_l2": 0.15311357378959656,
+    "p95_relative_l2": 0.4325042963027954,
+    "median_cosine": 0.9883643388748169,
+    "min_cosine": 0.834561824798584
+  },
+  "zero_shot": {
+    "as_published": {
+      "joint": 12.529025773363166,
+      "dirichlet": 7.070792449193451,
+      "bernoulli": 5.458233324169718
+    },
+    "un_recalculated": {
+      "joint": 12.207845827518101,
+      "dirichlet": 6.773840436560306,
+      "bernoulli": 5.434005390957795
+    }
+  },
+  "contrasts": {
+    "published_minus_undone_joint": {
+      "mean": 0.32117994584506687,
+      "lo": -0.001100537951428843,
+      "hi": 0.6253447536922686,
+      "n_rocks": 429,
+      "n_units": 84,
+      "median_delta": 0.13720519893035288,
+      "frac_undone_better": 0.5617715617715617
+    },
+    "published_minus_undone_dirichlet": {
+      "mean": 0.2969520126331442,
+      "lo": -0.029525330373387518,
+      "hi": 0.5969336444895164,
+      "n_rocks": 429,
+      "n_units": 84,
+      "median_delta": 0.10501122666146046,
+      "frac_undone_better": 0.5804195804195804
+    },
+    "published_minus_undone_bernoulli": {
+      "mean": 0.024227933211922473,
+      "lo": -0.01747395939977845,
+      "hi": 0.06940378481327235,
+      "n_rocks": 429,
+      "n_units": 84,
+      "median_delta": -0.0058746619240626075,
+      "frac_undone_better": 0.48484848484848486
+    }
+  },
+  "dose_response": {
+    "spearman": 0.1410618739896033,
+    "bands": [
+      {
+        "band": "smallest",
+        "n": 142,
+        "median_correction_pct": 0.8099999999999996,
+        "mean_joint_delta": 0.1735718505847036,
+        "frac_improved": 0.4859154929577465
+      },
+      {
+        "band": "middle",
+        "n": 144,
+        "median_correction_pct": 1.885000000000009,
+        "mean_joint_delta": 0.02634223825936408,
+        "frac_improved": 0.5694444444444444
+      },
+      {
+        "band": "largest",
+        "n": 143,
+        "median_correction_pct": 3.63,
+        "mean_joint_delta": 0.7646553263997015,
+        "frac_improved": 0.6293706293706294
+      }
+    ]
+  },
+  "val_joint": {
+    "as_published": 13.378272346912514,
+    "un_recalculated": 12.90512168521092
+  }
+}
