@@ -9,11 +9,13 @@ structure. Mineralogy is one downstream application. This doc enumerates the
 others -- capabilities the existing encoder already supports with no further
 training, or with tiny supervised heads on the pretrained latent.
 
-**Canonical accepted encoder:** `checkpoints/pretrain_allrock_redox_seed0`
-(all-rock, 23-token with the Fe-redox ratio; accepted 2026-07-28), riding
-the ADR-007 objective and hyperparameters.  The earlier igneous checkpoint
-`pretrain_v3_logmse_std_seed0` remains the one under the production heads
-until cascade 2.  Current probe numbers and acceptance record live in
+**Canonical encoder:** `checkpoints/pretrain_allrock_redox_seed0`
+(all-rock, 23-token with the Fe-redox ratio; accepted 2026-07-28, adopted
+as canonical 2026-08-05 on the cascade-2 tuned-vs-tuned verdict), riding
+the ADR-007 objective and hyperparameters.  The production heads
+(`joint_heads_allrock_tuned_seed0`) sit on it; the earlier igneous
+checkpoint `pretrain_v3_logmse_std_seed0` is the previous canonical
+encoder.  Current probe numbers and acceptance record live in
 `docs/scorecard.md`.  Capability numbers below were measured on the encoder
 generation named in each entry.
 

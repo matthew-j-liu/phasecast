@@ -82,7 +82,8 @@ INPUTS (per sample)
     traces (13): Sr Zr Ba Y Rb Ni Nb V La Ce Nd Yb Th
 
   The all-rock generation (pretrain_allrock_redox_seed0) appends a 23rd
-  token: the Fe-redox ratio, fed where measured and padded elsewhere.
+  token: the Fe-redox ratio, populated where a source reported the
+  FeO + Fe2O3 pair and padded elsewhere.
 
 ENCODER (shared across all heads)
   element embedding (mat2vec)  -> per-token vector
@@ -144,8 +145,9 @@ Three corpora, all generated upstream of the model:
    tuned-vs-tuned contrast against the igneous encoder was a statistical
    tie leaning all-rock, so adoption rides its independent merits. It relaxes
    to the Fe fallback chain, drops the igneous filter (~788k rows, all rock
-   types), and adds the optional Fe-redox ratio input token, fed where
-   measured and padded elsewhere -- strict Fe pairs matter for MAGEMin
+   types), and adds the optional Fe-redox ratio input token, populated
+   where a source reported the FeO + Fe2O3 pair (24.1% of the corpus) and
+   padded elsewhere -- strict Fe pairs matter for MAGEMin
    label generation, not encoder pretraining. Acceptance record in
    `docs/scorecard.md`; guardrails in #24; JOURNAL 2026-07-23/28.
 
