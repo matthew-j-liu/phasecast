@@ -6152,3 +6152,81 @@ marginalization, is corrected to name the measured behaviour instead.
 **Next.** Nothing owed on the freeze queue -- all four items are discharged.
 The sealed test slice still gets exactly one disclosed read, on the final
 stack, owner-authorized.
+
+## 2026-08-06 -- du Bray's unread columns priced, and the unit-key leak measured instead of arbitrated
+
+**Q.** The harvest reads 8 of 42 petrography and 24 of 68 chemistry columns.
+Four unread ones looked promising, and the benchmark's unit key is raw source
+text that fragments one eruption across several spellings. What is actually in
+those columns, and does the fragmentation cost us anything?
+
+**Context.** Workstream 1 of #63, continuing the point-count pass. The premise
+throughout was that these are extras on a benchmark already harvested and
+scored; nothing here could move a frozen verdict, only extend the record.
+
+**Result.** The DS 764 / DS 1099 pamphlets define every column in a "Data
+Fields" section, and neither pamphlet was on disk -- they are the authoritative
+source for all four questions and answered three of them against expectation.
+
+`Cpx_Opx` is presence plus a dominance ordering (`C`/`O`, dominant uppercase),
+**not a ratio**: 357 benchmark rocks carry it, 299 naming a single pyroxene.
+Splitting the lumped `px` group would change the scoring vocabulary from seven
+groups to eight and make every ledger number incomparable, for resolution on
+half the scored rocks. Owner kept it lumped; the cpx-vs-opx question, if it is
+ever asked, goes to the 13 MSH and Pinatubo rocks whose sources name their
+pyroxenes outright. `harvest.py`'s "sparsely populated" comment was wrong and
+is corrected.
+
+`ClrIndx` is *defined* as the sum of the hbl/bt/px/ol/opq abundances and is
+exactly that sum in the files (745/747 DS 764 rows, 416/416 DS 1099). It is
+arithmetic on columns already read, not the independent cross-check on du
+Bray's visual convention it was hoped to be -- the point counts remain the only
+such handle. Dead end, recorded so it is not re-opened.
+
+`chem_src` exists in both sources, not just DS 1099: DS 764's is `Chem_Src` in
+Appendix 1, a file the harvest never opens. Coverage is 713 of 717 rocks, but
+all 509 DS 764 benchmark rocks trace to source 4, so the variance lives only in
+the 204 DS 1099 rocks. One sentence for the paper's data section; no analysis.
+
+`Total_I_pct` was the one that grew. It is the pre-recalculation analytical
+total and includes volatiles (verified: it sits flat near 100 regardless of
+volatile content, and adding volatiles would imply totals of 111). With
+`Volatile_pct` it makes du Bray's volatile-free recalculation invertible per
+rock, which turns #56 from an estimate into an exact test. Measured: the undo
+lands the benchmark on the training corpus's convention almost precisely
+(tokenized-major medians 99.63 published -> 97.74 undone, against gard2019's
+97.82), the encoder is not blind to it (latent relative L2 median 0.153), and
+zero-shot on 429 least-altered non-test rocks improves 12.529 -> 12.208, almost
+entirely in the magnitude term. The unit-clustered interval [-0.001, +0.625]
+does not clear zero and 56% of rocks improve, so it is real but second-order.
+Direction is what matters: **the correction helps, so every real-rock number on
+record is mildly conservative rather than flattered.**
+
+The unit key resolved without the arbitration it appeared to need. The concern
+was that raw spellings fragment eruptions (148 strings, 141 after case and
+whitespace) and that Appendix 1 carries a *second* eruption labeling that
+disagrees with the petrography column on 91 rocks -- adjudicating which is
+authoritative was the expensive part. Instead the leak was measured directly. A
+deliberately over-permissive merge rule (qualifiers and sub-facies suffixes
+folded in, comma-boundary prefix match so the nineteen `Plio-Pleistocene, ...`
+units stay apart) flags 15 of 111 scored val rocks as sharing an eruption with
+train. Scored under the production tailed layer, the leak-free subset comes out
+**better**, not worse: 0.9725 on all 111 against 0.8850 on the 96 clean ones.
+That is backwards from a leak. The same pattern holds zero-shot (13.44 -> 13.88),
+where leakage is impossible by construction because the heads never saw a real
+rock, so the explanation is that the large well-sampled eruptions are simply
+easier rocks. Granting the most permissive merge any curated table would make,
+the conclusion does not move.
+
+**Decision.** px stays lumped. `ClrIndx` and `chem_src` are closed as
+documentation, not work. #56 is parked to near submission as one of two
+whole-hog options -- leave it alone, or re-run all evals on the unadjusted
+convention and report those -- never piecemeal, since a half-converted
+benchmark is the only bad outcome; the measurement is on the issue so it is not
+redone. The unit key is left exactly as committed: no rocks dropped, none
+shifted, no curation table, because the leak is measurably not operating.
+
+**Next.** Nothing owed on workstream 1. Workstream 2 of #63 (new evaluation
+data, ideally plutonic) has not started. Still unpinned: which revision of the
+USGS workbooks is on disk -- no checksum or download manifest, with Appendix
+10's derived-percent assertion the only such guard.
