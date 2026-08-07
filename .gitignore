@@ -36,3 +36,8 @@ __pycache__/
 literature/*
 !literature/*.bib
 !literature/*.md
+
+# Manuscript: drafted in Overleaf, which owns its history. The generator lives
+# at scripts/build/build_numbers.py and writes paper/numbers.tex into this
+# ignored tree. Anchored.
+/paper/
