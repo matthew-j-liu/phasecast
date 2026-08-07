@@ -64,8 +64,11 @@ MASK_TOKEN_ID: int = 119
 
 # Optional 23rd token: Fe redox state.  `frac` carries the Fe3+/total-Fe
 # cation ratio, populated only where the measured FeO+Fe2O3 pair exists
-# and padded (src=0, frac=0) elsewhere -- unknown-redox inference
-# marginalizes implicitly.  `src` uses the next sentinel past MASK; the
+# and padded (src=0, frac=0) elsewhere -- the padded state is a distinct
+# learned "no speciation reported" state, NOT an implicit average over
+# the unknown ratio (measured 2026-08-06, `explorations/redox_padding`:
+# it imitates a low fixed ratio and barely tracks the rock).  `src` uses
+# the next sentinel past MASK; the
 # encoder reserves a learnable embedding row for it when built with
 # `include_redox_token=True`.  A populated redox token is a full citizen
 # of SSL masking (`mask_for_ssl` sees `src > 0`).
