@@ -5965,3 +5965,190 @@ underwrite it.
 fitting the recalibration layer on an Andrews slice to price how much of the
 failure is recoverable by rescaling -- is unrun and newly more interesting,
 since the failure is reliability rather than resolution.
+
+## 2026-08-06 -- The benchmark's own ruler, measured: point counts recovered for 70 rocks, and the two rulers disagree in opposite directions
+
+**Q.** Every real-rock verdict is scored against modal mineralogy that was
+eyeballed rather than counted for 713 of 724 rocks. How much of the measured
+sim-to-real gap belongs to the model and how much to the measurement -- and is
+the canonical recalibrator's heavy-tail component modelling nature or the
+geologist's habit?
+
+**Context.** `dubray_ds1099/Appendix10.xlsx`, "Results of microscope-based point
+counts", has been on disk since 2026-07-01 and was never opened by the harvest:
+95 rocks at 389-867 counted points, of which 70 are already in the benchmark
+carrying the visual estimate from Appendix 02. The harvest now parses it and
+emits those rows *beside* the visual ones, with `load_benchmark(prefer_basis=)`
+choosing; the default is the visual estimate and a regression test asserts the
+default load is bit-identical to the benchmark without the new rows, so nothing
+already scored moved. Both arms are restricted to the five groups Appendix 10
+counts, since it never looks for pyroxene or olivine, and the owner had already
+scoped the headline to du Bray (MSH and Pinatubo, 11 hand-transcribed rocks worth
++0.04 nats, stop being averaged in).
+
+**Result.** Neither ruler is uniformly better, which was not the expected shape.
+On magnitude the point count wins by 3.72 nats (Dirichlet 20.749 -> 17.025;
+paired median +4.55, 69% of rocks); on presence the visual estimate wins by 2.17
+nats (Bernoulli 3.650 -> 5.822, 27% of rocks), because a point count has a
+detection limit near one part in 600 and misses rare phases a geologist sees
+while scanning -- opaques present in 64 rocks visually against 49 counted,
+quartz 61 against 42. The joint nets to +1.55, a wash. Per-group medians move
+where it matters: opq share halves (0.101 -> 0.048) and quartz falls
+(0.163 -> 0.110), which are exactly the two ends of the standing signed-bias
+table (opq under-called x0.36, q over-called x1.86) -- so a real part of that
+result is the ruler. The binomial floor at 602 points is +/-0.008 to +/-0.015,
+4-6x smaller than the opq disagreement, so this is method, not counting noise.
+On the question that opened the thread, the tailed recalibrator's per-rock
+outlier weight correlates with ruler disagreement at Spearman +0.22, weak and
+carried by one rock: the contamination component is not mostly encoding
+visual-estimate sloppiness. Scope is hard, and stated in the artifact: the 64
+rocks are two eruptions of ash-flow tuff at silica 64-81, sitting 61 train / 2
+val / 1 test, so this speaks to the recalibrator's fit roster and barely at all
+to the val slice that renders verdicts.
+
+**Considered.** Promoting the point counts to a new benchmark version and
+re-scoring was on the table and was not taken: with 61 of 64 paired rocks in the
+fit roster the val slice would barely move, and a version bump would put every
+frozen verdict on a different instrument for a change whose net joint effect is
+a wash. Moving those two units into val to put good truth on the scoring side is
+the live follow-up, and it now has to price the presence-side loss too, not just
+the magnitude gain.
+
+**Decision (owner).** Four uses of the paired data were put up: always visual,
+always point count, split by term (presence from the eyeball, quantity from the
+count, with the geologist's uncounted sightings censored at the ~1-in-600
+detection limit), or leave the scored benchmark alone and carry the pair as a
+measurement error bar. The owner took the last: **the scoring rule stays one
+uniform convention, the visual estimate, across all 629 rocks**, and the
+disagreement becomes an appendix discussion of what would change if point counts
+were used. Rationale: least disruptive, one rule for the whole dataset, and with
+61 of 64 paired rocks in the fit roster the other options would pay a
+re-derivation cost for a change nobody could see in the scored numbers. The
+split-by-term option is the principled version and is named in the paper as
+such; it only becomes live if those two eruptions are ever moved into the
+scoring slice.
+
+Point counts therefore land as a second ruler behind a default-preserving
+parameter, not as eruption-v3. The benchmark composition tables are generated
+(`run_composition_tables.py` -> `results/benchmark_composition.{md,json}`) rather
+than hand-counted -- the invariant test caught a silica table that had been
+computed on the wrong stage of the funnel and posted to #63. Three audit
+findings are logged and deliberately not acted on: unit labels are raw source
+strings that fragment 148 spellings into what should be 141 clusters, with one
+rock leaking train into val; the harvest reads 8 of 42 petrography columns
+(`Cpx_Opx` would split the lumped `px` group on 357 rocks) and 24 of 68 chemistry
+columns; and nothing pins which revision of the USGS workbooks is on disk.
+
+**Next.** Agenda points 2 and 3 of the du Bray audit -- the unread columns, then
+the unit-key fix and what it does to the committed split. The split placement of
+the point-counted units waits on those.
+
+## 2026-08-06 -- amendment: the sediment failure is recoverable, and that is the stronger claim
+
+**Q.** How much of the zero-shot sediment failure survives a correction layer
+fit on real sedimentary labels? Proposition (b) from the Andrews entry above,
+run "for good measure" and expected to show nothing.
+
+**Context.** The du Bray protocol on a benchmark whose test slice has never
+been spent: weight decay chosen once on val, layer fit on the 363-rock train
+slice, scored on the 152-rock test slice, all three tiers.
+`explorations/sediment_transfer/run_recalibrate.py`. The eruption-v2 side was
+re-measured on the same checkpoint rather than quoted, because the recorded
+tailed number is val-scored and the margin over a null only means something on
+a matched slice.
+
+**Result.** The layer recovers **13.595 nats** [-14.706, -12.483] and lands the
+model **1.12 nats ahead of climatology**, not behind it (tailed -5.832 against
+a null of -4.709; matrix -4.749, vector -0.590). On eruption-v2 val the same
+layer sits 1.20 nats ahead of a climatology of 2.175. **The margins are
+near-identical at comparable fit budgets** (363 vs 368 rocks). What differs is
+how far the layer had to drag things: ~13.6 nats on sediments against ~10.7 on
+volcanic.
+
+This amends the flat "sediments do not transfer" reading two entries up. Zero
+shot, no. Given a few hundred real labels, sedimentary prediction reaches the
+same footing as volcanic. Since the recalibration layer is the cheapest
+possible form of head re-supervision, this is the most direct evidence in the
+project that the missing ingredient is target-domain head supervision rather
+than representation -- and it is a better paper claim than the failure was.
+It is also consistent with the corrected reading of the presence result: the
+zero-shot failure is reliability, not resolution, and reliability is what
+rescaling addresses.
+
+Second finding, and it converges with the du Bray-side result journaled the
+same day: **the tailed tier is not a du Bray artifact.** It wins on Andrews by
+1.08 nats over matrix. If its contamination component were mostly modelling
+visual-estimate sloppiness it should not help on XRD Rietveld data. The point
+count entry reaches the same verdict from the other side (outlier weight
+correlates with ruler disagreement at only Spearman +0.22). #63's suspicion
+about the tailed tier is answered by two independent lines; the rest of #63
+stands.
+
+**Caveats.** Everything is within-vocabulary: 43% of Andrews truth mass has no
+slot, the null is computed on the same restricted target, and no layer fixes
+that. One split, one seed, per-rock intervals running ~2x narrow. The 40%
+input-scale offset remains confounded with rock class. And the cross-benchmark
+ratio column was computed on eruption-v2's visual basis, which the point-count
+entry shows moves exactly the two groups it leans on hardest (opq and q).
+
+**Decision.** Code preserved as `explorations/sediment_transfer/` with the
+figures and JSON committed; #24 amended, #63 credited with the tailed-tier
+answer, #51 carrying the appendix commitment. Andrews stays unreportable until
+provenance is identified.
+
+**Next.** Nothing owed here. If the sediment direction is picked up, the
+vocabulary and the generator are the binding constraints, not the labels.
+
+## 2026-08-06 -- Provenance swaps + deck refresh: the freeze queue closes 4/4, and the deck was wrong about the heads by 2x
+
+**Q.** The stack froze on 2026-08-05/06 across three separate events (encoder
+promotion, tailed recalibrator, #60's close) but `slides/overview.py` was last
+regenerated 2026-08-04. Which permanent docs and which slides still describe a
+model that no longer exists?
+
+**Context.** Final item of the paper-freeze queue. Five files hit on the
+superseded encoder tag; the deck's own note flagged its corpus-regen status
+strip as a retire-or-fold candidate. Owner scoped the pass: re-stamp plus new
+transfer slides, and retire the status strip into the corpora slide.
+
+**Result.** Three of the five doc hits were legitimate and were left alone --
+`scorecard.md` labels the old tag as its "prev" comparison column and already
+carried the all-rock numbers, `roadmap.md` frames both generations correctly,
+and `encoder.md`'s mention is stamped as superseded. Only
+`pretrain_applications.md` was stale, claiming the production heads still sat
+on the igneous encoder "until cascade 2" -- which had closed the day before.
+`encoder.md` took the populated/padded terminology fix at both sites.
+
+The deck was the real load: 13 of 23 slides carried stale content, and two
+were substantively wrong rather than merely dated. The corpora slide named the
+traced regen as production's supervised corpus when production trained on the
+old broad-draw one, and the status strip still asserted `supportmag` was
+production and that cascade 2 had not run. Every number was re-pulled from its
+source rather than edited in place, which is how the parameter error surfaced:
+the heads are **1,830,337** params, not the 895,169 the deck claimed -- ModeHead
+alone is 1,346,090 (74% of the head budget) because the cascade-2 sweep widened
+its trunk from 256x3 to 512x3. Heads are ~57% of the encoder, not ~28%. The
+loss dials had drifted the same way: production runs magnitude_weight 0.0281
+(effective 0.59) and lambda_balance 0.00308 against the deck's 0.25 and 54.5.
+
+Two counting traps worth recording. The encoder checkpoint reports 4,514,699
+parameters but the deck's 3.23M was right -- the two 640k `frac_encoder_*.pe`
+tables are `register_buffer`, not parameters; trainable is 3,234,699, and the
+all-rock encoder adds exactly +200 over the igneous one (one embedding row).
+And the recalibrator's val levels are scored on 111 rocks, so its zero-shot
+reads 13.44 where the 640-rock headline cohort reads 11.638; the two
+populations are easy to mix and the new slide says so explicitly.
+
+The deck went 23 -> 24 slides: the status strip retired into the corpora slide,
+and the recalibrator gained the standard two-slide report (anatomy +
+eval-semantics). It is written bespoke rather than through `head_anatomy_slide`
+because that template hard-codes the latent-h input glyph and the recalibrator
+reads the frozen ModeHead's outputs, not h.
+
+**Decision.** Landed as commit `112cfca`. The `tokens.py` `REDOX_TOKEN_ID`
+comment, which was the last place in the repo still asserting implicit
+marginalization, is corrected to name the measured behaviour instead.
+
+**Next.** Nothing owed on the freeze queue -- all four items are discharged.
+The sealed test slice still gets exactly one disclosed read, on the final
+stack, owner-authorized.

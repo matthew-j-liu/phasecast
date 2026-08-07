@@ -613,6 +613,13 @@ Tests for archived explorations (moved to `explorations/archive/`,
 3. `test_constant_offset_reads_as_a_shared_direction` -- a common off-curve displacement reports near-parallel directions and is removed by the offset correction.
 4. `test_input_features_exclude_the_redox_slot` -- the missingness arms build values + presence flags over the 22 element slots only, never the target's own slot.
 
+### test_sediment_transfer.py
+
+1. `test_oxide_inversion_round_trips_through_the_tokenizer` -- inverting `OXIDE_TO_CATION_FACTOR` on the way in makes every populated token equal the source elemental weight fraction, so the Andrews tokenization introduces no assumption; breaks if the factors move or the Fe fallback stops reading `feo_tot` as FeO.
+2. `test_only_the_reported_elements_populate` -- seven slots populate and the other fifteen pad, which is the out-of-distribution input fact the exploration's reading rests on.
+3. `test_every_mapped_mineral_lands_in_the_shipped_coarsening` -- every `magemin_phase` the loader emits is known to `TRUTH_TO_GROUP`, so no mapped mineral is silently dropped and truth renormalizes over the intended groups.
+4. `test_olivine_and_biotite_have_no_source_mineral` -- neither group is reachable from the Andrews mineral list, which is why magnitude is scored on five groups and presence on seven.
+
 ### test_real_rock_mapping.py
 
 1. `test_density_ranges_bracket_the_shipped_table` -- the Monte Carlo ranges cover exactly the shipped minerals and each admits its shipped value, so the sampling is centered on a table the eval actually ships.
@@ -625,6 +632,15 @@ Tests for archived explorations (moved to `explorations/archive/`,
 8. `test_row_index_maps_a_shortened_benchmark_back_onto_the_latents` -- a variant that drops a whole rock re-indexes onto the base latents, and an unknown id raises rather than silently misaligning.
 9. `test_sign_flips_ignores_offsets_too_small_to_correct` -- a near-zero shipped offset has no correction to reverse and small subsets are excluded, so only a materially reversed offset on enough rocks counts as a flip.
 10. `test_run_variants_covers_every_knob_and_reproduces_the_shipped_row` -- the tripwire: the whole audit runs over all six knobs, its `shipped` row equals the eval's own headline, and the trace-bound rows are identical to each other.
+
+### test_real_mineralogy.py
+
+1. `test_default_load_is_unchanged_by_the_pointcount_rows` -- the gate on harvesting a second ruler: with Appendix 10's rows in `modes.csv`, the default load is bit-identical to the same benchmark with those rows removed, so no number already scored against the visual estimates moved.
+2. `test_basis_preference_selects_one_ruler_per_rock` -- a rock measured twice is read once and the two readings differ on exactly the 70 doubly-measured rocks; singly-measured rocks are untouched and both arms still renormalize to 1.
+3. `test_pointcount_cell_grammar` -- Appendix 10's four cell forms: a bare count, `TR`/`TR?`/`TR(?)` as present-but-uncounted, `1(?)` as a count with an uncertain identification, and `87 (total feldspar)` as a composite that must not be read as a plagioclase count.
+4. `test_derived_percent_reproduces_the_published_block` -- percentages are derived from raw counts and checked against the workbook's own percent block, so a revised download fails loudly instead of shifting truth under a frozen benchmark.
+5. `test_composition_tables_partition_the_scored_set` -- every appendix table sums back to the scored total and counts a doubly-measured rock once, since these tables ship in the paper.
+6. `test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one` -- groundmass still drops under the point-count ruler, and the groups Appendix 10 never looks for (px, ol) carry no counted presence, so silence is not read as a measured zero.
 
 ### test_real_rock_fewshot.py
 
