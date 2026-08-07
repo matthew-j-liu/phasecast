@@ -15,6 +15,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from cnmineral.eval.real_rock import VISUAL_BASIS, preferred_basis
+
 REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "data" / "real_mineralogy"
 OUT = Path(__file__).resolve().parent / "eda"
@@ -26,9 +28,18 @@ PYROXENE = ["pyroxene", "augite", "hypersthene", "bronzite"]
 SILICA = ["quartz", "silica phases"]
 
 
-def load():
+def load(prefer_basis=VISUAL_BASIS):
+    """Samples joined to one modal measurement per rock.
+
+    The 70 rocks with both a visual estimate and an Appendix 10 point count
+    would otherwise appear twice in every occurrence count below, inflating
+    exactly the felsic phases the granularity question turns on.  `fig_visual_vs_pointcount`
+    wants both and re-reads the file itself.
+    """
     s = pd.read_csv(DATA / "samples.csv")
     m = pd.read_csv(DATA / "modes.csv")
+    m["key"] = m.source + "|" + m.sample_id.astype(str)
+    m = preferred_basis(m, prefer_basis)
     m = m.merge(s[["source", "sample_id", "sio2", "total_crystals_pct", "mode_basis"]],
                 on=["source", "sample_id"], how="left")
     m["present"] = m.abundance_pct.notna() | m.qualifier.notna()
@@ -140,16 +151,28 @@ def fig_richness(s, m):
     fig.tight_layout(); fig.savefig(OUT / "5_richness_cooccurrence.png", dpi=120); plt.close(fig)
 
 
-def fig_visual_vs_pointcount(m):
-    common = ["plagioclase", "hornblende"]
-    fig, ax = plt.subplots(1, len(common), figsize=(11, 4.2))
+def fig_visual_vs_pointcount():
+    # paired on the rocks measured both ways, not du Bray against the other
+    # eruptions: comparing different rocks confounds the ruler with the suite.
+    # Re-reads the file because `load` has already picked one ruler per rock.
+    m = pd.read_csv(DATA / "modes.csv")
+    paired = m.groupby(["source", "sample_id"]).basis.transform("nunique") > 1
+    d = m[paired]
+    common = ["plagioclase", "alkali feldspar", "biotite", "Fe-Ti oxides", "quartz"]
+    fig, ax = plt.subplots(1, len(common), figsize=(4 + 2.2 * len(common), 4.2))
     for k, ph in enumerate(common):
-        vis = m[(m.phase == ph) & m.source.str.startswith("dubray")].abundance_pct.dropna()
-        pc = m[(m.phase == ph) & ~m.source.str.startswith("dubray")].abundance_pct.dropna()
-        ax[k].hist(vis, bins=np.arange(0, 70, 5), alpha=0.55, density=True, label="du Bray (visual)")
-        ax[k].hist(pc, bins=np.arange(0, 70, 5), alpha=0.55, density=True, label="MSH+Pin (pointcount)")
-        ax[k].set_xlabel(f"{ph} abundance %"); ax[k].set_ylabel("density"); ax[k].legend(fontsize=7)
-    fig.suptitle("visual estimate vs point count, shared phases")
+        wide = d[d.phase == ph].pivot_table(
+            index="sample_id", columns="basis", values="abundance_pct")
+        if not {"phenocryst_vol_visual", "optical_vol_pointcount"} <= set(wide.columns):
+            continue
+        wide = wide.dropna()
+        hi = max(wide.max().max(), 1e-3) * 1.1
+        ax[k].plot([0, hi], [0, hi], color="0.6", lw=1)
+        ax[k].scatter(wide.phenocryst_vol_visual, wide.optical_vol_pointcount,
+                      s=20, alpha=0.7)
+        ax[k].set_title(f"{ph} (n={len(wide)})", fontsize=9)
+        ax[k].set_xlabel("visual estimate, vol%"); ax[k].set_ylabel("point count, vol%")
+    fig.suptitle("same rock, same thin section, two rulers")
     fig.tight_layout(); fig.savefig(OUT / "6_visual_vs_pointcount.png", dpi=120); plt.close(fig)
 
 
@@ -172,7 +195,7 @@ def main():
     s, m = load()
     print(f"samples {len(s)}, mode rows {len(m)}; SiO2 present {s.sio2.notna().sum()}")
     fig_coverage(s); fig_granularity(s, m); fig_crystallinity(s)
-    fig_amp_px(s, m); fig_richness(s, m); fig_visual_vs_pointcount(m)
+    fig_amp_px(s, m); fig_richness(s, m); fig_visual_vs_pointcount()
     summary = granularity_numbers(s, m)
     print("\n" + summary)
     (OUT / "granularity_numbers.txt").write_text(summary + "\n")

@@ -1,0 +1,155 @@
+{
+  "funnel": {
+    "described": 1244,
+    "with_chemistry": 717,
+    "usable": 713,
+    "least_altered": 639,
+    "scored": 629,
+    "analyzed_never_described": 269
+  },
+  "by_survey": [
+    {
+      "survey": "DS 764, Bodie Hills CA/NV",
+      "rocks": 463
+    },
+    {
+      "survey": "DS 1099, Tonopah / Divide / Goldfield NV",
+      "rocks": 166
+    }
+  ],
+  "by_method": {
+    "visual_estimate_only": 565,
+    "point_count_available": 64
+  },
+  "unit_structure": [
+    {
+      "size": "1 rock only",
+      "units": 63,
+      "rocks": 63
+    },
+    {
+      "size": "2-5",
+      "units": 38,
+      "rocks": 121
+    },
+    {
+      "size": "6-20",
+      "units": 23,
+      "rocks": 214
+    },
+    {
+      "size": "21+",
+      "units": 7,
+      "rocks": 231
+    }
+  ],
+  "units_total": 131,
+  "by_split": [
+    {
+      "subset": "test",
+      "rocks": 160,
+      "units": 44,
+      "point_counted": 1
+    },
+    {
+      "subset": "train",
+      "rocks": 367,
+      "units": 50,
+      "point_counted": 61
+    },
+    {
+      "subset": "val",
+      "rocks": 102,
+      "units": 37,
+      "point_counted": 2
+    }
+  ],
+  "by_silica": [
+    {
+      "band": "basalt (<52)",
+      "rocks": 4
+    },
+    {
+      "band": "basaltic andesite (52-57)",
+      "rocks": 65
+    },
+    {
+      "band": "andesite (57-63)",
+      "rocks": 230
+    },
+    {
+      "band": "dacite (63-70)",
+      "rocks": 166
+    },
+    {
+      "band": "rhyolite (>70)",
+      "rocks": 164
+    }
+  ],
+  "minerals": [
+    {
+      "mineral": "Fe-Ti oxides",
+      "rocks": 609,
+      "with_a_number": 551,
+      "trace_only": 58
+    },
+    {
+      "mineral": "plagioclase",
+      "rocks": 583,
+      "with_a_number": 578,
+      "trace_only": 5
+    },
+    {
+      "mineral": "hornblende",
+      "rocks": 405,
+      "with_a_number": 301,
+      "trace_only": 104
+    },
+    {
+      "mineral": "biotite",
+      "rocks": 391,
+      "with_a_number": 322,
+      "trace_only": 69
+    },
+    {
+      "mineral": "pyroxene",
+      "rocks": 346,
+      "with_a_number": 284,
+      "trace_only": 62
+    },
+    {
+      "mineral": "quartz",
+      "rocks": 208,
+      "with_a_number": 141,
+      "trace_only": 67
+    },
+    {
+      "mineral": "alkali feldspar",
+      "rocks": 177,
+      "with_a_number": 148,
+      "trace_only": 29
+    },
+    {
+      "mineral": "olivine",
+      "rocks": 105,
+      "with_a_number": 77,
+      "trace_only": 28
+    }
+  ],
+  "published_by_survey": {
+    "dubray_ds764": {
+      "described": 776,
+      "analyzed": 677,
+      "both": 513,
+      "described_not_analyzed": 263,
+      "analyzed_not_described": 164
+    },
+    "dubray_ds1099": {
+      "described": 468,
+      "analyzed": 309,
+      "both": 204,
+      "described_not_analyzed": 264,
+      "analyzed_not_described": 105
+    }
+  }
+}

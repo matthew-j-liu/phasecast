@@ -59,6 +59,14 @@ Two tiers, by modal-measurement precision:
   Machine-readable Excel; the bulk of the benchmark. Serves presence + coarse
   magnitude only. `AltExtnt` 1-2 = least-altered (freshness QC).
   https://pubs.usgs.gov/ds/764/ , https://pubs.usgs.gov/ds/1099/
+- **DS 1099 Appendix 10** -- microscope point counts of the Fraction and Heller
+  Tuff samples, 95 rocks at 389-867 points each, of which 70 are already in the
+  benchmark under a visual estimate. Machine-readable, so unlike the two
+  eruptions above it needed no transcription. These rows are emitted *beside*
+  the visual ones rather than replacing them, and `load_benchmark`'s
+  `prefer_basis` picks which a scoring run reads; the default is the visual
+  estimate every number on record was measured against. Appendix 10 counts five
+  of the seven scored groups and never looks for pyroxene or olivine.
 
 ## Schema
 
@@ -71,11 +79,17 @@ encoder tokenizer (`cnmineral.data.bulk_chemistry`): the majors + `<sym>_ppm`
 traces feed it directly; `feo_tot` resolves via `_resolve_iron`; `cr2o3` absent
 so Cr pads (matches `include_cr2o3=False`); `mno/p2o5/loi` are ignored (no token).
 A du Bray sample tokenizes to 21/22 populated tokens; MSH majors-only (traces
-pad, in-distribution); Pinatubo has no chemistry yet.
+pad, in-distribution); Pinatubo carries Table 7 majors + 10 of 13 traces.
+`n_points` is the section total for the point-counted rocks (Pinatubo and the
+Appendix 10 rocks); `mode_basis` names a rock's primary measurement, but
+`modes.csv`'s per-row `basis` is what decides which rows a load reads.
 
-`modes.csv` (one row per sample x present phase): `source, sample_id, phase`
-(as-reported name), `magemin_phase` (mapped), `abundance_pct`, `qualifier`
-(tr / <1 / X when not numeric), `basis`. Absent phases are omitted, not zero-rowed.
+`modes.csv` (one row per sample x present phase x measurement): `source,
+sample_id, phase` (as-reported name), `magemin_phase` (mapped),
+`abundance_pct`, `qualifier` (tr / <1 / X when not numeric), `basis`. Absent
+phases are omitted, not zero-rowed. A rock measured twice carries a row set per
+basis, and `load_benchmark` reads one of them -- summing them would double the
+same thin section.
 
 Phase -> MAGEMin crosswalk: plagioclase & alkali feldspar -> `fsp`; hornblende &
 cummingtonite -> `amp`; augite -> `cpx`; hypersthene & bronzite -> `opx`;
@@ -87,9 +101,12 @@ spl/ilm/mag and cpx/opx.
 
 ## Current contents
 
-730 samples: du Bray 717, MSH 7, Pinatubo 6. SiO2 49-93 wt%, 321 in the 52-63%
-intermediate band. Regenerate: `conda run -n alignn_fix python
-explorations/real_mineralogy/harvest.py`.
+730 samples: du Bray 717, MSH 7, Pinatubo 6. SiO2 49-93 wt%, 322 in the 52-63%
+intermediate band. 724 carry both chemistry and modes; 70 of the du Bray rocks
+carry a point count as well as a visual estimate. Regenerate: `conda run -n
+alignn_fix python explorations/real_mineralogy/harvest.py`. The scored-set
+breakdown lives in `results/benchmark_composition.md`, generated rather than
+hand-counted.
 
 ## Model compatibility
 
@@ -137,12 +154,32 @@ Four data facts that surface only here, all encoded in the loader:
 - **`alteration_extent` is a string with modifiers** (`1+`, `2-`), so the
   freshness cut parses the leading digit; `fresh` is grade 1.
 
+## Generated summaries
+
+- `run_composition_tables.py` -> `results/benchmark_composition.{md,json}`: the
+  funnel from what USGS published down to the scored set, plus the survey /
+  ruler / unit-structure / split / silica / mineral breakdowns. The paper's
+  benchmark appendix reads from these rather than from hand-copied numbers.
+- `run_pointcount_contrast.py` -> `results/<tag>/pointcount_contrast.{json,png}`:
+  the frozen stack scored against both rulers on the 64 rocks that carry both.
+
 ## TODOs before this is a locked benchmark
 
-- Pinatubo whole-rock chemistry (Table 7 transcription) -- 6 rows. Until they
-  land the precision tier is 6 scoreable rocks (MSH), not 13.
 - freshness QC beyond `AltExtnt` (oxide totals / LOI thresholds).
-- a noise floor: most of the set is visual estimates at +/-5-10 vol%, so part
-  of any measured gap is the measurement. 6 point-counted rocks cannot pin it.
+- the harvest reads 8 of 42 petrography columns and 24 of 68 chemistry columns.
+  Unread and relevant: `Cpx_Opx` (the cpx/opx split, populated on 357 rocks,
+  against a `px` group the eval currently lumps), `ClrIndx` (an independent
+  color-index estimate on 714 rocks, a free cross-check on the abundances),
+  `chem_src` (per-analysis provenance, DS 1099) and `Total_I_pct` (analytical
+  total, bearing on issue #56).
+- unit labels are the raw source strings, so one eruption can appear under
+  several spellings (`Fraction Tuff` / `FractionTuff`, trailing spaces, `?`
+  qualifiers, `, pumice` suffixes). That fragments the clusters the split and
+  the bootstrap group by, and one rock reaches val whose 36 same-unit siblings
+  are in train. Fixing it moves committed split assignments, so it is a
+  separate decision.
 - more precision-tier eruptions (Unzen, Soufriere Hills, Colima, Mazama) if the
   benchmark needs weight beyond the coverage tier.
+- nothing pins which revision of the USGS workbooks is on disk: the raw files
+  and the generated tables are gitignored, with no checksum or download
+  manifest. Appendix 10's derived-percent check is the only such guard.

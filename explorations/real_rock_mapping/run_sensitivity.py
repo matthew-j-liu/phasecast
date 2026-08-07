@@ -70,6 +70,9 @@ RESULTS_ROOT = Path(__file__).resolve().parent / "results"
 DENSITY_RANGE: dict[str, tuple[float, float]] = {
     "plagioclase": (2.62, 2.76),
     "alkali feldspar": (2.55, 2.63),
+    # a point count that tallied one total feldspar could sit anywhere between
+    # the two it declined to separate, so this range spans both of theirs.
+    "feldspar": (2.55, 2.76),
     "pyroxene": (3.20, 3.60),
     "augite": (3.25, 3.55),
     "hypersthene": (3.30, 3.60),

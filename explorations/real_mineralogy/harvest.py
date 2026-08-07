@@ -5,6 +5,10 @@ Sources (open-access; see README for the screen they passed):
   - du Bray et al. USGS DS 764 (Bodie Hills) and DS 1099 (Tonopah/Divide/
     Goldfield): whole-rock XRF + visual phenocryst abundance estimates, joined
     on Field_ID. Coarse modes (visual, not point-counted) -- presence tier.
+  - DS 1099 Appendix 10: microscope point counts of the Fraction and Heller
+    Tuff samples, machine-readable, covering 70 rocks the visual estimates
+    already describe. Emitted alongside those estimates rather than replacing
+    them, so the same rock carries both rulers and `load_benchmark` picks.
   - Pallister et al. 2008 (MSH 2004-06, PP1750 ch. 30) and Pallister et al.
     1996 (Pinatubo): downloaded here; table extraction is manual/vision work,
     parsed separately (precision tier).
@@ -15,6 +19,8 @@ names mapped to the MAGEMin vocabulary alongside the as-reported names.
 
     conda run -n alignn_fix python explorations/real_mineralogy/harvest.py
 """
+import re
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -90,6 +96,98 @@ def parse_dubray(source, pet_path, geo_path, tot_col):
                               magemin_phase=mgm, abundance_pct=val,
                               qualifier=qual, basis="phenocryst_vol_visual"))
     return pd.DataFrame(samples), pd.DataFrame(modes)
+
+
+# DS 1099 Appendix 10, "Results of microscope-based point counts of Fraction
+# Tuff and Heller Tuff samples".  Machine-readable, unlike the other two
+# point-counted sources, and it covers rocks the visual estimates already
+# describe -- so these rows join the ones parse_dubray emits instead of
+# replacing them, and `load_benchmark`'s `prefer_basis` decides which ruler a
+# scoring run reads.
+#
+# Seven categories are counted and no others.  Pyroxene and olivine are never
+# looked for here, so their absence from a row is silence rather than a reported
+# absence -- the eval must not read these rocks as px-free.  A blank cell in a
+# counted category IS an absence (the phase was in the tally scheme and no point
+# landed on it), which matches the visual rows' convention of omitting absent
+# phases rather than zero-rowing them.
+POINTCOUNT_PHASES = {
+    "Quartz": ("quartz", "q"),
+    "Plagioclase": ("plagioclase", "fsp"),
+    "Alkali feldspar": ("alkali feldspar", "fsp"),
+    "Biotite": ("biotite", "bi"),
+    "Hornblende": ("hornblende", "amp"),
+    "Opaques": ("Fe-Ti oxides", "opq_unsplit"),
+    "Matrix": ("groundmass", "groundmass"),
+}
+POINTCOUNT_PCT_TOL = 1e-9
+
+
+def _pointcount_cell(raw):
+    """One Appendix 10 cell as (counted points, reported-name override, qualifier).
+
+    Four forms occur in the workbook.  A bare integer is the count.  `TR`, with
+    an optional `?` or `(?)`, is present-but-uncounted and takes the same
+    left-censored path du Bray's `TR` rows take.  `1(?)` is a count whose
+    identification the author flagged as uncertain.  And `87 (total feldspar)`
+    in the plagioclase column means plagioclase and alkali feldspar could not be
+    separated, so the count is their sum -- which costs nothing downstream,
+    since both coarsen to `fsp`.
+    """
+    text = str(raw).strip()
+    if text.upper().startswith("TR"):
+        return None, None, text
+    match = re.match(r"^(\d+)\s*(.*)$", text)
+    if match is None:
+        raise ValueError(f"unparsed Appendix 10 cell {raw!r}")
+    count, rest = int(match.group(1)), match.group(2)
+    name = "feldspar" if "feldspar" in rest.lower() else None
+    return count, name, "?" if "?" in rest else None
+
+
+def parse_dubray_pointcounts(known_ids):
+    """Appendix 10 mode rows, plus each counted rock's section total.
+
+    Percentages are derived from the raw-count block rather than read from the
+    workbook's own percent block, then checked against it.  That makes the
+    conversion reproducible instead of trusted, and a revised download that
+    changed either block could not land silently -- the same guarantee
+    `_check_pinatubo_chem` gives the transcribed chunk.
+
+    `Total` runs a little above the sum of the counted categories on most rows
+    (an unlisted residual), and the workbook's own percentages divide by it, so
+    this does too.  It cancels regardless: the truth vector renormalizes over
+    the crystal cargo once groundmass drops.
+    """
+    a10 = pd.read_excel(DATA / "dubray_ds1099" / "Appendix10.xlsx", header=2)
+    a10 = a10.dropna(subset=["Field_ID"])
+    modes, n_points, skipped = [], {}, 0
+    for _, row in a10.iterrows():
+        fid = str(row["Field_ID"])
+        if fid not in known_ids:
+            skipped += 1
+            continue
+        total = float(row["Total"])
+        n_points[fid] = total
+        for col, (name, mgm) in POINTCOUNT_PHASES.items():
+            raw = row.get(col)
+            if pd.isna(raw):
+                continue
+            count, override, qualifier = _pointcount_cell(raw)
+            pct = None if count is None else count / total * 100.0
+            published = _num(pd.Series([row.get(f"{col}.1")])).iloc[0]
+            if pct is not None and pd.notna(published):
+                if abs(pct - published) > POINTCOUNT_PCT_TOL:
+                    raise ValueError(
+                        f"appendix 10 {fid} {col}: {count}/{total} = {pct} does "
+                        f"not reproduce the published {published} -- check the "
+                        "Appendix10.xlsx download"
+                    )
+            modes.append(dict(source="dubray_ds1099", sample_id=fid,
+                              phase=override or name, magemin_phase=mgm,
+                              abundance_pct=pct, qualifier=qualifier,
+                              basis="optical_vol_pointcount"))
+    return pd.DataFrame(modes), n_points, skipped
 
 
 # MSH 2004-06 dome, Pallister 2008 Table 2 optical modes (vol%, thin-section
@@ -247,10 +345,12 @@ def main():
                               "dubray_ds764/Appendix3.xls", "TotXls")
     s1099, m1099 = parse_dubray("dubray_ds1099", "dubray_ds1099/Appendix02.xlsx",
                                 "dubray_ds1099/Appendix03.xlsx", "TotXtls")
+    mpc, pc_points, pc_skipped = parse_dubray_pointcounts(set(s1099.sample_id))
+    s1099["n_points"] = s1099.sample_id.map(pc_points)
     smsh, mmsh = parse_msh()
     spin, mpin = parse_pinatubo()
     samples = pd.concat([s764, s1099, smsh, spin], ignore_index=True)
-    modes = pd.concat([m764, m1099, mmsh, mpin], ignore_index=True)
+    modes = pd.concat([m764, m1099, mpc, mmsh, mpin], ignore_index=True)
 
     samples.to_csv(DATA / "samples.csv", index=False)
     modes.to_csv(DATA / "modes.csv", index=False)
@@ -262,6 +362,8 @@ def main():
     print(f"SiO2 {sio2.min():.0f}-{sio2.max():.0f}, n in 52-63: {((sio2>=52)&(sio2<=63)).sum()}")
     print(f"least-altered (AltExtnt 1-2): {fresh.sum()}/{len(samples)}")
     print(f"crystallinity known: {samples.total_crystals_pct.notna().sum()}")
+    print(f"point-counted (appendix 10): {len(pc_points)} joined, "
+          f"{pc_skipped} with no petrography row")
 
 
 if __name__ == "__main__":

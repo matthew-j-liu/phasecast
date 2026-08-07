@@ -93,6 +93,10 @@ DROPPED_TRUTH_PHASES: frozenset[str] = frozenset({"groundmass"})
 MINERAL_DENSITY: dict[str, float] = {
     "plagioclase": 2.68,
     "alkali feldspar": 2.57,
+    # DS 1099's point counts sometimes tally one total feldspar rather than
+    # splitting plagioclase from alkali feldspar; the midpoint covers it, and
+    # both names coarsen to `fsp` so the split never reaches the score.
+    "feldspar": 2.63,
     "pyroxene": 3.40,
     "augite": 3.40,
     "hypersthene": 3.45,
@@ -118,6 +122,15 @@ CLEAN_GRADES: frozenset[int] = frozenset({1, 2})
 PRECISION_SOURCES: frozenset[str] = frozenset(
     {"msh_pallister2008", "pinatubo_pallister1996"}
 )
+
+# Most rocks carry one modal measurement, but the 70 du Bray rocks in DS 1099's
+# Appendix 10 carry two: the visual phenocryst estimate every du Bray rock has,
+# and a microscope point count of the same thin section. Where both exist the
+# benchmark reads one of them, and which one is a choice rather than a
+# measurement -- so it is a parameter, and its default is the visual estimate
+# that every number scored before 2026-08-06 was measured against.
+VISUAL_BASIS: str = "phenocryst_vol_visual"
+POINTCOUNT_BASIS: str = "optical_vol_pointcount"
 
 
 @dataclass(frozen=True)
@@ -261,29 +274,58 @@ def _truth_arrays(
     }
 
 
+def preferred_basis(modes: pd.DataFrame, prefer_basis: str) -> pd.DataFrame:
+    """One modal measurement per rock, `prefer_basis` winning where two exist.
+
+    A rock measured only one way keeps what it has, so this is a no-op for
+    every rock but the 70 that carry both a visual estimate and a point count.
+    Summing the two would double-count the same thin section.
+
+    A `modes` table with no `basis` column at all is one measurement per rock
+    by construction and needs no resolution.
+    """
+    if "basis" not in modes.columns:
+        return modes
+    both = modes.groupby("key")["basis"].transform("nunique") > 1
+    if both.any() and prefer_basis not in set(modes.loc[both, "basis"]):
+        # otherwise a misspelled basis silently drops every doubly-measured
+        # rock's modes, and the rock leaves the benchmark rather than raising
+        raise ValueError(
+            f"prefer_basis {prefer_basis!r} matches none of the measurements on "
+            f"the rocks that carry more than one: "
+            f"{sorted(set(modes.loc[both, 'basis']))}"
+        )
+    return modes[~both | (modes["basis"] == prefer_basis)]
+
+
 def load_benchmark(
     benchmark_dir: Path | str = BENCHMARK_DIR,
     *,
     densities: dict[str, float] = MINERAL_DENSITY,
     trace_bound_vol_pct: float = TRACE_BOUND_VOL_PCT,
+    prefer_basis: str = VISUAL_BASIS,
 ) -> RealRockBenchmark:
     """Every real rock carrying both whole-rock chemistry and modal mineralogy.
 
-    Rocks without chemistry (Pinatubo, pending a table transcription) or
-    without mode rows drop out here; the freshness cut is a mask on the
-    result, not a filter, so the altered rocks stay available as a diagnostic.
+    Rocks without chemistry (Pinatubo's `CN6791-h`, which has no Table 7 row
+    and takes none rather than borrow a neighbour's) or without mode rows drop
+    out here; the freshness cut is a mask on the result, not a filter, so the
+    altered rocks stay available as a diagnostic.
 
-    `densities` and `trace_bound_vol_pct` default to the shipped mapping and
-    are parameters because neither is a measurement -- one is a mid-series
-    stand-in for a solid solution, the other is read off a reporting grid.
-    `explorations/real_rock_mapping` perturbs them to put an error bar on the
-    numbers this benchmark produces.
+    `densities`, `trace_bound_vol_pct` and `prefer_basis` default to the
+    shipped mapping and are parameters because none is a measurement -- one is
+    a mid-series stand-in for a solid solution, one is read off a reporting
+    grid, and one picks between two rulers applied to the same thin section.
+    `explorations/real_rock_mapping` perturbs the first two to put an error bar
+    on the numbers this benchmark produces;
+    `explorations/real_mineralogy/run_pointcount_contrast.py` moves the third.
     """
     benchmark_dir = Path(benchmark_dir)
     samples = pd.read_csv(benchmark_dir / "samples.csv")
     modes = pd.read_csv(benchmark_dir / "modes.csv")
     for frame in (samples, modes):
         frame["key"] = frame["source"] + "|" + frame["sample_id"].astype(str)
+    modes = preferred_basis(modes, prefer_basis)
 
     unknown = set(modes["phase"]) - set(densities) - DROPPED_TRUTH_PHASES
     if unknown:

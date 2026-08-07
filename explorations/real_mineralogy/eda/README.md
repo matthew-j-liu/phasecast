@@ -12,7 +12,10 @@ Plots for the endpoint/label-granularity decision. Regenerate:
 3. `3_crystallinity.png` -- total crystals % vs SiO2 and its spread (the axis chemistry can't set).
 4. `4_amp_vs_px.png` -- amphibole vs pyroxene footprint vs SiO2 (the headline switch in real rocks).
 5. `5_richness_cooccurrence.png` -- phenocryst-phase count vs SiO2 + co-occurrence matrix.
-6. `6_visual_vs_pointcount.png` -- du Bray visual estimate vs MSH/Pinatubo point counts, shared phases.
+6. `6_visual_vs_pointcount.png` -- visual estimate against point count on the 70 rocks
+   measured both ways (DS 1099 Appendix 10), paired per rock so the ruler is not confounded
+   with the suite. The model-side version of this contrast is
+   `run_pointcount_contrast.py`.
 
 ## The granularity question, answered
 
