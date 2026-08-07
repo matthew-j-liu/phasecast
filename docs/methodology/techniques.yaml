@@ -415,6 +415,13 @@ techniques:
     type: evaluation
     patterns:
       - "paired_bootstrap"
+  - name: measurement_error_contrast
+    type: evaluation
+    patterns:
+      - "preferred_basis"
+      - "POINTCOUNT_BASIS"
+      - "contamination_responsibility"
+      - "counting_noise"
   - name: few_shot_learning_curve
     type: evaluation
     patterns:

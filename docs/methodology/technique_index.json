@@ -201,6 +201,9 @@
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/eval/probe/scoring.py"
     ],
+    "measurement_error_contrast": [
+      "src/cnmineral/eval/real_rock.py"
+    ],
     "mlp_probe": [
       "src/cnmineral/eval/probe/__init__.py",
       "src/cnmineral/eval/probe/hpo.py",
