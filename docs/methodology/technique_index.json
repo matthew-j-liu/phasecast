@@ -178,6 +178,7 @@
       "src/cnmineral/eval/mode_head.py"
     ],
     "joint_hurdle_nll_eval": [
+      "scripts/build/build_numbers.py",
       "scripts/view/inference_card.py",
       "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/real_rock.py",
