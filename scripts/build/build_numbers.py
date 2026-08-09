@@ -175,20 +175,83 @@ emit("sysEffLambdaFactor", "21", "docs/heads.md: BCE phase-mean vs Dirichlet sum
 emit("sysLambdaOneNominal", "0.048", "docs/heads.md: magnitude_weight at effective lambda 1")
 emit("sysEffLambdaBaseline", "5.3", "docs/2026_08_03_recap.md: production dials")
 emit("sysEffLambdaTuned", "163", "docs/2026_08_03_recap.md: reversed trial-22 dials")
-emit("sysHeadParams", "895{,}169", "slides/overview.py, from heads_best.pt")
-emit("sysEncoderParams", "3.23M", "slides/overview.py, frozen encoder")
-emit("sysRecalibParams", "121", "UNVERIFIED-EXACT: recap says ~121; count from fit code before submission")
 emit("sysPhaseVocab", "21", "cnmineral.data.phase_vocab")
 emit("sysRealGroups", "7", "coarsened real-rock groups")
 emit("sysTraceTokens", "13")
-emit("sysInputTokens", "22", "9 majors + 13 traces; all-rock encoder adds a 23rd redox slot")
+emit("sysInputTokens", "22", "9 majors + 13 traces; populated slots")
+emit("sysEncoderTokenSlots", "23", "22 + the Fe-redox slot, padded in production")
+emit("sysMatTwoVecDim", "200", "mat2vec.csv width")
 emit("sysPretrainBulksIgneous", "167k", "docs/encoder.md, igneous 22-token generation")
-emit("sysPretrainBulksAllrock", "788k", "UNVERIFIED: encoder.md says ~788k rows; acceptance memory says ~760k after dedup -- reconcile")
-emit("sysCorpusTrainBulks", "10{,}000", "old broad-draw corpus, docs/encoder.md")
-emit("sysCorpusTrainDraws", "48")
-emit("sysCorpusValtestDraws", "128")
 emit("sysBenchTrainRocks", "368", "eruption-v2 split by stratigraphic unit")
 emit("sysFewshotBudgetKnee", "25", "few-shot curve grid point where most of the gain lands (#52)")
+emit("sysRecalibEpochs", "400", "full-batch Adam steps, training/real_rock_recalibrator.fit_recalibrator")
+
+# counted 2026-08-08 by instantiating the production BulkChemistryDataset with
+# pretrain_allrock_redox's data_kwargs; settles the encoder.md 788k vs
+# acceptance-memory 760k discrepancy in favour of 788k
+emit("sysPretrainBulksAllrock", "787{,}721", "counted from data/bulks/gard2019.csv under the production filter+dedup")
+
+# corpus facts counted from data/corpus/*_rungs.parquet at rungs 50/30
+emit("sysCorpusTrainBulks", "10{,}000", "stratified draw; 9,946 realized")
+emit("sysCorpusTrainBulksRealized", "9{,}946")
+emit("sysCorpusTrainDraws", "48", "old broad-draw corpus; verified on disk")
+emit("sysCorpusTrainRows", "949{,}228", "(bulk, draw, rung) triples at rungs 50/30")
+emit("sysCorpusValtestDraws", "128")
+emit("sysCorpusValBulks", "218", "realized val slice, instrument valtest128-broad")
+
+# architecture + param counts read from the frozen production checkpoints
+section("architecture and parameter counts (read from checkpoints)")
+try:
+    import torch
+    ck = torch.load(
+        ROOT / "checkpoints" / "joint_heads_allrock_tuned_seed0" / "heads_best.pt",
+        map_location="cpu", weights_only=False,
+    )
+    enc = torch.load(
+        ROOT / "checkpoints" / "pretrain_allrock_redox_seed0" / "epoch_best.pt",
+        map_location="cpu", weights_only=False,
+    )
+
+    def count(state):
+        return sum(v.numel() for v in state.values() if hasattr(v, "shape"))
+
+    def grouped(n):
+        return f"{n:,}".replace(",", "{,}")
+
+    per_head = {k: count(ck[k]) for k in ("mode", "comp", "cond")}
+    emit("sysModeHeadParams", grouped(per_head["mode"]))
+    emit("sysCompHeadParams", grouped(per_head["comp"]))
+    emit("sysCondHeadParams", grouped(per_head["cond"]))
+    emit("sysHeadParams", grouped(sum(per_head.values())))
+    # the two FractionalEncoder sinusoidal tables are fixed buffers, not
+    # learned; the paper quotes trainable only
+    buffers = 2 * enc["config"]["frac_resolution"] * (enc["config"]["d_model"] // 2)
+    emit("sysEncoderParams", grouped(count(enc["encoder"]) - buffers),
+         "trainable; excludes the fixed sinusoidal lookup tables")
+    ec = enc["config"]
+    emit("sysEncoderDModel", str(ec["d_model"]))
+    emit("sysEncoderLayers", str(ec["n_layers"]))
+    emit("sysEncoderHeads", str(ec["n_heads"]))
+    emit("sysMaskProb", f"{ec['mask_prob']:.2f}")
+    emit("sysMaskPct", f"{100 * ec['mask_prob']:.0f}", "same value, for prose")
+except Exception as exc:
+    for name in ("sysHeadParams", "sysEncoderParams", "sysModeHeadParams",
+                 "sysEncoderDModel", "sysEncoderLayers", "sysEncoderHeads",
+                 "sysMaskProb"):
+        tbd(name, f"checkpoint unreadable: {exc}")
+
+# recalibrator tier sizes, counted from the module rather than recalled
+section("recalibrator tier parameter counts")
+try:
+    from cnmineral.models.real_rock_recalibrator import RealRockRecalibrator
+
+    tiers = {t: sum(p.numel() for p in RealRockRecalibrator(t).parameters())
+             for t in ("vector", "matrix", "tailed")}
+    emit("sysRecalibVectorParams", str(tiers["vector"]))
+    emit("sysRecalibMatrixParams", str(tiers["matrix"]))
+    emit("sysRecalibParams", str(tiers["tailed"]), "canonical tailed tier")
+except Exception as exc:
+    tbd("sysRecalibParams", f"recalibrator import failed: {exc}")
 
 header = [
     "% numbers.tex -- GENERATED by scripts/build/build_numbers.py; do not edit.",
