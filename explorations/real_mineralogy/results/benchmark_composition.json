@@ -1,4 +1,23 @@
 {
+  "off_vocabulary": {
+    "basis": "volume percent as published",
+    "as_scored": {
+      "rocks": 629,
+      "rocks_fully_in_vocabulary": 629,
+      "rocks_affected": 0,
+      "share_among_affected_p50": null,
+      "categories": {}
+    },
+    "point_count_basis": {
+      "rocks": 64,
+      "rocks_fully_in_vocabulary": 0,
+      "rocks_affected": 64,
+      "share_among_affected_p50": 0.9234326279780826,
+      "categories": {
+        "groundmass": 64
+      }
+    }
+  },
   "funnel": {
     "described": 1244,
     "with_chemistry": 717,

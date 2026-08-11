@@ -108,7 +108,9 @@ def main() -> None:
           f"climatology {out['climatology']['joint']:.3f} -> "
           f"{abs(gap):.3f} nats {side} it")
     out["best_tier"] = best
-    out["best_minus_climatology"] = float(gap)
+    # name matches the key build_numbers.py reads for sedAhead; renaming it
+    # silently drops that macro into the TBD path on the next regeneration
+    out["best_vs_climatology"] = float(gap)
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     path = args.out_dir / "recalibrate.json"

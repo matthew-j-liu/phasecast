@@ -26,6 +26,7 @@ from cnmineral.eval.real_rock import (
     CLEAN_GRADES,
     POINTCOUNT_BASIS,
     SPLIT_PATH,
+    TRUTH_TO_GROUP,
     VISUAL_BASIS,
     parse_alteration_grade,
     preferred_basis,
@@ -137,9 +138,9 @@ def tables(frame: pd.DataFrame, modes: pd.DataFrame, funnel_counts: dict) -> dic
 
     # one ruler per rock, the same one the scored numbers were measured against;
     # counting both would report a doubly-measured rock twice
-    scored_modes = modes.assign(key=_keys(modes))
-    scored_modes = preferred_basis(scored_modes, VISUAL_BASIS)
-    scored_modes = scored_modes[scored_modes["key"].isin(set(frame["key"]))]
+    scoped_modes = modes.assign(key=_keys(modes))
+    scoped_modes = scoped_modes[scoped_modes["key"].isin(set(frame["key"]))]
+    scored_modes = preferred_basis(scoped_modes, VISUAL_BASIS)
     minerals = []
     for phase, group in scored_modes[scored_modes["phase"] != "groundmass"].groupby("phase"):
         rocks = int(group["key"].nunique())
@@ -148,6 +149,7 @@ def tables(frame: pd.DataFrame, modes: pd.DataFrame, funnel_counts: dict) -> dic
                          "trace_only": rocks - numeric})
 
     return {
+        "off_vocabulary": off_vocabulary(scoped_modes),
         "funnel": {k: v for k, v in funnel_counts.items() if k != "scored_keys"},
         "by_survey": [{"survey": SURVEY_LABEL[s], "rocks": int(n)}
                       for s, n in frame["source"].value_counts().items()],
@@ -164,6 +166,51 @@ def tables(frame: pd.DataFrame, modes: pd.DataFrame, funnel_counts: dict) -> dic
     }
 
 
+def _off_vocab_shares(frame: pd.DataFrame) -> dict:
+    """Per-rock `1 - scoreable / reported` over one measurement basis."""
+    quantified = frame[frame["abundance_pct"].notna() & (frame["abundance_pct"] > 0)]
+    total = quantified.groupby("key")["abundance_pct"].sum()
+    kept = (quantified[quantified["magemin_phase"].isin(TRUTH_TO_GROUP)]
+            .groupby("key")["abundance_pct"].sum().reindex(total.index).fillna(0.0))
+    share = (1.0 - kept / total).to_numpy()
+    affected = share > 1e-9
+    categories = (quantified[~quantified["magemin_phase"].isin(TRUTH_TO_GROUP)]
+                  ["magemin_phase"].value_counts())
+    return {
+        "rocks": int(len(share)),
+        "rocks_fully_in_vocabulary": int((~affected).sum()),
+        "rocks_affected": int(affected.sum()),
+        "share_among_affected_p50": (float(np.median(share[affected]))
+                                     if affected.any() else None),
+        "categories": {k: int(v) for k, v in categories.items()},
+    }
+
+
+def off_vocabulary(scoped_modes: pd.DataFrame) -> dict:
+    """Measured mass the seven scored groups cannot represent, per rock.
+
+    Same definition as the sedimentary cohort's (`load_andrews.py`),
+    `1 - scoreable / reported`, so the two are comparable. `_truth_arrays`
+    drops every row whose `magemin_phase` falls outside `TRUTH_TO_GROUP` and
+    renormalizes what remains without recording what it dropped; this is that
+    record.
+
+    Reported per measurement basis because the answer differs between them:
+    groundmass is itemized only by point counts, so the visual estimates the
+    scored numbers are measured against carry no out-of-vocabulary mass at
+    all. Shares are on the published volume-percent basis, against weight
+    percent for XRD Rietveld, so the rock counts rather than the shares are
+    what compares across cohorts.
+    """
+    return {
+        "basis": "volume percent as published",
+        "as_scored": _off_vocab_shares(preferred_basis(scoped_modes, VISUAL_BASIS)),
+        "point_count_basis": _off_vocab_shares(
+            scoped_modes[scoped_modes["basis"] == POINTCOUNT_BASIS]
+        ),
+    }
+
+
 def _markdown_table(rows: list[dict], columns: list[str], total: str | None) -> str:
     head = "| " + " | ".join(columns) + " |\n|" + "---|" * len(columns) + "\n"
     body = "".join(
@@ -174,6 +221,8 @@ def _markdown_table(rows: list[dict], columns: list[str], total: str | None) -> 
 
 def render(data: dict, n_other: int) -> str:
     f = data["funnel"]
+    ov = data["off_vocabulary"]
+    scored, pc = ov["as_scored"], ov["point_count_basis"]
     lines = [
         "# Benchmark composition (du Bray)",
         "",
@@ -227,6 +276,18 @@ def render(data: dict, n_other: int) -> str:
         "the scored numbers were measured against.",
         "",
         _markdown_table(data["minerals"], ["mineral", "rocks", "with_a_number", "trace_only"], None),
+        "## Measured mass the seven groups cannot represent",
+        "",
+        f"As scored, all {scored['rocks']} rocks report their whole measured",
+        "assemblage inside the seven groups, so nothing is discarded before",
+        "renormalizing. The one out-of-vocabulary category anywhere in the",
+        f"benchmark is {'/'.join(pc['categories']) or 'none'}, itemized only by",
+        f"point counts: {pc['rocks_affected']} of the {pc['rocks']} point-counted",
+        f"rocks report it, at a median {pc['share_among_affected_p50']:.0%} of the",
+        "rock. Groundmass is quenched melt, which the simulated labels also",
+        "exclude before renormalizing, so both sides are crystals only either",
+        f"way. Shares are on the {ov['basis']}.",
+        "",
     ]
     return "\n".join(lines) + "\n"
 

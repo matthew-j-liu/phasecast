@@ -335,8 +335,20 @@ try:
     emit("sedGap", fmt(mf["headline_nll"]["joint"]["model"]
                        - mf["headline_nll"]["joint"]["climatology"], 2),
          "cohort-wide zero-shot failure, all rocks")
-    emit("sedOffVocabPct", f"{100 * mf['truth']['off_vocab_share_p5_50_95'][1]:.0f}",
+    ov = mf["truth"]["off_vocab_share_p5_50_95"]
+    emit("sedOffVocabPct", f"{100 * ov[1]:.0f}",
          "median truth mass outside the 21-phase vocabulary")
+    emit("sedOffVocabLoPct", f"{100 * ov[0]:.0f}", "5th percentile; no rock escapes it")
+    emit("sedOffVocabHiPct", f"{100 * ov[2]:.0f}", "95th percentile")
+    emit("sedPopulatedTokens", str(mf["inputs"]["populated_tokens"]),
+         "input rows this cohort can fill, of sysInputTokens")
+    emit("sedBootstrapRatio", fmt(mf["bootstrap"]["eruption_v2_width_ratio"], 2),
+         "per-rock intervals are this many times narrower than the "
+         "unit-clustered ones on eruption-v2; no unit labels exist here")
+    for group in ("px", "amp", "opq"):
+        emit(f"sedBaseRate{group.capitalize()}Pct",
+             f"{100 * mf['truth']['presence_base_rate'][group]:.0f}",
+             "share of rocks containing it; fsp and q are in every rock")
     for split, short in (("train", "Train"), ("val", "Val"), ("test", "Test")):
         emit(f"sed{short}N", str(rc["n"][split]))
     emit("sedTestGap", fmt(rc["zero_shot"]["joint"] - rc["climatology"]["joint"], 2),
@@ -349,14 +361,49 @@ try:
     emit("sedRecovHi", fmt(-dv[1], 2))
     emit("sedAhead", fmt(-rc["best_vs_climatology"], 2),
          "nats ahead of the sedimentary climatology after fitting")
+    # the whole margin above is abundance: the recovered presence term does not
+    # beat a forecast that never looks at the rock, which is the appendix's
+    # scoping claim and must stay quotable as a pair
+    emit("sedClimTestJoint", fmt(rc["climatology"]["joint"], 2),
+         "test-slice climatology; sedClimJoint is the cohort-wide one, do not blur")
+    # presence at 3 decimals: the pair differs by under 0.01, and rounding to 2
+    # renders a tie as a visible gap, which is the opposite of the claim
+    for term, short, places in (("bernoulli", "Bern", 3), ("dirichlet", "Dir", 2)):
+        emit(f"sedTailed{short}", fmt(rc["tiers"]["tailed"][term], places))
+        emit(f"sedClim{short}", fmt(rc["climatology"][term], places))
     for term, short in (("bernoulli", "Bern"), ("dirichlet", "Dir")):
         d = ec["paired_delta_allrock_minus_igneous"][term]
         emit(f"sedEnc{short}Mean", fmt(d[0], 2, sign=True),
              "all-rock minus igneous-only encoder; negative = all-rock better")
         emit(f"sedEnc{short}Lo", fmt(d[1], 2, sign=True))
         emit(f"sedEnc{short}Hi", fmt(d[2], 2, sign=True))
+    fs = json.loads((SEDIMENT / "fewshot_budget.json").read_text())
+    emit("sedFewshotBudget", str(fs["budget"]))
+    emit("sedFewshotDraws", str(fs["n_draws"]))
+    for tier in ("matrix", "tailed"):
+        emit(f"sedFewshot{tier.capitalize()}", fmt(fs["tiers"][tier]["median_joint"], 2),
+             f"median over the draws; compare against sedClimTestJoint")
 except Exception as exc:
     tbd("sedGap", f"sediment_transfer results unreadable: {exc}")
+
+# the sedimentary cohort's 43% only means something beside the volcanic
+# benchmark's own truth-side figure, which is a different quantity from the
+# predicted-side rrOffVocabProd and had never been measured
+section("volcanic truth-side off-vocabulary mass, du Bray scored set "
+        "(explorations/real_mineralogy/results/benchmark_composition.json)")
+try:
+    bc = json.loads((ROOT / "explorations" / "real_mineralogy" / "results"
+                     / "benchmark_composition.json").read_text())["off_vocabulary"]
+    emit("rrTruthInVocabN", str(bc["as_scored"]["rocks_fully_in_vocabulary"]),
+         "rocks whose whole measured assemblage the seven groups represent")
+    emit("rrTruthScoredN", str(bc["as_scored"]["rocks"]))
+    emit("rrGroundmassN", str(bc["point_count_basis"]["rocks_affected"]),
+         "point-counted rocks itemizing groundmass, the sole out-of-vocabulary category")
+    emit("rrGroundmassPct",
+         f"{100 * bc['point_count_basis']['share_among_affected_p50']:.0f}",
+         "median share of those rocks, volume basis; excluded like the labels' melt")
+except Exception as exc:
+    tbd("rrTruthInVocabN", f"benchmark_composition.json unreadable: {exc}")
 
 section("controls: each defends a claim and asserts nothing on its own "
         "(explorations/real_mineralogy/results/<PROD>/, explorations/redox_padding/results/)")
@@ -437,7 +484,12 @@ emit("sysCorpusTrainBulksRealized", "9{,}946")
 emit("sysCorpusTrainDraws", "48", "old broad-draw corpus; verified on disk")
 emit("sysCorpusTrainRows", "949{,}228", "(bulk, draw, rung) triples at rungs 50/30")
 emit("sysCorpusValtestDraws", "128")
+emit("sysCorpusValtestBulks", "493", "realized of the 500 committed when this corpus was generated")
+emit("sysCorpusValtestRows", "125{,}105")
 emit("sysCorpusValBulks", "218", "realized val slice, instrument valtest128-broad")
+emit("sysCorpusValRows", "55{,}576")
+emit("sysCorpusTestBulks", "274", "the remaining realized valtest compositions; one carries no subset label")
+emit("sysCorpusTestRows", "69{,}521")
 
 # architecture + param counts read from the frozen production checkpoints
 section("architecture and parameter counts (read from checkpoints)")

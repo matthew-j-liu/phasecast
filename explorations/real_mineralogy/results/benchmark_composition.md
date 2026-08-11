@@ -82,3 +82,15 @@ the scored numbers were measured against.
 | alkali feldspar | 177 | 148 | 29 |
 | olivine | 105 | 77 | 28 |
 
+## Measured mass the seven groups cannot represent
+
+As scored, all 629 rocks report their whole measured
+assemblage inside the seven groups, so nothing is discarded before
+renormalizing. The one out-of-vocabulary category anywhere in the
+benchmark is groundmass, itemized only by
+point counts: 64 of the 64 point-counted
+rocks report it, at a median 92% of the
+rock. Groundmass is quenched melt, which the simulated labels also
+exclude before renormalizing, so both sides are crystals only either
+way. Shares are on the volume percent as published.
+
