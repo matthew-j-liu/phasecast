@@ -263,6 +263,9 @@ try:
          "share of the zero-shot gap carried by the abundance factor")
     for g in mt["per_group"]:
         emit(f"rrAuroc{g['group'].capitalize()}", fmt(g["auroc"], 3))
+        emit(f"rrSpearman{g['group'].capitalize()}", fmt(g["magnitude_spearman"], 3))
+        emit(f"rrNQuant{g['group'].capitalize()}", str(g["n_quantified"]),
+             "rocks with a numeric abundance for the category")
     emit("rrSpearmanPosGroups",
          str(sum(g["magnitude_spearman"] > 0 for g in mt["per_group"])),
          f"of {len(mt['per_group'])} groups with positive rank correlation")
