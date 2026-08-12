@@ -228,6 +228,8 @@ try:
         at25 = statistics.median(pts)
         emit(f"fsTwentyFive{tier.capitalize()}Prod", fmt(at25, 2),
              f"median over {len(pts)} draws")
+        emit(f"fsTwentyFive{tier.capitalize()}GainProd", fmt(zs - at25, 1),
+             "nats the 25-rock fit recovers off zero-shot")
         emit(f"fsRecovered{tier.capitalize()}Pct", f"{100 * (zs - at25) / (zs - full):.0f}",
              "share of that tier's own recoverable nats bought by 25 rocks")
     emit("rrValAheadProd", fmt(clim - lv["tailed"]["joint"], 2),
