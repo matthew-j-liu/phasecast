@@ -27,6 +27,7 @@
       "src/cnmineral/models/cond_head.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
+      "src/cnmineral/models/measured_mode_head.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/training/build_from_config.py",
       "src/cnmineral/training/checkpoint.py",
@@ -34,6 +35,7 @@
       "src/cnmineral/training/joint_heads.py"
     ],
     "fractional_encoding": [
+      "scripts/build/build_numbers.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/fractional_encoder.py"
     ],
@@ -42,6 +44,7 @@
       "src/cnmineral/models/cond_head.py",
       "src/cnmineral/models/encoder.py",
       "src/cnmineral/models/imputation_head.py",
+      "src/cnmineral/models/measured_mode_head.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/models/pretrain_head.py",
       "src/cnmineral/models/real_rock_recalibrator.py"
@@ -63,9 +66,11 @@
       "src/cnmineral/eval/cond_head.py",
       "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/real_rock.py",
+      "src/cnmineral/models/measured_mode_head.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/training/joint_heads.py",
-      "src/cnmineral/training/joint_heads_hpo.py"
+      "src/cnmineral/training/joint_heads_hpo.py",
+      "src/cnmineral/training/measured_mode_head.py"
     ],
     "imputation_readout_head": [
       "src/cnmineral/eval/imputation.py",
@@ -92,6 +97,7 @@
       "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/losses/mode_loss.py",
+      "src/cnmineral/models/measured_mode_head.py",
       "src/cnmineral/models/mode_head.py",
       "src/cnmineral/training/joint_heads.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
@@ -116,6 +122,7 @@
   },
   "data_loading": {
     "parquet_sidecar_cache": [
+      "scripts/build/build_numbers.py",
       "scripts/build/build_test_fixture.py",
       "scripts/build/generate_mineralogy_corpus.py",
       "scripts/build/report_corpus_health.py",
@@ -140,6 +147,7 @@
       "src/cnmineral/eval/real_rock.py"
     ],
     "climatology_reference_forecast": [
+      "scripts/build/build_numbers.py",
       "scripts/view/real_rock_card.py",
       "src/cnmineral/eval/real_rock.py"
     ],
@@ -173,6 +181,11 @@
     ],
     "fp_mass_guardrail": [
       "src/cnmineral/eval/mode_head.py"
+    ],
+    "input_ablation_contrast": [
+      "src/cnmineral/eval/real_rock.py",
+      "src/cnmineral/training/measured_mode_head.py",
+      "src/cnmineral/training/real_rock_recalibrator.py"
     ],
     "instrument_noise_floor": [
       "src/cnmineral/eval/mode_head.py"
@@ -243,6 +256,7 @@
     ],
     "vocabulary_coarsening": [
       "src/cnmineral/eval/real_rock.py",
+      "src/cnmineral/training/measured_mode_head.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ]
   },
@@ -304,6 +318,7 @@
   },
   "initialization": {
     "checkpoint_load": [
+      "scripts/build/build_numbers.py",
       "scripts/eval/real_rock.py",
       "scripts/view/inference_card.py",
       "scripts/view/plot_training.py",
@@ -327,6 +342,7 @@
       "src/cnmineral/models/encoder.py"
     ],
     "mat2vec_embedding": [
+      "scripts/build/build_numbers.py",
       "src/cnmineral/models/encoder.py"
     ],
     "mat2vec_frozen_load": [
@@ -369,6 +385,7 @@
       "src/cnmineral/losses/joint_loss.py",
       "src/cnmineral/losses/mode_loss.py",
       "src/cnmineral/training/joint_heads_hpo.py",
+      "src/cnmineral/training/measured_mode_head.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ],
     "masked_element_log_mse": [
@@ -528,6 +545,7 @@
       "configs/pretrain/pretrain_allrock_redox.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/pretrain/pretrain_production.yaml",
+      "scripts/build/build_numbers.py",
       "src/cnmineral/data/tokens.py",
       "src/cnmineral/losses/pretrain_loss.py",
       "src/cnmineral/models/imputation_head.py",
@@ -537,6 +555,11 @@
       "src/cnmineral/training/pretrain_objective.py",
       "src/cnmineral/training/reconstruction_mse.py",
       "src/cnmineral/training/ssl_pretrain.py"
+    ],
+    "measured_label_resupervision": [
+      "src/cnmineral/models/measured_mode_head.py",
+      "src/cnmineral/training/measured_mode_head.py",
+      "src/cnmineral/training/real_rock_recalibrator.py"
     ],
     "per_head_checkpoint_selection": [
       "scripts/view/plot_training.py",
@@ -559,8 +582,11 @@
       "src/cnmineral/training/joint_heads.py"
     ],
     "sim_to_real_adaptation": [
+      "scripts/build/build_numbers.py",
       "scripts/eval/real_rock.py",
+      "src/cnmineral/models/measured_mode_head.py",
       "src/cnmineral/models/real_rock_recalibrator.py",
+      "src/cnmineral/training/measured_mode_head.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ],
     "stratified_split": [

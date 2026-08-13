@@ -188,9 +188,52 @@ Numbers and per-group detail in `results/<tag>/residual_decomposition.json`;
 the figure annotates each width ceiling with the `k` that buys it, so a bar at
 1.0 reached only by a 100x precision cut reads as the vacuity it is.
 
+## Re-supervising the head instead of correcting it (#53)
+
+The three correction tiers all start from the simulation-trained head's
+forecast.  Three more arms ignore it entirely and train a 7-group hurdle head
+(`MeasuredModeHead`) on measured proportions alone, on the same rocks, the same
+draws, the same objective, differing only in what they are given about a rock:
+the frozen encoder's latent representation, only the assay that latent was
+computed from, or neither.  All six arms fit the identical drawn rocks at each
+(budget, draw), so every comparison is paired within the draw.
+
+Read the paired per-draw difference, never the difference of medians.  At the
+26-rock budget the two differ by almost a nat (+1.38 against +2.28) because the
+arms' worst draws are different draws.  For the same reason the 10-90 bands on
+the figures overlap almost completely while the paired sign is 10/10 -- the
+bands understate every contrast here, and a paired-difference panel is what
+the figures owe.
+
+Three things separate cleanly, all on the val slice at the full 368-rock roster:
+
+- **The encoder earns its place, on presence.** A head given the latent beats
+  one given only the assay by +0.50 to +0.67 nats at every budget swept (9-10
+  of 10 draws), and beats one given neither by +0.77.  The ordering on the
+  presence term alone is 2.77 / 3.36 / 3.55.  Below ~50 rocks the assay-given
+  head is beaten outright by the one given neither: twenty-two raw numbers
+  overfit where the latent does not.
+- **Nothing the head reads changes the amounts.**  Given the measured mineral
+  list, the amount term is 2.50 / 2.50 / 2.51 nats across the three -- the head
+  that cannot tell one rock from another matches the one reading full
+  chemistry.  Whether that is petrology or the benchmark's 7-group resolution
+  is not resolved here.
+- **The simulation-trained head is the only source of per-rock amount
+  information.** It wins absolute share error (0.0954 against ~0.1035 for all
+  three re-supervised heads, 10/10 draws from 210 rocks) while losing the
+  likelihood badly (0.97 against 0.27).  Better centre, wrong confidence.  Its
+  share error only clears the zero-shot line at ~106 rocks; at 26 it is worse
+  than no fit at all.
+
+`measured_ablated` is not blind to the rock -- every arm receives the true
+mineral list as input to its amount branch.  It knows the assemblage and no
+chemistry.
+
 ## Files
 
-- `run_curve.py` -- the sweep, the figures, `results/<tag>/curve.json`
+- `run_curve.py` -- the sweep, the figures, `results/<tag>/curve.json`.
+  `--replot` redraws from the recorded curve without refitting, so figure
+  wording does not cost an eleven-minute sweep
 - `run_residual_decomposition.py` -- width-vs-location residual decomposition
   after the fit, `results/<tag>/residual_decomposition.{json,png}`
 - `run_tailed_acceptance.py` -- the tailed-vs-matrix acceptance read and the
@@ -199,6 +242,10 @@ the figure annotates each width ceiling with the `k` that buys it, so a bar at
 - `results/joint_heads_supportmag_seed0/curve_by_units.png` -- priced in eruptions
 - `results/joint_heads_allrock_tuned_seed0/learning_curve_val.png` -- the
   production re-run with the tailed tier
+- `results/joint_heads_allrock_tuned_seed0/share_mae_val.png` -- absolute share
+  error against budget, the four arms that communicate
+- `results/joint_heads_allrock_tuned_seed0/arm_contrast_val.png` -- paired
+  per-draw differences against the head given the latent
 
 Backing: journal 2026-07-25 (curve), 2026-07-31 (decomposition), 2026-08-05/06
 (tailed tier + production curve re-run),

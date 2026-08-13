@@ -398,6 +398,19 @@ techniques:
       - "score_recalibrator"
       - "select_weight_decay"
       - "lift_group_presence_to_phases"
+  - name: measured_label_resupervision
+    type: training_strategy
+    patterns:
+      - "MeasuredModeHead"
+      - "fit_measured_head"
+      - "score_measured_head"
+      - "score_predictions"
+  - name: input_ablation_contrast
+    type: evaluation
+    patterns:
+      - "ablate_latent"
+      - "use_raw_chemistry"
+      - "raw_chemistry"
   - name: precision_contamination
     type: architecture
     patterns:

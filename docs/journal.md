@@ -6285,3 +6285,74 @@ labeled rocks buy most of the recovery" and the exchange rate. Then the
 encoder-durability appendix figure (imputation R2 per element plus one
 latent-organization panel), whose source currently sits under gitignored
 `runs/imputation/` and needs an extract into `paper/figures/data/`.
+
+---
+
+## 2026-08-13 -- #53 built, and the control the design was missing: the encoder is worth measuring
+
+**Q.** Does the simulation-trained head's supervision transfer, or is the frozen
+latent doing the work? And -- the question the design had not asked -- was the
+encoder needed at all?
+
+**Context.** #53 shipped as scoped: a 7-group hurdle head (`MeasuredModeHead`,
+34,839 params, 1-hidden MLP, 2-component Dirichlet mixture) trained on measured
+proportions over the frozen latent, on the same budgets and the same unit draws
+as the correction tiers, same hurdle objective, val slice. Then the owner asked
+whether anything took raw geochemistry into a head and predicted mineralogy.
+Nothing did. Every arm, old and new, sat downstream of the encoder, so the
+latent-ablated arm controlled for "the labels are easy" but nothing controlled
+for "the encoder was not needed." A third input variant was added: the same head
+reading the 22-element assay in log space.
+
+**Considered.** Adding the raw arm as a separate sweep and merging was rejected:
+arms are paired within a draw, so a merged file cannot support a paired
+contrast. `run_curve`'s loop was restructured from arm-major to budget/draw-major
+instead, which makes the pairing hold by construction. The rng sequence is
+unchanged, and the three pre-existing correction arms reproduce their committed
+numbers bit-for-bit (150/150 rows) -- the regression check on the restructure.
+
+**Decision / findings.** Six arms, val slice, 10 draws per budget. Read the
+paired per-draw difference, never the difference of medians: at 26 rocks the two
+differ by nearly a nat (+1.38 vs +2.28) because the arms' worst draws are
+different draws. For the same reason the 10-90 bands overlap almost completely
+while paired signs run 9-10 of 10 -- the bands understate every contrast here.
+
+1. **The encoder earns its place, and it does so on presence.** A head given the
+   latent beats one given only the assay by +0.50 to +0.67 nats at every budget
+   (9-10/10 draws, CI-clear from 106 rocks up), and one given neither by +0.77
+   at full roster. Presence term alone, 368 rocks: 2.77 latent / 3.36 assay /
+   3.55 neither. Below ~50 rocks the assay-given head is beaten outright by the
+   one given neither -- 22 raw numbers overfit where the latent does not. First
+   measurement in this project of the encoder beating raw chemistry on real
+   rocks.
+2. **Nothing a head reads changes the amounts.** Given the measured mineral
+   list, the amount term is -2.50 / -2.50 / -2.51 across the three inputs; the
+   head that cannot tell rocks apart matches the one reading full chemistry.
+   Unresolved whether that is petrology or the benchmark's 7-group resolution.
+3. **The simulation-trained head is the only per-rock source of amount
+   information anywhere in the experiment.** It wins absolute share error
+   (0.0954 vs ~0.1035 for all three re-supervised heads, 10/10 draws from 210)
+   while losing the likelihood badly (0.97 vs 0.27). Better centre, wrong
+   confidence.
+4. **The exchange rate does not exist.** The arms never cross: no budget swept
+   makes the simulated labels worth more on the joint score. The reframe #53
+   shipped under is retired.
+5. **Claim 5 does not survive the metric switch.** "123 parameters and 25
+   labeled rocks recover the gap" is a likelihood statement; on share error the
+   recalibration layer sits at 0.1139 at 26 rocks against 0.1101 for no fit at
+   all, clearing the zero-shot line only at ~106 rocks and winning unanimously
+   from 210. Under the intuitive-metrics-lead rule the claim becomes **25 rocks
+   fix the confidence, roughly 200 fix the accuracy.** Owner accepted.
+
+**Caveat carried.** The comparison is lopsided against the simulation-trained
+head: a 123-parameter rescale of its *outputs* against a 34,839-parameter head,
+a ~280x mismatch, with its weights never adapted. Whether parameter-efficient
+fine-tuning inside the head closes the gap is open and is being spec'd
+separately.
+
+**Next.** Paper writing resumes on the encoder-first Results ordering (owner
+decision; `paper/writing_journal.md` session 17). The three re-supervised heads
+are named in prose by what they are given, never by code name. Figures 1 and 2
+stay the only main-text figures; this material is appendix, carried in main text
+as prose plus a pointer. The figures owe a paired-difference panel, since the
+spread bands understate what they are drawn to show.

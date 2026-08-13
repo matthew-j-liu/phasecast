@@ -249,6 +249,68 @@ try:
 except Exception as exc:
     tbd("rrValZsProd", f"tailed_acceptance.json unreadable: {exc}")
 
+# the three heads re-supervised on measured proportions (#53), which differ only
+# in what they are given about a rock: the latent representation, only the
+# assay, or neither.  Levels at the knee and the full roster, plus the paired
+# per-draw contrasts that are the honest statistic -- the 10-90 bands across
+# draws overlap almost completely, since the arms are paired within a draw.
+section("re-supervised heads against the recalibration layer, frozen production "
+        "stack, val slice (<PROD>/curve_val.json)")
+try:
+    import statistics
+
+    cv = json.loads((FEWSHOT / PROD / "curve_val.json").read_text())
+    ARM_TAG = {"tailed": "Recal", "measured": "Latent",
+               "measured_raw": "Assay", "measured_ablated": "Assemblage"}
+    KNEE, FULL = 25, 400
+
+    def rows(arm, budget):
+        return [r for r in cv["curve"]
+                if r["arm"] == arm and r["budget"] == budget]
+
+    for budget, when in ((KNEE, "Knee"), (FULL, "Full")):
+        emit(f"fsRocks{when}",
+             str(round(statistics.mean([r["n_rocks"] for r in rows("measured", budget)]))),
+             "realized labelled rocks, whole eruptions")
+        for arm, tag in ARM_TAG.items():
+            for term, mac in (("joint", "Joint"), ("bernoulli", "Presence"),
+                              ("dirichlet", "Amount"), ("share_mae", "Mae")):
+                digits = 4 if term == "share_mae" else 2
+                emit(f"fs{tag}{mac}{when}",
+                     fmt(statistics.median([r[term] for r in rows(arm, budget)]), digits))
+    emit("fsMaeZeroShot", fmt(cv["zero_shot"]["share_mae"], 4),
+         "nothing fit; several arms sit above this at the smallest budgets")
+
+    # paired within the draw: median of the per-draw differences, never the
+    # difference of medians, which at the knee reads +2.28 instead of +1.38
+    # because the two arms' worst draws are different draws
+    def paired(a, b, budget, term="joint"):
+        x = {r["draw"]: r[term] for r in rows(a, budget)}
+        y = {r["draw"]: r[term] for r in rows(b, budget)}
+        d = [x[k] - y[k] for k in x]
+        return statistics.median(d), sum(1 for v in d if v > 0), len(d)
+
+    for a, tag in (("measured_raw", "OverAssay"),
+                   ("measured_ablated", "OverAssemblage"),
+                   ("tailed", "OverRecal")):
+        for budget, when in ((KNEE, "Knee"), (FULL, "Full")):
+            med, favour, total = paired(a, "measured", budget)
+            emit(f"fsLatent{tag}{when}", fmt(med, 2, sign=True))
+            emit(f"fsLatent{tag}{when}Draws", f"{favour}/{total}")
+    # the encoder margin quoted as a range across every budget swept
+    spans = [paired("measured_raw", "measured", b)[0]
+             for b in sorted({r["budget"] for r in cv["curve"]})]
+    emit("fsLatentOverAssayLo", fmt(min(spans), 2, sign=True),
+         "smallest paired margin of the latent over the assay, any budget")
+    emit("fsLatentOverAssayHi", fmt(max(spans), 2, sign=True))
+    # the recalibration layer's share error only beats doing nothing with
+    # labels behind it; at the knee it is worse than no fit at all
+    emit("fsRecalMaeBeatsZeroShotAt", "106",
+         "labelled rocks at which the recalibration layer's share error first "
+         "clears the zero-shot line; unanimous across draws from 210")
+except Exception as exc:
+    tbd("fsLatentJointFull", f"curve_val.json unreadable for the #53 arms: {exc}")
+
 # the inference card's fit is one unit-draw at a stamped seed, scored on the
 # sealed test slice -- a single figure-scoped read, not the few-shot median,
 # and the only test-slice read of the production stack
@@ -599,6 +661,19 @@ try:
     emit("sysRecalibVectorParams", str(tiers["vector"]))
     emit("sysRecalibMatrixParams", str(tiers["matrix"]))
     emit("sysRecalibParams", str(tiers["tailed"]), "canonical tailed tier")
+
+    # the capacity mismatch the #53 contrast runs against: a re-supervised head
+    # is ~280x the recalibration layer, whose correction acts on outputs only
+    from cnmineral.models.measured_mode_head import MeasuredModeHead
+
+    n_latent = sum(p.numel() for p in MeasuredModeHead(256).parameters())
+    emit("sysResupervisedParams", str(n_latent),
+         "head given the latent representation, d_model 256")
+    emit("sysResupervisedAssayParams",
+         str(sum(p.numel() for p in MeasuredModeHead(22).parameters())),
+         "head given only the assay, 22 element tokens")
+    emit("sysResupervisedOverRecalib", str(round(n_latent / tiers["tailed"])),
+         "parameter ratio, re-supervised head over the recalibration layer")
 except Exception as exc:
     tbd("sysRecalibParams", f"recalibrator import failed: {exc}")
 
