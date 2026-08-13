@@ -331,6 +331,15 @@ rename, or repurpose a test) updates this file in the same change.**
 7. `test_tailed_composes_with_mixture_head_input` -- K-component input comes back as a 2K-component mixture with normalized weights.
 8. `test_unknown_tier_is_rejected` -- a mistyped tier raises rather than silently falling back.
 
+### test_measured_mode_head.py
+
+1. `test_output_is_always_mixture_shaped` -- every arm's forecast enters one scoring path as (logits, alpha, log_w); dropping the component axis at K=1 would need a special case there.
+2. `test_single_component_gate_is_exactly_zero` -- at K=1 the gate log-weight is exactly 0, matching `ModeHead.magnitude_mixture`.
+3. `test_concentrations_are_strictly_positive` -- the masked Dirichlet forms `mask * lgamma(alpha)`, so a zero would be a NaN gradient rather than a no-op.
+4. `test_presence_branch_cannot_see_the_support` -- the branch predicts the support, so reading it would make the hurdle's first factor free.
+5. `test_standardizer_rides_on_the_module` -- a held-out slice is scored through the shift and scale the fit was written against, not its own.
+6. `test_zero_components_is_rejected` -- a nonsensical K raises rather than producing an empty mixture.
+
 ## training/
 
 ### test_splits.py
@@ -435,6 +444,14 @@ rename, or repurpose a test) updates this file in the same change.**
 7. `test_lifting_the_group_correction_hits_the_target_noisy_or` -- pushing the corrected group presence down onto member phases reproduces the group probability exactly; shifting member logits by the group's logit shift does not, since the noisy-OR is not linear in logits, and it erases near-certain groups from every sampled support.
 8. `test_draws_sample_whole_units_without_overshooting` -- draws take whole units, never split one, and stay within the overshoot tolerance.
 9. `test_a_unit_larger_than_the_budget_is_skipped_not_taken` -- otherwise one 66-rock unit would decide the low end of the curve.
+
+### test_measured_mode_head_train.py
+
+1. `test_fitting_reduces_the_loss_it_optimizes` -- a fit lowers the joint hurdle NLL, the same objective the recalibrator minimizes, so the two arms' levels are differenceable.
+2. `test_biases_are_exempt_from_weight_decay` -- at enormous shrinkage the weights collapse but the biases survive: shrinking the weights means "ignore the latent", whose sensible degenerate point is a constant forecast living in the biases, not p = 0.5 and alpha = softplus(0).
+3. `test_the_fit_uses_only_the_drawn_rocks_input_statistics` -- the standardizer is computed on the drawn budget alone; the x-axis is only honest if undrawn rocks contribute nothing, including label-free input statistics.
+4. `test_scoring_a_held_out_slice_reuses_the_fitted_standardizer` -- a held-out slice scores finitely through the fitted shift and scale.
+5. `test_a_latentless_slice_is_rejected_rather_than_silently_misfit` -- `GroupPredictions` without a latent raises, since this head reads nothing else.
 
 ## eval/
 
