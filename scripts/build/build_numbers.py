@@ -221,7 +221,7 @@ try:
         full = lv[tier]["joint"]
         emit(f"rrVal{tier.capitalize()}Prod", fmt(full, 2))
         pts = [p["joint"] for p in cv["curve"]
-               if p["tier"] == tier and p["budget"] == 25]
+               if p["arm"] == tier and p["budget"] == 25]
         if not pts:
             tbd(f"fsTwentyFive{tier.capitalize()}Prod",
                 f"no {tier} budget-25 points in curve_val.json")

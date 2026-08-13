@@ -664,8 +664,11 @@ Tests for archived explorations (moved to `explorations/archive/`,
 
 ### test_real_rock_fewshot.py
 
-1. `test_weight_decay_is_recorded_for_every_tier` -- the curve's only use of the val slice is one fixed scalar per tier; a missing one would silently take a default.
-2. `test_run_curve_produces_one_row_per_tier_budget_draw` -- the tripwire: the sweep runs end to end, every row carries a realized rock and unit count, and each paired interval brackets its own point estimate.
+1. `test_weight_decay_is_recorded_for_every_arm` -- the curve's only use of the val slice is one fixed scalar per arm; a missing one would silently take a default.
+2. `test_run_curve_produces_one_row_per_arm_budget_draw` -- the tripwire: the sweep runs end to end over all four arms, every row carries a realized rock and unit count, and each paired interval brackets its own point estimate.
+2a. `test_every_arm_at_one_draw_fits_the_identical_rocks` -- the arms are paired on the draw; arms measured on different rocks would be two overlapping bands rather than a contrast, and at 25 rocks which units you drew dominates the difference being reported.
+2b. `test_contrasts_are_reported_against_the_measured_arm` -- one contrast per (correction arm, budget, draw), each interval bracketing its own estimate.
+2c. `test_crossing_reports_none_when_the_arms_never_cross` -- "never inside the swept range" is an answer (the exchange rate exceeds the budget swept), not a failure to be papered over with an extrapolation.
 3. `test_budgets_are_ascending_so_the_curve_reads_left_to_right` -- the budget grid is sorted.
 4. `test_shifted_beta_quantiles_identity_matches_share_interval` -- the residual-decomposition oracle at (k=1, delta=0) reproduces the shipped `share_interval`, so a ceiling can never sit below the coverage it starts from.
 5. `test_width_scale_preserves_the_beta_mean_and_widens_coverage` -- the precision knob is mean-preserving and monotone in interval width, which is what makes it a pure width knob.
