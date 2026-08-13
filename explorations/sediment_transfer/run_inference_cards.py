@@ -19,6 +19,7 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 import argparse
 import json
 import sys
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -91,7 +92,9 @@ def main() -> None:
     if recal_json.exists() and args.tier in json.loads(recal_json.read_text())["tiers"]:
         wd = json.loads(recal_json.read_text())["tiers"][args.tier]["weight_decay"]
     else:
-        wd, _ = select_weight_decay(train, val, tier=args.tier)
+        wd, _ = select_weight_decay(
+            train, val, fit=partial(fit_recalibrator, tier=args.tier),
+        )
 
     if args.budget is None:
         fit_slice, n_rocks = train, len(train)

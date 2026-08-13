@@ -26,6 +26,7 @@ internal-only and never travels to the paper.
 
 import argparse
 import json
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -154,7 +155,9 @@ def main() -> None:
     weight_decay = dict(WEIGHT_DECAY)
     wd_records = None
     if args.select_wd:
-        best, wd_records = select_weight_decay(train, val, tier="tailed")
+        best, wd_records = select_weight_decay(
+            train, val, fit=partial(fit_recalibrator, tier="tailed"),
+        )
         weight_decay["tailed"] = best
         print(f"selected weight_decay[tailed] = {best:g}")
 

@@ -20,6 +20,8 @@ from cnmineral.training.real_rock_recalibrator import (
 )
 
 N_GROUPS = len(GROUPS)
+D_MODEL = 16
+N_RAW = 22
 
 
 def _predictions(n=48, seed=0, units_of=3, zero_group="ol"):
@@ -41,6 +43,8 @@ def _predictions(n=48, seed=0, units_of=3, zero_group="ol"):
         magnitude=torch.as_tensor(magnitude),
         numeric=torch.as_tensor(numeric.astype(np.float64)),
         unit=np.array([f"unit-{i // units_of}" for i in range(n)]),
+        latent=torch.as_tensor(rng.normal(0, 1.0, (n, D_MODEL))),
+        raw=torch.as_tensor(rng.normal(0, 1.0, (n, N_RAW))),
     )
 
 

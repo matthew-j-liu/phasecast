@@ -14,6 +14,7 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 import argparse
 import json
 import sys
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -81,7 +82,9 @@ def main() -> None:
            "tiers": {}}
 
     for tier in TIERS:
-        wd, _records = select_weight_decay(train, val, tier=tier)
+        wd, _records = select_weight_decay(
+            train, val, fit=partial(fit_recalibrator, tier=tier),
+        )
         fitted = fit_recalibrator(train, tier=tier, weight_decay=wd)
         scored = score_recalibrator(fitted, test)
         delta = scored["joint"] - zero["joint"]

@@ -504,6 +504,24 @@ def split_mask(benchmark: RealRockBenchmark, subset: str) -> np.ndarray:
     return np.isin(benchmark.bulk_ids, load_real_rock_split(subset))
 
 
+LOG_FRAC_FLOOR: float = 1e-12
+
+
+def raw_chemistry(benchmark: RealRockBenchmark) -> torch.Tensor:
+    """The assay itself, in the space the encoder's own inputs live in.
+
+    `log10` abundance where an element is populated and a neutral 0 where it is
+    not: absent means unmeasured, not zero abundance, and `log10(0)` has no
+    value to place.  Logs also stop the majors from dominating a representation
+    the traces should speak to -- the same two conventions the raw-input
+    ceiling used, so a head reading this and a head reading the latent are
+    being asked the same question about the same chemistry.
+    """
+    frac = benchmark.bulk_frac.to(torch.float64)
+    log_frac = torch.log10(frac.clamp_min(LOG_FRAC_FLOOR))
+    return torch.where(benchmark.bulk_src != 0, log_frac, torch.zeros_like(log_frac))
+
+
 def coarsen_presence(p: np.ndarray) -> np.ndarray:
     """Per-group presence probability from the 21 per-phase marginals.
 

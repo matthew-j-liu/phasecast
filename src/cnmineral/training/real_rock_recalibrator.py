@@ -25,7 +25,7 @@ from ..eval.mode_head import (
     magnitude_parity_stats,
     mixture_conditional_mean,
 )
-from ..eval.real_rock import coarsen_presence
+from ..eval.real_rock import coarsen_presence, raw_chemistry
 from ..losses.mode_loss import masked_dirichlet_nll, mixture_dirichlet_nll
 from ..models.real_rock_recalibrator import RealRockRecalibrator
 
@@ -34,10 +34,16 @@ from ..models.real_rock_recalibrator import RealRockRecalibrator
 class GroupPredictions:
     """Frozen-model outputs in group space, plus the truth they are scored on.
 
-    Everything the recalibrator sees, precomputed once: the encoder and heads never
+    Everything a fitted arm sees, precomputed once: the encoder and heads never
     run again during fitting.  `logits7` is the coarsened presence in logit
     space (that is where a Platt correction acts), `alpha7` the coarsened
     Dirichlet concentrations on the truth-forced support.
+
+    `latent` and `raw` are the two candidate inputs a re-supervised head can
+    read -- the pooled encoder output, and the assay it was computed from.  The
+    recalibrator reads neither, but carrying them here is what keeps every arm
+    subset by the identical unit draw, which is what makes the arms
+    differenceable rather than merely comparable.
     """
 
     logits7: torch.Tensor
@@ -48,6 +54,8 @@ class GroupPredictions:
     numeric: torch.Tensor
     unit: np.ndarray
     log_w: torch.Tensor | None = None
+    latent: torch.Tensor | None = None
+    raw: torch.Tensor | None = None
 
     def __len__(self) -> int:
         return len(self.sio2)
@@ -60,6 +68,8 @@ class GroupPredictions:
             presence=self.presence[t], magnitude=self.magnitude[t],
             numeric=self.numeric[t], unit=self.unit[mask],
             log_w=None if self.log_w is None else self.log_w[t],
+            latent=None if self.latent is None else self.latent[t],
+            raw=None if self.raw is None else self.raw[t],
         )
 
 
@@ -89,6 +99,8 @@ def build_group_predictions(
         unit=benchmark.unit,
         log_w=None if log_w is None
         else torch.as_tensor(log_w, dtype=torch.float64),
+        latent=latents.detach().cpu().to(torch.float64),
+        raw=raw_chemistry(benchmark),
     )
 
 
@@ -171,20 +183,20 @@ def fit_recalibrator(
 
 
 @torch.no_grad()
-def score_recalibrator(
-    recalibrator: RealRockRecalibrator | None, data: GroupPredictions
+def score_predictions(
+    logits: torch.Tensor,
+    alpha: torch.Tensor,
+    log_w: torch.Tensor | None,
+    data: GroupPredictions,
 ) -> dict[str, np.ndarray]:
-    """Per-rock NLL terms and per-group share error under `recalibrator`.
+    """Per-rock NLL terms and per-group share error for one arm's forecast.
 
-    `recalibrator=None` is the zero-shot baseline -- the same loss at the identity
-    correction, which is what makes a difference read as nats recovered.
+    Takes the forecast rather than the model that made it, so every arm on the
+    curve -- the identity correction, a fitted `RealRockRecalibrator`, a
+    `MeasuredModeHead` -- lands on one scale through one code path.  An arm
+    scored by its own bespoke assembly would not be comparable to the others,
+    which is the entire basis for reading a difference as nats.
     """
-    if recalibrator is None:
-        logits, alpha, log_w = data.logits7, data.alpha7, data.log_w
-    else:
-        logits, alpha, log_w = recalibrator(
-            data.logits7, data.alpha7, data.sio2, log_w=data.log_w
-        )
     nll = recalibrator_nll(
         logits, alpha, data.presence, data.magnitude, data.numeric,
         log_w=log_w,
@@ -207,6 +219,24 @@ def score_recalibrator(
         "share_mae_mean": float(np.nanmean(parity["magnitude_mae"])),
         "mean_composition_size": float(numeric.sum(1).mean()),
     }
+
+
+@torch.no_grad()
+def score_recalibrator(
+    recalibrator: RealRockRecalibrator | None, data: GroupPredictions
+) -> dict[str, np.ndarray]:
+    """Score `data` under `recalibrator`.
+
+    `recalibrator=None` is the zero-shot baseline -- the same loss at the identity
+    correction, which is what makes a difference read as nats recovered.
+    """
+    if recalibrator is None:
+        forecast = data.logits7, data.alpha7, data.log_w
+    else:
+        forecast = recalibrator(
+            data.logits7, data.alpha7, data.sio2, log_w=data.log_w
+        )
+    return score_predictions(*forecast, data)
 
 
 def draw_units(
@@ -239,16 +269,16 @@ def select_weight_decay(
     train: GroupPredictions,
     val: GroupPredictions,
     *,
-    tier: str,
+    fit,
+    score=score_recalibrator,
     grid: tuple[float, ...] = (1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0),
     sizes: tuple[int, ...] = (25, 50, 100, 200),
     n_draws: int = 3,
     seed: int = 0,
-    **fit_kwargs,
 ) -> tuple[float, list[dict]]:
-    """Pick one shrinkage constant per tier, once, on the fixed val slice.
+    """Pick one shrinkage constant per arm, once, on the fixed val slice.
 
-    This is the curve's entire use of the val slice: one scalar per tier,
+    This is the curve's entire use of the val slice: one scalar per arm,
     fixed before the curve runs, rather than a per-draw early-stopping
     decision.  That keeps the x-axis honest -- every drawn rock is a fitted
     rock, so "N labelled rocks buys this much" is a claim someone could
@@ -258,6 +288,12 @@ def select_weight_decay(
     across a range of training sizes spanning the curve's, not at full train
     size only, because the best shrinkage at 25 rocks is not the best at 380
     and the one constant has to serve both.
+
+    `fit(drawn, weight_decay=..., seed=...)` and `score(model, val)` are
+    injected rather than hardcoded so every arm's constant is chosen by the
+    identical protocol.  A per-arm copy of this loop would let the protocols
+    drift, and a drifted protocol is exactly what would make the arms
+    incomparable.
     """
     records = []
     for weight_decay in grid:
@@ -268,11 +304,10 @@ def select_weight_decay(
                 mask = draw_units(train, size, rng)
                 if not mask.any():
                     continue
-                recalibrator = fit_recalibrator(
-                    train.subset(mask), tier=tier, weight_decay=weight_decay,
-                    seed=draw, **fit_kwargs,
+                model = fit(
+                    train.subset(mask), weight_decay=weight_decay, seed=draw,
                 )
-                losses.append(score_recalibrator(recalibrator, val)["joint"].mean())
+                losses.append(score(model, val)["joint"].mean())
         records.append({
             "weight_decay": weight_decay,
             "val_joint_nll": float(np.mean(losses)) if losses else float("inf"),
