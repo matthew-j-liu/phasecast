@@ -6230,3 +6230,58 @@ shifted, no curation table, because the leak is measurably not operating.
 data, ideally plutonic) has not started. Still unpinned: which revision of the
 USGS workbooks is on disk -- no checksum or download manifest, with Appendix
 10's derived-percent assertion the only such guard.
+
+## 2026-08-13 -- #53 greenlit and scoped hard: the fresh-head arm becomes a modularity demonstration, not just a control
+
+**Q.** The paper asserts that the heads are re-supervisable application slots
+over a durable encoder. What evidence carries that, and what anchors the
+paper's nats now that the rock-independent reference is being dropped?
+
+**Context.** Paper framing session (`paper/writing_journal.md`, 2026-08-13
+part 2) deleted the rock-independent reference (`eval.real_rock.climatology`)
+from the manuscript after measuring that its information access was never
+matched to the model's: it is fit on 479 measured rocks while the zero-shot
+model has seen none, and for recalibrated numbers it is fit inside the very
+slice it is scored on. The asymmetry runs conservative for the recovery claim
+and inflationary for the zero-shot deficit. It stays in the codebase as an
+internal instrument; it leaves the paper.
+
+Replacing it, the owner's frame is analytical chemistry's external/internal
+standards. External = the measured proportions themselves, reached through
+self-anchoring metrics (fold error against 1x, AUROC against 0.5, coverage
+against nominal). Internal = arms of our own system sharing encoder, rocks,
+splits and scoring, so everything but one variable cancels. Three internal
+standards already exist on disk (zero-shot arm; the vector/matrix/tailed tier
+ladder; the Broad/Sharp/SharpWeight sampling arms). The missing one isolates
+whether simulator-supervised heads are worth anything at all.
+
+**Considered.** (a) Keep the reference and add a paragraph disclosing the
+asymmetry. (b) Demote it to an appendix. (c) Delete it and lean on internal
+standards plus self-anchoring metrics. (d) Leave #53 unbuilt and let claim 8
+stand on architectural assertion.
+
+**Decision.** (c) plus build #53, scoped hard. Scope cuts from the issue as
+filed: ONE readout rather than linear-and-MLP, and the 1-parameter temperature
+arm dropped entirely, since the tier ladder already answers "is it just widen
+everything" (vector 3.76 against tailed 0.97 on recalibrator val). Everything
+else from the issue holds -- same budgets, same unit draws, paired per draw,
+same fixed test slice, same hurdle likelihood, one shrinkage constant per arm
+chosen once on val.
+
+The framing changes, and that is what makes it worth the deadline risk. As a
+control, #53 has an outcome that damages the paper (fresh head wins ->
+simulator supervision was a detour). Read as a modularity demonstration, both
+outcomes report in the same words: the frozen latent supports heads trained on
+either label source, and the budget where the arms cross is an exchange rate --
+how many measured rocks the simulated labels are worth. The asymmetry that
+survives either result is already in the issue: a fresh head speaks only the 7
+benchmark groups, while the simulator-trained head speaks 21 phases plus
+per-phase compositions plus formation conditions, and requires no measured
+labels to exist at all. State it, do not engineer it away.
+
+**Next.** Build the scoped arm in `explorations/real_rock_fewshot/` against the
+existing `run_curve.py` harness. It carries two paper claims on one axis: "25
+labeled rocks buy most of the recovery" and the exchange rate. Then the
+encoder-durability appendix figure (imputation R2 per element plus one
+latent-organization panel), whose source currently sits under gitignored
+`runs/imputation/` and needs an extract into `paper/figures/data/`.

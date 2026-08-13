@@ -7,6 +7,7 @@ degrades to a visible [TBD] macro and a stderr warning, never a broken build.
 import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
+import csv
 import json
 import sys
 from pathlib import Path
@@ -247,6 +248,57 @@ try:
     emit("rrTailedK", fmt(ta["tailed_params"]["k"], 3))
 except Exception as exc:
     tbd("rrValZsProd", f"tailed_acceptance.json unreadable: {exc}")
+
+# the inference card's fit is one unit-draw at a stamped seed, scored on the
+# sealed test slice -- a single figure-scoped read, not the few-shot median,
+# and the only test-slice read of the production stack
+section("inference card: tailed tier on one 25-rock unit draw, sealed test "
+        "slice (paper/figures/data/inference_card_*.csv, written by "
+        "figures/src/extract_inference_card.py)")
+try:
+    figdata = ROOT / "paper" / "figures" / "data"
+    with open(figdata / "inference_card_meta.csv") as f:
+        meta = next(csv.DictReader(f))
+    emit("icFitRocks", meta["n_fit_rocks"],
+         "drawn as whole stratigraphic units from the train roster")
+    emit("icFitUnits", meta["n_fit_units"])
+    emit("icDrawSeed", meta["draw_seed"])
+    emit("icRockSilica", meta["sio2"], f"SiO2 wt% of rendered rock {meta['bulk_id']}")
+    zs_j = float(meta["test_joint_zero_shot"])
+    ad_j = float(meta["test_joint_recalibrated"])
+    zs_d = float(meta["test_dirichlet_zero_shot"])
+    ad_d = float(meta["test_dirichlet_recalibrated"])
+    emit("icTestZsJoint", fmt(zs_j, 2),
+         "test-slice zero-shot, the same rocks the card's fit is scored on")
+    emit("icTestAdJoint", fmt(ad_j, 2))
+    emit("icTestZsBern", fmt(float(meta["test_bernoulli_zero_shot"]), 2))
+    emit("icTestAdBern", fmt(float(meta["test_bernoulli_recalibrated"]), 2))
+    emit("icTestZsDir", fmt(zs_d, 2))
+    emit("icTestAdDir", fmt(ad_d, 2))
+    emit("icDirPct", f"{100 * (zs_d - ad_d) / (zs_j - ad_j):.0f}",
+         "share of the recovery carried by the abundance factor")
+    emit("icOpqRatePct", f"{100 * float(meta['test_opq_rate']):.0f}",
+         "test rocks carrying iron-titanium oxides; the card's false positive "
+         "lands on this base rate")
+    with open(figdata / "inference_card_groups.csv") as f:
+        card = {(r["arm"], r["group"]): r for r in csv.DictReader(f)}
+    for name, arm, group, col, nd in (
+        ("icBiPZs", "zero_shot", "bi", "p_pred", 2),
+        ("icBiPAd", "recalibrated", "bi", "p_pred", 2),
+        ("icOpqPZs", "zero_shot", "opq", "p_pred", 2),
+        ("icOpqPAd", "recalibrated", "opq", "p_pred", 2),
+        ("icBiShareZsPct", "zero_shot", "bi", "share_pred", 1),
+        ("icBiShareAdPct", "recalibrated", "bi", "share_pred", 1),
+        ("icBiShareMeasPct", "recalibrated", "bi", "measured_share", 1),
+        ("icQShareZsPct", "zero_shot", "q", "share_pred", 1),
+        ("icQShareAdPct", "recalibrated", "q", "share_pred", 1),
+        ("icQShareMeasPct", "recalibrated", "q", "measured_share", 1),
+        ("icOpqShareAdPct", "recalibrated", "opq", "share_pred", 1),
+    ):
+        v = float(card[(arm, group)][col])
+        emit(name, fmt(100 * v if name.endswith("Pct") else v, nd))
+except Exception as exc:
+    tbd("icTestZsJoint", f"inference card CSVs unreadable: {exc}")
 
 section("zero-shot decomposition and per-group discrimination, headline "
         "cohort, frozen production stack (runs/real_rock/<PROD>/metrics.json)")
