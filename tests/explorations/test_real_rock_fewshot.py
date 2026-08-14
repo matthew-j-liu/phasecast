@@ -1,12 +1,17 @@
 """Tripwire for the few-shot adaptation curve: a src/ change that breaks it fails here."""
 
+from functools import partial
+
 import numpy as np
 import pytest
 import torch
 
 from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS
+from cnmineral.models.mode_head import ModeHead
 from cnmineral.training.real_rock_recalibrator import GroupPredictions
 
+from explorations.real_rock_fewshot import run_curve as run_curve_module
+from explorations.real_rock_fewshot.adapted_mode_head import fit_adapted_head
 from explorations.real_rock_fewshot.run_curve import (
     BUDGETS,
     CONTRAST_ARMS,
@@ -61,15 +66,25 @@ SMALL_DRAWS = 2
 
 @pytest.fixture(scope="module")
 def small_curve():
-    """One curve shared by the assertions below -- four arms x two budgets x
+    """One curve shared by the assertions below -- seven arms x two budgets x
     two draws is a few hundred fits, and re-running it per test is the whole
     runtime of this file."""
     train = _predictions(90, seed=0, units_of=3)
     test = _predictions(40, seed=1, units_of=4)
-    return run_curve(
-        train, test, budgets=SMALL_BUDGETS, n_draws=SMALL_DRAWS,
-        weight_decay=WEIGHT_DECAY,
-    )
+    # only the adapted arm reads this; every other arm works from the
+    # group-space outputs the fixture supplies directly
+    head = ModeHead(D_MODEL, hidden=8, layers=3).double().eval()
+    with pytest.MonkeyPatch.context() as patch:
+        # the adapted arm is the only one that trains a head rather than a
+        # handful of scalars, and at its shipped epoch budget it is the entire
+        # runtime of this file.  What is under test here is the wiring -- that
+        # the arm fits, scores, and pairs on the draw -- not its convergence.
+        patch.setattr(run_curve_module, "fit_adapted_head",
+                      partial(fit_adapted_head, epochs=25))
+        return run_curve(
+            train, test, budgets=SMALL_BUDGETS, n_draws=SMALL_DRAWS,
+            weight_decay=WEIGHT_DECAY, head=head,
+        )
 
 
 def test_run_curve_produces_one_row_per_arm_budget_draw(small_curve):

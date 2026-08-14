@@ -1,21 +1,25 @@
 """How many labelled real rocks close the sim-to-real gap, and what were the
 simulated labels worth? (#52, #53)
 
-Six arms fit on real modal labels drawn as whole stratigraphic units and scored
-on a fixed held-out slice (--eval-split; val since the test slice was spent
-2026-08-03), over a sweep of labelled-rock budgets.
+Seven arms fit on real modal labels drawn as whole stratigraphic units and
+scored on a fixed held-out slice (--eval-split; val since the test slice was
+spent 2026-08-03), over a sweep of labelled-rock budgets.
 
 Three correct the frozen simulator-supervised head (`vector` in `matrix`, and
 `tailed` forking from `matrix`), and answer how many eruptions are worth
 transcribing.  Three more train a group-space hurdle head on measured labels
 alone, never seeing a simulated label, and differ only in what they read about
 the rock: the frozen encoder's latent (`measured`), the assay that latent was
-computed from (`measured_raw`), or a constant (`measured_ablated`).
+computed from (`measured_raw`), or a constant (`measured_ablated`).  A seventh
+(`adapted`) adapts the simulator-supervised head itself rather than its
+outputs, which is what separates "the simulated labels were worth less" from
+"the correction was too thin to carry them".
 
-Differencing across those six prices three things separately -- what the
+Differencing across those seven prices four things separately -- what the
 simulator supervision bought, what the encoder bought over the raw chemistry,
-and what the cohort's own label marginal bought without reading the rock at
-all.
+what the cohort's own label marginal bought without reading the rock at all,
+and how much of the correction arms' shortfall was the correction being
+external to the head rather than the supervision being simulated.
 
     conda run -n alignn_fix python explorations/real_rock_fewshot/run_curve.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
@@ -26,8 +30,14 @@ runs (--select-wd), so every drawn rock on the x-axis is a fitted rock.
 
 import argparse
 import json
+import sys
 from functools import partial
 from pathlib import Path
+
+# `pythonpath = ["."]` in pyproject covers pytest, not a direct script run, and
+# the sibling module has to import under the same package name it does in the
+# tests or there are two `AdaptedModeHead` classes.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import matplotlib
 
@@ -56,6 +66,11 @@ from cnmineral.training.real_rock_recalibrator import (
     select_weight_decay,
 )
 
+from explorations.real_rock_fewshot.adapted_mode_head import (
+    fit_adapted_head,
+    score_adapted_head,
+)
+
 REPO = Path(__file__).resolve().parents[2]
 RESULTS = Path(__file__).resolve().parent / "results"
 
@@ -65,6 +80,7 @@ RESULTS = Path(__file__).resolve().parent / "results"
 WEIGHT_DECAY: dict[str, float] = {
     "vector": 0.1, "matrix": 1.0, "mlp": 3.0, "tailed": 1.0,
     "measured": 1.0, "measured_raw": 1.0, "measured_ablated": 1.0,
+    "adapted": 10.0,
 }
 
 # The correction arms compared on the curve; mlp is off it because its capacity
@@ -77,10 +93,21 @@ CORRECTION_ARMS: tuple[str, ...] = ("vector", "matrix", "tailed")
 # label, so together they price what the simulator supervision, the encoder,
 # and the cohort's own label marginal each contributed (#53).
 MEASURED_ARMS: tuple[str, ...] = ("measured", "measured_raw", "measured_ablated")
-CURVE_ARMS: tuple[str, ...] = CORRECTION_ARMS + MEASURED_ARMS
+
+# The correction arms fit at most 123 parameters on the frozen head's outputs,
+# so their loss to the measured arm reads as "the head was never adapted, only
+# rescaled".  This arm adapts it: low-rank updates inside its own linear layers,
+# trained on measured labels, at a trainable budget matched to the measured
+# head's.  It inherits the frozen head's single Dirichlet, so the same-K
+# comparison is `matrix` rather than `tailed`.
+ADAPTED_ARM: str = "adapted"
+
+CURVE_ARMS: tuple[str, ...] = CORRECTION_ARMS + MEASURED_ARMS + (ADAPTED_ARM,)
 
 # Everything the latent-reading measured arm is differenced against.
-CONTRAST_ARMS: tuple[str, ...] = CORRECTION_ARMS + ("measured_raw", "measured_ablated")
+CONTRAST_ARMS: tuple[str, ...] = (
+    CORRECTION_ARMS + (ADAPTED_ARM, "measured_raw", "measured_ablated")
+)
 
 # Every arm is measured; not every arm communicates.  The figures drop `vector`
 # (dominated everywhere, and its ceiling is not the one being argued about) and
@@ -92,15 +119,20 @@ PLOT_ARMS: tuple[str, ...] = ("tailed",) + MEASURED_ARMS
 BUDGETS: tuple[int, ...] = (25, 50, 100, 200, 400)
 ARM_COLOR = {"vector": "tab:blue", "matrix": "tab:orange", "mlp": "tab:green",
              "tailed": "tab:red", "measured": "tab:purple",
-             "measured_raw": "tab:brown", "measured_ablated": "tab:gray"}
+             "measured_raw": "tab:brown", "measured_ablated": "tab:gray",
+             "adapted": "tab:cyan"}
 
 
-def arm_fitter(arm: str):
+def arm_fitter(arm: str, head):
     """`(fit, score)` for one arm, both on `select_weight_decay`'s contract.
 
-    Dispatch lives here rather than in `src/` so the two training modules stay
+    Dispatch lives here rather than in `src/` so the three training modules stay
     independent; only the caller that runs every arm needs to know them all.
+    `head` is the frozen ModeHead, which only the adapted arm reads -- every
+    other arm works from the group-space outputs it already produced.
     """
+    if arm == ADAPTED_ARM:
+        return partial(fit_adapted_head, head=head), score_adapted_head
     if arm not in MEASURED_ARMS:
         return partial(fit_recalibrator, tier=arm), score_recalibrator
     # the input swap applies on the way into both the fit and the scoring, so
@@ -109,10 +141,10 @@ def arm_fitter(arm: str):
             "measured_raw": use_raw_chemistry,
             "measured_ablated": ablate_latent}[arm]
     return (lambda data, **kw: fit_measured_head(view(data), **kw),
-            lambda head, data: score_measured_head(head, view(data)))
+            lambda fitted, data: score_measured_head(fitted, view(data)))
 
 
-def run_curve(train, test, *, budgets, n_draws, weight_decay, seed=0):
+def run_curve(train, test, *, budgets, n_draws, weight_decay, head, seed=0):
     """One fit per (arm, budget, draw), each scored on the fixed eval slice.
 
     The draw is taken once per (budget, draw) and every arm fits that same set
@@ -133,7 +165,7 @@ def run_curve(train, test, *, budgets, n_draws, weight_decay, seed=0):
             drawn = train.subset(mask)
             scored = {}
             for arm in CURVE_ARMS:
-                fit, score = arm_fitter(arm)
+                fit, score = arm_fitter(arm, head)
                 model = fit(drawn, weight_decay=weight_decay[arm], seed=draw)
                 got = score(model, test)
                 scored[arm] = got
@@ -407,8 +439,8 @@ def main() -> None:
     encoder.to(device)
     benchmark = load_benchmark()
     latents = bulk_latents(encoder, benchmark, device)
-    gp = build_group_predictions(ckpt.build_mode_head().to(device),
-                                 benchmark, latents)
+    head = ckpt.build_mode_head().to(device)
+    gp = build_group_predictions(head, benchmark, latents)
 
     clean = benchmark.clean & benchmark.has_magnitude
     train = gp.subset(split_mask(benchmark, "train") & clean)
@@ -422,7 +454,7 @@ def main() -> None:
     wd_records = {}
     if args.select_wd:
         for arm in CURVE_ARMS:
-            fit, score = arm_fitter(arm)
+            fit, score = arm_fitter(arm, head)
             best, records = select_weight_decay(train, val, fit=fit, score=score)
             weight_decay[arm] = best
             wd_records[arm] = records
@@ -431,7 +463,7 @@ def main() -> None:
     eval_data = {"test": test, "val": val}[args.eval_split]
     baseline, rows, contrasts = run_curve(
         train, eval_data, budgets=BUDGETS, n_draws=args.draws,
-        weight_decay=weight_decay,
+        weight_decay=weight_decay, head=head,
     )
 
     zero_shot = {

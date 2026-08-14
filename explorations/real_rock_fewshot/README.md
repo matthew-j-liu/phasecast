@@ -229,11 +229,59 @@ Three things separate cleanly, all on the val slice at the full 368-rock roster:
 mineral list as input to its amount branch.  It knows the assemblage and no
 chemistry.
 
+## Adapting the head instead of correcting its outputs
+
+The correction tiers fit at most 123 parameters on the frozen head's outputs,
+so the obvious objection to their loss above is that the head was never
+adapted -- it was rescaled.  A seventh arm (`adapted`) removes that reading:
+rank-5 low-rank updates inside each of the head's eight linear layers, trained
+on the same measured labels through the same objective, on the same draws.  At
+33,595 trainable parameters against `MeasuredModeHead`'s 34,839 the two arms
+are compared at a matched trainable budget -- a fairness gesture rather than a
+capacity claim, since a low-rank perturbation of a trained 1.35M-parameter head
+is not the hypothesis class of a 35k-parameter head fit from scratch.
+
+Everything else stays frozen, including the 21-phase support the amount branch
+is conditioned on: it is a threshold plus an argmax, so it carries no gradient
+in any case, and letting it track the adapters would only make the objective
+jump whenever a member phase crossed 0.5 mid-fit.  Pinning it also keeps this
+arm's Dirichlet on the same support the correction arms' `alpha7` was built on.
+
+Two asymmetries to read the result against.  This arm inherits the frozen
+head's single Dirichlet, while `tailed` and every measured arm are
+two-component and `tailed`'s whole margin over `matrix` was its precision
+contamination -- so the same-K comparison here is `matrix`.  And it runs the
+head inside the training loop, which is why the coarsening onto the seven
+measured groups is reimplemented in torch (`adapted_mode_head.py`); that form
+carries the noisy-OR in logs rather than probabilities, because the shipped
+numpy path recovers a nearly-absent group's probability by subtracting a
+near-one product from one, which is survivable in a reported number and not in
+a gradient.
+
+`lr` and `epochs` come from `run_plateau_probe.py`, which reads the train loss
+and never val, so this arm spends the same single val-selected scalar every
+other one does.  Probing at zero shrinkage measures nothing: 33k adapters
+against at most 368 rocks drive the Dirichlet density down without bound, and
+the train loss is still descending 0.4 nats per 500 epochs at epoch 2000 with
+no plateau to find.  The probe therefore runs at the shrinkage the measured
+arms and both surviving correction tiers already selected, and this arm's own
+constant is chosen on val afterwards with `lr` and `epochs` already fixed.  That
+lands at lr 1e-3 over 1636 epochs, and a shrinkage of 10 -- an order of
+magnitude above what any other arm wanted, which is what 33k adapters against at
+most 368 rocks cost.  It sits at the top of the shared grid but is a real
+optimum rather than a clip: past it the val joint climbs 5.66 -> 9.35 -> 13.44,
+and 13.44 is the zero-shot number, so over-shrinking returns the frozen head
+exactly as the identity-at-initialization contract says it must.
+
 ## Files
 
 - `run_curve.py` -- the sweep, the figures, `results/<tag>/curve.json`.
   `--replot` redraws from the recorded curve without refitting, so figure
   wording does not cost an eleven-minute sweep
+- `adapted_mode_head.py` -- the low-rank adapters, the torch coarsening they
+  train through, and the fit/score pair the `adapted` arm plugs into
+- `run_plateau_probe.py` -- fixes that arm's `lr` and `epochs` off the train
+  loss alone; writes to a scratch directory, not `results/`
 - `run_residual_decomposition.py` -- width-vs-location residual decomposition
   after the fit, `results/<tag>/residual_decomposition.{json,png}`
 - `run_tailed_acceptance.py` -- the tailed-vs-matrix acceptance read and the
