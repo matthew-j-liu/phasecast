@@ -6356,3 +6356,125 @@ are named in prose by what they are given, never by code name. Figures 1 and 2
 stay the only main-text figures; this material is appendix, carried in main text
 as prose plus a pointer. The figures owe a paired-difference panel, since the
 spread bands understate what they are drawn to show.
+
+---
+
+## 2026-08-14 -- adapting the head from the inside: the 280x parameter mismatch was not the reason
+
+**Q.** The 2026-08-13 entry closed on a caveat: #53 compared a 123-parameter
+rescale of the simulation-trained head's *outputs* against a 34,839-parameter
+head trained on measured labels, a ~280x mismatch, with the head's own weights
+never touched. Does parameter-efficient fine-tuning inside the head close the
+gap?
+
+**Context.** A seventh arm (`adapted`) on the few-shot curve: hand-rolled LoRA,
+rank 5 on all eight of `ModeHead`'s linear layers, B zero-initialized, trained
+on the same measured labels through the same `recalibrator_nll`, on the same
+unit draws as the other six. 33,595 trainable parameters against
+`MeasuredModeHead`'s 34,839 -- matched within 4%, which is a fairness gesture
+and not a capacity claim, since a low-rank perturbation of a trained
+1.35M-parameter head is not the hypothesis class of a 35k-parameter head fit
+from scratch. Everything else frozen: encoder, base weights, and the 21-phase
+support the amount branch is conditioned on.
+
+**Considered.**
+
+- *The support was pinned at the frozen head's values.* `truth_forced_support`
+  is a threshold plus an argmax, so it carries no gradient however the adapters
+  move; letting it track them buys a discontinuous objective, not capacity. It
+  is also the invariant guaranteeing every truth-present group holds a member on
+  the support, so a scored group's coarsened concentration is never the exact
+  zero `lgamma` cannot take -- `recalibrator_nll`'s guard covers off-mask
+  entries, not that.
+- *No `src/` change was needed.* The pinned support turned out to be
+  recomputable from `presence` and `latent`, both already on `GroupPredictions`,
+  plus the injected frozen head; it reproduces `predict`'s own `support21` on 0
+  of 15,204 cells differing, across MPS and CPU. The planned schema field was
+  dropped. Everything lives in `explorations/real_rock_fewshot/`.
+- *The coarsening was rewritten in torch, with the noisy-OR in log space.* The
+  head now runs inside the training loop, and the shipped numpy path recovers a
+  nearly-absent group's probability by subtracting a near-one product from one
+  -- worth up to 0.01 in group logit here, survivable in a reported number and
+  not in a gradient. Cost of the switch: the arm's zero-shot origin is not
+  bit-identical to the shared baseline. Measured at +2.4e-5 nats on the val mean
+  (max per-rock 7.9e-4), which is negligible against the ~1-2 nat effects and
+  the slice's own +/- 2.
+- *Bias adapters were rejected* on the grounds that `presence_out.bias` is
+  literally the vector tier's correction in 21-space, and folding it in makes
+  the arm "adapted and also offset." That decision turned out to decide the
+  result; see below.
+- Gradient correctness was proved rather than assumed: `gradcheck` on the
+  coarsening, an end-to-end finite difference on the objective itself, and a
+  structural check that a member phase moves only its own group -- a transposed
+  21x7 map passes `gradcheck` perfectly happily.
+
+**Two method errors, both mine, both corrected.** The plateau probe was
+specified at zero shrinkage so the plateau would be "the optimizer's, not the
+regularizer's." That rationale is wrong: 33k adapters against at most 368 rocks
+drive the Dirichlet density down without bound, the train loss reached -8 nats
+on 29 rocks and was still falling 0.4 nats per 500 epochs at epoch 2000, and
+there is no plateau to find. Shrinkage is what bounds the objective, so the
+probe runs at the value the measured arms and both surviving correction tiers
+already selected -- inherited, not chosen. Then the first full probe rejected
+the entire learning-rate grid, because the stability and convergence tolerances
+were absolute constants an order of magnitude below the noise a converged Adam
+run makes forever; both were rewritten to scale off the run's own descent and
+running minimum. The probe now persists its traces before anything adjudicates
+them, so a criterion bug costs a reread rather than twenty minutes.
+
+Settled at lr 1e-3, 1636 epochs (train loss only, never val), weight decay 10 --
+an order of magnitude above what any other arm wanted. Over-shrinking past it
+returns the frozen head exactly (val joint 5.66 -> 9.35 -> 13.4437 against a
+zero-shot 13.4436), which is the identity-at-initialization contract showing up
+in a fit rather than in a test.
+
+**Decision / findings.** Median val joint NLL, zero-shot 13.44, 10 draws:
+
+| budget (rocks) | 26 | 54 | 106 | 210 | 368 |
+|---|---|---|---|---|---|
+| adapted | 7.19 | 5.75 | 5.86 | 4.97 | 4.86 |
+| adapted, per-budget oracle shrinkage | 7.62 | 3.11 | 3.97 | 1.74 | 1.08 |
+| matrix | 3.97 | 2.62 | 2.36 | 1.37 | 1.28 |
+| tailed | 3.97 | 2.59 | 2.08 | 1.11 | 0.97 |
+| measured | 1.69 | 1.25 | 1.12 | 0.38 | 0.27 |
+
+1. **The parameter mismatch was not the reason, and the caveat is discharged.**
+   Paired per-draw against the measured head, the gap is 4.59 to 4.82 nats at
+   every budget with the whole 95% CI above zero in 48 of 50 draws (`tailed`, by
+   contrast, runs 0.70 to 1.38). Given the same rocks, the same objective and a
+   matched trainable budget, adapting the head from the inside is *worse* than
+   correcting its outputs with 121 parameters at four of five budgets.
+2. **It holds under an advantage no other arm gets.** The oracle row picks
+   shrinkage per budget on val and is then scored on val; it still loses to
+   `tailed` at all five budgets. (3 draws, different draws from the sweep's, so
+   the 26-rock entry is noisy -- an upper bound, not a curve.)
+3. **The loss is almost entirely presence, and it is a parameterization fact.**
+   At the swept shrinkage the Bernoulli term is 5.813 against `matrix`'s 2.896,
+   essentially unmoved from zero-shot's 5.813: 82% of the gap. A per-group
+   presence correction is an intercept, and a low-rank update with no bias term
+   cannot express one cheaply -- it has to route a constant through
+   `B @ A @ latent`. That intercept is exactly what the correction arms get from
+   seven `presence_offset` parameters and what `MeasuredModeHead` gets from
+   biases its fit deliberately exempts from shrinkage. Zero-initialized bias
+   deltas (~3.1k parameters, identity at init preserved) is the targeted test;
+   not run, because the oracle bound already loses to `tailed` everywhere.
+4. **The amount branch goes the other way.** At a shrinkage of 1 its Dirichlet
+   reaches -2.05 against `matrix`'s -1.62 and its joint beats `matrix` at the
+   full roster (1.185 vs 1.277); its share MAE at 26 rocks is 0.099, the lowest
+   of any arm on the curve (`tailed` 0.114, `measured` 0.111). Internal
+   adaptation helps the amounts and cannot touch the calls.
+5. **A protocol pinch this arm is the first to expose.** Its best shrinkage
+   slides 30x across the swept range -- 10, 3, 3, 1, 0.3 -- while
+   `select_weight_decay` searches sizes 25 to 200 and the curve sweeps to 400.
+   For a 23- to 123-parameter correction the optimum is flat and the mismatch is
+   invisible; here a near-tie at small budgets (5.76 against 5.66) picked a
+   constant costing 3.7 nats at the largest. The single val-selected constant is
+   kept anyway: it is what makes every arm's x-axis mean the same thing, and no
+   conclusion depends on the handicap.
+
+**Next.** Nothing further is owed on #53's caveat. `share_mae_val.png` still
+plots the original four arms, so the adapted arm's best-on-curve share error at
+26 rocks does not appear on the figure that would show it -- a figure decision,
+not a measurement gap. Paper writing resumes; this material is appendix at most,
+and the sentence it earns in main text is that the comparison was tested against
+its own strongest objection and survived.
