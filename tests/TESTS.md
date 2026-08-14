@@ -665,7 +665,7 @@ Tests for archived explorations (moved to `explorations/archive/`,
 ### test_real_rock_fewshot.py
 
 1. `test_weight_decay_is_recorded_for_every_arm` -- the curve's only use of the val slice is one fixed scalar per arm; a missing one would silently take a default.
-2. `test_run_curve_produces_one_row_per_arm_budget_draw` -- the tripwire: the sweep runs end to end over all four arms, every row carries a realized rock and unit count, and each paired interval brackets its own point estimate.
+2. `test_run_curve_produces_one_row_per_arm_budget_draw` -- the tripwire: the sweep runs end to end over all seven arms, every row carries a realized rock and unit count, and each paired interval brackets its own point estimate.
 2a. `test_every_arm_at_one_draw_fits_the_identical_rocks` -- the arms are paired on the draw; arms measured on different rocks would be two overlapping bands rather than a contrast, and at 25 rocks which units you drew dominates the difference being reported.
 2b. `test_contrasts_are_reported_against_the_measured_arm` -- one contrast per (correction arm, budget, draw), each interval bracketing its own estimate.
 2c. `test_crossing_reports_none_when_the_arms_never_cross` -- "never inside the swept range" is an answer (the exchange rate exceeds the budget swept), not a failure to be papered over with an extrapolation.
@@ -673,3 +673,23 @@ Tests for archived explorations (moved to `explorations/archive/`,
 4. `test_shifted_beta_quantiles_identity_matches_share_interval` -- the residual-decomposition oracle at (k=1, delta=0) reproduces the shipped `share_interval`, so a ceiling can never sit below the coverage it starts from.
 5. `test_width_scale_preserves_the_beta_mean_and_widens_coverage` -- the precision knob is mean-preserving and monotone in interval width, which is what makes it a pure width knob.
 6. `test_oracle_separates_width_from_location` -- a pure mean shift on a small-share group is invisible to the width-only oracle and recovered by the 2-d one, which is the decomposition's whole claim.
+
+### test_adapted_mode_head.py
+
+1. `test_every_linear_layer_is_adapted` -- the module tree is walked rather than the eight layers named, so a head built at a different depth is adapted throughout instead of partially.
+2. `test_zero_init_reproduces_the_frozen_head_exactly` -- B starts at zero, so an unfit adapter is the frozen head bit for bit; without that a fitted gain would be measured against a slightly different model rather than against the zero-shot forecast.
+3. `test_pinned_support_reproduces_the_frozen_heads_own_support` -- the support is the one `eval.real_rock.predict` builds, which is what puts this arm's Dirichlet on the support the correction arms' alpha7 was built on.
+4. `test_the_support_does_not_move_when_the_adapters_do` -- `truth_forced_support` is a threshold plus an argmax, so a support tracking the adapters would add no gradient, only a discontinuity each time a member phase crossed 0.5 mid-fit; the adapters are separately shown to be live, or the check is vacuous.
+5. `test_coarsened_alpha_matches_the_numpy_twin` -- merging Dirichlet components sums concentrations, so the torch form reproduces `coarsen_alpha` exactly rather than approximately.
+6. `test_coarsened_presence_matches_the_numpy_twin_away_from_cancellation` -- the log-space noisy-OR is the same function as `coarsen_presence` on moderate logits; the two genuinely disagree once a group is nearly absent, which is float32 cancellation in the shipped path and the reason this form exists.
+7. `test_noisy_or_gradient_passes_gradcheck` -- the analytic Jacobian against a central difference, which is the actual proof for the coarsening rather than an inference from the forward being right.
+8. `test_alpha_coarsening_gradient_passes_gradcheck` -- same contract for the magnitude side.
+9. `test_a_member_phase_moves_only_its_own_group` -- a transposed or mis-keyed 21x7 map passes gradcheck happily, since the gradient of the wrong function is still its own gradient; this is the check that sees it.
+10. `test_end_to_end_gradient_matches_finite_difference` -- autograd against a central difference on the objective itself, so the pinned support and the coarsening's exact zeros are inside the check.
+11. `test_only_the_adapters_receive_gradient` -- the base head and encoder stay frozen; a leaked gradient would make this a full fine-tune wearing a matched parameter count.
+12. `test_shrinking_the_adapters_to_zero_returns_the_frozen_forecast` -- no bias carve-out is needed here, unlike `fit_measured_head`: the fully shrunk model is the frozen head, which is already a forecast someone would make.
+13. `test_the_head_stays_in_eval_mode` -- dropout is live on the production head, and waking it would hand this arm a stochastic regularizer no other arm on the curve has.
+14. `test_fitting_reduces_the_loss_it_optimizes` -- the same objective the recalibrator and the measured head minimize, so the three arms' levels are differenceable.
+15. `test_the_injected_head_is_not_mutated` -- one frozen head is shared across every draw and every arm, so adapting in place would leak one draw's fit into the next.
+16. `test_a_mixture_head_is_rejected` -- a K>1 head has no `magnitude_alpha`, and adapting one would need a gate this arm deliberately does not add.
+17. `test_a_latentless_slice_is_rejected_rather_than_silently_misfit` -- `GroupPredictions` without a latent raises, since the adapted head reads nothing else.
