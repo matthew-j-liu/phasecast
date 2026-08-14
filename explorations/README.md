@@ -53,6 +53,7 @@ one-line verdict each.
 | Exploration | Question |
 |---|---|
 | [corpus_scaling](corpus_scaling/README.md) | How do the heads scale with training bulks and draws? Corpus-axis answer measured (#27); the real-rock-axis rerun is #60. |
+| [input_probe_ceiling](input_probe_ceiling/README.md) | Does the qap probe measure the latent's organization, or just that gard2019's `qap_name` is computed from the same majors the encoder reads? The same probe on the raw assay, paired on identical rows -- the missing ceiling for the scorecard's two decodability rows (#19). |
 | [real_mineralogy](real_mineralogy/README.md) | The sim-to-real benchmark: real volcanic rocks with measured modal mineralogy, harvested + EDA'd. Zero-shot gap measured (10.406 nats over 640 rocks, `eruption-v2`); split by stratigraphic unit and adapted on from there. Stays active: `harvest.py` is the sole builder of the gitignored benchmark inputs. |
 | [real_rock_fewshot](real_rock_fewshot/README.md) | How many labelled real rocks close the sim-to-real gap while still generalizing to unseen eruptions? ~25 rocks (8 eruptions) recovers 3.4-3.8 of the 5.0 nats the full 368 recover; coupling pays, nonlinearity does not. |
 | [real_rock_mapping](real_rock_mapping/README.md) | Does any defensible reading of the benchmark's truth mapping (densities, trace bound, freshness cut, support forcing) change a sim-to-real conclusion? Robust where it encodes a measurement; the invented support rule is a 3.5-nat lever. Stays active: the benchmark's error-bar instrument. |

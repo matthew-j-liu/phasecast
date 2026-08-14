@@ -623,6 +623,13 @@ Tests for archived explorations (moved to `explorations/archive/`,
 4. `test_point_record_parses_both_axes` -- `corpus_scaling_n*` / `corpus_scaling_d*` tags parse into bulk/draw axis coordinates with the right nominal row counts and per-phase metrics.
 5. `test_last_doubling_deltas` -- the slope table compares the two largest bulk points only (draw points excluded) and is empty with fewer than two.
 
+### test_input_probe_ceiling.py
+
+1. `test_representations_have_expected_widths_and_exclude_the_redox_slot` -- the four raw matrices are 22/44 wide over element slots only, never the redox slot the latent arm's `PaddedRedoxView` zeroes, so neither arm reads chemistry the other cannot.
+2. `test_absent_elements_are_neutral_and_populated_ones_track_abundance` -- absent elements land on the neutral standardized value with their flag at 0, populated ones carry the flag at 1, and within an element the standardized values order exactly as the abundances do (the log-space contract).
+3. `test_standardization_never_reads_the_test_rows` -- perturbing the test rows leaves the train matrix bit-identical, so the raw arm's center/scale is fit on its own training data.
+4. `test_probe_slice_keeps_labeled_roster_rows_only` -- the slice both arms are fit on is disjoint train/test, carries no null qap label, and scores only roster rows.
+
 ### test_redox_padding.py
 
 1. `test_padded_on_the_curve_recovers_its_ratio` -- a padded latent placed exactly at a grid ratio is reported nearest to that ratio, at zero distance from the sweep curve.
