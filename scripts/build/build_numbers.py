@@ -35,6 +35,7 @@ ARMS = {
     "SharpWeight": "joint_heads_regen_tuned_seed0",
 }
 IGNEOUS = "joint_heads_igneous_tuned_seed0"
+ENCODER_RUN = "pretrain_allrock_redox_seed0_epoch_best"
 LEDGER_TAGS = {"Prod": PROD, **ARMS}
 
 macros = []
@@ -249,6 +250,35 @@ try:
 except Exception as exc:
     tbd("rrValZsProd", f"tailed_acceptance.json unreadable: {exc}")
 
+# what the frozen encoder is worth away from the mineralogy task: recovering
+# element concentrations withheld from it, and how well rock type reads off the
+# latent. The imputation readout lives under gitignored runs/; the probe numbers
+# have no JSON left on disk and are carried from their durable home in
+# docs/scorecard.md, which is what a re-score updates.
+section("encoder capability away from the mineralogy task (runs/imputation/"
+        f"{ENCODER_RUN}/readout/readout_logspace_metrics.json; probe "
+        "accuracies hand-carried from docs/scorecard.md)")
+try:
+    import statistics
+
+    im = json.loads((ROOT / "runs" / "imputation" / ENCODER_RUN / "readout"
+                     / "readout_logspace_metrics.json").read_text())
+    per = im["per_element"].values()
+    majors = [v["log_r2"] for v in per if "wt%" in v["unit"]]
+    traces = [v["log_r2"] for v in per if "ppm" in v["unit"]]
+    emit("encImputeTestN", f"{im['n_test']:,}".replace(",", "{,}"),
+         "held-out whole-rock analyses, pretraining test split")
+    emit("encImputeMajorN", str(len(majors)),
+         "majors the production pretraining set populates; Cr is never reported")
+    emit("encImputeMajorRSq", fmt(statistics.median(majors), 3),
+         "median log-space R^2, one masked element at a time")
+    emit("encImputeTraceN", str(len(traces)))
+    emit("encImputeTraceRSq", fmt(statistics.median(traces), 3))
+except Exception as exc:
+    tbd("encImputeTraceRSq", f"imputation readout unreadable: {exc}")
+emit("encQapProbeAcc", "0.759", "MLP probe on the frozen latent, redox padded")
+emit("encQapProbeChance", "0.100", "random baseline over QAPF rock names")
+
 # the three heads re-supervised on measured proportions (#53), which differ only
 # in what they are given about a rock: the latent representation, only the
 # assay, or neither.  Levels at the knee and the full roster, plus the paired
@@ -303,11 +333,36 @@ try:
     emit("fsLatentOverAssayLo", fmt(min(spans), 2, sign=True),
          "smallest paired margin of the latent over the assay, any budget")
     emit("fsLatentOverAssayHi", fmt(max(spans), 2, sign=True))
+    # at the smallest budget the assay-given head is behind the one given
+    # neither: 22 raw numbers overfit where the latent does not
+    med, favour, total = paired("measured_raw", "measured_ablated", KNEE)
+    emit("fsAssemblageOverAssayKnee", fmt(med, 2, sign=True),
+         "positive = the head given neither beats the one given only the assay")
+    emit("fsAssemblageOverAssayKneeDraws", f"{favour}/{total}")
+
     # the recalibration layer's share error only beats doing nothing with
     # labels behind it; at the knee it is worse than no fit at all
     emit("fsRecalMaeBeatsZeroShotAt", "106",
          "labelled rocks at which the recalibration layer's share error first "
-         "clears the zero-shot line; unanimous across draws from 210")
+         "clears the zero-shot line")
+
+    def sweeps_share_mae(budget):
+        for arm in ("measured", "measured_raw", "measured_ablated"):
+            _, favour, total = paired(arm, "tailed", budget, "share_mae")
+            if favour != total:
+                return False
+        return True
+
+    unanimous = [b for b in sorted({r["budget"] for r in cv["curve"]})
+                 if sweeps_share_mae(b)]
+    if unanimous:
+        emit("fsRecalMaeUnanimousAt",
+             str(round(statistics.mean(
+                 [r["n_rocks"] for r in rows("measured", unanimous[0])]))),
+             "labelled rocks from which the simulation-trained head's share "
+             "error beats all three re-supervised heads on every draw")
+    else:
+        tbd("fsRecalMaeUnanimousAt", "no budget wins share error on every draw")
 except Exception as exc:
     tbd("fsLatentJointFull", f"curve_val.json unreadable for the #53 arms: {exc}")
 
@@ -325,6 +380,8 @@ try:
          "drawn as whole stratigraphic units from the train roster")
     emit("icFitUnits", meta["n_fit_units"])
     emit("icDrawSeed", meta["draw_seed"])
+    emit("icNSamples", f"{int(meta['n_samples']):,}".replace(",", "{,}"),
+         "candidate assemblages the card's abundance panels summarize")
     emit("icRockSilica", meta["sio2"], f"SiO2 wt% of rendered rock {meta['bulk_id']}")
     zs_j = float(meta["test_joint_zero_shot"])
     ad_j = float(meta["test_joint_recalibrated"])
@@ -388,6 +445,15 @@ try:
     emit("rrMagRSqNegGroups",
          str(sum(g["magnitude_r2"] < 0 for g in mt["per_group"])),
          "groups whose magnitude R^2 is negative while their ranking holds")
+    # the abundance miss in the units a geologist reads, teacher-forced
+    # conditional-mean share against measured share -- the quantity Figure 1c
+    # draws, so the range and the panel cannot disagree
+    mag_mae = {g["group"]: g["magnitude_mae"] for g in mt["per_group"]}
+    lo_group = min(mag_mae, key=mag_mae.get)
+    hi_group = max(mag_mae, key=mag_mae.get)
+    emit("rrMagMaeLo", fmt(mag_mae[lo_group], 3),
+         f"best group ({lo_group}), mean absolute share error, zero-shot")
+    emit("rrMagMaeHi", fmt(mag_mae[hi_group], 3), f"worst group ({hi_group})")
     emit("rrOffVocabProd", fmt(mt["off_vocabulary_mass"]["mean"], 4),
          "mean predicted mass the 7-group benchmark structurally cannot see")
     emit("rrAlteredJointProd", fmt(mt["altered"]["joint_nll"], 2),
@@ -667,10 +733,10 @@ try:
     from cnmineral.models.measured_mode_head import MeasuredModeHead
 
     n_latent = sum(p.numel() for p in MeasuredModeHead(256).parameters())
-    emit("sysResupervisedParams", str(n_latent),
+    emit("sysResupervisedParams", f"{n_latent:,}".replace(",", "{,}"),
          "head given the latent representation, d_model 256")
-    emit("sysResupervisedAssayParams",
-         str(sum(p.numel() for p in MeasuredModeHead(22).parameters())),
+    n_assay = sum(p.numel() for p in MeasuredModeHead(22).parameters())
+    emit("sysResupervisedAssayParams", f"{n_assay:,}".replace(",", "{,}"),
          "head given only the assay, 22 element tokens")
     emit("sysResupervisedOverRecalib", str(round(n_latent / tiers["tailed"])),
          "parameter ratio, re-supervised head over the recalibration layer")
