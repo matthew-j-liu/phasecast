@@ -268,10 +268,58 @@ arms and both surviving correction tiers already selected, and this arm's own
 constant is chosen on val afterwards with `lr` and `epochs` already fixed.  That
 lands at lr 1e-3 over 1636 epochs, and a shrinkage of 10 -- an order of
 magnitude above what any other arm wanted, which is what 33k adapters against at
-most 368 rocks cost.  It sits at the top of the shared grid but is a real
-optimum rather than a clip: past it the val joint climbs 5.66 -> 9.35 -> 13.44,
-and 13.44 is the zero-shot number, so over-shrinking returns the frozen head
-exactly as the identity-at-initialization contract says it must.
+most 368 rocks cost.  Over-shrinking past it returns the frozen head exactly
+(val joint 5.66 -> 9.35 -> 13.44, and 13.44 is the zero-shot number), which is
+the identity-at-initialization contract showing up in a fit rather than a test.
+
+### The result, and the one place the protocol pinches
+
+Median val joint NLL against zero-shot 13.44:
+
+| budget (rocks) | 26 | 54 | 106 | 210 | 368 |
+|---|---|---|---|---|---|
+| adapted | 7.19 | 5.75 | 5.86 | 4.97 | 4.86 |
+| adapted, per-budget oracle shrinkage | 7.62 | 3.11 | 3.97 | 1.74 | 1.08 |
+| matrix | 3.97 | 2.62 | 2.36 | 1.37 | 1.28 |
+| tailed | 3.97 | 2.59 | 2.08 | 1.11 | 0.97 |
+| measured | 1.69 | 1.25 | 1.12 | 0.38 | 0.27 |
+
+**Adapting the head from the inside does not close the gap, and mostly does not
+even match correcting it from the outside.**  That holds under the shared
+protocol and it still holds after handing this arm an advantage no other arm
+gets: the oracle row picks shrinkage per budget on val and is then scored on
+val, and it loses to `tailed` at all five budgets and to `measured` by a wide
+margin throughout.  So the reading that the correction arms lost only because
+123 parameters cannot carry a real adaptation does not survive.  (Oracle row:
+3 draws rather than 10, and different draws from the sweep's, so the 26-rock
+entry is noisy -- it is an upper bound, not a curve.)
+
+**The loss is almost entirely presence.**  At the swept shrinkage the arm's
+Bernoulli term is 5.813 against `matrix`'s 2.896 -- essentially unmoved from
+zero-shot's 5.813 -- and that accounts for 82% of the gap.  The amount branch
+goes the other way: at a shrinkage of 1 its Dirichlet reaches -2.05 against
+`matrix`'s -1.62, and its share MAE at 26 rocks is 0.099, the lowest of any arm
+on the curve (`tailed` 0.114, `measured` 0.111).
+
+The mechanism is the arm's own parameterization.  A per-group presence
+correction is an intercept, and a low-rank update with no bias term cannot
+express one cheaply -- it has to route a constant through `B @ A @ latent`.
+That intercept is exactly what the correction arms get from seven
+`presence_offset` parameters, and what `MeasuredModeHead` gets from biases its
+fit deliberately exempts from shrinkage.  Adding zero-initialized bias deltas
+(~3.1k parameters, identity at init preserved) is the targeted test, and it was
+not run: the oracle bound already loses to `tailed` everywhere, so closing the
+presence gap is unlikely to reverse the ordering.
+
+**One protocol caveat, which this arm is the first to expose.**  Its best
+shrinkage slides 30x across the swept range -- 10, 3, 3, 1, 0.3 from 26 rocks to
+368 -- while `select_weight_decay` searches sizes 25 to 200 and the curve sweeps
+to 400.  For a 23- to 123-parameter correction the optimum is flat and the
+mismatch is invisible; for 33k adapters a near-tie at small budgets (5.76
+against 5.66) picks a constant that costs 3.7 nats at the largest.  The single
+val-selected constant is kept anyway, because it is what makes every arm's
+x-axis mean the same thing, and the conclusion does not depend on the
+handicap.
 
 ## Files
 
