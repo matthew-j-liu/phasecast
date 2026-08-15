@@ -20,6 +20,7 @@ OUT = ROOT / "paper" / "numbers.tex"
 FEWSHOT = ROOT / "explorations" / "real_rock_fewshot" / "results"
 SCALING = ROOT / "explorations" / "corpus_scaling" / "results"
 SEDIMENT = ROOT / "explorations" / "sediment_transfer" / "results"
+PROBE = ROOT / "explorations" / "input_probe_ceiling" / "results"
 REALROCK = ROOT / "runs" / "real_rock"
 
 # `Prod` is the frozen production stack and nothing else. It used to name
@@ -63,6 +64,23 @@ def tbd(name, why):
 def fmt(x, nd=2, sign=False):
     s = f"{x:+.{nd}f}" if sign else f"{x:.{nd}f}"
     return s
+
+
+def sci(x, nd=2):
+    from math import floor, log10
+
+    e = floor(log10(abs(x)))
+    m = x / 10**e
+    return f"${m:.{nd}f}\\times10^{{{e}}}$"
+
+
+def pow10(x):
+    from math import log10
+
+    e = round(log10(x))
+    if abs(x - 10**e) <= 1e-9 * x:
+        return f"$10^{{{e}}}$"
+    return sci(x, 1)
 
 
 def section(title):
@@ -252,12 +270,12 @@ except Exception as exc:
 
 # what the frozen encoder is worth away from the mineralogy task: recovering
 # element concentrations withheld from it, and how well rock type reads off the
-# latent. The imputation readout lives under gitignored runs/; the probe numbers
-# have no JSON left on disk and are carried from their durable home in
-# docs/scorecard.md, which is what a re-score updates.
+# latent. The imputation readout lives under gitignored runs/; every probe
+# accuracy comes paired with the same probe on the raw assay, since the
+# compilation computes qap_name from the majors the encoder reads.
 section("encoder capability away from the mineralogy task (runs/imputation/"
-        f"{ENCODER_RUN}/readout/readout_logspace_metrics.json; probe "
-        "accuracies hand-carried from docs/scorecard.md)")
+        f"{ENCODER_RUN}/readout/readout_logspace_metrics.json; "
+        "explorations/input_probe_ceiling/results/probe_ceiling.json)")
 try:
     import statistics
 
@@ -270,14 +288,77 @@ try:
          "held-out whole-rock analyses, pretraining test split")
     emit("encImputeMajorN", str(len(majors)),
          "majors the production pretraining set populates; Cr is never reported")
-    emit("encImputeMajorRSq", fmt(statistics.median(majors), 3),
+    emit("encImputeMajorRSq", fmt(statistics.median(majors), 2),
          "median log-space R^2, one masked element at a time")
     emit("encImputeTraceN", str(len(traces)))
-    emit("encImputeTraceRSq", fmt(statistics.median(traces), 3))
+    emit("encImputeTraceRSq", fmt(statistics.median(traces), 2))
+    # per-element cells for the supplementary imputation table; the redox row
+    # is neither major nor trace and stays out of the table and the medians
+    for el, v in im["per_element"].items():
+        if "wt%" in v["unit"] or "ppm" in v["unit"]:
+            emit(f"encImputeRSq{el}", fmt(v["log_r2"], 2))
 except Exception as exc:
     tbd("encImputeTraceRSq", f"imputation readout unreadable: {exc}")
-emit("encQapProbeAcc", "0.759", "MLP probe on the frozen latent, redox padded")
-emit("encQapProbeChance", "0.100", "random baseline over QAPF rock names")
+# the scored slice is the production encoder's test split restricted to
+# pretrain_inherited_test_roster.csv (32,950 rows), which is also where both
+# probe arms are fit -- latent and assay see one set of rows, not two
+why = ""
+try:
+    pc = json.loads((PROBE / "probe_ceiling.json").read_text())
+    qap, sg = pc["headline"]["qap_name"], pc["headline"]["supergroup"]
+    raw = qap["best_raw_mlp_representation"]
+    probe = {
+        "encQapProbeAcc": fmt(qap["latent_mlp"], 3),
+        "encQapRawMlp": fmt(qap["best_raw_mlp"], 3),
+        "encQapProbeAccTuned": fmt(
+            pc["tuned"]["latent"]["final_mlp"]["test_accuracy"], 3),
+        "encQapRawMlpTuned": fmt(
+            pc["tuned"][raw]["final_mlp"]["test_accuracy"], 3),
+        "encQapLatentLin": fmt(qap["latent_logreg"], 3),
+        "encQapRawLin": fmt(qap["best_raw_logreg"], 3),
+        "encSgLatentLin": fmt(sg["latent_logreg"], 3),
+        "encSgRawLin": fmt(sg["best_raw_logreg"], 3),
+        "encQapProbeChance": fmt(pc["label_stats"]["qap_name"]["chance"], 3),
+        "encQapProbeClasses": str(pc["n_classes"]),
+        "encQapProbeMajority": fmt(
+            pc["label_stats"]["qap_name"]["majority_share"], 2),
+    }
+except Exception as exc:
+    probe = {}
+    why = f"probe_ceiling.json unreadable: {exc}"
+
+# emitted from a fixed list rather than from `probe` itself: on a partial read
+# the missing macros must still reach the .tex as [TBD], since an undefined
+# \newcommand is a hard LaTeX error at the owner's end
+for name, comment in (
+    ("encQapProbeAcc", "MLP probe on the frozen latent, redox padded"),
+    ("encQapRawMlp", "same probe, same rows, reading the assay instead"),
+    ("encQapProbeAccTuned", None),
+    ("encQapRawMlpTuned",
+     "both arms tuned under one search space; selects on test, so the gap "
+     "is the statistic, not the level"),
+    ("encQapLatentLin", None),
+    ("encQapRawLin",
+     "a linear readout is invariant to linear reparameterization, so this "
+     "bounds any linear representation of the assay, PCA included"),
+    ("encSgLatentLin", None),
+    ("encSgRawLin", None),
+    ("encQapProbeChance", "frequency-matched guess, sum p^2; NOT 1/n-classes"),
+    ("encQapProbeClasses", "QAPF names in the probe's label space; all 70 in both slices"),
+    ("encQapProbeMajority", "always answering basalt, the rock-blind floor"),
+):
+    if name in probe:
+        emit(name, probe[name], comment)
+    else:
+        tbd(name, why)
+# the log-vs-linear objective ablation cited in the pretraining appendix; no
+# metrics file survives on disk, so the values are carried from ADR 007's
+# recorded table (gate median trace log-R2, igneous-era encoder, 0.839 vs
+# 0.877; reproducible from tag v3.1-logmse-objective)
+emit("encImputeTraceRSqLinearObj", "0.84",
+     "docs/decisions/007_ssl_pretrain_objective.md: linear-space objective")
+emit("encImputeTraceRSqLogObj", "0.88",
+     "docs/decisions/007_ssl_pretrain_objective.md: standardized log objective")
 
 # the three heads re-supervised on measured proportions (#53), which differ only
 # in what they are given about a rock: the latent representation, only the
@@ -676,6 +757,122 @@ emit("sysCorpusValRows", "55{,}576")
 emit("sysCorpusTestBulks", "274", "the remaining realized valtest compositions; one carries no subset label")
 emit("sysCorpusTestRows", "69{,}521")
 
+# head architecture and loss weights from the stamped checkpoint; optimizer,
+# batch, and stopping knobs from the config that produced it (not stamped)
+section("production joint-head configuration (architecture/loss stamped in "
+        "checkpoints/<PROD>/heads_best.pt; optimization from "
+        "configs/heads/joint_heads.yaml)")
+try:
+    import numpy as np
+    import torch
+
+    from cnmineral.data.magemin_corpus import COMP_OXIDES
+
+    hc = yaml.safe_load((ROOT / "configs" / "heads" / "joint_heads.yaml").read_text())
+    ck = torch.load(ROOT / "checkpoints" / PROD / "heads_best.pt",
+                    map_location="cpu", weights_only=False)
+    head_cfg, loss_cfg, mon = ck["head_config"], ck["loss_config"], ck["monitor"]
+    emit("sysCompOxides", str(len(COMP_OXIDES)),
+         "MAGEMin output oxides, cnmineral.data.magemin_corpus.COMP_OXIDES")
+    emit("hdCompEps", pow10(ck["label_config"]["comp_eps"]),
+         "hard-zero oxide clip on composition targets, stamped label_config")
+    emit("hdModeHidden", str(head_cfg["mode_hidden"]))
+    emit("hdModeLayers", str(head_cfg["mode_layers"]))
+    emit("hdCompHidden", str(head_cfg["comp_hidden"] or head_cfg["d_model"] // 2),
+         "null in the config resolves to d_model // 2")
+    emit("hdCompLayers", str(head_cfg["comp_layers"]))
+    emit("hdCondHidden", str(head_cfg["cond_hidden"]))
+    emit("hdCondLayers", str(head_cfg["cond_layers"]))
+    emit("hdDropout", fmt(head_cfg["dropout"], 3))
+    emit("hdCondComponents", str(head_cfg["cond_n_components"]),
+         "mixture components per condition axis")
+    emit("hdMagWeight", fmt(loss_cfg["magnitude_weight"], 4))
+    emit("hdEffLambda", fmt(loss_cfg["magnitude_weight"] * 21, 2),
+         "magnitude weight x the 21-phase averaging mismatch (docs/heads.md)")
+    emit("hdLambdaComp", fmt(loss_cfg["lambda_comp"], 1))
+    emit("hdLambdaCond", fmt(loss_cfg["lambda_cond"], 2),
+         "also absorbs the raw-unit scale of the conditions NLL")
+    emit("hdLambdaBalance", sci(loss_cfg["lambda_balance"]))
+    emit("hdLr", sci(hc["lr"]))
+    emit("hdWeightDecay", sci(hc["weight_decay"]))
+    emit("hdBatchSize", str(hc["batch_size"]))
+    emit("hdEpochsCeiling", str(hc["epochs"]), "ceiling, not a target")
+    emit("hdPatience", str(hc["early_stop_patience"]),
+         "per head, on its own raw val term")
+    emit("hdSeed", str(hc["seed"]))
+    mode_sel = [b + n for b, n in
+                zip(mon["val_presence_bce"], mon["val_mode_nll"])]
+    emit("hdEpochsRun", str(len(mon["train"])),
+         "early stop: every head past its own best by the patience")
+    emit("hdModeBestEpoch", str(1 + int(np.argmin(mode_sel))))
+    emit("hdCompBestEpoch", str(1 + int(np.argmin(mon["val_comp_nll"]))))
+    emit("hdCondBestEpoch", str(1 + int(np.argmin(mon["val_cond_nll"]))))
+except Exception as exc:
+    tbd("hdModeHidden", f"head config unreadable: {exc}")
+
+section("joint single-stage HPO (configs/heads/joint_heads_hpo.yaml + "
+        "runs/heads_hpo/joint_heads_allrock_hpo/summary.json)")
+try:
+    hp = yaml.safe_load(
+        (ROOT / "configs" / "heads" / "joint_heads_hpo.yaml").read_text())
+    sm = json.loads((ROOT / "runs" / "heads_hpo" / "joint_heads_allrock_hpo"
+                     / "summary.json").read_text())
+    emit("hpoTrials", str(sm["n_trials_complete"]), "completed TPE trials")
+    emit("hpoStartupTrials", str(hp["n_startup_trials"]),
+         "random startup trials seeding the sampler")
+    emit("hpoTrialEpochs", str(hp["base"]["epochs"]),
+         "per-trial epoch ceiling; production retrains at the 120 ceiling")
+    emit("hpoTieBand", fmt(sm["tie_band"], 2),
+         "nats; the instrument's tie band from results/ledger.yaml")
+    emit("hpoWinnerTrial", str(sm["tiebreak_winner"]["number"]))
+    ss = hp["search_space"]
+
+    def logrange(spec):
+        return f"{pow10(spec['low'])} to {pow10(spec['high'])}"
+
+    emit("hpoRangeLr", logrange(ss["lr"]), "log-uniform")
+    emit("hpoRangeWeightDecay", logrange(ss["weight_decay"]), "log-uniform")
+    emit("hpoRangeMagWeight",
+         f"{fmt(ss['magnitude_weight']['low'], 4)} to "
+         f"{fmt(ss['magnitude_weight']['high'], 3)}",
+         "log-uniform; effective lambda 0.1 to 1")
+    emit("hpoRangeLambdaBalance", logrange(ss["lambda_balance"]), "log-uniform")
+    emit("hpoRangeDropout",
+         f"{ss['dropout']['low']:g} to {ss['dropout']['high']:g}", "uniform")
+    emit("hpoRangeModeHidden",
+         ", ".join(str(c) for c in ss["mode_hidden"]["choices"]), "categorical")
+    emit("hpoRangeModeLayers",
+         f"{ss['mode_layers']['low']} to {ss['mode_layers']['high']}", "integer")
+except Exception as exc:
+    tbd("hpoTrials", f"HPO config or summary unreadable: {exc}")
+
+section("recalibration fitting protocol (fit defaults from "
+        "training/real_rock_recalibrator.fit_recalibrator; selected shrinkage "
+        "from <PROD>/tailed_acceptance.json)")
+try:
+    import inspect
+
+    from cnmineral.training.real_rock_recalibrator import (
+        fit_recalibrator,
+        select_weight_decay,
+    )
+
+    ta = json.loads((FEWSHOT / PROD / "tailed_acceptance.json").read_text())
+    fit_defaults = {
+        k: v.default for k, v in
+        inspect.signature(fit_recalibrator).parameters.items()
+    }
+    emit("rcFitLr", f"{fit_defaults['lr']:g}",
+         "full-batch Adam, fit_recalibrator default")
+    emit("rcTailedWeightDecay", fmt(ta["weight_decay"]["tailed"], 1),
+         "chosen once on the fixed val slice, shared across budgets and draws")
+    grid = sorted(
+        inspect.signature(select_weight_decay).parameters["grid"].default)
+    emit("rcWdGridLo", pow10(grid[0]))
+    emit("rcWdGridHi", f"{grid[-1]:g}")
+except Exception as exc:
+    tbd("rcTailedWeightDecay", f"recalibrator fit sources unreadable: {exc}")
+
 # architecture + param counts read from the frozen production checkpoints
 section("architecture and parameter counts (read from checkpoints)")
 try:
@@ -742,6 +939,75 @@ try:
          "parameter ratio, re-supervised head over the recalibration layer")
 except Exception as exc:
     tbd("sysRecalibParams", f"recalibrator import failed: {exc}")
+
+# the re-supervised heads' own fit, which Appendix C describes: architecture
+# and optimizer from the fitting function's fixed defaults (nothing here is
+# tuned per arm), the shrinkage constant and budget grid from the curve that
+# produced the fs* macros
+section("re-supervised head configuration and sweep protocol "
+        "(training.measured_mode_head.fit_measured_head defaults; "
+        "<PROD>/curve_val.json for the grid and shrinkage)")
+try:
+    import inspect
+
+    from cnmineral.training.measured_mode_head import fit_measured_head
+    from cnmineral.training.real_rock_recalibrator import draw_units
+
+    defaults = {k: v.default
+                for k, v in inspect.signature(fit_measured_head).parameters.items()}
+    emit("rsHidden", str(defaults["hidden"]), "trunk width, both branches")
+    emit("rsComponents", str(defaults["n_components"]),
+         "Dirichlet mixture components, matched to the tailed tier")
+    emit("rsLr", fmt(defaults["lr"], 2), "full-batch Adam, fixed a priori")
+    emit("rsEpochs", str(defaults["epochs"]), "steps to a train-loss plateau")
+    emit("rsOvershootPct",
+         str(round(inspect.signature(draw_units).parameters["overshoot"].default * 100)),
+         "a unit overshooting the target budget by more than this is skipped")
+
+    cv = json.loads((FEWSHOT / PROD / "curve_val.json").read_text())
+    wd = {cv["weight_decay"][a]
+          for a in ("measured", "measured_raw", "measured_ablated")}
+    if len(wd) != 1:
+        raise ValueError(f"re-supervised arms disagree on weight decay: {wd}")
+    emit("rsWeightDecay", fmt(wd.pop(), 1),
+         "one shrinkage constant, shared by all three re-supervised arms")
+    grid = sorted({r["budget"] for r in cv["curve"]})
+    emit("rsBudgetGrid", ", ".join(str(b) for b in grid[:-1]) + f", and {grid[-1]}",
+         "target budgets; the largest exceeds the roster, so it realizes as all "
+         "of it")
+except Exception as exc:
+    tbd("rsHidden", f"measured-head defaults unreadable: {exc}")
+
+# the sign of the zero-shot abundance miss, rock by rock. Read from the
+# figure's own extract so the table and panel (c) cannot disagree: both
+# violins of a category cover the same rocks in the same order, so pairing by
+# position is exact.
+section("zero-shot abundance bias per mineral category "
+        "(paper/figures/data/cohort_card_abundance.csv, written by "
+        "figures/src/extract_cohort_card.py)")
+try:
+    import statistics
+
+    pairs = {}
+    order = []
+    with open(ROOT / "paper" / "figures" / "data" / "cohort_card_abundance.csv") as fh:
+        for row in csv.DictReader(fh):
+            if row["group"] not in order:
+                order.append(row["group"])
+            pairs.setdefault((row["group"], row["kind"]), []).append(float(row["share"]))
+    for g in order:
+        meas, pred = pairs[(g, "measured")], pairs[(g, "predicted")]
+        if len(meas) != len(pred):
+            raise ValueError(f"{g}: {len(meas)} measured against {len(pred)} predicted")
+        over = sum(p > m for p, m in zip(pred, meas))
+        emit(f"rrOverPct{g.capitalize()}", str(round(100 * over / len(meas))),
+             "percent of quantified rocks whose predicted share exceeds the "
+             "measured one" if g == order[0] else None)
+        emit(f"rrMagFold{g.capitalize()}",
+             fmt(statistics.median(p / m for p, m in zip(pred, meas) if m > 0), 2),
+             "median per-rock predicted/measured share" if g == order[0] else None)
+except Exception as exc:
+    tbd("rrOverPctFsp", f"cohort card abundance extract unreadable: {exc}")
 
 header = [
     "% numbers.tex -- GENERATED by scripts/build/build_numbers.py; do not edit.",
