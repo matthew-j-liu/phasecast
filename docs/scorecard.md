@@ -59,8 +59,8 @@ rock_group axis and redox slot as its first realized evidence.
 |---|---|---|---|---|---|
 | trace imputation | median log-R2, 13 traces | 0.832 (prev 0.836) | ~0 (mean-fill) -> 0.877 (latent-XGB) -> 0.892 (input-XGB); gates stamped to the previous corpus, not re-run | provisional | #8, [trace_signal_in_latent](../explorations/archive/trace_signal_in_latent/README.md) |
 | major imputation | median log-R2, majors | 0.894 (prev 0.891) | ~0 (mean-fill) -> input-XGB per-major ceiling | provisional | #8, [imputation_head_design](../explorations/archive/imputation_head_design/README.md) |
-| qap decodability | probe acc (MLP / logreg) | 0.759 / 0.704 (prev 0.769 / 0.722) | 0.100 (random) -> *TBD* | provisional | probe eval |
-| supergroup decodability | probe acc (MLP / logreg) | 0.814 / 0.731 (prev 0.821 / 0.749) | 0.151 (random) -> *TBD* | provisional | probe eval |
+| qap decodability | probe acc (MLP / logreg) | 0.759 / 0.704 (prev 0.769 / 0.722) | 0.100 (random) -> 0.220 (majority) -> **0.787 / 0.681** (raw-assay probe) | provisional | probe eval, [input_probe_ceiling](../explorations/input_probe_ceiling/README.md) |
+| supergroup decodability | probe acc (MLP / logreg) | 0.814 / 0.731 (prev 0.821 / 0.749) | 0.151 (random) -> **0.813 / 0.659** (raw-assay probe) | provisional | probe eval, [input_probe_ceiling](../explorations/input_probe_ceiling/README.md) |
 | rock_group decodability | probe acc (MLP / logreg), full all-rock test split | 0.919 / 0.894 | 0.810 (majority: always-igneous) -> *TBD* | provisional | probe eval |
 | redox imputation | log-R2, redox slot (never in trace medians) | 0.306 | ~0 (mean-fill) -> *TBD* | provisional | imputation readout |
 | redox token lift | populated-minus-padded qap MLP on measured-pair rows | +0.015 (0.774 populated) | 0 (token ignored) -> *TBD* | provisional | probe eval, #46 |
@@ -69,8 +69,18 @@ Each encoder scores with its own sweep-tuned read-out head (the head re-tunes
 per encoder so the axis measures the latent, not a stale head). The
 latent-XGB / input-XGB gates were measured on the previous corpus and are not
 yet re-run on the all-rock corpus, so the 95% / 94% recovery framing carries
-over only approximately. Probe ceilings are still floor-anchored only -- the
-missing ceiling is a raw-input classifier, which #19 supplies. rock_group is
+over only approximately. The probe ceilings are now measured, and the latent
+sits **below** both: on qap the same MLP reads 0.787 from the raw assay against
+the latent's 0.759, and 0.834 against 0.792 when both arms are tuned under one
+search space. `qap_name` is computed from LOI-free major-element chemistry
+(Gard et al. 2019, Sect. 4.2/4.4), so this axis measures how deterministic the
+label is at least as much as how organized the latent is -- do not cite it as
+evidence of latent organization. What the latent does add is *linear*
+accessibility (0.704 vs 0.681 on qap, 0.731 vs 0.659 on supergroup); since a
+linear readout is invariant to linear reparameterization, no linear
+representation of the assay -- PCA included -- can exceed the raw logreg
+number, so the linear leg of #19's linear-null bracket is settled without
+running PCA. rock_group is
 the one axis scored on the full all-rock test split rather than the shared
 roster (the roster is all-igneous, where the probe's 0.982 is merely igneous
 recall); per-class recall runs igneous 0.97 / sedimentary 0.82 / metamorphic
@@ -81,11 +91,17 @@ genuinely underdetermined from composition there.
 
 | axis | metric | current | floor -> ceiling | status | source |
 |---|---|---|---|---|---|
-| encoder vs linear (PCA/PPCA) | imputation + probe delta over PCA | *TBD* | linear-PCA baseline -> encoder | candidate | #19 |
+| encoder vs linear, linear readout | qap logreg, latent minus any linear representation | **+0.023** (0.704 vs 0.681) | raw-assay logreg bounds every linear representation -> encoder | provisional | [input_probe_ceiling](../explorations/input_probe_ceiling/README.md), #19 |
+| encoder vs linear, nonlinear readout | imputation + MLP-probe delta over PCA | *TBD* | linear-PCA baseline -> encoder | candidate | #19 |
 
 The decisive "is the transformer worth it over a linear learned representation"
 test. Without it, "beats raw-input ceiling" does not separate *learning* from
-*nonlinearity*.
+*nonlinearity*. The linear-readout leg needs no PCA run to settle: a linear
+probe is invariant to linear reparameterization of its input, so a linear probe
+on *any* linear map of the assay (PCA included) is bounded by the raw-assay
+logreg, and the latent clears it by 0.023 on qap and 0.071 on supergroup. Only
+the nonlinear-readout leg -- PCA features under an MLP probe, and PPCA
+imputation -- still needs the run #19 describes.
 
 ## Geometry / distance usability -- is the latent usable by distance
 

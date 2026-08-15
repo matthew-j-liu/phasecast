@@ -6478,3 +6478,84 @@ plots the original four arms, so the adapted arm's best-on-curve share error at
 not a measurement gap. Paper writing resumes; this material is appendix at most,
 and the sentence it earns in main text is that the comparison was tested against
 its own strongest objection and survived.
+
+## 2026-08-15 -- the qap probe measures the label, not the latent: raw chemistry decodes rock name better, and the claim that survives is linearization
+
+**Q.** The Results draft opened on the encoder and offered a QAPF rock-name
+probe at 0.759 as evidence that the pooled latent is geologically organized.
+But `qap_name` in gard2019 is a *computed* classification derived from LOI-free
+major-element chemistry (Gard et al. 2019, Sect. 4.2/4.4, Table 3), and the
+encoder reads those same majors. Does 0.759 show an organized latent, or a
+label any faithful compression of the input recovers?
+
+**Context.** `docs/scorecard.md` carried the qap and supergroup decodability
+rows as floor-anchored only (`0.100 (random) -> *TBD*`), with a standing note
+that the missing ceiling was a raw-input classifier. `runs/probe/` no longer
+existed, so no artifact backed the 0.759 either.
+
+**Considered.** Extending `run_scoring` with a raw arm (would have left the
+paired comparison implicit and paid the UMAP suite); running the latent arm
+through the production script and cross-referencing its JSON (lands in
+gitignored `runs/`). Chose a new exploration,
+`explorations/input_probe_ceiling/`, that fits both arms off one pair of index
+arrays -- the sibling of the archived `input_knn_ceiling`, same target, distance
+metric swapped for a classifier.
+
+**Decision.** The axis is a measured negative and the scorecard now says so.
+
+The protocol reproduced exactly (458,490 / 32,950 / 70 classes / chance 0.0997 /
+majority 0.2203) and the latent arm returned 0.759 to three decimals, so this is
+the arm the scorecard reports.
+
+| probe | latent (256) | best raw (44) | margin |
+|---|---|---|---|
+| linear | 0.704 | 0.681 | +0.023 |
+| MLP, fixed protocol | 0.759 | 0.787 | -0.028 |
+| MLP, 30 trials each arm | 0.792 | 0.834 | -0.042 |
+
+supergroup: linear 0.731 vs 0.659 (+0.071); MLP 0.814 vs 0.813 (tie).
+
+1. **The latent carries no more rock-name information than the assay**, and
+   matched tuning does not rescue it -- both arms gained, the raw arm gained
+   more, and the deficit widened from 0.028 to 0.042. Same sign and nearly the
+   same magnitude as `input_knn_ceiling` (raw beat latent by 0.025 at qap k=5),
+   so two unrelated methods agree the latent sits slightly behind raw chemistry
+   on qap. Consistent with that exploration's reading: the encoder is trained to
+   reconstruct traces, and qap is a major-element story.
+2. **What it does add is linear accessibility**, and dimensionality cannot
+   explain it. A linear readout is invariant to linear reparameterization, so
+   any linear map of the 44 features is bounded by the raw arm's 0.681; only the
+   encoder's nonlinearity reaches 0.704. It roughly halves the premium a
+   nonlinear probe earns over a linear one (qap 0.106 -> 0.055, supergroup
+   0.154 -> 0.083). This settles the linear-readout leg of #19's linear-null
+   bracket without running PCA at all -- PCA is a linear map, so its linear
+   probe cannot clear 0.681.
+3. **The missingness flag set the verdict.** In log space it is worth +0.025
+   (0.774 masked, 0.749 unmasked). A raw arm denied the signal the encoder gets
+   free from `src == 0` would have landed below the latent and the control would
+   have returned the opposite answer. The call was made before any measurement,
+   on the argument that the encoder sees missingness explicitly and roughly half
+   the trace columns are unreported per rock.
+4. **Standardized linear beat standardized log** (qap MLP 0.787 vs 0.774),
+   refuting the exploration's own prediction that `input_knn_ceiling`'s
+   linear-space win was a distance-metric artifact a per-feature-scaling
+   classifier would erase.
+5. **`supergroup` should not appear in the paper, on any axis.** It is our own
+   9-way collapse (`cnmineral.eval.supergroup`), a substring-matching rule
+   ported from v2 whose docstring names its purpose as a UMAP color palette. It
+   is uncited and internally inconsistent: `syenite` -> felsic-plutonic but
+   `trachyte` -> intermediate-volcanic, though trachyte is syenite's volcanic
+   equivalent; `anorthosite` -> mafic-plutonic for a rock that is >90%
+   plagioclase. It also happens to carry the largest margin here (+0.071),
+   which is the worst possible place for an invented taxonomy.
+
+**Next.** The result was drafted into Results and **cut for space on 2026-08-15**
+-- the manuscript is a page over, and landing a conceded result honestly cost
+~110 words. The surviving imputation sentence claims the latent *preserves*
+chemistry rather than beating raw chemistry, which is exactly the claim this
+control leaves standing; that wording is now guarded, because imputation carries
+the same shape of control pointing the same way (latent-XGB 0.877 against
+input-XGB 0.892). `build_numbers.py` reads the eleven probe macros from
+`probe_ceiling.json` instead of hand-carrying four literals, so they are emitted
+and unreferenced -- one sentence away if space appears. Still open on #19: PCA
+features under a nonlinear probe, and PPCA imputation.

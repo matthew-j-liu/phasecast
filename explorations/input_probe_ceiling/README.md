@@ -112,29 +112,75 @@ leg adds ~1-3 h.
 
 ## Result
 
-Not yet run. The slice reproduces the protocol exactly (458,490 / 32,950 / 70
-classes / chance 0.0997 / majority 0.2203, verified 2026-08-14) and the fit
-path is smoke-tested end to end on a subsample, but a subsample is not the
-measurement: 8,000 train rows is a far harsher regime for a 256-dim latent than
-for a 44-dim raw matrix, so nothing about the ordering there carries over.
-`results/probe_ceiling.json` and this section land together.
+The latent arm reproduced 0.759 exactly, so this is the arm the scorecard and
+the paper draft report. It loses.
+
+qap_name, 70 classes, chance 0.0997, majority (basalt) 0.2203:
+
+| probe | latent (256) | best raw | margin |
+|---|---|---|---|
+| linear | **0.704** | 0.681 (`std_frac_mask`) | **+0.023** |
+| MLP, fixed protocol | 0.759 | **0.787** (`std_frac_mask`) | -0.028 |
+| MLP, 30 trials each | 0.792 | **0.834** (`std_frac_mask`) | **-0.042** |
+
+supergroup: linear 0.731 vs 0.659 (**+0.071**); MLP 0.814 vs 0.813 (tie).
+
+Two findings, in opposite directions.
+
+**The latent carries no more rock-name information than the assay.** It cannot
+-- it is a compression of the assay -- and it in fact loses. Matched tuning did
+not rescue it: both arms gained, the raw arm gained more, and the deficit grew
+from 0.028 to 0.042. This is the same sign and nearly the same magnitude as the
+archived [input_knn_ceiling](../archive/input_knn_ceiling/README.md), where raw
+beat latent by 0.025 at qap k=5, so two unrelated methods agree.
+
+**The latent linearizes what the assay carries nonlinearly.** The linear probe
+reverses the ordering, and dimensionality cannot explain it: a linear readout is
+invariant to linear reparameterization, so any linear map of the 44 features is
+bounded by the raw arm's 0.681. Only the encoder's nonlinearity can produce
+0.704. It roughly halves the accuracy a nonlinear probe adds over a linear one
+(qap 0.106 -> 0.055, supergroup 0.154 -> 0.083).
+
+Three secondary results worth keeping:
+
+- **Standardized linear beats standardized log** (qap MLP 0.787 vs 0.774). The
+  README predicted the opposite -- that `input_knn_ceiling`'s linear win was a
+  distance-metric artifact that a per-feature-scaling classifier would erase. It
+  is not; linear space wins for qap under both metrics.
+- **The missingness flag set the verdict.** In log space it is worth +0.025
+  (0.774 masked vs 0.749 unmasked). Denied that signal, the raw arm would have
+  scored below the latent and this control would have returned the opposite
+  answer. That was a judgment call made before any measurement.
+- **`raw_frac_mask` is not a fair MLP arm at small n.** On an 8,000-row
+  subsample its MLP collapsed to 0.430 against its own logreg's 0.590; at the
+  full 458,490 it recovers to 0.726. Unscaled inputs cost the MLP, and the cost
+  shrinks with data.
+
+This also settles half of #19's linear-null bracket without running PCA: a PCA
+of the assay is a linear map, so a linear probe on it is bounded by 0.681 -- 
+below the latent. Only the PCA-plus-nonlinear-probe leg remains open.
 
 ## Decision
 
-Pending the result. The three readings and what each does to the paper sentence:
+**The qap probe axis is not evidence that the latent is organized, and the
+scorecard rows now say so.** The label is computed from the same majors the
+encoder reads, and a 44-column read of those majors decodes it better under
+every budget tested. The axis is retained with its ceiling filled rather than
+deleted: a measured negative anchors the two decodability rows that were
+floor-only.
 
-- **best raw >= 0.759** -- the probe measures the label's determinism, not the
-  latent's organization. Drop the qap-probe evidence for "geologically
-  organized" or state plainly that it sits at the raw-input ceiling, and
-  re-anchor on an axis with margin. The encoder-vs-raw-chemistry result on real
-  rocks (+0.5-0.67 nats) is already measured and is *not* at risk from this
-  control, since it contrasts the same two inputs on a task with no such
-  determinism.
-- **latent clearly above best raw** -- the claim survives and strengthens into a
-  control rather than a bare number.
-- **margin inside the 0.002-0.006 cross-seed band** -- indistinguishable at this
-  resolution; report both, do not claim organization from this axis alone, and
-  run the tuning leg before writing.
+The claim that survives is linearization, and it is the one worth carrying
+forward: the encoder makes class structure linearly accessible without adding
+information the analysis does not already contain.
 
-Either way the scorecard's two `*TBD*` ceilings get a number. Canonical verdict
-goes to `docs/journal.md`.
+**Not in the paper.** The result was drafted into the Results section and cut
+2026-08-15 for space -- the argument needed roughly 110 words of hedging to land
+a conceded result, against a manuscript a page over the limit. The surviving
+imputation sentence claims that the latent *preserves* chemistry, not that it
+beats raw chemistry, which is the claim this control leaves standing. Do not let
+that sentence drift toward superiority in a later edit: imputation carries the
+same shape of control and points the same way (scorecard: latent-XGB 0.877
+against input-XGB 0.892). The macros are emitted and unreferenced, so the number
+is one `\cite`-free sentence away if space appears.
+
+Canonical verdict in `docs/journal.md` (2026-08-15).
