@@ -391,6 +391,13 @@ try:
                      fmt(statistics.median([r[term] for r in rows(arm, budget)]), digits))
     emit("fsMaeZeroShot", fmt(cv["zero_shot"]["share_mae"], 4),
          "nothing fit; several arms sit above this at the smallest budgets")
+    emit("fsMaeZeroShotPct", fmt(cv["zero_shot"]["share_mae"] * 100, 1),
+         "fsMaeZeroShot in percentage points")
+    for budget, when in ((KNEE, "Knee"), (FULL, "Full")):
+        emit(f"fsRecalMae{when}Pct",
+             fmt(statistics.median(
+                 [r["share_mae"] for r in rows("tailed", budget)]) * 100, 1),
+             f"fsRecalMae{when} in percentage points")
 
     # paired within the draw: median of the per-draw differences, never the
     # difference of medians, which at the knee reads +2.28 instead of +1.38
@@ -423,9 +430,23 @@ try:
 
     # the recalibration layer's share error only beats doing nothing with
     # labels behind it; at the knee it is worse than no fit at all
-    emit("fsRecalMaeBeatsZeroShotAt", "106",
-         "labelled rocks at which the recalibration layer's share error first "
-         "clears the zero-shot line")
+    zs_mae = cv["zero_shot"]["share_mae"]
+    cross = [b for b in sorted({r["budget"] for r in cv["curve"]})
+             if statistics.median(
+                 [r["share_mae"] for r in rows("tailed", b)]) < zs_mae]
+    if cross:
+        emit("fsRecalMaeBeatsZeroShotAt",
+             str(round(statistics.mean(
+                 [r["n_rocks"] for r in rows("measured", cross[0])]))),
+             "realized labelled rocks at which the recalibration layer's "
+             "median share error first clears the zero-shot line")
+        emit("fsRecalMaeBeatsZeroShotPct",
+             fmt(statistics.median(
+                 [r["share_mae"] for r in rows("tailed", cross[0])]) * 100, 1),
+             "median tailed share error at that crossing budget, percentage points")
+    else:
+        tbd("fsRecalMaeBeatsZeroShotAt",
+            "no budget's median share error clears zero-shot")
 
     def sweeps_share_mae(budget):
         for arm in ("measured", "measured_raw", "measured_ablated"):
