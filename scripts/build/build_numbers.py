@@ -9,10 +9,13 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
 import yaml
+
+from cnmineral.data.phase_vocab import SOLID_PHASES
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "paper" / "numbers.tex"
@@ -521,6 +524,32 @@ try:
 except Exception as exc:
     tbd("icTestZsJoint", f"inference card CSVs unreadable: {exc}")
 
+section("appendix composition/conditions cards, constants parsed from the "
+        "card script; point at an extractor meta CSV when the card graduates "
+        "to figures/src")
+try:
+    src = (ROOT / "tmp" / "comp_cond_card" / "comp_cond_card.py").read_text()
+    n_cond = int(re.search(r"^N_SAMPLES = (\d+)", src, re.M).group(1))
+    n_comp = int(re.search(r"^COMP_DRAWS = (\d+)", src, re.M).group(1))
+    emit("acCondSamples", str(n_cond),
+         "assemblages sampled from the presence branch for the condition panels")
+    emit("acCompDraws", f"{n_comp:,}".replace(",", "{,}"),
+         "draws from the predicted Dirichlet per composition panel")
+except Exception as exc:
+    tbd("acCondSamples", f"comp_cond_card.py unreadable: {exc}")
+    tbd("acCompDraws", f"comp_cond_card.py unreadable: {exc}")
+
+section("phase-vocabulary presence rates over the training labels, percent "
+        "(runs/corpus_stats.json from scripts/build/build_corpus_stats.py)")
+try:
+    rates = json.loads(
+        (ROOT / "runs" / "corpus_stats.json").read_text())["presence_rate_pct"]
+    for token in SOLID_PHASES:
+        emit(f"pv{token.capitalize()}", fmt(rates[token], 1))
+except Exception as exc:
+    for token in SOLID_PHASES:
+        tbd(f"pv{token.capitalize()}", f"corpus_stats.json unreadable: {exc}")
+
 section("zero-shot decomposition and per-group discrimination, headline "
         "cohort, frozen production stack (runs/real_rock/<PROD>/metrics.json)")
 try:
@@ -556,8 +585,8 @@ try:
     emit("rrMagMaeLo", fmt(mag_mae[lo_group], 3),
          f"best group ({lo_group}), mean absolute share error, zero-shot")
     emit("rrMagMaeHi", fmt(mag_mae[hi_group], 3), f"worst group ({hi_group})")
-    emit("rrOffVocabProd", fmt(mt["off_vocabulary_mass"]["mean"], 4),
-         "mean predicted mass the 7-group benchmark structurally cannot see")
+    emit("rrOffVocabPctProd", fmt(mt["off_vocabulary_mass"]["mean"] * 100, 2),
+         "mean predicted crystal mass on the 11 unscored phases, percent")
     emit("rrAlteredJointProd", fmt(mt["altered"]["joint_nll"], 2),
          "alteration grades 3-4, scored separately")
     emit("rrAlteredN", str(mt["altered"]["n"]))
@@ -675,7 +704,7 @@ except Exception as exc:
 
 # the sedimentary cohort's 43% only means something beside the volcanic
 # benchmark's own truth-side figure, which is a different quantity from the
-# predicted-side rrOffVocabProd and had never been measured
+# predicted-side rrOffVocabPctProd and had never been measured
 section("volcanic truth-side off-vocabulary mass, du Bray scored set "
         "(explorations/real_mineralogy/results/benchmark_composition.json)")
 try:
