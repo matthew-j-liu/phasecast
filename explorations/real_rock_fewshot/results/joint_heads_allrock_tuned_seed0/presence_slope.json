@@ -1,0 +1,78 @@
+{
+  "weight_decay": {
+    "free": 1.0,
+    "pinned": 1.0
+  },
+  "val_levels": {
+    "free": {
+      "joint": 0.9724701044881684,
+      "bernoulli": 2.8963105035152794,
+      "dirichlet": -1.92384039902711
+    },
+    "pinned": {
+      "joint": 0.9740341787947304,
+      "bernoulli": 2.89787457782184,
+      "dirichlet": -1.92384039902711
+    }
+  },
+  "val_share_mae": {
+    "free": 0.09544680769251038,
+    "pinned": 0.09544680769251038
+  },
+  "pinned_minus_free": {
+    "joint": {
+      "mean": 0.0015640743065619394,
+      "lo": 0.0008853553766304677,
+      "hi": 0.0023402445640935965,
+      "n_rocks": 111,
+      "n_units": 39
+    },
+    "bernoulli": {
+      "mean": 0.0015640743065619114,
+      "lo": 0.0008853553766303584,
+      "hi": 0.0023402445640936047,
+      "n_rocks": 111,
+      "n_units": 39
+    },
+    "dirichlet": {
+      "mean": 0.0,
+      "lo": 0.0,
+      "hi": 0.0,
+      "n_rocks": 111,
+      "n_units": 39
+    }
+  },
+  "fitted_logit_shift_per_10wt_pct_sio2": {
+    "q": 0.047783765370558756,
+    "amp": 0.0030085802894878827
+  },
+  "weight_decay_selection": [
+    {
+      "weight_decay": 0.0001,
+      "val_joint_nll": 83.02826069272957
+    },
+    {
+      "weight_decay": 0.001,
+      "val_joint_nll": 60.274123187095746
+    },
+    {
+      "weight_decay": 0.01,
+      "val_joint_nll": 21.03592693645891
+    },
+    {
+      "weight_decay": 0.1,
+      "val_joint_nll": 3.3698645781683125
+    },
+    {
+      "weight_decay": 1.0,
+      "val_joint_nll": 2.596267437042012
+    },
+    {
+      "weight_decay": 10.0,
+      "val_joint_nll": 3.572152869767041
+    }
+  ],
+  "checkpoint": "checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt",
+  "benchmark": "eruption-v2",
+  "fit": "full train roster (368 rocks)"
+}

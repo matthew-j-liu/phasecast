@@ -20,6 +20,7 @@ from explorations.real_rock_fewshot.run_curve import (
     crossing_budget,
     run_curve,
 )
+from explorations.real_rock_fewshot.run_presence_slope import TERMS, slope_contrast
 from explorations.real_rock_fewshot.run_residual_decomposition import (
     DELTA_GRID,
     interval_coverage,
@@ -175,6 +176,21 @@ def test_width_scale_preserves_the_beta_mean_and_widens_coverage():
     assert (interval_coverage(an, bn, x, k=0.2)
             > interval_coverage(an, bn, x)
             > interval_coverage(an, bn, x, k=5.0))
+
+
+def test_presence_slope_contrast_attributes_the_slopes_alone():
+    """Both arms reported on the same rocks, with the abundance term untouched.
+
+    The contrast is read as the slopes' attribution, so an arm that differed
+    anywhere else would be measuring the wrong thing.
+    """
+    train, val = _predictions(48, 0, 3), _predictions(24, 1, 3)
+    out = slope_contrast(train, val, weight_decay=1e-2)
+    assert set(out["val_levels"]) == {"free", "pinned"}
+    assert set(out["pinned_minus_free"]) == set(TERMS)
+    assert set(out["fitted_logit_shift_per_10wt_pct_sio2"]) == {"q", "amp"}
+    assert out["pinned_minus_free"]["dirichlet"]["mean"] == 0.0
+    assert out["pinned_minus_free"]["bernoulli"]["mean"] != 0.0
 
 
 def test_oracle_separates_width_from_location():

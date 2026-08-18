@@ -98,6 +98,35 @@ def test_fitting_reduces_the_loss_it_optimizes():
     assert score_recalibrator(recalibrator, data)["joint"].mean() < before
 
 
+def test_withholding_the_presence_slope_leaves_it_at_zero_and_frees_the_rest():
+    """`fit_presence_sio2=False` must be the parameterization without the slopes.
+
+    It works by withholding the gradient from a parameter that initializes at
+    zero, so a fit that moved it, or that froze anything else along with it,
+    would silently measure something other than the ablation.
+    """
+    data = _predictions()
+    recalibrator = fit_recalibrator(data, tier="tailed", epochs=50,
+                                    fit_presence_sio2=False)
+    assert (recalibrator.presence_sio2 == 0).all()
+    assert (recalibrator.presence_scale != 1).any()
+
+
+def test_pinning_the_presence_slope_cannot_move_the_abundance_term():
+    """Presence and abundance parameters draw gradients from separate loss terms.
+
+    The slope contrast is read as the slopes' attribution, which holds only if
+    withholding them leaves the Dirichlet term bit-identical.
+    """
+    data = _predictions()
+    kwargs = dict(tier="tailed", weight_decay=1e-2, epochs=100)
+    free = score_recalibrator(fit_recalibrator(data, **kwargs), data)
+    pinned = score_recalibrator(
+        fit_recalibrator(data, fit_presence_sio2=False, **kwargs), data)
+    assert np.array_equal(free["dirichlet"], pinned["dirichlet"])
+    assert not np.array_equal(free["bernoulli"], pinned["bernoulli"])
+
+
 def test_pinned_amphibole_offset_reports_as_zero():
     """`per_group_offsets` reports the effective correction, not the raw parameter."""
     data = _predictions()
