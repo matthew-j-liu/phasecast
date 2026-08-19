@@ -6559,3 +6559,81 @@ input-XGB 0.892). `build_numbers.py` reads the eleven probe macros from
 `probe_ceiling.json` instead of hand-carrying four literals, so they are emitted
 and unreferenced -- one sentence away if space appears. Still open on #19: PCA
 features under a nonlinear probe, and PPCA imputation.
+
+## 2026-08-18 -- the recalibrator's presence silica slopes measure nothing, and the read that motivated them never supported quartz
+
+**Q.** Do the q/amp presence SiO2 slopes earn their two parameters? The B7
+close read described them as one of two terms extending Eq. 6, alongside the
+precision contamination -- but the contamination was measured (+0.304 [+0.049,
++0.659]) and the slopes never were.
+
+**Context.** The slopes entered the parameterization on 2026-07-24 from a
+residual-vs-SiO2 read and are unconditional across tiers, so they are 2 of the
+23/121/123 counts. The magnitude location term from the same read was built,
+measured at +0.007 [-0.004, +0.016] and excised (2026-08-06); the presence half
+was never contrasted against its own absence. `fit_recalibrator` gained
+`fit_presence_sio2`, which withholds the gradient from a parameter that
+initializes at zero, so the ablation is the parameterization without the slopes
+and the default path is untouched. `run_presence_slope.py` fits the tailed tier
+twice on the 368-rock train roster and scores both paired on val over units.
+
+**Considered.** Measured: **+0.0016 [+0.0009, +0.0023] nats**, entirely
+presence-side; val joint 0.9740 pinned against 0.9725 free, share MAE identical
+to four decimals, fitted shifts q +0.048 and amp +0.003 logit per 10 wt% SiO2.
+Re-selecting the pinned arm's shrinkage returns the same 1.0. The interval
+excludes zero only because both arms are deterministic at zero/one init, with no
+seed noise to widen it. The abundance term is bit-identical across the arms --
+presence and abundance parameters draw gradients from separate loss terms --
+which is now a test.
+
+Why it is so small: the residual read was reproduced on
+`joint_heads_supportmag_seed0`, the checkpoint the term was designed from, and
+on production. Spearman(presence residual, SiO2) is q **+0.02 on both**, amp
++0.33/+0.34, bi +0.38/+0.32, fsp -0.17/-0.38, opq -0.39/-0.31. Binned by silica
+quintile, q's gap arches (-0.28, -0.46, -0.54, -0.48, -0.19 then; the same shape
+now) -- real silica structure, but non-monotone, so a linear slope has nothing to
+fit. Biotite is the one monotone category and was passed over. The module
+comment's claim that presence residuals are flat outside these two is false on
+both checkpoints.
+
+**Decision.** The paper keeps the parameters and the sentence describing them,
+because every reported number was fitted with them and the counts only reconcile
+with them present; B7's justification clause ("the two categories whose presence
+residuals vary with silica") is cut as unsupported. Removing them now would mean
+re-running the acceptance read, the eleven-minute curve sweep, the inference-card
+figure and `numbers.tex` in order to move four integers and nothing else --
+0.0016 nats sits below the display precision of every number the paper prints.
+The canonical layer drops them after submission, by flipping the default rather
+than deleting the parameter, so the reported results stay reproducible from HEAD.
+
+**Next.** Post-submission: flip `fit_presence_sio2`, re-fit, counts become
+21/119/121 and `\sysResupervisedOverRecalib` 283 -> 288. The silica-residual
+figure that was on the near-term docket is dropped -- built honestly it shows two
+arches and a control that slopes more than either.
+
+## 2026-08-18 -- density table aligned to the mean-of-members rule it now claims
+
+**Q.** B8's rebuild wanted a citable source and a reproducible rule for the
+volume-to-mass densities. Checked against webmineral.com (Barthelmy's
+Mineralogy Database), 12 of 14 values match the measured averages within 0.1.
+The two that did not conform to any statable rule: Fe-Ti oxides 5.00 against a
+magnetite/ilmenite mean of 4.94, and silica phases 2.40 against a
+tridymite/cristobalite mean of 2.32.
+
+**Decision (owner).** `MINERAL_DENSITY` updates to the exact member means --
+Fe-Ti oxides 5.00 -> 4.94, silica phases 2.40 -> 2.32 (members = the
+polymorphs only: the label is MSH groundmass silica, 7 rocks, 0-1.1 vol%,
+never co-reported with a quartz row, and quartz is its own table entry) -- so
+the paper's sentence "labels with no composition to interpolate along are
+assigned the mean of their members" is exactly true and self-checkable.
+Reported numbers, stamped artifacts, and figures are NOT regenerated: an
+executive decision, the shifts are 1.2% and 3.4% on density ratios where only
+ratios enter, the mapping audit already measured density perturbations far
+larger than this as immaterial, and the presence factor is provably invariant
+to densities. Re-runs from HEAD will differ from stamped values below display
+precision.
+
+**Also.** B8 cites the database directly (owner Zotero entry
+`barthelmy_webmineral`); the DHZ/Klein comment provenance was superseded by
+the check. Olivine stays 3.50 = Fo80 interpolation (0.8 x 3.27 + 0.2 x 4.39),
+now stated with the equation in B8.

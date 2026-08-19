@@ -79,17 +79,21 @@ TRUTH_TO_GROUP: dict[str, str] = {
 }
 DROPPED_TRUTH_PHASES: frozenset[str] = frozenset({"groundmass"})
 
-# Representative densities (g/cm3, Deer/Howie/Zussman; Klein for the oxides)
-# keyed by the as-reported mineral name, so a lumped "pyroxene" and a specific
+# Representative densities (g/cm3, webmineral.com measured values) keyed by
+# the as-reported mineral name, so a lumped "pyroxene" and a specific
 # "hypersthene" convert differently. Point counts and visual estimates are
 # volume fractions; MAGEMin modes are mass fractions, so truth converts before
 # it is coarsened. Volume is verified rather than assumed: du Bray's workbooks
 # never label the abundance block, but DS 764's publication text states the
 # units, and MSH's ch30 says "Optical modes, as volume percent". Only ratios
 # matter -- the one with real leverage is Fe-Ti
-# oxides against the silicates, roughly 1.8x. Solid-solution names take a
-# mid-series value (arc olivine near Fo80, andesine plagioclase), which is an
-# assumption, not a measurement.
+# oxides against the silicates, roughly 1.8x. Solid-solution names interpolate
+# end members at an expected composition (arc olivine near Fo80, andesine
+# plagioclase), which is an assumption, not a measurement; a label spanning
+# distinct minerals takes the plain mean of its members (feldspar over the two
+# feldspars, pyroxene over augite/hypersthene/bronzite, Fe-Ti oxides over
+# magnetite/ilmenite, silica phases over tridymite/cristobalite -- MSH
+# groundmass silica, disjoint from the quartz row).
 MINERAL_DENSITY: dict[str, float] = {
     "plagioclase": 2.68,
     "alkali feldspar": 2.57,
@@ -105,9 +109,9 @@ MINERAL_DENSITY: dict[str, float] = {
     "cummingtonite": 3.30,
     "biotite": 3.05,
     "olivine": 3.50,
-    "Fe-Ti oxides": 5.00,
+    "Fe-Ti oxides": 4.94,
     "quartz": 2.65,
-    "silica phases": 2.40,
+    "silica phases": 2.32,
 }
 
 # du Bray's numeric grid bottoms out at 0.5 vol% (p10 of every abundance it

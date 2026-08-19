@@ -24,10 +24,16 @@ from ..data.phase_vocab import GROUP_INDEX, GROUPS
 
 TIERS: tuple[str, ...] = ("vector", "matrix", "mlp", "tailed")
 
-# The residual-vs-silica read gives a slope to q and amp presence and nothing
-# else: magnitude residuals are flat against silica for every group, and so is
-# presence outside these two.  Fitting the other twelve slopes would spend
-# parameters on noise.
+# These two slopes came from a residual-vs-silica read at design time, and the
+# read does not support them.  Measured 2026-08-18 at +0.002 [+0.001, +0.002]
+# nats against the same tier's contamination at +0.304.  Reproduced on the
+# checkpoint they were designed from: q's presence residual is flat against
+# silica there and on production (rho +0.02 both), an arch by silica quintile
+# that no linear slope fits, and bi -- the one monotone group -- was passed
+# over.  They stay because every reported result was fitted with them; the
+# canonical layer drops them after submission, by flipping the
+# `fit_presence_sio2` default rather than deleting this, so those results stay
+# reproducible.  Journal 2026-08-18.
 SIO2_PRESENCE_GROUPS: tuple[str, ...] = ("q", "amp")
 
 # Weight decay pulls parameters toward zero, so the contamination weight is
