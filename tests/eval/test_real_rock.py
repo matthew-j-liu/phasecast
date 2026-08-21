@@ -14,7 +14,6 @@ from cnmineral.eval.real_rock import (
     MINERAL_DENSITY,
     MODEL_TO_GROUP,
     SPLIT_SUBSETS,
-    _unit_bootstrap,
     _wilson_interval,
     climatology,
     coarsen_alpha,
@@ -30,6 +29,7 @@ from cnmineral.eval.real_rock import (
     split_balance,
     split_mask,
     truth_forced_support,
+    unit_bootstrap,
     unit_grouped_split,
 )
 
@@ -492,9 +492,25 @@ def test_unit_bootstrap_resamples_whole_units():
         assert all(c % sizes[u] == 0 for u, c in zip(labels, counts))
         return np.array([rows.size, np.mean(rows)])
 
-    lo, hi = _unit_bootstrap(stat, units, n_boot=50, seed=3)
+    lo, hi = unit_bootstrap(stat, units, n_boot=50, seed=3)
     assert lo.shape == hi.shape == (2,)
     assert (lo <= hi).all()
+
+
+def test_unit_bootstrap_band_follows_the_requested_quantiles():
+    """The same resamples read at a narrower `q` nest inside the default 95%,
+    so a caller asking for the interquartile spread gets that and not a
+    relabelled 95% band."""
+    units = np.array(["a", "a", "b", "b", "c", "c", "d", "e"])
+    values = np.arange(len(units), dtype=float)
+
+    def stat(rows):
+        return np.array([values[rows].mean()])
+
+    wide_lo, wide_hi = unit_bootstrap(stat, units, n_boot=200, seed=5)
+    lo, hi = unit_bootstrap(stat, units, n_boot=200, seed=5, q=(0.25, 0.75))
+    assert wide_lo[0] <= lo[0] and hi[0] <= wide_hi[0]
+    assert hi[0] - lo[0] < wide_hi[0] - wide_lo[0]
 
 
 def test_coarsen_support_is_the_group_level_or():

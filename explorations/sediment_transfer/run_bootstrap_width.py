@@ -18,7 +18,7 @@ import numpy as np
 
 from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.real_rock import _unit_bootstrap, load_benchmark, predict
+from cnmineral.eval.real_rock import load_benchmark, predict, unit_bootstrap
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 
@@ -48,8 +48,8 @@ def main() -> None:
     def stat(rows):
         return np.append(squared[rows].mean(0), squared[rows].mean(0).mean())
 
-    clustered = _unit_bootstrap(stat, unit)
-    per_rock = _unit_bootstrap(stat, np.arange(len(y)).astype(str))
+    clustered = unit_bootstrap(stat, unit)
+    per_rock = unit_bootstrap(stat, np.arange(len(y)).astype(str))
     width_clustered = clustered[1] - clustered[0]
     width_per_rock = per_rock[1] - per_rock[0]
     ratio = width_clustered / width_per_rock

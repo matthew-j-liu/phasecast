@@ -29,10 +29,10 @@ from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.mode_head import beta_pit, conditional_mean
 from cnmineral.eval.real_rock import (
-    _unit_bootstrap,
     load_benchmark,
     share_interval,
     split_mask,
+    unit_bootstrap,
 )
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
@@ -139,7 +139,7 @@ def _boot_cov(covered: np.ndarray, units: np.ndarray):
     def stat(rows):
         with np.errstate(invalid="ignore"):
             return np.nanmean(covered[rows], axis=0)
-    return _unit_bootstrap(stat, units)
+    return unit_bootstrap(stat, units)
 
 
 def decompose(gp, alpha: np.ndarray) -> list[dict]:

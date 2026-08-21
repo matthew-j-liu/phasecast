@@ -842,10 +842,11 @@ def _wilson_interval(
     return np.clip(center - half, 0.0, 1.0), np.clip(center + half, 0.0, 1.0)
 
 
-def _unit_bootstrap(
-    stat_fn, units: np.ndarray, n_boot: int = 1000, seed: int = 0
+def unit_bootstrap(
+    stat_fn, units: np.ndarray, n_boot: int = 1000, seed: int = 0,
+    q: tuple[float, float] = (0.025, 0.975),
 ) -> tuple[np.ndarray, np.ndarray]:
-    """2.5/97.5 percentile band of `stat_fn` under a unit-clustered bootstrap.
+    """`q` percentile band of `stat_fn` under a unit-clustered bootstrap.
 
     Rocks within a stratigraphic unit share nearly identical chemistry, so
     resampling rows independently would understate every interval -- units
@@ -856,6 +857,10 @@ def _unit_bootstrap(
     scoring a subset must pass that subset's units and map back itself --
     silently mixing absolute row indices with subset positions resamples the
     wrong rocks and produces intervals that do not contain the estimate.
+
+    `q` is a pair of fractions, matching the interval constants the card and
+    curve figures carry. The default is the 95% band the instrument figures
+    label themselves with.
     """
     rng = np.random.default_rng(seed)
     groups = [np.flatnonzero(units == u) for u in np.unique(units)]
@@ -867,8 +872,8 @@ def _unit_bootstrap(
     ])
     with np.errstate(invalid="ignore"):
         return (
-            np.nanpercentile(stats, 2.5, axis=0),
-            np.nanpercentile(stats, 97.5, axis=0),
+            np.nanpercentile(stats, 100 * q[0], axis=0),
+            np.nanpercentile(stats, 100 * q[1], axis=0),
         )
 
 
@@ -988,7 +993,7 @@ def plot_gap_summary(p7, pred, benchmark, out_path: Path, subtitle: str) -> None
          "magnitude scale offset (positive: model under-sizes)"),
     ):
         value = stat_fn(all_rows)
-        lo, hi = _unit_bootstrap(stat_fn, benchmark.unit)
+        lo, hi = unit_bootstrap(stat_fn, benchmark.unit)
         ax.barh(y, value, color=np.where(value > 0, "tab:blue", "tab:red"))
         ax.errorbar(value, y,
                     xerr=[np.maximum(value - lo, 0), np.maximum(hi - value, 0)],
@@ -1287,7 +1292,7 @@ def plot_presence_brier(
                 ax1.plot([xi - 0.42, xi + 0.42], [v, v], ls=":", lw=1.8,
                          color=color, label=label if xi == 0 else None)
         else:
-            lo, hi = _unit_bootstrap(stat, unit)
+            lo, hi = unit_bootstrap(stat, unit)
             ax1.bar(x, value, 0.55, color=color, label=label)
             ax1.errorbar(x, value,
                          yerr=[np.maximum(value - lo, 0),
@@ -1355,7 +1360,7 @@ def plot_coverage_sharpness(
             return np.append(per_group, np.nanmean(per_group))
 
         value = stat(np.arange(len(magnitude)))
-        ci_lo, ci_hi = _unit_bootstrap(stat, unit)
+        ci_lo, ci_hi = unit_bootstrap(stat, unit)
         pos = x + (j - (len(model_arms) - 1) / 2) * width
         color = ARM_COLORS[j % len(ARM_COLORS)]
         ax1.bar(pos, value, width * 0.92, color=color, label=label)

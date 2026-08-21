@@ -28,7 +28,7 @@ from cnmineral.eval import real_rock
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
 from cnmineral.eval.real_rock import (
-    _unit_bootstrap, climatology, predict, real_rock_nll,
+    climatology, predict, real_rock_nll, unit_bootstrap,
 )
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
@@ -92,7 +92,7 @@ def main() -> None:
         def stat(rows, _d=d):
             return np.array([_d[rows].mean()])
 
-        lo, hi = _unit_bootstrap(stat, np.arange(int(clean.sum())).astype(str))
+        lo, hi = unit_bootstrap(stat, np.arange(int(clean.sum())).astype(str))
         deltas[term] = [float(d.mean()), float(lo[0]), float(hi[0])]
         print(f"  {term:10s} {d.mean():+7.3f}  [{lo[0]:+.3f}, {hi[0]:+.3f}]")
 

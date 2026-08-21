@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cnmineral.eval import real_rock
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.real_rock import _unit_bootstrap, climatology, real_rock_nll
+from cnmineral.eval.real_rock import climatology, real_rock_nll, unit_bootstrap
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import (
@@ -92,7 +92,7 @@ def main() -> None:
         def stat(rows, _d=delta):
             return np.array([_d[rows].mean()])
 
-        lo, hi = _unit_bootstrap(stat, np.arange(len(test)).astype(str))
+        lo, hi = unit_bootstrap(stat, np.arange(len(test)).astype(str))
         label = f"{tier} (wd={wd:g})"
         print(f"  {label:22s} "
               + " ".join(f"{scored[t].mean():9.3f}" for t in TERMS)
