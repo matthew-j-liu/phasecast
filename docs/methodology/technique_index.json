@@ -56,10 +56,12 @@
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/heads/joint_heads_mixture.yaml",
+      "scripts/build/build_numbers.py",
       "src/cnmineral/models/cond_head.py",
       "src/cnmineral/training/joint_heads.py"
     ],
     "hurdle_mode_head": [
+      "scripts/build/build_numbers.py",
       "scripts/view/inference_card.py",
       "scripts/view/scenario_view.py",
       "scripts/view/truth_vs_pred.py",
@@ -122,6 +124,7 @@
   },
   "data_loading": {
     "parquet_sidecar_cache": [
+      "scripts/build/build_corpus_stats.py",
       "scripts/build/build_numbers.py",
       "scripts/build/build_test_fixture.py",
       "scripts/build/generate_mineralogy_corpus.py",
@@ -153,6 +156,7 @@
     ],
     "cluster_bootstrap": [
       "scripts/eval/real_rock.py",
+      "src/cnmineral/eval/real_rock.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ],
     "cohort_card": [
@@ -176,6 +180,7 @@
       "src/cnmineral/training/joint_heads_hpo.py"
     ],
     "few_shot_learning_curve": [
+      "scripts/build/build_numbers.py",
       "scripts/view/plot_training.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
     ],
@@ -267,6 +272,7 @@
       "configs/heads/joint_heads_igneous_hpo.yaml",
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
+      "scripts/build/build_numbers.py",
       "scripts/training/joint_heads.py",
       "src/cnmineral/eval/mode_head.py",
       "src/cnmineral/eval/probe/hpo.py",
@@ -310,6 +316,7 @@
       "configs/imputation/imputation_head_hpo_allrock_redox.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
+      "scripts/build/build_numbers.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
       "src/cnmineral/training/imputation_head_hpo.py",
@@ -402,6 +409,7 @@
       "configs/heads/joint_heads_minisweep_comp.yaml",
       "configs/heads/joint_heads_minisweep_cond.yaml",
       "configs/heads/joint_heads_mixture.yaml",
+      "scripts/build/build_numbers.py",
       "src/cnmineral/eval/comp_head.py",
       "src/cnmineral/losses/closure_loss.py",
       "src/cnmineral/losses/joint_loss.py",
@@ -428,6 +436,7 @@
   },
   "preprocessing": {
     "crystals_renormalized_labels": [
+      "scripts/build/build_corpus_stats.py",
       "src/cnmineral/data/mineralogy_dataset.py",
       "src/cnmineral/data/mineralogy_labels.py",
       "src/cnmineral/data/phase_vocab.py"
@@ -486,6 +495,7 @@
       "configs/pretrain/pretrain_allrock_redox.yaml",
       "configs/probe/probe_hpo.yaml",
       "scripts/build/build_corpus_bulk_tables.py",
+      "scripts/build/build_numbers.py",
       "scripts/build/build_test_fixture.py",
       "scripts/build/build_valtest_split.py",
       "scripts/build/report_corpus_health.py",
@@ -520,6 +530,7 @@
       "configs/imputation/imputation_head_hpo_allrock_redox.yaml",
       "configs/pretrain/pretrain_allrock_redox.yaml",
       "configs/probe/probe_hpo.yaml",
+      "scripts/build/build_numbers.py",
       "src/cnmineral/eval/probe/primitives.py",
       "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/imputation_head_hpo.py",
@@ -557,6 +568,7 @@
       "src/cnmineral/training/ssl_pretrain.py"
     ],
     "measured_label_resupervision": [
+      "scripts/build/build_numbers.py",
       "src/cnmineral/models/measured_mode_head.py",
       "src/cnmineral/training/measured_mode_head.py",
       "src/cnmineral/training/real_rock_recalibrator.py"
