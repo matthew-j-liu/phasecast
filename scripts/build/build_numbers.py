@@ -219,6 +219,9 @@ try:
     for split, short in (("train", "Train"), ("val", "Val"), ("test", "Test")):
         emit(f"rr{short}NRocks", str(sp[split]["rocks"]))
         emit(f"rr{short}NUnits", str(sp[split]["units"]))
+    emit("rrBenchNUnits",
+         str(sum(sp[s]["units"] for s in ("train", "val", "test"))),
+         "stratigraphic units across the benchmark; the bootstrap's draw count")
     emit("sysBenchTrainRocks", str(sp["train"]["rocks"]),
          "recalibration fit roster, split by stratigraphic unit")
     emit("fsBudgetDraws", str(len({p["draw"] for p in cv["curve"]})),
