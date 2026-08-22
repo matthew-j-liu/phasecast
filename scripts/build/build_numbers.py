@@ -528,10 +528,10 @@ except Exception as exc:
     tbd("icTestZsJoint", f"inference card CSVs unreadable: {exc}")
 
 section("appendix composition/conditions cards, constants parsed from the "
-        "card script; point at an extractor meta CSV when the card graduates "
-        "to figures/src")
+        "extractor; point at an extractor meta CSV if the parse gets fragile")
 try:
-    src = (ROOT / "tmp" / "comp_cond_card" / "comp_cond_card.py").read_text()
+    src = (ROOT / "paper" / "figures" / "src"
+           / "extract_comp_cond_card.py").read_text()
     n_cond = int(re.search(r"^N_SAMPLES = (\d+)", src, re.M).group(1))
     n_comp = int(re.search(r"^COMP_DRAWS = (\d+)", src, re.M).group(1))
     emit("acCondSamples", str(n_cond),
