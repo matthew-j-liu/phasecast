@@ -6,7 +6,7 @@ modal mineralogy and the conditions of formation.
 This repository accompanies the submission *Simulated petrological labels
 enable probabilistic mineralogy prediction from whole-rock geochemistry*.
 
-## What this is
+## Overview
 
 Modal mineralogy, the mineral identities and abundances in rocks, guides
 geological studies and industrial resource extraction. While measuring modal
@@ -27,7 +27,7 @@ few as 25 labeled rocks brings the predicted amounts into agreement with
 measured values, recovering 76 percent of the improvement from fitting on the
 full 368-rock fitting split.
 
-## Install
+## Installation
 
 ```bash
 conda env create -f environment.yml
@@ -39,7 +39,7 @@ pytest tests/        # optional smoke check
 Only stage 3 below (label generation) additionally needs Julia with MAGEMin;
 `magemin/Project.toml` pins that environment.
 
-## The pipeline, start to finish
+## Pipeline
 
 Stages marked *(runnable here)* execute against files in this snapshot.
 Stages marked *(pre-computed)* involve long computation and ship their
@@ -99,7 +99,7 @@ python figures/src/fig_cohort_card.py
 python figures/src/fig_inference_card.py
 ```
 
-## What ships in this snapshot
+## Checkpoints, data, and figure inputs
 
 Everything the runnable stages above read is either in the source tree or
 listed here.
