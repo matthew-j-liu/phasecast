@@ -1,21 +1,20 @@
-# Data: input corpora (large, re-downloadable) + optuna sweep state
+# Data: input corpora (large, re-downloadable). The benchmark CSVs and the
+# corpus excerpt are tracked exceptions.
 /data/
 
-# Machine output: runs/ = transient instrument snapshots. results/ (the
-# per-version headline summaries, incl. the ledger HPO reads its tie band
-# from) is tracked. Anchored.
+# Machine output: runs/ = transient instrument snapshots. Anchored.
 /runs/
 
-# Scratch (mockups, one-off previews)
-/tmp/
-
-# Exploration scratch: large regenerable MAGEMin inputs/outputs (results/ stays tracked)
-explorations/**/work/
-
-# Models
+# Models: the two production checkpoints are tracked exceptions.
 checkpoints/
 *.pt
 *.pth
+
+# Figure output: fig_*.py drops PDFs (and eyeball PNGs) at figures/ root, the
+# fit scripts drop diagnostic PNGs in figures/data/. The tracked inputs are
+# the CSVs and JSONs.
+figures/**/*.pdf
+figures/**/*.png
 
 # Python
 __pycache__/
@@ -28,16 +27,3 @@ __pycache__/
 
 # OS
 .DS_Store
-
-# Papers: the PDFs stay out, the bibliography and its claim map are tracked.
-# Ignoring the contents rather than the directory -- git does not descend into
-# an excluded directory, so a `!literature/*.bib` negation under a bare
-# `literature/` never fires.
-literature/*
-!literature/*.bib
-!literature/*.md
-
-# Manuscript: drafted in Overleaf, which owns its history. The generator lives
-# at scripts/build/build_numbers.py and writes paper/numbers.tex into this
-# ignored tree. Anchored.
-/paper/
