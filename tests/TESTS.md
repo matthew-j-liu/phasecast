@@ -86,7 +86,7 @@ rename, or repurpose a test) updates this file in the same change.**
 15. `test_floor_keeps_old_support` -- the traced density is at least `eps * q_density` (and positive) everywhere the broad proposal has support.
 16. `test_traced_importance_weights_recover_area` -- `E_q[1/q]` under the mixture recovers the broad-support area (the floor makes the supports equal).
 17. `test_wet_box_p_floor` -- a wet box (`w_lo` = 3) never draws above the solubility bound even with the floor off.
-18. `test_fallback_covers_rosters` -- every qap_name in both corpus rosters resolves to a single fallback box.
+18. `test_fallback_covers_rosters` -- every qap_name in both corpus rosters resolves to a single fallback box (skips without the local corpus tables).
 19. `test_traced_deterministic_under_seed` -- same seed, same traced draws.
 
 ### test_feldspar_rule.py
@@ -431,7 +431,7 @@ rename, or repurpose a test) updates this file in the same change.**
 5. `test_tiebreak_minisweep_requires_mode_within_band` -- comp-objective read-out admits only trials whose mode best stays within the band of `mode_reference`, returning None when none qualify.
 6. `test_ledger_tie_band_reads_the_instrument_stanza` -- the tie band resolves from the ledger's instruments stanza, the single source of truth.
 7. `test_ledger_tie_band_refuses_unmeasured_instrument` -- a null `tie_band_nats` (unmeasured instrument) and an undefined instrument both raise instead of falling back to a default.
-8. `test_run_joint_heads_hpo_end_to_end` -- a 2-trial sweep on the synthetic joint corpus: tie band resolved from a ledger fixture (not a config copy), enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure + sampled-support veto axis + effective lambda in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
+8. `test_run_joint_heads_hpo_end_to_end` (skips without the local gard2019 table) -- a 2-trial sweep on the synthetic joint corpus: tie band resolved from a ledger fixture (not a config copy), enqueued baseline as trial 0, per-head bests + epochs + predicted-modes closure + sampled-support veto axis + effective lambda in user attrs, tiebreak winner in the summary, journal + history + scatter on disk (importances skipped below 4 trials).
 
 ### test_real_rock_recalibrator_train.py
 

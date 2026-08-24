@@ -13,6 +13,7 @@ figures on disk.
 """
 
 import json
+from pathlib import Path
 
 import numpy as np
 import optuna
@@ -187,6 +188,8 @@ def test_run_joint_heads_hpo_end_to_end(
         tmp_path / "joint_hpo.yaml", base, storage_dir, output_dir, ledger_path,
     )
 
+    if not Path("data/bulks/gard2019.csv").exists():
+        pytest.skip("data/bulks/gard2019.csv absent")
     summary = run_hpo(cfg_path, device=torch.device("cpu"))
 
     assert summary["n_trials_complete"] == 2
