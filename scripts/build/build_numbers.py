@@ -419,14 +419,14 @@ try:
                    ("tailed", "OverRecal")):
         for budget, when in ((KNEE, "Knee"), (FULL, "Full")):
             med, favour, total = paired(a, "measured", budget)
-            emit(f"fsLatent{tag}{when}", fmt(med, 2, sign=True))
+            emit(f"fsLatent{tag}{when}", fmt(med, 2))
             emit(f"fsLatent{tag}{when}Draws", f"{favour}/{total}")
     # the encoder margin quoted as a range across every budget swept
     spans = [paired("measured_raw", "measured", b)[0]
              for b in sorted({r["budget"] for r in cv["curve"]})]
-    emit("fsLatentOverAssayLo", fmt(min(spans), 2, sign=True),
+    emit("fsLatentOverAssayLo", fmt(min(spans), 2),
          "smallest paired margin of the latent over the assay, any budget")
-    emit("fsLatentOverAssayHi", fmt(max(spans), 2, sign=True))
+    emit("fsLatentOverAssayHi", fmt(max(spans), 2))
     # at the smallest budget the assay-given head is behind the one given
     # neither: 22 raw numbers overfit where the latent does not
     med, favour, total = paired("measured_raw", "measured_ablated", KNEE)
