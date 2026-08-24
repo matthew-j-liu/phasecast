@@ -2,11 +2,11 @@
 
 MAGEMin's igneous database has one feldspar solution model, so plagioclase and
 alkali feldspar both arrive as `fsp` rows (two instances when the solvus is
-open). This module recovers the identity from the composition, vendored from
-mineralML's stoichiometric `FeldsparClassifier` (Shi et al.): molar An/Ab/Or
-ternary coordinates classified against the Deer-Howie-Zussman two-feldspar
-boundary curves as adapted by Thermobar/mineralML (Or tolerance widened to
-0.075 for temperature dependence). Compositions inside the miscibility gap --
+open). This module recovers the identity from the composition, reimplementing
+the rule from mineralML's stoichiometric `FeldsparClassifier` (Shi et al.):
+molar An/Ab/Or ternary coordinates classified against the Deer-Howie-Zussman
+two-feldspar boundary curves as adapted by Thermobar/mineralML (Or tolerance
+widened to 0.075 for temperature dependence). Compositions inside the miscibility gap --
 ternary feldspars the curves refuse to name -- are routed by the dominant
 molar component (An >= Or -> plag, else afs). Called by `mineralogy_labels`
 at label-build time; no mineralML runtime dependency.
