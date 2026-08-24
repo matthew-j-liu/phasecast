@@ -1,0 +1,2 @@
+bulk_id,sio2,n_fit_rocks,n_fit_units,draw_seed,n_samples,n_test,n_measured_groups,test_joint_zero_shot,test_joint_recalibrated,test_bernoulli_zero_shot,test_bernoulli_recalibrated,test_dirichlet_zero_shot,test_dirichlet_recalibrated,test_opq_rate
+dubray_ds764|203378,79.9,25,10,0,2048,161,3,9.358,1.582,5.611,3.345,3.747,-1.762,0.932

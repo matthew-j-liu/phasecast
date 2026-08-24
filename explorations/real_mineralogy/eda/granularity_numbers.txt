@@ -1,7 +1,0 @@
-granularity minerals: SiO2 distribution of phenocryst occurrences (du Bray)
-
-quartz             n= 242  median SiO2=73.6  p10=62.1  frac<63%=0.14  frac<52%=0.00
-biotite            n= 443  median SiO2=65.3  p10=61.1  frac<63%=0.29  frac<52%=0.00
-alkali feldspar    n= 203  median SiO2=74.4  p10=64.5  frac<63%=0.06  frac<52%=0.00
-olivine            n= 110  median SiO2=57.1  p10=53.0  frac<63%=0.90  frac<52%=0.04
-plagioclase        n= 655  median SiO2=63.4  p10=57.7  frac<63%=0.44  frac<52%=0.00
