@@ -28,7 +28,7 @@ checks whether the rocks it assigns to that component are the rocks the
 geologist eyeballed worst.  61 of the paired rocks are in its fit roster, so
 that read is descriptive, not held out.
 
-    conda run -n alignn_fix python explorations/real_mineralogy/run_pointcount_contrast.py \
+    conda run -n mineral python explorations/real_mineralogy/run_pointcount_contrast.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 """
 

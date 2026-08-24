@@ -7,7 +7,7 @@ val slice only. That is the residual-decomposition protocol, so running this
 for all three checkpoints puts them on identical post-correction footing.
 The test slice (spent 2026-08-03) is not touched here.
 
-    conda run -n alignn_fix python explorations/real_rock_fewshot/run_adapted_figures.py \
+    conda run -n mineral python explorations/real_rock_fewshot/run_adapted_figures.py \
         --checkpoint checkpoints/joint_heads_regen_seed0/heads_best.pt
 """
 

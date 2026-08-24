@@ -23,7 +23,7 @@ Per draw, take the near-solidus endpoint (highest-T converged point with
 frequency across draws) vs proportion/melt-only. 142,848 MAGEMin points total.
 
 ```
-conda activate alignn_fix && export KMP_DUPLICATE_LIB_OK=TRUE
+conda activate mineral && export KMP_DUPLICATE_LIB_OK=TRUE
 python explorations/equilibrium_multimodality/selection.py   # subset + 36 test bulks
 python explorations/equilibrium_multimodality/driver.py --n 128   # ~25 min, writes work/ (gitignored)
 python explorations/equilibrium_multimodality/analyze.py     # verdict + results/ + figures
@@ -62,7 +62,7 @@ frequencies (biotite is the sentinel -- it under-shoots everywhere under the
 flat box).
 
 ```
-conda activate alignn_fix && export KMP_DUPLICATE_LIB_OK=TRUE
+conda activate mineral && export KMP_DUPLICATE_LIB_OK=TRUE
 python explorations/equilibrium_multimodality/driver.py --n 128   # ~25 min, writes work/bounded/
 python explorations/equilibrium_multimodality/water_ab.py         # A/B tables + results/water_ab_*.csv
 ```

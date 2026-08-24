@@ -9,7 +9,7 @@ like at K>1?
 **Method.** Three attribution experiments plus the K=2 figure mockups, all
 against `joint_heads_allrock_mixture_seed0` and its control
 `joint_heads_allrock_tuned_seed0` (shared all-rock encoder). Scripts assume
-repo-root cwd and the `alignn_fix` env.
+repo-root cwd and the `mineral` env.
 
 - `run_instrument_transplant.py` -- corpus val rows scored through the
   real-rock 7-group coarsening (population fixed, instrument changed).

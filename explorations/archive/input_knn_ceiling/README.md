@@ -22,7 +22,7 @@ standardized `log10(frac)`, the model's own input space). Both metrics
 purity. The achievable ceiling is the best raw-input number; the geometry
 analogue of the imputation work's raw-input XGBoost ceiling.
 
-    conda run -n alignn_fix python explorations/input_knn_ceiling/run_ceiling.py
+    conda run -n mineral python explorations/input_knn_ceiling/run_ceiling.py
 
 ## Result
 

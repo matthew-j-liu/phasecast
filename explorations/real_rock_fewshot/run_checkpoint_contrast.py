@@ -12,7 +12,7 @@ Scores the val slice by default. The sealed test scoring was taken once,
 `--score-test` re-reads that slice, which is a disclosed second look -- pass
 it deliberately and say so wherever the number lands.
 
-    conda run -n alignn_fix python explorations/real_rock_fewshot/run_checkpoint_contrast.py \
+    conda run -n mineral python explorations/real_rock_fewshot/run_checkpoint_contrast.py \
         checkpoints/joint_heads_supportmag_seed0/heads_best.pt \
         checkpoints/joint_heads_regen_seed0/heads_best.pt \
         checkpoints/joint_heads_regen_tuned_seed0/heads_best.pt

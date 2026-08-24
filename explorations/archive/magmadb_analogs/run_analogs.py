@@ -12,7 +12,7 @@ distribution: ~24% of the gard pretrain corpus is itself majors-only.
 
 Run (CSV ships outside the repo, in the ArcThermoML download):
 
-    conda run -n alignn_fix python explorations/magmadb_analogs/run_analogs.py \
+    conda run -n mineral python explorations/magmadb_analogs/run_analogs.py \
         --magmadb ~/Downloads/lcandiot-ArcThermoML-676d770/data/lab_experiments/MineRS_MagmaDB_merged_v2_H2Ocalc.csv
 
 Writes results/magmadb_vs_gard.png and results/coverage_metrics.json.

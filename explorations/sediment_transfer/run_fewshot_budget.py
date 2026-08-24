@@ -6,7 +6,7 @@ tailed corrections on 10 independent 25-rock draws from the train slice
 test slice, and reports the median beside the zero-shot, climatology, and
 full-train references.
 
-    conda run -n alignn_fix python explorations/sediment_transfer/run_fewshot_budget.py
+    conda run -n mineral python explorations/sediment_transfer/run_fewshot_budget.py
 """
 
 import os

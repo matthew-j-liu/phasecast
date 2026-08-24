@@ -104,7 +104,7 @@ spl/ilm/mag and cpx/opx.
 730 samples: du Bray 717, MSH 7, Pinatubo 6. SiO2 49-93 wt%, 322 in the 52-63%
 intermediate band. 724 carry both chemistry and modes; 70 of the du Bray rocks
 carry a point count as well as a visual estimate. Regenerate: `conda run -n
-alignn_fix python explorations/real_mineralogy/harvest.py`. The scored-set
+mineral python explorations/real_mineralogy/harvest.py`. The scored-set
 breakdown lives in `results/benchmark_composition.md`, generated rather than
 hand-counted.
 

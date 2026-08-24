@@ -6,7 +6,7 @@ file paths to docs/methodology/technique_index.json.  Re-runnable; the
 output is regenerated from scratch each invocation so stale entries
 cannot survive.
 
-    conda run -n alignn_fix python scripts/build/build_technique_index.py
+    conda run -n mineral python scripts/build/build_technique_index.py
 
 Output JSON shape (grouped by technique type):
 

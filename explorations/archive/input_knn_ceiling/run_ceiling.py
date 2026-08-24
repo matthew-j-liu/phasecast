@@ -19,7 +19,7 @@ exploration-specific scaffolding and stays here.  Two raw representations:
   weighted comparably.
 
 Run:
-    conda run -n alignn_fix python explorations/input_knn_ceiling/run_ceiling.py \
+    conda run -n mineral python explorations/input_knn_ceiling/run_ceiling.py \
         --checkpoint checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
 """
 

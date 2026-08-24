@@ -103,5 +103,5 @@ fit, since no density makes its sign recoverable.
 
 Canonical verdict in [docs/journal.md](../../docs/journal.md).
 
-    conda run -n alignn_fix python explorations/real_rock_mapping/run_sensitivity.py \
+    conda run -n mineral python explorations/real_rock_mapping/run_sensitivity.py \
         --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt

@@ -21,7 +21,7 @@ evidence for the rung decision. The corpus-statistics EDA plots live with
 
 The owner picks the rung from the printed table; nothing is decided here.
 
-    conda run -n alignn_fix python explorations/volcanic_proxy_definition/rung_prescreen.py \\
+    conda run -n mineral python explorations/volcanic_proxy_definition/rung_prescreen.py \\
         --corpus data/corpus/train
 """
 import argparse

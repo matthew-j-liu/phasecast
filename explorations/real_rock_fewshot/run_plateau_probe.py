@@ -8,7 +8,7 @@ still monotone, and the epoch at which that curve has stopped moving.  The
 shrinkage it runs at is fixed and inherited rather than selected -- see
 `PROBE_WEIGHT_DECAY` for why it cannot be zero.
 
-    conda run -n alignn_fix python \
+    conda run -n mineral python \
         explorations/real_rock_fewshot/run_plateau_probe.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 

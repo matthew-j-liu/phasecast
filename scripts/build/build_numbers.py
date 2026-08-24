@@ -1,6 +1,6 @@
 """Builds paper/numbers.tex from the tracked ledgers and result JSONs, so no
 number is ever hand-typed in paper prose. Rerun after any source moves:
-`conda run -n alignn_fix python scripts/build/build_numbers.py`. A missing source
+`conda run -n mineral python scripts/build/build_numbers.py`. A missing source
 degrades to a visible [TBD] macro and a stderr warning, never a broken build.
 """
 

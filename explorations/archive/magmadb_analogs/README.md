@@ -51,4 +51,4 @@ Verdict recorded in [docs/corpus_regen_spec.md](../../docs/corpus_regen_spec.md)
 (Output stance).
 
 Artifacts: `results/magmadb_vs_gard.png`, `results/coverage_metrics.json`.
-Rerun: `conda run -n alignn_fix python explorations/magmadb_analogs/run_analogs.py --magmadb <path>`.
+Rerun: `conda run -n mineral python explorations/magmadb_analogs/run_analogs.py --magmadb <path>`.

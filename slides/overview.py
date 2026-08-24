@@ -25,7 +25,7 @@ cover the 8-item checklist:
      split identity (val roster vs sealed test)
   8. known limits -- 2-3 bullets, pointers to heads.md / ADRs for rationale
 
-    conda run -n alignn_fix python slides/overview.py
+    conda run -n mineral python slides/overview.py
 """
 
 import math

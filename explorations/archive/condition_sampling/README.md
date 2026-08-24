@@ -21,7 +21,7 @@ bootstrap the error-bar-vs-N curve, and cluster the cloud into scenarios.
   clustering, plots.
 
 Run from a dir with the MAGEMin `Project.toml` (recover from git `2fd5559^` or
-`/tmp/mgm_sanity`), env `alignn_fix`, `KMP_DUPLICATE_LIB_OK=TRUE`:
+`/tmp/mgm_sanity`), env `mineral`, `KMP_DUPLICATE_LIB_OK=TRUE`:
 
 ```
 python gen_inputs.py

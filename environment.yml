@@ -1,4 +1,4 @@
-name: alignn_fix
+name: mineral
 channels:
   - conda-forge
   - defaults

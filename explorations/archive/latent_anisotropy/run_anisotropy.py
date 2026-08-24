@@ -20,7 +20,7 @@ The canonical latent is anchored against its own raw-input representations
 Gaussian reference at matched N, d.
 
 Run (module form so the cross-exploration import resolves from repo root):
-    conda run -n alignn_fix python -m explorations.archive.latent_anisotropy.run_anisotropy \
+    conda run -n mineral python -m explorations.archive.latent_anisotropy.run_anisotropy \
         --checkpoint checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt
 """
 

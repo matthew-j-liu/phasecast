@@ -8,7 +8,7 @@ generated once and versioned rather than recomputed at load time -- the test
 subset is sealed, so membership must not drift with sklearn versions.
 Refuses to overwrite an existing roster unless --force is passed.
 
-    conda run -n alignn_fix python scripts/build/build_valtest_split.py
+    conda run -n mineral python scripts/build/build_valtest_split.py
 
 `--extend` assigns only the bulks a grown valtest_bulks.csv adds, at the same
 ratio and stratification, and leaves every committed assignment exactly where

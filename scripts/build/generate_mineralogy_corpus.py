@@ -32,7 +32,7 @@ more tables, concatenated in the given order -- the train tier lists the base
 table then the expansion table, so chunk order follows the expansion's
 nested-block early-stop ordering:
 
-    conda run -n alignn_fix python scripts/build/generate_mineralogy_corpus.py \\
+    conda run -n mineral python scripts/build/generate_mineralogy_corpus.py \\
         --bulks data/corpus/train_bulks.csv data/corpus/train_bulks_expansion.csv \\
         --out data/corpus/train_traced --draws 24
 

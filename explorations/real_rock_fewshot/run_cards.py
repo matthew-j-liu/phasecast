@@ -7,7 +7,7 @@ stratigraphic units from the train roster and renders **test-slice rocks only**,
 so nothing shown was ever fit on. (The test slice was spent 2026-08-03 for
 scoring purposes; these renders are illustrative, not selection evidence.)
 
-    conda run -n alignn_fix python explorations/real_rock_fewshot/run_cards.py \
+    conda run -n mineral python explorations/real_rock_fewshot/run_cards.py \
         --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt
 
 Two figures per rock. The card is zero-shot over adapted on one measurement,

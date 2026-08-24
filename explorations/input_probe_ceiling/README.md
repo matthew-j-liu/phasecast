@@ -103,7 +103,7 @@ qap-labeled ones. That is not a fairness violation -- it is precisely what SSL
 buys -- but the honest framing is "latent vs raw assay, the encoder having had
 unlabeled access to a superset," not "the same information."
 
-    conda run -n alignn_fix python explorations/input_probe_ceiling/run_ceiling.py \
+    conda run -n mineral python explorations/input_probe_ceiling/run_ceiling.py \
         --checkpoint checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt
 
 Expect roughly 45-90 min for the fixed-protocol pass, extrapolated linearly

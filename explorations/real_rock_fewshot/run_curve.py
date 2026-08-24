@@ -21,7 +21,7 @@ what the cohort's own label marginal bought without reading the rock at all,
 and how much of the correction arms' shortfall was the correction being
 external to the head rather than the supervision being simulated.
 
-    conda run -n alignn_fix python explorations/real_rock_fewshot/run_curve.py \
+    conda run -n mineral python explorations/real_rock_fewshot/run_curve.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 
 Weight decay is chosen once per arm on the fixed val slice before the curve

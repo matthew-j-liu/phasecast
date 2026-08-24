@@ -8,7 +8,7 @@ abundance with a rare-class floor; each table is shuffled (seeded) so any
 prefix is class-representative -- the ~500-bulk pilot is just the first chunks
 of the training table (`--max-chunks 5` on the orchestrator).
 
-    conda run -n alignn_fix python scripts/build/build_corpus_bulk_tables.py
+    conda run -n mineral python scripts/build/build_corpus_bulk_tables.py
 
 Writes data/corpus/train_bulks.csv and data/corpus/valtest_bulks.csv.
 

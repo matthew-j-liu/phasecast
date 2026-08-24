@@ -21,12 +21,12 @@ for the supervised posterior.
 
 ## House Rules
 
-**Use the `alignn_fix` conda env when running any code, tests, or scripts in
-this repo** (`conda run -n alignn_fix ...` or activate first) — unless an
+**Use the `mineral` conda env when running any code, tests, or scripts in
+this repo** (`conda run -n mineral ...` or activate first) — unless an
 untracked `CLAUDE.local.md` at repo root overrides the env name.  That override
 exists so sibling clones of this repo can install their own editable copy
 without colliding on `pip install -e .`.  When handing the owner a command to
-run themselves, assume `alignn_fix` is already activated in their terminal —
+run themselves, assume `mineral` is already activated in their terminal —
 plain `python ...`, no `conda run` wrapper.
 
 **Run the unit tests with** `pytest tests/`.  Single-threaded — cleaner stdout /
@@ -59,13 +59,13 @@ tracebacks beats any speed win from parallel workers at this suite size.
    technique (loss, head, training strategy, eval, preprocessing step) updates
    [docs/methodology/techniques.yaml](docs/methodology/techniques.yaml) with
    distinctive symbol patterns and regenerates in the same change: `conda run -n
-   alignn_fix python scripts/build/build_technique_index.py` (verify `zero hits:
+   mineral python scripts/build/build_technique_index.py` (verify `zero hits:
    none`).
 5. **Overview deck:** after a major architecture change — anything that would
    make an existing slide *wrong* (a new/changed model component, loss, training
    stage, tokenization, data corpus, or how the pieces compose) — update and
    regenerate [slides/overview.py](slides/overview.py) in the same change
-   (`conda run -n alignn_fix python slides/overview.py`).  A **new ML
+   (`conda run -n mineral python slides/overview.py`).  A **new ML
    component** (head, encoder variant) additionally gets the standard
    two-slide report — anatomy (`head_anatomy_slide` template) + eval-semantics
    (worked example) — covering the 8-item checklist in the

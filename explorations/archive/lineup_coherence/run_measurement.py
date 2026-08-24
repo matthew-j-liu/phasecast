@@ -8,7 +8,7 @@ library -- closed-form Bernoulli products, no Monte-Carlo noise -- plus the
 mitigation's cost side: the fraction of truth draws whose pattern is absent
 from the train-tier library.
 
-    conda run -n alignn_fix python explorations/lineup_coherence/run_measurement.py \\
+    conda run -n mineral python explorations/lineup_coherence/run_measurement.py \\
         --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt
 """
 

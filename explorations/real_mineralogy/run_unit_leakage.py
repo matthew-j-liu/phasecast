@@ -22,7 +22,7 @@ honest: the train roster is untouched, so the recalibrator is byte-identical and
 every surviving rock keeps the score it already had.  Reassigning would change
 the fit set and move every val score, including rocks that never went anywhere.
 
-    conda run -n alignn_fix python explorations/real_mineralogy/run_unit_leakage.py \
+    conda run -n mineral python explorations/real_mineralogy/run_unit_leakage.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 """
 

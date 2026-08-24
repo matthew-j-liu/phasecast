@@ -28,7 +28,7 @@ at matched N, d. Spectrum is of the covariance (not correlation) -- the geometry
 the cosine / euclidean distance metrics actually operate on. Effective rank is
 also reported as a fraction of `d` so the 256-d latent and 22-d inputs compare.
 
-    conda run -n alignn_fix python -m explorations.archive.latent_anisotropy.run_anisotropy
+    conda run -n mineral python -m explorations.archive.latent_anisotropy.run_anisotropy
 
 ## Result
 

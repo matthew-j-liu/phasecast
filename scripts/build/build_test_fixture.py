@@ -4,7 +4,7 @@ Output: tests/fixtures/complete_subset.parquet (~113 KB; checked in).
 Re-run if `_load_raw_dataframe`'s column list changes or the seed
 needs to be redrawn.  Idempotent: same seed produces the same bytes.
 
-    conda run -n alignn_fix python scripts/build/build_test_fixture.py
+    conda run -n mineral python scripts/build/build_test_fixture.py
 """
 
 import os

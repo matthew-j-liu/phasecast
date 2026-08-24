@@ -35,7 +35,7 @@ coarsening (#47 design decision 1) is deliberately downstream of this
 measurement.
 
 ```
-conda run -n alignn_fix python explorations/lineup_coherence/run_measurement.py \
+conda run -n mineral python explorations/lineup_coherence/run_measurement.py \
     --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt
 ```
 

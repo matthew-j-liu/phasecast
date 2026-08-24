@@ -5,7 +5,7 @@ the committed corpus rosters -- no MAGEMin -- and measures tier occupancy,
 range narrowing, proxy-vs-class contradictions, setting-posterior entropy,
 the 24-draw envelope contraction, a stress-case gallery, and the box atlas.
 
-    conda run -n alignn_fix python explorations/trace_conditional_proposal/dry_run.py
+    conda run -n mineral python explorations/trace_conditional_proposal/dry_run.py
 """
 
 import argparse

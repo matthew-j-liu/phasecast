@@ -21,7 +21,7 @@ Zero-shot only, which is what issue #56 asks for: a fitted recalibrator could
 absorb a uniform input shift and hide the effect being measured.  Test rocks are
 excluded -- that slice is spent.
 
-    conda run -n alignn_fix python explorations/real_mineralogy/run_scale_convention.py \
+    conda run -n mineral python explorations/real_mineralogy/run_scale_convention.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 """
 

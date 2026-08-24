@@ -38,7 +38,7 @@ and latent > head -> head-side fix (per-phase presence-BCE weighting /
 capacity); raw > head but latent ~ head -> the encoder dropped the signal,
 feed `bulk_frac` to the ModeHead via a skip connection.
 
-    conda run -n alignn_fix python explorations/presence_fraction_ceiling/run_probe.py \
+    conda run -n mineral python explorations/presence_fraction_ceiling/run_probe.py \
         --checkpoint checkpoints/joint_heads_seed0/heads_best.pt
 
 Sanity anchor: the head arm must reproduce the #41 measurement's headline MAEs

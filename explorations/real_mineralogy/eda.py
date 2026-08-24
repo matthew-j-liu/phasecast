@@ -5,7 +5,7 @@ they only turn on in felsic rocks, a phenocryst-regime synthetic label captures
 them where they matter and legitimately omits them where they aren't phenocrysts.
 
 Reads data/real_mineralogy/{samples,modes}.csv, writes eda/*.png + eda/README.md.
-    conda run -n alignn_fix python explorations/real_mineralogy/eda.py
+    conda run -n mineral python explorations/real_mineralogy/eda.py
 """
 from pathlib import Path
 

@@ -9,7 +9,7 @@ protocol of `run_recalibrate.py`) rather than a 25-rock draw, the T/P
 panel is dropped because the conditions head models magmatic cooling, and
 picks rank per-rock rather than per-unit because no unit labels exist.
 
-    conda run -n alignn_fix python explorations/sediment_transfer/run_inference_cards.py
+    conda run -n mineral python explorations/sediment_transfer/run_inference_cards.py
 """
 
 import os

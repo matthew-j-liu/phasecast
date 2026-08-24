@@ -20,7 +20,7 @@ Fit on the committed train roster, reported on val; the test slice (spent
 2026-08-03) is not touched.  The climatology comparison printed at the end is
 internal-only and never travels to the paper.
 
-    conda run -n alignn_fix python explorations/real_rock_fewshot/run_tailed_acceptance.py \
+    conda run -n mineral python explorations/real_rock_fewshot/run_tailed_acceptance.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 """
 

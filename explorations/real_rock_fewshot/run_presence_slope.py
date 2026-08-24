@@ -16,7 +16,7 @@ constant per correction form and the pinned arm is a different form.
 Fit on the committed train roster, reported on val; the test slice (spent
 2026-08-03) is not touched.
 
-    conda run -n alignn_fix python explorations/real_rock_fewshot/run_presence_slope.py \
+    conda run -n mineral python explorations/real_rock_fewshot/run_presence_slope.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 """
 

@@ -67,7 +67,7 @@ verdict also in docs/JOURNAL.md 2026-06-15.
 ## Run
 
 ```
-conda activate alignn_fix
+conda activate mineral
 python -u explorations/trace_signal_in_latent/run_gate.py \
   --checkpoint checkpoints/pretrain_v3_seed0/epoch_best.pt
 ```

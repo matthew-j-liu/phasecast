@@ -7,7 +7,7 @@ take-all-tail hybrid. Writes the figure and per-class table the locked
 alpha=0.5 decision rests on. The production draw is
 `scripts/build/build_corpus_bulk_tables.py --expand`.
 
-    conda run -n alignn_fix python explorations/rare_class_quota/quota_analysis.py
+    conda run -n mineral python explorations/rare_class_quota/quota_analysis.py
 """
 
 from pathlib import Path

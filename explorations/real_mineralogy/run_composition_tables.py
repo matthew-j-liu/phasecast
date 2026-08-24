@@ -12,7 +12,7 @@ The MSH and Pinatubo rocks are counted in one row and otherwise left out --
 they are 11 hand-transcribed rocks from other arcs and belong in a separate
 out-of-population line, not averaged into a table about this one.
 
-    conda run -n alignn_fix python explorations/real_mineralogy/run_composition_tables.py
+    conda run -n mineral python explorations/real_mineralogy/run_composition_tables.py
 """
 
 import json

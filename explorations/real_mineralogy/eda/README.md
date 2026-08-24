@@ -1,7 +1,7 @@
 # EDA on the real-mineralogy benchmark
 
 Plots for the endpoint/label-granularity decision. Regenerate:
-`conda run -n alignn_fix python explorations/real_mineralogy/eda.py`.
+`conda run -n mineral python explorations/real_mineralogy/eda.py`.
 
 ## Plots
 1. `1_coverage.png` -- SiO2 histogram + TAS-style scatter by source. du Bray spans

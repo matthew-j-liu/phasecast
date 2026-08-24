@@ -8,7 +8,7 @@ the chunks. `--figures` additionally writes the corpus-statistics EDA plots to
 `<corpus>/figures/` (regenerable, gitignored; the sim-vs-real comparison plots
 live with the rung pre-screen in explorations/archive/volcanic_proxy_definition/).
 
-    conda run -n alignn_fix python scripts/build/report_corpus_health.py --corpus data/corpus/train --figures
+    conda run -n mineral python scripts/build/report_corpus_health.py --corpus data/corpus/train --figures
 """
 
 import argparse

@@ -17,7 +17,7 @@ Output: samples.csv (one row per sample: chemistry + crystallinity + QC) and
 modes.csv (one row per sample x phase: reported abundance + basis), with phase
 names mapped to the MAGEMin vocabulary alongside the as-reported names.
 
-    conda run -n alignn_fix python explorations/real_mineralogy/harvest.py
+    conda run -n mineral python explorations/real_mineralogy/harvest.py
 """
 import re
 

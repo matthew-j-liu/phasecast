@@ -13,7 +13,7 @@ two runs, so "identical rows" is a property of the code.  The protocol the
 reported latent number was measured under is asserted before any fitting.
 
 Run:
-    conda run -n alignn_fix python explorations/input_probe_ceiling/run_ceiling.py \
+    conda run -n mineral python explorations/input_probe_ceiling/run_ceiling.py \
         --checkpoint checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt
 """
 

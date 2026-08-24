@@ -4,7 +4,7 @@ Standalone draft to iterate on (-> slides/encoder_revised.pptx). BERT-style:
 colored element tokens, one MASKed, the encoder (being trained, not frozen)
 predicts the hidden amount, loss compared to truth, backprop loop to the weights.
 
-    conda run -n alignn_fix python slides/encoder_revised.py
+    conda run -n mineral python slides/encoder_revised.py
 """
 
 from pathlib import Path

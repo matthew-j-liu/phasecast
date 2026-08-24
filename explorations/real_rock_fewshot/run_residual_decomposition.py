@@ -7,7 +7,7 @@ push 80% coverage.  A group whose width-only ceiling sits below nominal while
 the 2-d oracle reaches it is location-limited: HPO on concentration-space
 knobs cannot fix it, a mean-shifting term could.
 
-    conda run -n alignn_fix python explorations/real_rock_fewshot/run_residual_decomposition.py
+    conda run -n mineral python explorations/real_rock_fewshot/run_residual_decomposition.py
 
 Fit on train, diagnose on train and val; the test slice (spent 2026-08-03) is not touched.
 """

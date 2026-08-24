@@ -8,7 +8,7 @@ rather than recomputed at load time: the carve-out is the board where
 adaptation strategies get compared, and a board that moves between runs
 compares nothing. Refuses to overwrite an existing roster unless --force.
 
-    conda run -n alignn_fix python scripts/build/build_real_rock_split.py
+    conda run -n mineral python scripts/build/build_real_rock_split.py
 """
 
 import argparse

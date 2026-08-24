@@ -53,7 +53,7 @@ Both reuse the ceiling probe's machinery (targets, XGB protocol, scoring) via
    Optuna study (same protocol, headline-phase MSE objective).
 
 ```
-conda run -n alignn_fix python explorations/fe_redox_attribution/run_measurements.py \
+conda run -n mineral python explorations/fe_redox_attribution/run_measurements.py \
     --checkpoint checkpoints/joint_heads_supportmag_seed0/heads_best.pt
 ```
 
