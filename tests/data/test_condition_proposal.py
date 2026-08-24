@@ -152,6 +152,8 @@ def test_fallback_covers_rosters():
     from pathlib import Path
 
     corpus = Path(__file__).resolve().parents[2] / "data" / "corpus"
+    if not (corpus / "train_bulks.csv").exists():
+        pytest.skip("data/corpus roster tables absent")
     for roster in ("train_bulks.csv", "valtest_bulks.csv"):
         for qap in pd.read_csv(corpus / roster).qap_name.dropna().unique():
             bp = bulk_proposal(qap, {})
