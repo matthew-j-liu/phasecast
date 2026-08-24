@@ -114,9 +114,10 @@ listed here.
 | `figures/src/` | one `fig_*.py` per paper figure, the `extract_*.py` scripts that rebuild their inputs from the artifacts above, and the `fit_*.py` scripts that recompute the few-shot experiment | -- |
 | `figures/data/` | the frozen inputs the figure scripts read: one small CSV per figure plus the two few-shot result JSONs | ~500 KB |
 
-The benchmark evaluation joins the two CSVs and scores the 640 rocks that
-carry both chemistry and measured modes -- the cohort every benchmark number
-in the paper refers to. The train/val/test split rosters ship inside the
+The benchmark evaluation joins the two CSVs; its headline scores the 640
+least-altered rocks that quantify at least one mineral abundance (724 rocks
+carry both chemistry and modes) -- the cohort every benchmark number in the
+paper refers to. The train/val/test split rosters ship inside the
 package (`src/cnmineral/data/`).
 
 Not included: the full simulated corpus (3.5 GB of parquet, regenerable end

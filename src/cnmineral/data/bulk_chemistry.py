@@ -273,7 +273,7 @@ class BulkChemistryDataset(Dataset[dict[str, torch.Tensor | int]]):
     min_class_count
         Drop rows whose `qap_name` class has fewer than this many
         samples in the filtered corpus.  Default 25 matches the
-        CLAUDE.md mandate for production splits and guarantees
+        repo's production-split floor and guarantees
         sklearn's `train_test_split(stratify=...)` accepts every
         class.  Only applied when `require_qap_name=True`; under
         `require_qap_name=False` it instead collapses rare

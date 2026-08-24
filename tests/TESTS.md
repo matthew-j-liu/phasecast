@@ -16,7 +16,7 @@ rename, or repurpose a test) updates this file in the same change.**
   `scripts/build/build_test_fixture.py`); `SyntheticTokenDataset` +
   `synthetic_token_dataset` (tiny token datasets) and
   `tiny_pretrain_checkpoint` (a real on-disk encoder+head checkpoint),
-  shared by the eval and explorations suites;
+  shared by the eval suite;
   `synthetic_joint_corpus` (the `write_synthetic_rungs` +
   `write_synthetic_draws` builder: one rungs parquet with two draws per
   bulk, mixed assemblage with full 11-oxide comps and T_end, one plag +
@@ -457,35 +457,27 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ## eval/
 
-### test_probes.py
+### test_adapted_mode_head.py
 
-1. `test_qap_to_supergroup_known_pins` -- representative qap names map to their expected supergroups (sanity on the v2-ported lookup).
-2. `test_qap_to_supergroup_handles_none_and_empty` -- None / empty / non-string inputs collapse to "other".
-3. `test_map_qap_array_returns_object_ndarray` -- array mapping returns an object-dtype ndarray of supergroup strings.
-4. `test_supergroups_tuple_has_nine_entries` -- the SUPERGROUPS palette has exactly nine entries including "other".
-5. `test_extract_latents_full_dataset_shape` -- extracting over the fixture dataset yields a finite [N, d_model] CPU tensor.
-6. `test_extract_latents_indices_subset_shape` -- passing `indices` returns latents sized to the subset.
-7. `test_extract_latents_deterministic_in_eval_mode` -- two extractions agree exactly (guards a forgotten `encoder.eval()` with dropout active).
-7a. `test_padded_redox_view_zeroes_the_slot` -- `PaddedRedoxView` pads exactly the redox slot, leaves the base dataset and other slots untouched, and refuses a 22-token corpus.
-8. `test_logreg_probe_runs_and_beats_random` -- the LR probe trains on separable latents and beats the random baseline.
-9. `test_mlp_probe_runs_and_beats_random` -- same contract for the MLP probe.
-10. `test_probe_metrics_to_dict_is_json_friendly` -- `ProbeMetrics.to_dict()` survives `json.dumps`.
-11. `test_probe_metrics_carries_hyperparameters` -- `to_dict()` records the exact kwargs that produced the metrics.
-12. `test_logreg_probe_standardize_helps_at_skewed_scales` -- `standardize=True` converges at least as accurately on a badly-scaled latent.
-13. `test_mlp_probe_l2_normalize_runs_and_records_flag` -- the l2-normalize path runs without NaN and the flag lands on the metrics.
-14. `test_mlp_probe_two_layer_runs_end_to_end` -- `n_hidden_layers=2` builds the deeper topology and still trains.
-15. `test_mlp_probe_invalid_n_hidden_layers_raises` -- 0 or 3 hidden layers raises rather than silently building something else.
-16. `test_mlp_probe_class_weighting_lifts_rare_class` -- `class_weight='balanced'` raises the rare class's per-class accuracy (the trade-off, not overall accuracy, is asserted).
-17. `test_knn_label_purity_above_random` -- k-NN purity on separable latents beats the class-balanced random baseline.
-18. `test_random_label_purity_balanced_classes` -- balanced 5-class labels give baseline 0.2.
-19. `test_run_probes_end_to_end_on_fixture` -- smoke-run of the full scoring pipeline (latents + both probes + UMAP 2D/3D + every plot) on the corpus fixture; guards wiring and finiteness, not accuracy.
+Imports the adapted head from `figures/src/`, where the module ships.
 
-### test_probe_hpo.py
-
-1. `test_run_probe_hpo_end_to_end_on_fixture` -- a 2-trial probe-HPO sweep against a 1-epoch fixture checkpoint emits a well-formed summary JSON (best_params, final_mlp, baseline_lr).
-2. `test_compare_probe_hpos_flags_converged_vs_scattered` -- `build_report`'s convergence flags fire correctly on hand-crafted agreeing/scattering encoder summaries.
-3. `test_compare_probe_hpos_writes_report_and_yaml` -- `run_calibration` writes both calibration_report.md and calibrated_probe.yaml.
-4. `test_run_probe_hpo_zero_trials_returns_baseline_only` -- `n_trials=0` skips the sweep but still writes the LR baseline.
+1. `test_every_linear_layer_is_adapted` -- the module tree is walked rather than the eight layers named, so a head built at a different depth is adapted throughout instead of partially.
+2. `test_zero_init_reproduces_the_frozen_head_exactly` -- B starts at zero, so an unfit adapter is the frozen head bit for bit; without that a fitted gain would be measured against a slightly different model rather than against the zero-shot forecast.
+3. `test_pinned_support_reproduces_the_frozen_heads_own_support` -- the support is the one `eval.real_rock.predict` builds, which is what puts this arm's Dirichlet on the support the correction arms' alpha7 was built on.
+4. `test_the_support_does_not_move_when_the_adapters_do` -- `truth_forced_support` is a threshold plus an argmax, so a support tracking the adapters would add no gradient, only a discontinuity each time a member phase crossed 0.5 mid-fit; the adapters are separately shown to be live, or the check is vacuous.
+5. `test_coarsened_alpha_matches_the_numpy_twin` -- merging Dirichlet components sums concentrations, so the torch form reproduces `coarsen_alpha` exactly rather than approximately.
+6. `test_coarsened_presence_matches_the_numpy_twin_away_from_cancellation` -- the log-space noisy-OR is the same function as `coarsen_presence` on moderate logits; the two genuinely disagree once a group is nearly absent, which is float32 cancellation in the shipped path and the reason this form exists.
+7. `test_noisy_or_gradient_passes_gradcheck` -- the analytic Jacobian against a central difference, which is the actual proof for the coarsening rather than an inference from the forward being right.
+8. `test_alpha_coarsening_gradient_passes_gradcheck` -- same contract for the magnitude side.
+9. `test_a_member_phase_moves_only_its_own_group` -- a transposed or mis-keyed 21x7 map passes gradcheck happily, since the gradient of the wrong function is still its own gradient; this is the check that sees it.
+10. `test_end_to_end_gradient_matches_finite_difference` -- autograd against a central difference on the objective itself, so the pinned support and the coarsening's exact zeros are inside the check.
+11. `test_only_the_adapters_receive_gradient` -- the base head and encoder stay frozen; a leaked gradient would make this a full fine-tune wearing a matched parameter count.
+12. `test_shrinking_the_adapters_to_zero_returns_the_frozen_forecast` -- no bias carve-out is needed here, unlike `fit_measured_head`: the fully shrunk model is the frozen head, which is already a forecast someone would make.
+13. `test_the_head_stays_in_eval_mode` -- dropout is live on the production head, and waking it would hand this arm a stochastic regularizer no other arm on the curve has.
+14. `test_fitting_reduces_the_loss_it_optimizes` -- the same objective the recalibrator and the measured head minimize, so the three arms' levels are differenceable.
+15. `test_the_injected_head_is_not_mutated` -- one frozen head is shared across every draw and every arm, so adapting in place would leak one draw's fit into the next.
+16. `test_a_mixture_head_is_rejected` -- a K>1 head has no `magnitude_alpha`, and adapting one would need a gate this arm deliberately does not add.
+17. `test_a_latentless_slice_is_rejected_rather_than_silently_misfit` -- `GroupPredictions` without a latent raises, since the adapted head reads nothing else.
 
 ### test_imputation.py
 
@@ -599,108 +591,9 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_pick_bulk_by_nll_median_and_best` -- per-bulk mean NLL selection respects the rung filter; best = lowest mean, median = middle rank; bad `pick` and empty rung raise.
 7. `test_top_support_patterns_groups_and_shares` -- hand-built samples with two patterns return correct shares, patterns, and per-pattern mean modes.
 
-### test_trajectory.py
-
-1. `test_load_ledger_validates_schema` -- a well-formed real-rock ledger spanning two benchmark versions loads in order; missing keys and a benchmark absent from the `benchmarks:` block each raise.
-2. `test_load_adapted_levels_missing_file_is_empty` -- an absent checkpoint-contrast JSON yields no overlay rather than an error (the zero-shot trajectory regenerates from the ledger alone).
-3. `test_load_adapted_levels_reads_val_slice` -- the overlay reads each tag's post-recalibration val-slice joint NLL plus the contrast's benchmark, skipping tags without a val slice.
-4. `test_build_trajectory_figure_smoke` -- a 3-entry ledger spanning two benchmarks with an adapted overlay renders a nonempty PNG.
-
 ### test_training_curves.py
 
 1. `test_plot_run_loss_returns_axes_with_two_lines` -- plotting a train+val monitor draws exactly two lines on the axes.
 2. `test_plot_run_loss_handles_train_only` -- a monitor without a val key still renders cleanly.
 3. `test_plot_run_loss_custom_ylabel` -- a custom ylabel lands on the axes.
 4. `test_plot_joint_run_loss_panel_per_term` -- a joint-heads monitor renders one panel per loss term plus the total, each with train and val lines.
-
-## explorations/
-
-Tests for archived explorations (moved to `explorations/archive/`,
-2026-08-03) were removed with their studies; git history keeps them.
-
-### test_corpus_scaling.py
-
-1. `test_hash_order_deterministic_and_input_order_independent` -- the md5 roster order is a fixed permutation of the ids regardless of input order.
-2. `test_hash_order_prefixes_nest` -- a shorter prefix of the hash order is a strict subset of a longer one (the nested-subset ladder contract).
-3. `test_point_config_overrides_only_the_subset_keys` -- per-point configs change only checkpoint dir + subset knobs + seed, drop stale subset keys from the base, and leave the base dict untouched.
-4. `test_point_record_parses_both_axes` -- `corpus_scaling_n*` / `corpus_scaling_d*` tags parse into bulk/draw axis coordinates with the right nominal row counts and per-phase metrics.
-5. `test_last_doubling_deltas` -- the slope table compares the two largest bulk points only (draw points excluded) and is empty with fewer than two.
-
-### test_input_probe_ceiling.py
-
-1. `test_representations_have_expected_widths_and_exclude_the_redox_slot` -- the four raw matrices are 22/44 wide over element slots only, never the redox slot the latent arm's `PaddedRedoxView` zeroes, so neither arm reads chemistry the other cannot.
-2. `test_absent_elements_are_neutral_and_populated_ones_track_abundance` -- absent elements land on the neutral standardized value with their flag at 0, populated ones carry the flag at 1, and within an element the standardized values order exactly as the abundances do (the log-space contract).
-3. `test_standardization_never_reads_the_test_rows` -- perturbing the test rows leaves the train matrix bit-identical, so the raw arm's center/scale is fit on its own training data.
-4. `test_probe_slice_keeps_labeled_roster_rows_only` -- the slice both arms are fit on is disjoint train/test, carries no null qap label, and scores only roster rows.
-
-### test_redox_padding.py
-
-1. `test_padded_on_the_curve_recovers_its_ratio` -- a padded latent placed exactly at a grid ratio is reported nearest to that ratio, at zero distance from the sweep curve.
-2. `test_padded_tracking_the_rock_shows_up_as_correlation` -- when each bulk's padded latent sits at that bulk's own ratio, r_star-vs-r_true correlates ~1 (the statistic separating a conditional guess from one global default).
-3. `test_constant_offset_reads_as_a_shared_direction` -- a common off-curve displacement reports near-parallel directions and is removed by the offset correction.
-4. `test_input_features_exclude_the_redox_slot` -- the missingness arms build values + presence flags over the 22 element slots only, never the target's own slot.
-
-### test_sediment_transfer.py
-
-1. `test_oxide_inversion_round_trips_through_the_tokenizer` -- inverting `OXIDE_TO_CATION_FACTOR` on the way in makes every populated token equal the source elemental weight fraction, so the Andrews tokenization introduces no assumption; breaks if the factors move or the Fe fallback stops reading `feo_tot` as FeO.
-2. `test_only_the_reported_elements_populate` -- seven slots populate and the other fifteen pad, which is the out-of-distribution input fact the exploration's reading rests on.
-3. `test_every_mapped_mineral_lands_in_the_shipped_coarsening` -- every `magemin_phase` the loader emits is known to `TRUTH_TO_GROUP`, so no mapped mineral is silently dropped and truth renormalizes over the intended groups.
-4. `test_olivine_and_biotite_have_no_source_mineral` -- neither group is reachable from the Andrews mineral list, which is why magnitude is scored on five groups and presence on seven.
-
-### test_real_rock_mapping.py
-
-1. `test_density_ranges_bracket_the_shipped_table` -- the Monte Carlo ranges cover exactly the shipped minerals and each admits its shipped value, so the sampling is centered on a table the eval actually ships.
-2. `test_monte_carlo_and_endpoint_tables_stay_in_range` -- drawn and endpoint density tables never leave their declared per-mineral ranges.
-3. `test_endpoint_tables_pull_mafics_and_felsics_apart` -- the contrast corners move ferromagnesians and felsics in opposite directions, which is the mafic/felsic mass ratio the magnitude comparison turns on.
-4. `test_imputed_composition_matches_a_direct_recomputation` -- imputing traces at their bound gives compositions summing to 1, puts each censored group exactly on its bound, preserves the quantified groups' ratios, and leaves rocks with no quantified phase unscored so the row set stays the headline's.
-5. `test_coarse_support_rules_span_and_narrow_the_group` -- `all_members` turns on every member of a truth-present group and `single_member` only its likeliest; both force truth-absent groups off, leave unreported phases to the model, and reject an unknown rule.
-6. `test_score_reproduces_the_hurdle_nll_it_reports` -- the audit's scorer on the shipped mapping equals `real_rock_nll` assembled directly, so variants are measured against the number the eval reported.
-7. `test_alteration_masks_nest_from_strict_to_everything` -- the freshness cuts nest from grade-1-only up to all rocks, `grades_1_2` reproduces the shipped `clean` mask, and reading `+` as "worse" can only shrink the clean set.
-8. `test_row_index_maps_a_shortened_benchmark_back_onto_the_latents` -- a variant that drops a whole rock re-indexes onto the base latents, and an unknown id raises rather than silently misaligning.
-9. `test_sign_flips_ignores_offsets_too_small_to_correct` -- a near-zero shipped offset has no correction to reverse and small subsets are excluded, so only a materially reversed offset on enough rocks counts as a flip.
-10. `test_run_variants_covers_every_knob_and_reproduces_the_shipped_row` -- the tripwire: the whole audit runs over all six knobs, its `shipped` row equals the eval's own headline, and the trace-bound rows are identical to each other.
-
-### test_real_mineralogy.py
-
-1. `test_default_load_is_unchanged_by_the_pointcount_rows` -- the gate on harvesting a second ruler: with Appendix 10's rows in `modes.csv`, the default load is bit-identical to the same benchmark with those rows removed, so no number already scored against the visual estimates moved.
-2. `test_basis_preference_selects_one_ruler_per_rock` -- a rock measured twice is read once and the two readings differ on exactly the 70 doubly-measured rocks; singly-measured rocks are untouched and both arms still renormalize to 1.
-3. `test_pointcount_cell_grammar` -- Appendix 10's four cell forms: a bare count, `TR`/`TR?`/`TR(?)` as present-but-uncounted, `1(?)` as a count with an uncertain identification, and `87 (total feldspar)` as a composite that must not be read as a plagioclase count.
-4. `test_derived_percent_reproduces_the_published_block` -- percentages are derived from raw counts and checked against the workbook's own percent block, so a revised download fails loudly instead of shifting truth under a frozen benchmark.
-5. `test_composition_tables_partition_the_scored_set` -- every appendix table sums back to the scored total and counts a doubly-measured rock once, since these tables ship in the paper.
-6. `test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one` -- groundmass still drops under the point-count ruler, and the groups Appendix 10 never looks for (px, ol) carry no counted presence, so silence is not read as a measured zero.
-7. `test_undoing_the_recalculation_lands_on_the_raw_analytical_total` -- the scale-convention undo puts the published majors back on the pre-recalculation total the workbooks record, and moves chemistry only, so the contrast measures the translation it claims to and not some other rescale.
-8. `test_eruption_merge_rule_splits_prefixes_it_must_not_join` -- the leak rule merges sub-facies and `?` qualifiers but keeps the nineteen `Plio-Pleistocene, ...` units and a bare `Rhyolite` apart, the two over-merges that would flag most of val and make the contrast vacuous.
-9. `test_leak_flagging_is_confined_to_val_and_stays_a_minority` -- the flag marks only val rocks, stays a minority of the slice, and every flagged rock is explained by a named train unit, so a broadened normalization cannot quietly read as agreement.
-
-### test_real_rock_fewshot.py
-
-1. `test_weight_decay_is_recorded_for_every_arm` -- the curve's only use of the val slice is one fixed scalar per arm; a missing one would silently take a default.
-2. `test_run_curve_produces_one_row_per_arm_budget_draw` -- the tripwire: the sweep runs end to end over all seven arms, every row carries a realized rock and unit count, and each paired interval brackets its own point estimate.
-2a. `test_every_arm_at_one_draw_fits_the_identical_rocks` -- the arms are paired on the draw; arms measured on different rocks would be two overlapping bands rather than a contrast, and at 25 rocks which units you drew dominates the difference being reported.
-2b. `test_contrasts_are_reported_against_the_measured_arm` -- one contrast per (correction arm, budget, draw), each interval bracketing its own estimate.
-2c. `test_crossing_reports_none_when_the_arms_never_cross` -- "never inside the swept range" is an answer (the exchange rate exceeds the budget swept), not a failure to be papered over with an extrapolation.
-3. `test_budgets_are_ascending_so_the_curve_reads_left_to_right` -- the budget grid is sorted.
-4. `test_shifted_beta_quantiles_identity_matches_share_interval` -- the residual-decomposition oracle at (k=1, delta=0) reproduces the shipped `share_interval`, so a ceiling can never sit below the coverage it starts from.
-5. `test_width_scale_preserves_the_beta_mean_and_widens_coverage` -- the precision knob is mean-preserving and monotone in interval width, which is what makes it a pure width knob.
-6. `test_oracle_separates_width_from_location` -- a pure mean shift on a small-share group is invisible to the width-only oracle and recovered by the 2-d one, which is the decomposition's whole claim.
-7. `test_presence_slope_contrast_attributes_the_slopes_alone` -- the q/amp presence-slope ablation reports both arms on the same rocks with the abundance term untouched, so the contrast is the slopes' attribution.
-
-### test_adapted_mode_head.py
-
-1. `test_every_linear_layer_is_adapted` -- the module tree is walked rather than the eight layers named, so a head built at a different depth is adapted throughout instead of partially.
-2. `test_zero_init_reproduces_the_frozen_head_exactly` -- B starts at zero, so an unfit adapter is the frozen head bit for bit; without that a fitted gain would be measured against a slightly different model rather than against the zero-shot forecast.
-3. `test_pinned_support_reproduces_the_frozen_heads_own_support` -- the support is the one `eval.real_rock.predict` builds, which is what puts this arm's Dirichlet on the support the correction arms' alpha7 was built on.
-4. `test_the_support_does_not_move_when_the_adapters_do` -- `truth_forced_support` is a threshold plus an argmax, so a support tracking the adapters would add no gradient, only a discontinuity each time a member phase crossed 0.5 mid-fit; the adapters are separately shown to be live, or the check is vacuous.
-5. `test_coarsened_alpha_matches_the_numpy_twin` -- merging Dirichlet components sums concentrations, so the torch form reproduces `coarsen_alpha` exactly rather than approximately.
-6. `test_coarsened_presence_matches_the_numpy_twin_away_from_cancellation` -- the log-space noisy-OR is the same function as `coarsen_presence` on moderate logits; the two genuinely disagree once a group is nearly absent, which is float32 cancellation in the shipped path and the reason this form exists.
-7. `test_noisy_or_gradient_passes_gradcheck` -- the analytic Jacobian against a central difference, which is the actual proof for the coarsening rather than an inference from the forward being right.
-8. `test_alpha_coarsening_gradient_passes_gradcheck` -- same contract for the magnitude side.
-9. `test_a_member_phase_moves_only_its_own_group` -- a transposed or mis-keyed 21x7 map passes gradcheck happily, since the gradient of the wrong function is still its own gradient; this is the check that sees it.
-10. `test_end_to_end_gradient_matches_finite_difference` -- autograd against a central difference on the objective itself, so the pinned support and the coarsening's exact zeros are inside the check.
-11. `test_only_the_adapters_receive_gradient` -- the base head and encoder stay frozen; a leaked gradient would make this a full fine-tune wearing a matched parameter count.
-12. `test_shrinking_the_adapters_to_zero_returns_the_frozen_forecast` -- no bias carve-out is needed here, unlike `fit_measured_head`: the fully shrunk model is the frozen head, which is already a forecast someone would make.
-13. `test_the_head_stays_in_eval_mode` -- dropout is live on the production head, and waking it would hand this arm a stochastic regularizer no other arm on the curve has.
-14. `test_fitting_reduces_the_loss_it_optimizes` -- the same objective the recalibrator and the measured head minimize, so the three arms' levels are differenceable.
-15. `test_the_injected_head_is_not_mutated` -- one frozen head is shared across every draw and every arm, so adapting in place would leak one draw's fit into the next.
-16. `test_a_mixture_head_is_rejected` -- a K>1 head has no `magnitude_alpha`, and adapting one would need a gate this arm deliberately does not add.
-17. `test_a_latentless_slice_is_rejected_rather_than_silently_misfit` -- `GroupPredictions` without a latent raises, since the adapted head reads nothing else.

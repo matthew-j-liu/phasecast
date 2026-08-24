@@ -1,13 +1,11 @@
 """Headline qualitative figures for a joint checkpoint: inference card + scenario view.
 
-The two per-model headline figures (results/README.md): the inference card
-shows one rock end to end (bulk chemistry in, assemblage posterior and
-condition posteriors out, truth overlaid), the scenario view shows the
-top-2 predicted assemblages of an ambiguous rock with their condition
-posteriors. Pure figure/statistic functions; the thin CLIs are
-`scripts/view/inference_card.py` and `scripts/view/scenario_view.py`.
-`sample_assemblages` is the shared posterior sampler, also used by
-`scripts/view/truth_vs_pred.py`.
+The inference card shows one rock end to end (bulk chemistry in, assemblage
+posterior and condition posteriors out, truth overlaid); the scenario view
+shows the top-2 predicted assemblages of an ambiguous rock with their
+condition posteriors. Pure figure/statistic functions; `sample_assemblages`
+is the shared posterior sampler, also used by the real-rock evaluation and
+the paper's card figures.
 """
 
 import matplotlib

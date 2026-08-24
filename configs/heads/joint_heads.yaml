@@ -30,7 +30,7 @@ cond_n_components: 3
 cond_sigma_eps: 1.0e-3
 
 # loss weights (swept by joint_heads_hpo, ADR 006). magnitude_weight here is
-# effective lambda ~0.59 (21x nominal, docs/heads.md) -- inside the corrected
+# effective lambda ~0.59 (21x nominal) -- inside the corrected
 # lambda <= 1 range.
 magnitude_weight: 0.02805912651261943
 lambda_comp: 1.0

@@ -2,8 +2,7 @@
 
 Builds the volcanic-core subset: 25 aphanitic QAPF names, has-iron, and
 oxide-sum QC (flagged, not hard-dropped). The corpus bulk tables
-(scripts/build/build_corpus_bulk_tables.py) and the multimodality test bulks
-(explorations/archive/equilibrium_multimodality/) both draw from this subset.
+(scripts/build/build_corpus_bulk_tables.py) draw from this subset.
 """
 import numpy as np
 import pandas as pd

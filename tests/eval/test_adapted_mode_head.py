@@ -32,7 +32,11 @@ from cnmineral.training.real_rock_recalibrator import (
     score_predictions,
 )
 
-from explorations.real_rock_fewshot.adapted_mode_head import (
+import sys
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "figures" / "src"))
+from adapted_mode_head import (
     AdaptedModeHead,
     coarsen_alpha_on_support,
     coarsen_presence_logits,

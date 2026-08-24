@@ -320,9 +320,8 @@ def load_benchmark(
     shipped mapping and are parameters because none is a measurement -- one is
     a mid-series stand-in for a solid solution, one is read off a reporting
     grid, and one picks between two rulers applied to the same thin section.
-    `explorations/real_rock_mapping` perturbs the first two to put an error bar
-    on the numbers this benchmark produces;
-    `explorations/real_mineralogy/run_pointcount_contrast.py` moves the third.
+    All three were perturbed during development to bound their effect on the
+    numbers this benchmark produces.
     """
     benchmark_dir = Path(benchmark_dir)
     samples = pd.read_csv(benchmark_dir / "samples.csv")

@@ -1,9 +1,8 @@
 """Dump the few-shot fit-comparison curve to CSV.
 
-Reshapes the recorded sweep at
-`explorations/real_rock_fewshot/results/joint_heads_allrock_tuned_seed0/
-curve_val.json` (fit_fewshot_curve.py's output; nothing is refit here) into two small
-tables so the figure script never opens exploration results. Six fits: the
+Reshapes the recorded sweep at `figures/data/curve_val.json`
+(fit_fewshot_curve.py's output; nothing is refit here) into two small
+tables read by the figure script. Six fits: the
 three recalibration tiers and the three heads trained on measured abundances.
 The adapted arm is recorded in the sweep but stays out of the paper figure.
 

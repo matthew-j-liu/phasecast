@@ -24,7 +24,7 @@ dependencies = [
 where = ["src"]
 
 [tool.pytest.ini_options]
-# explorations/ is not installed; put the repo root on sys.path so mirrored
-# tests can import an exploration's code as a tripwire on src/ changes.
+# repo root on sys.path so tests can import repo-level helpers that are
+# not installed with the package.
 pythonpath = ["."]
 testpaths = ["tests"]
