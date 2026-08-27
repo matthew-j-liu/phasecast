@@ -3,25 +3,24 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python>=3.10
-  - numpy
-  - pandas
-  - scipy
-  - scikit-learn
-  - xgboost
-  - optuna
-  - matplotlib
-  - h5py
-  - pyarrow
+  - python=3.10
+  - numpy=1.26
+  - pandas=2.2
+  - scipy=1.15
+  - scikit-learn=1.7
+  - xgboost=3.2
+  - optuna=4.8
+  - matplotlib=3.10
+  - h5py=3.15
+  - pyarrow=24.0
   - pyyaml
   - tqdm
-  - pytorch
-  - pymatgen
+  - pytorch=2.10
+  - pymatgen=2024.5
   - jupyterlab
   - pytest
   - pip
   - pip:
-      - pyrolite
       # PetThermoTools is pip-installed editable from ~/git_clones/PetThermoTools.
       # juliacall + juliapkg are required at runtime by ptt.install_MAGEMinCalc()
       # which provisions ~/.petthermotools_julia_env (isolated from scripts/julia/).
