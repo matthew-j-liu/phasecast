@@ -36,8 +36,13 @@ pip install -e .
 pytest tests/        # optional smoke check
 ```
 
-Only stage 3 below (label generation) additionally needs Julia with MAGEMin;
-`magemin/Project.toml` pins that environment.
+Only stage 3 below (label generation) additionally needs Julia with MAGEMin.
+Install Julia 1.12 (for example through juliaup), then instantiate the pinned
+environment in `magemin/`:
+
+```bash
+julia --project=magemin -e 'using Pkg; Pkg.instantiate()'
+```
 
 ## Pipeline
 

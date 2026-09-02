@@ -20,10 +20,5 @@ dependencies:
   - jupyterlab
   - pytest
   - pip
-  - pip:
-      # PetThermoTools is pip-installed editable from ~/git_clones/PetThermoTools.
-      # juliacall + juliapkg are required at runtime by ptt.install_MAGEMinCalc()
-      # which provisions ~/.petthermotools_julia_env (isolated from scripts/julia/).
-      - juliacall
-      - juliapkg
-      - -e ../PetThermoTools
+  # Label generation (README stage 3) additionally needs Julia with MAGEMin;
+  # magemin/Project.toml pins that environment.

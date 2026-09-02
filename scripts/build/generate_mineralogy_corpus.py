@@ -2,11 +2,11 @@
 
 Wraps `magemin/run_magemin.jl` unchanged. The bulk table is cut into chunks;
 each chunk is expanded (bounded-proposal draws x cooling ladder), run through
-a fresh Julia process per call group (the juliacall/MAGEMin leak mitigation),
-parsed into the three corpus tables, flushed atomically (tmp + rename), and
-recorded in `manifest.jsonl`. Resume = rerun the same command: manifested
-chunks are skipped, unmanifested files are discarded, so at most the one
-in-flight chunk is redone.
+a fresh Julia process per call group (bounds Julia-side memory and contains
+solver crashes), parsed into the three corpus tables, flushed atomically (tmp +
+rename), and recorded in `manifest.jsonl`. Resume = rerun the same command:
+manifested chunks are skipped, unmanifested files are discarded, so at most the
+one in-flight chunk is redone.
 
 MAGEMin segfaults deterministically on rare pathological inputs (pseudocompound
 storage overflow), and the overflow corrupts the whole process heap, so bad

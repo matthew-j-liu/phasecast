@@ -210,6 +210,11 @@ don't re-open the question.
   from its own liq trajectory, not a per-class T_FC_end_class (that caused ~11%
   audit attrition).  Don't implement `NearSolidusTPStrategy` — rejected by the
   eq-vs-frac experiment (ADR 004); production uses FC, not near-solidus eq.
+  The volcanic v1 corpus does not use this recipe: ADR 004's 2026-06-30
+  amendment (`docs/corpus_regen_spec.md`) generates it by equilibrium on a
+  cooling ladder read at melt-fraction rungs, run directly through
+  `magemin/run_magemin.jl` in a Julia subprocess with no PetThermoTools in the
+  stack; the FC recipe is deferred to the plutonic branch (#22).
 - **Many-to-one training data is intentional.**  Different (P, H2O) FC paths per
   bulk → different assemblages → multimodal posterior; the within-bulk variance IS
   the signal CondHead/ModeHead learn, not noise to average out.
@@ -324,13 +329,19 @@ External sources to consult before re-opening a design question:
 
 ## macOS Gotcha
 
-PyTorch and MAGEMin both link `libomp.dylib`.  Concurrent execution aborts with
-"OpenMP already initialized" unless `KMP_DUPLICATE_LIB_OK=TRUE` is set.  Set this
-at the top of any script that imports both torch and PetThermoTools-using code:
+Several packages in the env ship their own OpenMP runtime (torch bundles a
+`libomp.dylib`, conda's `llvm-openmp` provides another, xgboost links its own).
+Loading two in one process aborts with "OpenMP already initialized" unless
+`KMP_DUPLICATE_LIB_OK=TRUE` is set.  `cnmineral/__init__.py` and
+`tests/conftest.py` set it on import; set it at the top of any standalone
+script that imports torch before `cnmineral`:
 
 ```python
 import os
 os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 ```
 
-Symptom if it breaks: SIGABRT immediately after torch import.
+Symptom if it breaks: SIGABRT immediately after torch import.  The collision
+was first hit through PetThermoTools' in-process MAGEMin, which is no longer in
+the stack; the corpus generator runs MAGEMin in a Julia subprocess and is
+unaffected.
