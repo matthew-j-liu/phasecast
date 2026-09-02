@@ -1,4 +1,4 @@
-# Canonical ML-technique list for crabnet-mineral-v2.
+# Canonical ML-technique list for phasecast.
 #
 # Schema per entry:
 #   name:       short identifier (used as JSON key in technique_index.json)

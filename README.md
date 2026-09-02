@@ -1,4 +1,4 @@
-# Probabilistic mineralogy from whole-rock geochemistry
+# phasecast: probabilistic mineralogy from whole-rock geochemistry
 
 From one whole-rock chemical analysis, the model predicts a distribution over
 modal mineralogy and the conditions of formation.

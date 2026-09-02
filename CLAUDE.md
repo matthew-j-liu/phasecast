@@ -1,4 +1,4 @@
-# crabnet-mineral
+# phasecast
 
 ## What this is
 
@@ -265,7 +265,7 @@ don't re-open the question.
 ## Task tracking
 
 **Task tracking lives in GitHub Issues**
-(https://github.com/matthew-j-liu/CrabNet-Mineral-v2), not a static doc.  Create
+(https://github.com/matthew-j-liu/phasecast), not a static doc.  Create
 with `gh issue create`, applying one label from each of `P{1,2,3}-*`, `type: *`,
 `area: *` (plus `status: *` or `epic` where it applies; `gh label list`
 enumerates valid values).  Link commits and PRs via `Fixes #N` / `Closes #N` —

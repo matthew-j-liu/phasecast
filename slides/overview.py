@@ -259,7 +259,7 @@ def s_title(prs):
     band.fill.solid(); band.fill.fore_color.rgb = _rgb(INK)
     band.line.fill.background(); band.shadow.inherit = False
     t = s.shapes.add_textbox(Inches(0.8), Inches(2.85), Inches(11.7), Inches(0.9))
-    _text(t.text_frame, "CrabNet-Mineral v3", 40, WHITE, bold=True, align=PP_ALIGN.LEFT)
+    _text(t.text_frame, "phasecast", 40, WHITE, bold=True, align=PP_ALIGN.LEFT)
     st = s.shapes.add_textbox(Inches(0.83), Inches(3.8), Inches(11.7), Inches(0.6))
     _text(st.text_frame, "model & pipeline overview", 22, ORANGE, align=PP_ALIGN.LEFT)
     notes(s, "Living deck: how the current canonical model and its training/inference pipeline "

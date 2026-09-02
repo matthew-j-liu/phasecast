@@ -52,7 +52,7 @@ one:
 | MAGEMin | needs T,P | yes | one assemblage | yes |
 | mineralML | yes | needs spots/pixels | no | partial |
 | CIPW (pyrolite) | yes | yes | single answer | no |
-| **CrabNet-Mineral v3** | **yes** | **yes** | **yes** | **yes** |
+| **phasecast** | **yes** | **yes** | **yes** | **yes** |
 
 ## Encoder composition
 
