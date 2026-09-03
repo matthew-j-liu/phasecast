@@ -245,6 +245,16 @@ don't re-open the question.
   bulks -> 2000 on 2026-07-26, 1999 assigned 887 val / 1112 test.
 - **qap_name locked as stratification axis** (IUGS Streckeisen QAPF; 70 values,
   83% non-null in `data/bulks/gard2019.csv`).
+- **Input chemistry is not renormalized to a common analytical total** (#56,
+  closed 2026-09-02).  `tokenize_bulk_frame` passes each row through on the
+  total its source reports: gard2019 rows are raw analyses, du Bray's
+  benchmark tables are recalculated volatile-free to 100, and the encoder can
+  see the ~2% scale difference.  Undoing it measured second-order (zero-shot
+  interval not clearing zero) and cannot be done for every rock (MSH and
+  Pinatubo carry no raw total), so the benchmark stays as published.  That
+  was acceptable here; every new data source needs its total convention
+  checked against the corpus before it is scored, and any renormalization
+  applied to every row or none.
 - **Hand-written stoichiometric rules kept** (from mineralML): training-time
   endmember label generators, inference-time canonical naming, eval-time ground
   truth.  But don't depend on mineralML at runtime — vendor the specific

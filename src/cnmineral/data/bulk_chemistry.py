@@ -177,6 +177,13 @@ def tokenize_bulk_frame(
     `feo_tot` (and no traces at all) go through unchanged.  Returns `src`
     [N, 22] int64 and `frac` [N, 22] float32.
 
+    Rows pass through on whatever analytical total their source reports;
+    nothing renormalizes to a common oxide sum.  gard2019 carries raw totals
+    while du Bray's benchmark tables are recalculated volatile-free to 100, a
+    ~2% uniform scale difference the encoder can see (#56: measured
+    second-order and left in place).  Check a new source's convention against
+    the corpus before scoring it, and renormalize every row or none.
+
     `include_redox=True` appends the optional 23rd token ([N, 23]):
     Fe3+/total-Fe cation ratio, populated only where the measured
     `feo` + `fe2o3` pair exists (the fallback `*_tot` columns carry no
