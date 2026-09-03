@@ -576,6 +576,7 @@ rename, or repurpose a test) updates this file in the same change.**
 40. `test_brier_decomposes_into_uncertainty_resolution_reliability` -- the two terms account for the Brier score rather than merely describing it.
 41. `test_mixture_share_interval_reduces_to_share_interval_at_one_component` -- the bisected mixture quantiles agree with the closed-form Beta ones at K=1, so a two-component arm's coverage numbers stay comparable with the single-Dirichlet arms'.
 42. `test_mixture_share_interval_contamination_widens_the_interval` -- a diluted second component yields a strictly wider interval than the sharp component's, though on a small-share group the widening can come entirely from the lower end.
+43. `test_zero_shot_scoring_runs_end_to_end_without_a_figure` -- a random head over the shipped benchmark runs the whole zero-shot scoring path (`score_real_rock` + `real_rock_metrics`) to a complete, JSON-safe summary with no checkpoint, no encoder and no figure; `plt.subplots` / `plt.figure` are patched to raise, so a figure creeping into the scoring path fails the test. Guards the instrument that crashed unnoticed for a day after the mixture deletion.
 
 ### test_summary_cards.py
 

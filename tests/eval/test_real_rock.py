@@ -651,3 +651,41 @@ def test_mixture_share_interval_contamination_widens_the_interval():
     lo, hi = mixture_share_interval(stack, log_w, mask)
     assert (lo <= lo_sharp + 1e-9).all()
     assert ((hi - lo) > (hi_sharp - lo_sharp)).all()
+
+
+def test_zero_shot_scoring_runs_end_to_end_without_a_figure(monkeypatch):
+    """The zero-shot instrument crashed for a day after the mixture deletion
+    left a dangling argument behind, and nothing exercised the scoring path
+    end to end. A random head over the shipped benchmark reaches a complete,
+    JSON-safe metrics summary with no checkpoint, no encoder and no figure:
+    a figure appearing on this path is a regression, not a feature."""
+    import json
+
+    import matplotlib.pyplot as plt
+
+    from cnmineral.eval.real_rock import real_rock_metrics, score_real_rock
+    from cnmineral.models.mode_head import ModeHead
+
+    def no_figures(*args, **kwargs):
+        raise AssertionError("scoring must not draw")
+
+    monkeypatch.setattr(plt, "subplots", no_figures)
+    monkeypatch.setattr(plt, "figure", no_figures)
+
+    benchmark = load_benchmark()
+    torch.manual_seed(0)
+    head = ModeHead(d_model=16).eval()
+    latents = torch.randn(len(benchmark), 16)
+
+    scored = score_real_rock(head, benchmark, latents)
+    metrics = real_rock_metrics(scored, benchmark, tag="smoke",
+                                encoder_checkpoint="none")
+
+    headline = benchmark.clean & benchmark.has_magnitude
+    assert metrics["headline"]["n"] == int(headline.sum())
+    assert np.isfinite(metrics["headline"]["joint_nll"])
+    assert np.isfinite(metrics["climatology"]["joint_nll"])
+    assert [g["group"] for g in metrics["per_group"]] == list(GROUPS)
+    assert scored["p7"].shape == (len(benchmark), len(GROUPS))
+    assert np.isfinite(scored["nll"]["joint"][headline]).all()
+    json.loads(json.dumps(metrics, allow_nan=False))

@@ -7053,3 +7053,28 @@ fixed, one line; the zero-shot eval path has no end-to-end test.
 
 **Next.** The three on-disk tests, about an hour combined, before the
 plumbing day the benchmark-composition run needs.
+
+## 2026-09-03 -- Zero-shot evaluation split into scoring, metrics and figures, with the smoke test the mixture deletion showed was missing
+
+**Q.** `run_real_rock_eval` crashed on HEAD for a day after the mixture
+deletion left one dangling argument, and no test noticed. What guards the
+instrument every verdict rests on?
+
+**Decision.** The function is now three: `score_real_rock` (one forward pass
+and every per-rock array and group statistic, no I/O), `real_rock_metrics`
+(the JSON summary of those arrays) and `plot_real_rock` (the nine figures);
+`run_real_rock_eval` composes them with the same signature as before and
+writes `metrics.json` before any figure is drawn, so a plotting failure can
+no longer lose the numbers. Verified on the production checkpoint: the
+post-split `metrics.json` is byte-identical to the pre-split run. A flag to
+skip figures was rejected as a test-serving switch on production code; the
+split is the separation the architecture audit (#71) would want anyway.
+
+The smoke test (`test_zero_shot_scoring_runs_end_to_end_without_a_figure`)
+runs a randomly initialised ModeHead over the shipped benchmark through
+scoring and metrics in 60 ms, with no checkpoint or encoder, and patches
+`plt.subplots` / `plt.figure` to raise, so a figure creeping into the
+scoring path fails it. It uses the shipped benchmark rather than a synthetic
+one because the null forecast fits on the committed roster, and because the
+benchmark's own edge cases (trace-only rocks, single-group compositions,
+censoring) are what the path has to survive.

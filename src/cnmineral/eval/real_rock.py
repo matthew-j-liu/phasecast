@@ -1787,26 +1787,15 @@ def predict(head, latents: torch.Tensor, benchmark: RealRockBenchmark) -> dict:
 
 
 @torch.no_grad()
-def run_real_rock_eval(
-    ckpt,
-    benchmark: RealRockBenchmark,
-    latents: torch.Tensor,
-    *,
-    device: torch.device,
-    tag: str,
-) -> dict:
-    """Score a joint checkpoint on the real-rock benchmark, zero-shot.
+def score_real_rock(head, benchmark: RealRockBenchmark, latents: torch.Tensor) -> dict:
+    """Every per-rock array and group statistic the metrics and figures read.
 
-    Writes figures + `metrics.json` under `runs/real_rock/<tag>/` and returns
-    the metrics. The headline is the freshest rocks only; altered rocks and
-    the point-counted precision tier are reported beside it so a weak number
-    can be attributed rather than just observed.
+    One forward pass of `head` over `latents`, then the coarsened truth
+    comparison, the null forecast and the group-level statistics, all kept
+    as arrays. `real_rock_metrics` reduces them to the JSON summary and
+    `plot_real_rock` draws them; neither recomputes anything, so a test can
+    exercise the whole scoring path with a random head and no figure.
     """
-    output_dir = RUNS_ROOT / "real_rock" / tag
-    output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"output:  {output_dir}")
-
-    head = ckpt.build_mode_head().to(device)
     pred = predict(head, latents, benchmark)
     p7, alpha7 = pred["p7"], pred["alpha7"]
     numeric_mask = benchmark.numeric.astype(np.float64)
@@ -1838,14 +1827,9 @@ def run_real_rock_eval(
         benchmark.censored, benchmark.censor_bound,
     )
 
-    subtitle = f"{int(clean.sum())} least-altered rocks"
+    clean_bench = benchmark.subset(benchmark.clean)
     p_stats = presence_group_stats(p7[benchmark.clean],
                                    benchmark.presence[benchmark.clean])
-    plot_presence_calibration(
-        p7[benchmark.clean], benchmark.presence[benchmark.clean], p_stats,
-        output_dir / "presence_calibration.png", subtitle,
-    )
-    clean_bench = benchmark.subset(benchmark.clean)
     mag_stats = magnitude_group_stats(
         cond_mean[benchmark.clean], clean_bench.magnitude, clean_bench.numeric
     )
@@ -1853,26 +1837,8 @@ def run_real_rock_eval(
         cond_mean[benchmark.clean], clean_bench.magnitude,
         clean_bench.numeric.astype(np.float64),
     )
-    plot_magnitude_parity(
-        alpha7[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
-        mag_stats, output_dir / "magnitude_parity.png", subtitle,
-    )
-    plot_gap_summary(
-        p7[benchmark.clean], cond_mean[benchmark.clean], clean_bench,
-        output_dir / "gap_summary.png", subtitle,
-    )
-    card_row = int(np.flatnonzero(clean)[np.argsort(nll["joint"][clean])[
-        int(clean.sum()) // 2]])
-    # the card normalizes over every measured group, trace ones included, so
-    # a mineral logged only as a trace still shows what the model says about
-    # it next to the bound it has to sit under.
-    card_mask = (benchmark.numeric | benchmark.censored).astype(np.float64)
-    card_med, _ = share_interval(alpha7, card_mask, q=(0.5, 0.5))
-    real_rock_card(
-        p7, card_med, benchmark, card_row,
-        output_dir / "real_rock_card.png",
-        interval=share_interval(alpha7, card_mask, q=CARD_INTERVAL_Q),
-    )
+    thresholded = presence_scores(p7[benchmark.clean],
+                                  benchmark.presence[benchmark.clean])
 
     null = climatology(benchmark)
     null_nll = real_rock_nll(
@@ -1882,64 +1848,76 @@ def run_real_rock_eval(
     model_share = conditional_mean(
         pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
     )
-    plot_cohort_card(
-        p7[clean], cond_mean[clean], model_share[clean],
-        pred["model_support7"][clean], benchmark.subset(clean),
-        output_dir / "cohort_card.png",
-    )
-    plot_magnitude_ratio(
-        cond_mean[clean], benchmark.magnitude[clean], benchmark.numeric[clean],
-        output_dir / "magnitude_ratio.png", subtitle,
-    )
-    plot_nll_distribution(
-        {k: v[clean] for k, v in nll.items()},
-        {k: v[clean] for k, v in null_nll.items()},
-        output_dir / "nll_distribution.png", subtitle,
-    )
-    plot_presence_brier(
-        p7[clean], null["p7"][clean], benchmark.presence[clean],
-        benchmark.unit[clean], output_dir / "presence_brier.png", subtitle,
-    )
 
-    thresholded = presence_scores(p7[benchmark.clean],
-                                  benchmark.presence[benchmark.clean])
     scored_mask = benchmark.numeric | benchmark.censored
     alpha0 = (alpha7 * scored_mask).sum(1)
     off_vocab_share = pred["off_vocab_alpha"] / np.clip(
         alpha0 + pred["off_vocab_alpha"], 1e-12, None
     )
+    return {
+        **pred,
+        "cond_mean": cond_mean,
+        "model_share": model_share,
+        "clean": clean,
+        "nll": nll,
+        "nll_model_support": nll_model_support,
+        "covered": covered,
+        "censoring": censoring,
+        "p_stats": p_stats,
+        "mag_stats": mag_stats,
+        "parity": parity,
+        "thresholded": thresholded,
+        "null": null,
+        "null_nll": null_nll,
+        "off_vocab_share": off_vocab_share,
+    }
+
+
+def real_rock_metrics(
+    scored: dict, benchmark: RealRockBenchmark, *, tag: str, encoder_checkpoint,
+) -> dict:
+    """The JSON summary of `score_real_rock`'s arrays.
+
+    The headline is the freshest rocks only; altered rocks and the
+    point-counted precision tier are reported beside it so a weak number can
+    be attributed rather than just observed.
+    """
+    clean, nll = scored["clean"], scored["nll"]
+    censoring, p_stats = scored["censoring"], scored["p_stats"]
+    mag_stats, parity = scored["mag_stats"], scored["parity"]
+    covered = scored["covered"]
 
     per_group = []
     for i, group in enumerate(GROUPS):
-        scored = censoring["scored"][benchmark.clean, i]
+        censored_here = censoring["scored"][benchmark.clean, i]
         per_group.append({
             "group": group,
             "observed_rate": float(benchmark.presence[benchmark.clean, i].mean()),
-            "mean_predicted_p": float(p7[benchmark.clean, i].mean()),
+            "mean_predicted_p": float(scored["p7"][benchmark.clean, i].mean()),
             "auroc": _maybe(p_stats["auroc"][i]),
             "best_threshold": _maybe(p_stats["best_threshold"][i]),
             "best_f1": _maybe(p_stats["best_f1"][i]),
-            "recall_at_0.5": _maybe(thresholded["recall"][i]),
-            "precision_at_0.5": _maybe(thresholded["precision"][i]),
+            "recall_at_0.5": _maybe(scored["thresholded"]["recall"][i]),
+            "precision_at_0.5": _maybe(scored["thresholded"]["precision"][i]),
             "magnitude_r2": _maybe(mag_stats["r2"][i]),
             "magnitude_spearman": _maybe(mag_stats["spearman"][i]),
             "magnitude_mae": _maybe(parity["magnitude_mae"][i]),
             "magnitude_pearson_r": _maybe(parity["magnitude_r"][i]),
             "n_quantified": int(mag_stats["n"][i]),
-            "n_trace_only": int(scored.sum()),
+            "n_trace_only": int(censored_here.sum()),
             "censored_prob_below_bound": _maybe(
                 np.nanmean(censoring["prob_below_bound"][benchmark.clean, i])
-                if scored.any() else np.nan
+                if censored_here.any() else np.nan
             ),
             "censored_mean_below_bound_rate": _maybe(
                 censoring["mean_below_bound"][benchmark.clean, i].sum()
-                / scored.sum() if scored.any() else np.nan
+                / censored_here.sum() if censored_here.any() else np.nan
             ),
         })
 
-    metrics = {
+    return {
         "checkpoint_tag": tag,
-        "encoder_checkpoint": str(ckpt.encoder_checkpoint),
+        "encoder_checkpoint": str(encoder_checkpoint),
         "benchmark": {
             "dir": str(BENCHMARK_DIR),
             "groups": list(GROUPS),
@@ -1958,9 +1936,9 @@ def run_real_rock_eval(
         # the null is recorded, not just drawn: a headline in nats is only
         # readable beside what ignoring the rock would have cost
         "climatology": {
-            "concentration": null["concentration"],
-            "n_fit": null["n_fit"],
-            **_headline(null_nll, clean, benchmark.numeric),
+            "concentration": scored["null"]["concentration"],
+            "n_fit": scored["null"]["n_fit"],
+            **_headline(scored["null_nll"], clean, benchmark.numeric),
         },
         "altered": _headline(nll, ~benchmark.clean & benchmark.has_magnitude,
                              benchmark.numeric),
@@ -1975,10 +1953,10 @@ def run_real_rock_eval(
             "dirichlet_nll_truth_support": float(nll["dirichlet"][covered].mean())
             if covered.any() else None,
             "dirichlet_nll_model_support": float(
-                nll_model_support["dirichlet"][covered].mean()
+                scored["nll_model_support"]["dirichlet"][covered].mean()
             ) if covered.any() else None,
             "delta": float(
-                nll_model_support["dirichlet"][covered].mean()
+                scored["nll_model_support"]["dirichlet"][covered].mean()
                 - nll["dirichlet"][covered].mean()
             ) if covered.any() else None,
         },
@@ -1994,12 +1972,89 @@ def run_real_rock_eval(
             ),
         },
         "off_vocabulary_mass": {
-            "mean": float(off_vocab_share[benchmark.clean].mean()),
-            "p90": float(np.quantile(off_vocab_share[benchmark.clean], 0.9)),
+            "mean": float(scored["off_vocab_share"][benchmark.clean].mean()),
+            "p90": float(np.quantile(scored["off_vocab_share"][benchmark.clean], 0.9)),
         },
         "per_group": per_group,
     }
+
+
+def plot_real_rock(scored: dict, benchmark: RealRockBenchmark, output_dir: Path) -> None:
+    """The nine figures of a real-rock evaluation, from `score_real_rock`'s arrays."""
+    p7, alpha7, cond_mean = scored["p7"], scored["alpha7"], scored["cond_mean"]
+    clean, nll = scored["clean"], scored["nll"]
+    clean_bench = benchmark.subset(benchmark.clean)
+    subtitle = f"{int(clean.sum())} least-altered rocks"
+
+    plot_presence_calibration(
+        p7[benchmark.clean], benchmark.presence[benchmark.clean], scored["p_stats"],
+        output_dir / "presence_calibration.png", subtitle,
+    )
+    plot_magnitude_parity(
+        alpha7[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
+        scored["mag_stats"], output_dir / "magnitude_parity.png", subtitle,
+    )
+    plot_gap_summary(
+        p7[benchmark.clean], cond_mean[benchmark.clean], clean_bench,
+        output_dir / "gap_summary.png", subtitle,
+    )
+    card_row = int(np.flatnonzero(clean)[np.argsort(nll["joint"][clean])[
+        int(clean.sum()) // 2]])
+    # the card normalizes over every measured group, trace ones included, so
+    # a mineral logged only as a trace still shows what the model says about
+    # it next to the bound it has to sit under.
+    card_mask = (benchmark.numeric | benchmark.censored).astype(np.float64)
+    card_med, _ = share_interval(alpha7, card_mask, q=(0.5, 0.5))
+    real_rock_card(
+        p7, card_med, benchmark, card_row,
+        output_dir / "real_rock_card.png",
+        interval=share_interval(alpha7, card_mask, q=CARD_INTERVAL_Q),
+    )
+    plot_cohort_card(
+        p7[clean], cond_mean[clean], scored["model_share"][clean],
+        scored["model_support7"][clean], benchmark.subset(clean),
+        output_dir / "cohort_card.png",
+    )
+    plot_magnitude_ratio(
+        cond_mean[clean], benchmark.magnitude[clean], benchmark.numeric[clean],
+        output_dir / "magnitude_ratio.png", subtitle,
+    )
+    plot_nll_distribution(
+        {k: v[clean] for k, v in nll.items()},
+        {k: v[clean] for k, v in scored["null_nll"].items()},
+        output_dir / "nll_distribution.png", subtitle,
+    )
+    plot_presence_brier(
+        p7[clean], scored["null"]["p7"][clean], benchmark.presence[clean],
+        benchmark.unit[clean], output_dir / "presence_brier.png", subtitle,
+    )
+
+
+@torch.no_grad()
+def run_real_rock_eval(
+    ckpt,
+    benchmark: RealRockBenchmark,
+    latents: torch.Tensor,
+    *,
+    device: torch.device,
+    tag: str,
+) -> dict:
+    """Score a joint checkpoint on the real-rock benchmark, zero-shot.
+
+    Writes `metrics.json` and the figures under `runs/real_rock/<tag>/` and
+    returns the metrics; the numbers are on disk before any figure is drawn.
+    """
+    output_dir = RUNS_ROOT / "real_rock" / tag
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"output:  {output_dir}")
+
+    head = ckpt.build_mode_head().to(device)
+    scored = score_real_rock(head, benchmark, latents)
+    metrics = real_rock_metrics(
+        scored, benchmark, tag=tag, encoder_checkpoint=ckpt.encoder_checkpoint,
+    )
     (output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+    plot_real_rock(scored, benchmark, output_dir)
     print(f"headline joint NLL: {metrics['headline']['joint_nll']:.4f} nats "
           f"over {metrics['headline']['n']} rocks")
     return metrics
