@@ -149,7 +149,6 @@ def fit_recalibrator(
     epochs: int = 400,
     lr: float = 0.05,
     hidden: int = 32,
-    pin_amp_magnitude: bool = True,
     seed: int = 0,
 ) -> RealRockRecalibrator:
     """Full-batch fit of one recalibrator on `train`, to convergence.
@@ -164,9 +163,7 @@ def fit_recalibrator(
     dataloader here would be ceremony.
     """
     torch.manual_seed(seed)
-    recalibrator = RealRockRecalibrator(
-        tier, hidden=hidden, pin_amp_magnitude=pin_amp_magnitude,
-    ).to(train.logits7.dtype)
+    recalibrator = RealRockRecalibrator(tier, hidden=hidden).to(train.logits7.dtype)
     opt = torch.optim.Adam(recalibrator.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(epochs):
         opt.zero_grad()
@@ -407,9 +404,7 @@ def per_group_offsets(recalibrator: RealRockRecalibrator) -> dict[str, dict[str,
             group: {
                 "presence_scale": float(recalibrator.presence_scale[i]),
                 "presence_offset": float(recalibrator.presence_offset[i]),
-                "magnitude_offset": float(
-                    recalibrator.magnitude_offset[i] * recalibrator.magnitude_free[i]
-                ),
+                "magnitude_offset": float(recalibrator.magnitude_offset[i]),
             }
             for i, group in enumerate(GROUPS)
         }

@@ -1334,9 +1334,9 @@ def s_recalibrator_anatomy(prs):
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.45, 12.2, "dials: Adam, lr 0.05, 400 epochs, no per-draw early stopping "
             "by design . weight decay picked on val per tier (vector 0.1, matrix 1.0, tailed "
-            "1.0) . amphibole's magnitude correction is PINNED at zero -- the mapping audit's "
-            "band straddles zero there, so a fitted value reads the mapping's uncertainty, "
-            "not the model's error.", 10, GRAYT, align=PP_ALIGN.LEFT)
+            "1.0) . every group's correction is fit; amphibole's is not interpretable (the "
+            "mapping audit's density band straddles zero there), which the audit says, "
+            "not the layer.", 10, GRAYT, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.95, 12.2, "ground truth: measured modal data, eruption-v2 benchmark. "
             "640 least-altered rocks split by eruption unit -- 368 train (the fit) / 111 val "
             "(every number on the next slide) / 161 test, sealed.", 10, GRAYT,

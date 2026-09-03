@@ -6696,3 +6696,25 @@ real parameter because a future benchmark could resolve it.
 
 **Next.** #67 item 4 (K=2 mixture), then item 2 (re-split) and the single
 re-stamp.
+
+## 2026-09-02 -- amphibole pin retired: the fit reproduces it, and a benchmark-specific special case does not belong in the layer
+
+**Q.** Owner, after the re-measurement above: would it be more robust to fit
+amphibole's correction and let it land at zero, rather than hardcode the pin?
+
+**Context.** The pin encoded one benchmark's identifiability finding into the
+model class. The July build's unpinned fit landed at -0.002, and the audit
+itself predicted "the recalibrator should learn ~0 there". Weight decay already
+shrinks an unidentifiable correction toward zero; the pin added nothing to the
+numbers, only a claim that stops being true when the data change -- the
+plutonic point-count sources may resolve amphibole, and #70's layer is fit on a
+caller's own labels, where refusing to correct one mineral is indefensible.
+
+**Decision.** Un-pinned and the switch deleted: `pin_amp_magnitude`, the
+`magnitude_free` buffer, the two tests that checked the pin, and the deck
+caption clause. `per_group_offsets` reports the raw fitted constant. The
+interpretability caveat stays where it belongs, in the mapping audit README and
+the model docstring: amphibole's fitted value reads the density assumption.
+Numbers move by ~nothing; restamp at the end of #67 with everything else.
+
+**Next.** #67 item 4.

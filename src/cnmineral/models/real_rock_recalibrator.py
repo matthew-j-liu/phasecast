@@ -40,14 +40,12 @@ class RealRockRecalibrator(nn.Module):
     keeps those zeros, and an additive correction in log space would turn
     them into `-inf`.
 
-    `pin_amp_magnitude` holds amphibole's magnitude correction at zero rather
-    than fitting it.  The mapping audit's Monte Carlo band straddles zero for
-    that one group and no density recovers the sign, so a fitted value there
-    is reading the mapping's uncertainty, not the model's error (re-measured
-    on production 2026-09-02: -0.026..+0.050, unchanged).  The pin
-    applies at every tier, not just to the constant: a coupled correction
-    reached through the mixing matrix would be the same unidentifiable
-    quantity in a different parameterization.
+    Every group's correction is fit; weight decay shrinks an unidentifiable
+    one toward zero on its own.  Whether a fitted correction means anything
+    is the mapping audit's question, not the layer's: amphibole's magnitude
+    band straddles zero under plausible densities (-0.026..+0.050 on
+    production, `explorations/real_rock_mapping`), so its fitted value reads
+    the density assumption and is not interpretable.
     """
 
     def __init__(
@@ -55,26 +53,18 @@ class RealRockRecalibrator(nn.Module):
         tier: str = "vector",
         *,
         hidden: int = 32,
-        pin_amp_magnitude: bool = True,
     ) -> None:
         super().__init__()
         if tier not in TIERS:
             raise ValueError(f"unknown tier {tier!r}; expected one of {TIERS}")
         n = len(GROUPS)
         self.tier = tier
-        self.pin_amp_magnitude = pin_amp_magnitude
 
         # identity at initialization, so an unfit recalibrator reproduces the
         # zero-shot number exactly and any gain reads as nats recovered.
         self.presence_scale = nn.Parameter(torch.ones(n))
         self.presence_offset = nn.Parameter(torch.zeros(n))
         self.magnitude_offset = nn.Parameter(torch.zeros(n))
-        self.register_buffer(
-            "magnitude_free",
-            torch.tensor([
-                0.0 if (pin_amp_magnitude and g == "amp") else 1.0 for g in GROUPS
-            ]),
-        )
 
         if tier in ("matrix", "mlp", "tailed"):
             self.presence_mix = nn.Parameter(torch.zeros(n, n))
@@ -137,7 +127,7 @@ class RealRockRecalibrator(nn.Module):
             d_presence = d_presence + delta[..., :n]
             d_magnitude = d_magnitude + delta[..., n:]
 
-        correction = (d_magnitude * self.magnitude_free).exp()
+        correction = d_magnitude.exp()
         if alpha7.dim() == 3:
             correction = correction.unsqueeze(1)
         alpha = alpha7 * correction
@@ -163,4 +153,4 @@ class RealRockRecalibrator(nn.Module):
         return d_presence, alpha, log_w_out
 
     def extra_repr(self) -> str:
-        return f"tier={self.tier}, pin_amp_magnitude={self.pin_amp_magnitude}"
+        return f"tier={self.tier}"

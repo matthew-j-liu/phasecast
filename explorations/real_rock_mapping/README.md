@@ -96,8 +96,13 @@ magnitude band is -0.026..+0.050 over 200 density draws, straddling zero and
 inside the 0.10 materiality floor exactly as in July; every other group keeps
 its sign and roughly its size (opq +0.949..+1.036, bi +0.480..+0.598, q
 -0.517..-0.495), the one px flip is the same mechanical `all_members` case,
-and amp AUROC spans 0.509-0.592. The pin stands. Results in
-`results/joint_heads_allrock_tuned_seed0/`.
+and amp AUROC spans 0.509-0.592. Results in
+`results/joint_heads_allrock_tuned_seed0/`. The pin was then retired the same
+day, not because the band cleared zero but because it never needed to: a fit
+under weight decay lands at ~0 there on its own (-0.002 in the July build), and
+a hardcoded pin would suppress a real correction on a benchmark that does
+resolve amphibole. The band is the audit's finding about interpretability, and
+it lives here rather than in the layer.
 
 ## Decision
 

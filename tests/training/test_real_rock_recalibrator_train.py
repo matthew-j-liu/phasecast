@@ -15,7 +15,6 @@ from cnmineral.training.real_rock_recalibrator import (
     fit_recalibrator,
     lift_group_presence_to_phases,
     paired_bootstrap,
-    per_group_offsets,
     score_recalibrator,
 )
 
@@ -96,13 +95,6 @@ def test_fitting_reduces_the_loss_it_optimizes():
     before = score_recalibrator(None, data)["joint"].mean()
     recalibrator = fit_recalibrator(data, tier="vector", weight_decay=1e-3, epochs=200)
     assert score_recalibrator(recalibrator, data)["joint"].mean() < before
-
-
-def test_pinned_amphibole_offset_reports_as_zero():
-    """`per_group_offsets` reports the effective correction, not the raw parameter."""
-    data = _predictions()
-    recalibrator = fit_recalibrator(data, tier="vector", epochs=50)
-    assert per_group_offsets(recalibrator)["amp"]["magnitude_offset"] == 0.0
 
 
 def test_bootstrap_resamples_units_not_rocks():

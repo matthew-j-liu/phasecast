@@ -1,4 +1,4 @@
-"""RealRockRecalibrator: identity at init, exact tier nesting, and the amp pin."""
+"""RealRockRecalibrator: identity at init, exact tier nesting, structural zeros."""
 
 import pytest
 import torch
@@ -85,33 +85,6 @@ def test_richer_tiers_contain_the_vector_tier_exactly(tier):
         assert torch.allclose(got_alpha[:, 1], want_alpha, atol=1e-6)
     else:
         assert torch.allclose(got_alpha, want_alpha, atol=1e-6)
-
-
-@pytest.mark.parametrize("tier", TIERS)
-def test_amphibole_magnitude_is_pinned_at_every_tier(tier):
-    """The pin holds through the mixing matrix and the MLP, not just the constant.
-
-    Amphibole's magnitude offset is unidentifiable -- the mapping audit's Monte
-    Carlo band straddles zero -- so a coupled correction reaching it would be
-    the same unidentifiable quantity in another parameterization.  For tailed,
-    "pinned" means no amp-specific term: the sharp component's amp alpha is the
-    input exactly, and the wide component applies the same global dilution to
-    amp as to every other group.
-    """
-    logits, alpha = _inputs()
-    amp = GROUP_INDEX["amp"]
-    _, pinned, _ = _randomize(RealRockRecalibrator(tier, pin_amp_magnitude=True))(
-        logits, alpha)
-    _, free, _ = _randomize(RealRockRecalibrator(tier, pin_amp_magnitude=False))(
-        logits, alpha)
-    if tier == "tailed":
-        assert torch.allclose(pinned[:, 0, amp], alpha[:, amp])
-        ratio = pinned[:, 1] / pinned[:, 0]
-        assert torch.allclose(ratio, ratio[:, :1].expand_as(ratio))
-        assert not torch.allclose(free[:, 0, amp], alpha[:, amp])
-    else:
-        assert torch.allclose(pinned[:, amp], alpha[:, amp])
-        assert not torch.allclose(free[:, amp], alpha[:, amp])
 
 
 def test_off_support_groups_contribute_a_neutral_log_feature():

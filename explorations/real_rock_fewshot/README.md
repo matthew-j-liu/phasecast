@@ -15,10 +15,11 @@ says whether harvesting more eruptions is worth the transcription.
 Frozen encoder, frozen heads. A small `RealRockRecalibrator` corrects the coarsened
 seven-group outputs and is fit by minimizing `real_rock_nll` -- the same loss
 the ledger reports -- so a gain reads directly as nats recovered. Three nested
-tiers: `vector` (23 params: per-group presence scale + offset, per-group
-magnitude log-offset, SiO2 slopes on q and amp presence) in `matrix` (121, 7x7
-coupling) in `mlp` (1095, with a linear skip). Amphibole's magnitude correction
-is pinned at zero at every tier. (Tier names follow the calibration
+tiers: `vector` (21 params: per-group presence scale + offset, per-group
+magnitude log-offset) in `matrix` (119, 7x7 coupling) in `mlp` (1061, with a
+linear skip). Until 2026-09-02 the layer also carried SiO2 slopes on q and amp
+presence (23/121/1095) and pinned amphibole's magnitude correction at zero; the
+results below were measured with both. (Tier names follow the calibration
 literature -- vector scaling, matrix scaling. Before 2026-07-27 they were
 `diagonal` and `linear`; the journal's #52 entries and the shipped figure
 legends carry those older names.)
