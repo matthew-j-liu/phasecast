@@ -202,7 +202,7 @@ def contamination_responsibility(recalibrator, gp) -> np.ndarray:
     the single component at K=1 and stays correct if a mixture head is ever
     scored here.
     """
-    _, alpha, log_w = recalibrator(gp.logits7, gp.alpha7, gp.sio2, log_w=gp.log_w)
+    _, alpha, log_w = recalibrator(gp.logits7, gp.alpha7, log_w=gp.log_w)
     logp = []
     for k in range(alpha.shape[1]):
         component = alpha[:, k, :]

@@ -1303,7 +1303,7 @@ def s_joint_loss(prs):
 
 def s_recalibrator_anatomy(prs):
     s = new_slide(prs)
-    header(s, "SIM-TO-REAL", "Inside the recalibrator: 123 numbers between corpus and real rock")
+    header(s, "SIM-TO-REAL", "Inside the recalibrator: 121 numbers between corpus and real rock")
     caption(s, 0.55, 1.15, 12.2, "the heads learn from MAGEMin labels, so on real rocks the "
             "ranking transfers but the scale does not (Pearson r 0.5-0.76 against negative "
             "R2 on four of seven groups). This is the correction fit on measured modes -- "
@@ -1314,8 +1314,7 @@ def s_recalibrator_anatomy(prs):
     box(s, 3.7, 2.6, 2.4, 1.5, ["coarsen to 7 groups",
         ("fsp px amp bi ol",), ("opq q -- where real",), ("modal data lives",)], BLUE, size=12)
     for i, (y, h_, lines_, col) in enumerate([
-        (1.95, 1.05, ["presence: logit space", ("scale, offset, 7x7 mix",),
-                      ("+ SiO2 slope on q, amp",)], TEAL),
+        (1.95, 1.05, ["presence: logit space", ("scale, offset, 7x7 mix",)], TEAL),
         (3.25, 1.05, ["magnitude: multiplicative", ("alpha x exp(offset + 7x7 mix",),
                       ("on log alpha) -- keeps exact zeros",)], ORANGE),
         (4.55, 1.05, ["tail: precision contamination", ("weight eps on a second alpha x k",),
@@ -1327,9 +1326,9 @@ def s_recalibrator_anatomy(prs):
         box(s, 11.05, y + 0.05, 1.85, h_ - 0.1,
             [["corrected p", ("per group",)], ["corrected alpha", ("per group",)],
              ["2-component", ("mixture out",)]][i], col, lit=False, size=11)
-    caption(s, 0.55, 5.8, 12.2, "123 trainable params on a frozen 5.07M stack (0.002%): "
-            "7 presence scales + 7 offsets + 7 magnitude offsets + 2 SiO2 slopes + two 7x7 "
-            "mixes + 2 contamination params. The tiers nest -- vector (23) in matrix (121), "
+    caption(s, 0.55, 5.8, 12.2, "121 trainable params on a frozen 5.07M stack (0.002%): "
+            "7 presence scales + 7 offsets + 7 magnitude offsets + two 7x7 mixes + 2 "
+            "contamination params. The tiers nest -- vector (21) in matrix (119), "
             "and tailed = matrix + 2. Identity at initialization, so an unfit recalibrator "
             "reproduces the zero-shot number exactly and every gain reads as nats recovered.",
             11, INK, align=PP_ALIGN.LEFT)
@@ -1346,7 +1345,7 @@ def s_recalibrator_anatomy(prs):
              "(cnmineral.models.real_rock_recalibrator.RealRockRecalibrator). This is the "
              "one component that is NOT a head on h: it reads the frozen ModeHead's own "
              "outputs, which is why it does not use the head_anatomy_slide template. "
-             "Interface: (p7 logits, alpha7, SiO2 wt%) in, corrected (logits, alpha, gate "
+             "Interface: (p7 logits, alpha7) in, corrected (logits, alpha, gate "
              "log-weights) out. It acts in coarsened 7-group space rather than the model's "
              "21 phases because that is where real modal labels live, where the residuals "
              "were measured, and where the three tiers nest exactly. Presence is corrected "
@@ -1354,12 +1353,13 @@ def s_recalibrator_anatomy(prs):
              "on the concentrations -- multiplicative matters, because coarsening leaves "
              "exact zeros wherever a group has no member phase on the support, alpha*exp(c) "
              "keeps those zeros, and an additive correction in log space would turn them "
-             "into -inf. Param counts instantiated from the module, exact: vector 23, matrix "
-             "121, mlp 1095, tailed 123; the 5.07M denominator is the frozen encoder "
-             "(3,234,699 trainable) plus heads (1,830,337). The SiO2 slopes shown are the "
-             "PRESENCE-side ones on q and amp, which stay; a magnitude-side location slope "
-             "was built alongside the tailed tier, measured +0.007 [-0.004, +0.016] nats, "
-             "and excised as three dead parameters (journal 2026-08-06). The contamination "
+             "into -inf. Param counts instantiated from the module, exact: vector 21, matrix "
+             "119, mlp 1061, tailed 121; the 5.07M denominator is the frozen encoder "
+             "(3,234,699 trainable) plus heads (1,830,337). Silica is not an input: a "
+             "magnitude-side location slope was built alongside the tailed tier, measured "
+             "+0.007 [-0.004, +0.016] nats, and excised (journal 2026-08-06); the "
+             "presence-side slopes on q and amp measured +0.002 nats (journal 2026-08-18) "
+             "and were removed after submission (journal 2026-09-02). The contamination "
              "is parameterized as an offset from a -3.0 prior logit so weight decay shrinks "
              "toward 'rare contamination' (eps ~0.05) rather than the eps = 0.5 a raw logit "
              "would decay to; k = 1 at init collapses the mixture, preserving "

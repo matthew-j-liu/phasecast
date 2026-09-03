@@ -324,7 +324,7 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_recalibrator_is_the_identity_at_initialization` -- an unfit recalibrator reproduces the zero-shot outputs exactly (for `tailed`, dilution 1 at init collapses the mixture so both components equal the input), which is what lets a fitted one's gain read as nats recovered on the ledger's scale.
 2. `test_structural_zeros_survive_the_magnitude_correction` -- coarsening leaves alpha 0 where a group has no member on the support; the correction is multiplicative so those stay 0 rather than becoming -inf.
-3. `test_richer_tiers_contain_the_vector_tier_exactly` -- copying a fitted vector tier's parameters into `matrix` / `mlp` / `tailed` reproduces it, so the 23-param affine is the degenerate case rather than a rival.
+3. `test_richer_tiers_contain_the_vector_tier_exactly` -- copying a fitted vector tier's parameters into `matrix` / `mlp` / `tailed` reproduces it, so the 21-param affine is the degenerate case rather than a rival.
 4. `test_amphibole_magnitude_is_pinned_at_every_tier` -- the pin holds through the mixing matrix and the MLP, not only the constant; for `tailed` it means no amp-specific term -- the sharp component's amp alpha is the input exactly and the wide component dilutes amp by the same global factor as every group.
 5. `test_off_support_groups_contribute_a_neutral_log_feature` -- scaling the mixing weights that read an off-support column is a no-op, which only holds if that column enters as 0 rather than log(tiny).
 6. `test_tailed_contamination_is_mean_preserving` -- the wide component is the sharp one diluted: identical mean shares, lower precision, normalized gate weights.
@@ -439,13 +439,11 @@ rename, or repurpose a test) updates this file in the same change.**
 2. `test_gradients_survive_the_nan_guard` -- the guard does not detach the scored entries, and an off-mask group draws no gradient.
 3. `test_torch_objective_matches_the_shipped_numpy_eval` -- the fit's loss equals `real_rock_nll`, so "nats recovered" is not measured against a baseline on a different scale.
 4. `test_fitting_reduces_the_loss_it_optimizes` -- a fit lowers the joint NLL it minimizes.
-5. `test_withholding_the_presence_slope_leaves_it_at_zero_and_frees_the_rest` -- `fit_presence_sio2=False` works by withholding the gradient from a zero-initialized parameter, so the fit must leave it at zero and freeze nothing else.
-6. `test_pinning_the_presence_slope_cannot_move_the_abundance_term` -- presence and abundance parameters draw gradients from separate loss terms, so the ablation leaves the Dirichlet term bit-identical and the slope contrast reads as the slopes' attribution.
-7. `test_pinned_amphibole_offset_reports_as_zero` -- `per_group_offsets` reports the effective correction rather than the raw parameter.
-8. `test_bootstrap_resamples_units_not_rocks` -- declaring the same rocks to belong to fewer units widens the interval, since rocks within a unit are not independent draws.
-9. `test_lifting_the_group_correction_hits_the_target_noisy_or` -- pushing the corrected group presence down onto member phases reproduces the group probability exactly; shifting member logits by the group's logit shift does not, since the noisy-OR is not linear in logits, and it erases near-certain groups from every sampled support.
-10. `test_draws_sample_whole_units_without_overshooting` -- draws take whole units, never split one, and stay within the overshoot tolerance.
-11. `test_a_unit_larger_than_the_budget_is_skipped_not_taken` -- otherwise one 66-rock unit would decide the low end of the curve.
+5. `test_pinned_amphibole_offset_reports_as_zero` -- `per_group_offsets` reports the effective correction rather than the raw parameter.
+6. `test_bootstrap_resamples_units_not_rocks` -- declaring the same rocks to belong to fewer units widens the interval, since rocks within a unit are not independent draws.
+7. `test_lifting_the_group_correction_hits_the_target_noisy_or` -- pushing the corrected group presence down onto member phases reproduces the group probability exactly; shifting member logits by the group's logit shift does not, since the noisy-OR is not linear in logits, and it erases near-certain groups from every sampled support.
+8. `test_draws_sample_whole_units_without_overshooting` -- draws take whole units, never split one, and stay within the overshoot tolerance.
+9. `test_a_unit_larger_than_the_budget_is_skipped_not_taken` -- otherwise one 66-rock unit would decide the low end of the curve.
 
 ### test_measured_mode_head_train.py
 
@@ -683,7 +681,6 @@ Tests for archived explorations (moved to `explorations/archive/`,
 4. `test_shifted_beta_quantiles_identity_matches_share_interval` -- the residual-decomposition oracle at (k=1, delta=0) reproduces the shipped `share_interval`, so a ceiling can never sit below the coverage it starts from.
 5. `test_width_scale_preserves_the_beta_mean_and_widens_coverage` -- the precision knob is mean-preserving and monotone in interval width, which is what makes it a pure width knob.
 6. `test_oracle_separates_width_from_location` -- a pure mean shift on a small-share group is invisible to the width-only oracle and recovered by the 2-d one, which is the decomposition's whole claim.
-7. `test_presence_slope_contrast_attributes_the_slopes_alone` -- the q/amp presence-slope ablation reports both arms on the same rocks with the abundance term untouched, so the contrast is the slopes' attribution.
 
 ### test_adapted_mode_head.py
 

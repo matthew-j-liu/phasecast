@@ -167,7 +167,6 @@ def main() -> None:
         with torch.no_grad():
             adj_logits, adj_alpha, _ = recalibrator(
                 test.logits7[local:local + 1], test.alpha7[local:local + 1],
-                test.sio2[local:local + 1],
             )
         # the Dirichlet's per-group marginal is a Beta, so the spread the model
         # actually reports is closed-form -- and widening it is most of what
@@ -196,7 +195,6 @@ def main() -> None:
 
         p21 = lift_group_presence_to_phases(
             recalibrator, test.logits7[local:local + 1], p21_all[row:row + 1],
-            test.sio2[local:local + 1],
         )
 
         def correct(alpha7, _row=local):
@@ -204,7 +202,6 @@ def main() -> None:
                 _, out, _ = recalibrator(
                     test.logits7[_row:_row + 1].expand(len(alpha7), -1),
                     torch.as_tensor(alpha7, dtype=torch.float64),
-                    test.sio2[_row:_row + 1].expand(len(alpha7)),
                 )
             return out.numpy()
 

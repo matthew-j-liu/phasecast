@@ -6637,3 +6637,33 @@ precision.
 `barthelmy_webmineral`); the DHZ/Klein comment provenance was superseded by
 the check. Olivine stays 3.50 = Fo80 interpolation (0.8 x 3.27 + 0.2 x 4.39),
 now stated with the equation in B8.
+
+## 2026-09-02 -- presence silica slopes deleted; silica leaves the recalibrator entirely
+
+**Q.** #67 item 1: remove the q/amp presence SiO2 slopes from the canonical
+recalibration layer, now that the submission no longer pins them.
+
+**Context.** Measured 2026-08-18 at +0.0016 [+0.0009, +0.0023] nats, below the
+display precision of every reported number, and kept through submission only so
+the reported parameter counts (23/121/123) reconciled. The `mlp` tier also read
+silica as a trunk feature; that term was never separately measured, and `mlp`
+is a comparison arm, never canonical.
+
+**Considered.** Flip the `fit_presence_sio2` default and keep the parameter (the
+08-18 plan, so results stay reproducible from HEAD) vs delete. The submitted
+state is reproducible from tag `sim2sci-neurips`, so HEAD does not need to
+carry a dead parameter behind a flag. Keep silica for the `mlp` trunk only vs
+remove it everywhere: one tier reading an argument three ignore is not worth a
+signature.
+
+**Decision.** Deleted. Silica leaves the recalibrator entirely: `forward` is now
+`(logits7, alpha7[, log_w])`, the `mlp` trunk reads `2n` features, and no tier
+reads silica, so the benchmark split's silica-containment constraint (#67
+item 2) has lost its justification. `run_presence_slope.py`, its result JSON,
+the exploration README section, and the three tests that existed only to check
+the ablation go with it. Counts from the module: vector 21, matrix 119, mlp
+1061, tailed 121. Deck slide updated and regenerated.
+
+**Next.** No re-stamp yet. Items 3 and 4 also change the layer and item 2
+re-splits the benchmark, so every real-rock number (acceptance read, few-shot
+curve, ledger, results figures) is restamped once at the end of #67.

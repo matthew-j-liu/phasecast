@@ -8,7 +8,7 @@ phases: that is where the labels live, where the residuals were measured, and
 where the three tiers nest exactly.  Encoder and heads stay frozen; fitting
 lives in `cnmineral.training.real_rock_recalibrator`.
 
-The tiers are `vector` in `matrix` in `mlp`, so the ~23-parameter per-group
+The tiers are `vector` in `matrix` in `mlp`, so the ~21-parameter per-group
 affine is the degenerate case of the MLP rather than a rival to it.  `tailed`
 forks from `matrix` instead of `mlp`: matrix plus a mean-preserving precision
 contamination that fattens the tails a single Dirichlet cannot reach -- the
@@ -20,31 +20,14 @@ added +0.007 [-0.004, +0.016] nats, and was excised; journal 2026-08-06.)
 import torch
 from torch import nn
 
-from ..data.phase_vocab import GROUP_INDEX, GROUPS
+from ..data.phase_vocab import GROUPS
 
 TIERS: tuple[str, ...] = ("vector", "matrix", "mlp", "tailed")
-
-# These two slopes came from a residual-vs-silica read at design time, and the
-# read does not support them.  Measured 2026-08-18 at +0.002 [+0.001, +0.002]
-# nats against the same tier's contamination at +0.304.  Reproduced on the
-# checkpoint they were designed from: q's presence residual is flat against
-# silica there and on production (rho +0.02 both), an arch by silica quintile
-# that no linear slope fits, and bi -- the one monotone group -- was passed
-# over.  They stay because every reported result was fitted with them; the
-# canonical layer drops them after submission, by flipping the
-# `fit_presence_sio2` default rather than deleting this, so those results stay
-# reproducible.  Journal 2026-08-18.
-SIO2_PRESENCE_GROUPS: tuple[str, ...] = ("q", "amp")
 
 # Weight decay pulls parameters toward zero, so the contamination weight is
 # parameterized as an offset from this prior logit (eps ~ 0.05): fully shrunk
 # means "rare contamination", not the eps = 0.5 a raw logit would decay to.
 CONTAM_LOGIT_BIAS: float = -3.0
-
-# SiO2 enters centred and scaled so the slope is O(1) and the intercepts stay
-# interpretable as the per-group offsets that were measured.
-SIO2_CENTER: float = 65.0
-SIO2_SCALE: float = 10.0
 
 
 class RealRockRecalibrator(nn.Module):
@@ -85,11 +68,6 @@ class RealRockRecalibrator(nn.Module):
         self.presence_scale = nn.Parameter(torch.ones(n))
         self.presence_offset = nn.Parameter(torch.zeros(n))
         self.magnitude_offset = nn.Parameter(torch.zeros(n))
-        self.presence_sio2 = nn.Parameter(torch.zeros(len(SIO2_PRESENCE_GROUPS)))
-        self.register_buffer(
-            "sio2_slots",
-            torch.tensor([GROUP_INDEX[g] for g in SIO2_PRESENCE_GROUPS]),
-        )
         self.register_buffer(
             "magnitude_free",
             torch.tensor([
@@ -105,7 +83,7 @@ class RealRockRecalibrator(nn.Module):
             self.contam_logk = nn.Parameter(torch.zeros(()))
         if tier == "mlp":
             self.trunk = nn.Sequential(
-                nn.Linear(2 * n + 1, hidden), nn.GELU(), nn.Linear(hidden, 2 * n)
+                nn.Linear(2 * n, hidden), nn.GELU(), nn.Linear(hidden, 2 * n)
             )
             # zero the last layer so the MLP branch starts silent and the
             # module is exactly its `matrix` tier at initialization.
@@ -116,11 +94,9 @@ class RealRockRecalibrator(nn.Module):
         self,
         logits7: torch.Tensor,
         alpha7: torch.Tensor,
-        sio2: torch.Tensor,
         log_w: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
-        """([B, 7] presence logits, [B, 7] alpha, [B] SiO2 wt%) -> corrected
-        (logits, alpha, log_w).
+        """([B, 7] presence logits, [B, 7] alpha) -> corrected (logits, alpha, log_w).
 
         The returned log_w is the input log_w passed through unchanged, except
         for the `tailed` tier, whose contamination makes the output a
@@ -135,7 +111,6 @@ class RealRockRecalibrator(nn.Module):
         feature then reads the gate-weighted mean concentration -- a [B, 7]
         summary, not a per-component input.
         """
-        x = ((sio2 - SIO2_CENTER) / SIO2_SCALE).unsqueeze(-1)
         if alpha7.dim() == 3:
             alpha_feat = (log_w.exp().unsqueeze(-1) * alpha7).sum(1)
         else:
@@ -150,16 +125,13 @@ class RealRockRecalibrator(nn.Module):
         )
 
         d_presence = self.presence_scale * logits7 + self.presence_offset
-        d_presence = d_presence.index_add(
-            -1, self.sio2_slots, x * self.presence_sio2
-        )
         d_magnitude = self.magnitude_offset.expand_as(alpha_feat)
 
         if self.tier in ("matrix", "mlp", "tailed"):
             d_presence = d_presence + logits7 @ self.presence_mix
             d_magnitude = d_magnitude + log_alpha @ self.magnitude_mix
         if self.tier == "mlp":
-            delta = self.trunk(torch.cat([logits7, log_alpha, x], dim=-1))
+            delta = self.trunk(torch.cat([logits7, log_alpha], dim=-1))
             n = len(GROUPS)
             d_presence = d_presence + delta[..., :n]
             d_magnitude = d_magnitude + delta[..., n:]

@@ -188,39 +188,6 @@ Numbers and per-group detail in `results/<tag>/residual_decomposition.json`;
 the figure annotates each width ceiling with the `k` that buys it, so a bar at
 1.0 reached only by a 100x precision cut reads as the vacuity it is.
 
-## The q/amp presence slopes, measured at last
-
-`run_presence_slope.py` supplies the contrast the presence-side SiO2 slopes
-never got. They entered the parameterization at design time from the
-residual-vs-SiO2 read above, while the magnitude location term that read also
-argued for was built, measured at +0.007 [-0.004, +0.016] nats, and excised
-(journal 2026-08-06). The presence slopes stayed, unmeasured, as 2 of the
-canonical tier's 123 parameters.
-
-The tailed tier is fit twice on the train roster, once with `presence_sio2`
-free and once held at its zero initialization, and scored paired on val.
-Measured 2026-08-18 on `joint_heads_allrock_tuned_seed0` (368 train rocks / 51
-units, 111 val rocks / 39 units):
-
-- **The slopes are worth +0.002 [+0.001, +0.002] nats**, all of it in the
-  presence term. For scale, the precision contamination in the same tier is
-  worth +0.304 [+0.049, +0.659], and the excised magnitude term measured
-  +0.007. Val joint goes 0.974 pinned to 0.972 free; share MAE is 0.0954 in
-  both arms to four decimals.
-- The interval excludes zero only because the contrast is deterministic: both
-  tiers initialize at zero/one, so the arms differ by the slopes alone with no
-  seed noise to widen it. A reliably positive 0.002 nats is still nothing.
-- The fitted slopes are small in their own units: +0.048 logit per 10 wt% SiO2
-  for quartz and +0.003 for amphibole, against a benchmark spanning roughly
-  50-78 wt%.
-- Re-selecting the pinned arm's shrinkage constant on val returns the same 1.0
-  the free arm uses, so the contrast is not an artifact of sharing one.
-
-The abundance term is bit-identical across the arms, as it must be: presence
-and abundance parameters draw gradients from separate terms of the loss, which
-is what makes this contrast the slopes' attribution rather than a two-change
-comparison.
-
 ## Re-supervising the head instead of correcting it (#53)
 
 The three correction tiers all start from the simulation-trained head's
@@ -367,8 +334,6 @@ handicap.
   after the fit, `results/<tag>/residual_decomposition.{json,png}`
 - `run_tailed_acceptance.py` -- the tailed-vs-matrix acceptance read and the
   three-arm coverage/sharpness figure, `results/<tag>/tailed_acceptance.json`
-- `run_presence_slope.py` -- the q/amp presence-slope ablation,
-  `results/<tag>/presence_slope.json`
 - `results/joint_heads_supportmag_seed0/learning_curve.png` -- the deliverable
 - `results/joint_heads_supportmag_seed0/curve_by_units.png` -- priced in eruptions
 - `results/joint_heads_allrock_tuned_seed0/learning_curve_val.png` -- the

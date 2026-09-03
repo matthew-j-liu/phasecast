@@ -11,8 +11,7 @@ def _inputs(n=16, seed=0):
     g = torch.Generator().manual_seed(seed)
     logits = torch.randn(n, len(GROUPS), generator=g)
     alpha = torch.rand(n, len(GROUPS), generator=g) * 5 + 0.1
-    sio2 = 50 + torch.rand(n, generator=g) * 40
-    return logits, alpha, sio2
+    return logits, alpha
 
 
 def _randomize(recalibrator, seed=0):
@@ -33,8 +32,8 @@ def test_recalibrator_is_the_identity_at_initialization(tier):
     mixture, but its dilution factor is 1 at init, so both components equal the
     input and the mixture is the single Dirichlet distributionally.
     """
-    logits, alpha, sio2 = _inputs()
-    out_logits, out_alpha, log_w = RealRockRecalibrator(tier)(logits, alpha, sio2)
+    logits, alpha = _inputs()
+    out_logits, out_alpha, log_w = RealRockRecalibrator(tier)(logits, alpha)
     assert torch.allclose(out_logits, logits)
     if tier == "tailed":
         assert out_alpha.shape == (len(alpha), 2, len(GROUPS))
@@ -53,16 +52,16 @@ def test_structural_zeros_survive_the_magnitude_correction(tier):
     The correction is multiplicative for this reason: an additive one in log
     space would turn those into -inf and poison the Dirichlet term.
     """
-    logits, alpha, sio2 = _inputs()
+    logits, alpha = _inputs()
     alpha[:, GROUP_INDEX["ol"]] = 0.0
-    _, out_alpha, _ = _randomize(RealRockRecalibrator(tier))(logits, alpha, sio2)
+    _, out_alpha, _ = _randomize(RealRockRecalibrator(tier))(logits, alpha)
     assert (out_alpha[..., GROUP_INDEX["ol"]] == 0).all()
     assert torch.isfinite(out_alpha).all()
 
 
 @pytest.mark.parametrize("tier", ["matrix", "mlp", "tailed"])
 def test_richer_tiers_contain_the_vector_tier_exactly(tier):
-    """vector in matrix in mlp / tailed, so the 23-param affine is the
+    """vector in matrix in mlp / tailed, so the 21-param affine is the
     degenerate case of every richer tier.
 
     Copying a fitted vector tier's parameters into a richer tier must reproduce
@@ -71,15 +70,15 @@ def test_richer_tiers_contain_the_vector_tier_exactly(tier):
     distributional: dilution 1 at init means both components must equal the
     vector tier's output.
     """
-    logits, alpha, sio2 = _inputs()
+    logits, alpha = _inputs()
     vector = _randomize(RealRockRecalibrator("vector"))
     richer = RealRockRecalibrator(tier)
     with torch.no_grad():
         target = dict(richer.named_parameters())
         for name, p in vector.named_parameters():
             target[name].copy_(p)
-    got_logits, got_alpha, _ = richer(logits, alpha, sio2)
-    want_logits, want_alpha, _ = vector(logits, alpha, sio2)
+    got_logits, got_alpha, _ = richer(logits, alpha)
+    want_logits, want_alpha, _ = vector(logits, alpha)
     assert torch.allclose(got_logits, want_logits, atol=1e-6)
     if tier == "tailed":
         assert torch.allclose(got_alpha[:, 0], want_alpha, atol=1e-6)
@@ -99,12 +98,12 @@ def test_amphibole_magnitude_is_pinned_at_every_tier(tier):
     input exactly, and the wide component applies the same global dilution to
     amp as to every other group.
     """
-    logits, alpha, sio2 = _inputs()
+    logits, alpha = _inputs()
     amp = GROUP_INDEX["amp"]
     _, pinned, _ = _randomize(RealRockRecalibrator(tier, pin_amp_magnitude=True))(
-        logits, alpha, sio2)
+        logits, alpha)
     _, free, _ = _randomize(RealRockRecalibrator(tier, pin_amp_magnitude=False))(
-        logits, alpha, sio2)
+        logits, alpha)
     if tier == "tailed":
         assert torch.allclose(pinned[:, 0, amp], alpha[:, amp])
         ratio = pinned[:, 1] / pinned[:, 0]
@@ -123,16 +122,16 @@ def test_off_support_groups_contribute_a_neutral_log_feature():
     (val NLL ~1e20). The feature is 0 there instead, so a zero column cannot
     move the correction.
     """
-    logits, alpha, sio2 = _inputs()
+    logits, alpha = _inputs()
     alpha[:, GROUP_INDEX["ol"]] = 0.0
     recalibrator = _randomize(RealRockRecalibrator("matrix"))
-    _, baseline, _ = recalibrator(logits, alpha, sio2)
+    _, baseline, _ = recalibrator(logits, alpha)
 
     # scaling the mixing weights that read the off-support column must be a
     # no-op, which only holds if that column enters as a constant zero
     with torch.no_grad():
         recalibrator.magnitude_mix[GROUP_INDEX["ol"], :] *= 7.0
-    _, moved, _ = recalibrator(logits, alpha, sio2)
+    _, moved, _ = recalibrator(logits, alpha)
     assert torch.allclose(baseline, moved)
 
 
@@ -142,12 +141,12 @@ def test_tailed_contamination_is_mean_preserving():
     That is the design's whole claim -- the tail fattens without the mean
     moving, so contamination cannot masquerade as a location correction.
     """
-    logits, alpha, sio2 = _inputs()
+    logits, alpha = _inputs()
     recalibrator = RealRockRecalibrator("tailed")
     with torch.no_grad():
         recalibrator.contam_logk.fill_(-1.5)
         recalibrator.contam_logit.fill_(1.0)
-    _, out, log_w = recalibrator(logits, alpha, sio2)
+    _, out, log_w = recalibrator(logits, alpha)
     k = torch.exp(torch.tensor(-1.5))
     torch.testing.assert_close(out[:, 1], out[:, 0] * k)
     share = out / out.sum(-1, keepdim=True)
@@ -157,12 +156,12 @@ def test_tailed_contamination_is_mean_preserving():
 
 def test_tailed_composes_with_mixture_head_input():
     """K-component input comes back as a 2K mixture with normalized weights."""
-    logits, alpha, sio2 = _inputs()
+    logits, alpha = _inputs()
     alpha3 = torch.stack([alpha, alpha * 2.0], dim=1)
     log_w = torch.log(torch.full((len(alpha), 2), 0.5))
     recalibrator = _randomize(RealRockRecalibrator("tailed"))
     out_logits, out_alpha, out_log_w = recalibrator(
-        logits, alpha3, sio2, log_w=log_w
+        logits, alpha3, log_w=log_w
     )
     assert out_alpha.shape == (len(alpha), 4, len(GROUPS))
     assert out_log_w.shape == (len(alpha), 4)

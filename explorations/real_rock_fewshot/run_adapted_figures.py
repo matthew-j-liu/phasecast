@@ -78,7 +78,7 @@ def main() -> None:
           f"{after['dirichlet'].mean():.3f}")
 
     with torch.no_grad():
-        adj_logits, adj_alpha, _ = recalibrator(val.logits7, val.alpha7, val.sio2)
+        adj_logits, adj_alpha, _ = recalibrator(val.logits7, val.alpha7)
     p7 = torch.sigmoid(adj_logits).numpy()
     numeric = benchmark.numeric[val_mask].astype(np.float64)
     forced_share = conditional_mean(adj_alpha.numpy(), numeric)
@@ -88,7 +88,7 @@ def main() -> None:
     # sent through the same magnitude correction
     with torch.no_grad():
         p21 = torch.sigmoid(mode_head.presence_logits(latents)).cpu().numpy()
-    p21_adj = lift_group_presence_to_phases(recalibrator, gp.logits7, p21, gp.sio2)
+    p21_adj = lift_group_presence_to_phases(recalibrator, gp.logits7, p21)
     support21 = (p21_adj > 0.5).astype(np.float64)
     with torch.no_grad():
         alpha21 = mode_head.magnitude_alpha(
@@ -100,7 +100,6 @@ def main() -> None:
     with torch.no_grad():
         _, adj_alpha_model, _ = recalibrator(
             gp.logits7, torch.as_tensor(alpha7_model, dtype=gp.alpha7.dtype),
-            gp.sio2,
         )
     model_share = conditional_mean(adj_alpha_model.numpy()[val_mask],
                                    model_support7[val_mask])

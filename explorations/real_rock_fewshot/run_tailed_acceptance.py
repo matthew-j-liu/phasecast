@@ -70,7 +70,7 @@ def _intervals(recalibrator, gp):
     if recalibrator is None:
         return share_interval(gp.alpha7.numpy(), numeric)
     with torch.no_grad():
-        _, alpha, log_w = recalibrator(gp.logits7, gp.alpha7, gp.sio2)
+        _, alpha, log_w = recalibrator(gp.logits7, gp.alpha7)
     if log_w is None:
         return share_interval(alpha.numpy(), numeric)
     return mixture_share_interval(alpha.numpy(), log_w.numpy(), numeric)
@@ -81,7 +81,7 @@ def _cond_mean(recalibrator, gp):
     if recalibrator is None:
         return conditional_mean(gp.alpha7.numpy(), numeric)
     with torch.no_grad():
-        _, alpha, log_w = recalibrator(gp.logits7, gp.alpha7, gp.sio2)
+        _, alpha, log_w = recalibrator(gp.logits7, gp.alpha7)
     if log_w is None:
         return conditional_mean(alpha.numpy(), numeric)
     return mixture_conditional_mean(alpha.numpy(), log_w.numpy(), numeric)

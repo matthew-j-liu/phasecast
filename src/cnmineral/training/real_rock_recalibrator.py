@@ -150,7 +150,6 @@ def fit_recalibrator(
     lr: float = 0.05,
     hidden: int = 32,
     pin_amp_magnitude: bool = True,
-    fit_presence_sio2: bool = True,
     seed: int = 0,
 ) -> RealRockRecalibrator:
     """Full-batch fit of one recalibrator on `train`, to convergence.
@@ -163,22 +162,16 @@ def fit_recalibrator(
 
     Full-batch because the training sets are 25-380 rows of 7 numbers; a
     dataloader here would be ceremony.
-
-    `fit_presence_sio2=False` gives the parameterization without the q/amp
-    presence slopes: the parameter initializes at zero, so withholding its
-    gradient leaves it there for the whole fit.
     """
     torch.manual_seed(seed)
     recalibrator = RealRockRecalibrator(
         tier, hidden=hidden, pin_amp_magnitude=pin_amp_magnitude,
     ).to(train.logits7.dtype)
-    if not fit_presence_sio2:
-        recalibrator.presence_sio2.requires_grad_(False)
     opt = torch.optim.Adam(recalibrator.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(epochs):
         opt.zero_grad()
         logits, alpha, log_w = recalibrator(
-            train.logits7, train.alpha7, train.sio2, log_w=train.log_w
+            train.logits7, train.alpha7, log_w=train.log_w
         )
         loss = recalibrator_nll(
             logits, alpha, train.presence, train.magnitude, train.numeric,
@@ -241,7 +234,7 @@ def score_recalibrator(
         forecast = data.logits7, data.alpha7, data.log_w
     else:
         forecast = recalibrator(
-            data.logits7, data.alpha7, data.sio2, log_w=data.log_w
+            data.logits7, data.alpha7, log_w=data.log_w
         )
     return score_predictions(*forecast, data)
 
@@ -364,7 +357,6 @@ def paired_bootstrap(
 
 def lift_group_presence_to_phases(
     recalibrator: RealRockRecalibrator, logits7: torch.Tensor, p21: np.ndarray,
-    sio2: torch.Tensor,
 ) -> np.ndarray:
     """The recalibrator's corrected group presence, pushed back down onto 21 phases.
 
@@ -388,7 +380,7 @@ def lift_group_presence_to_phases(
     whose feldspar is half the crystal cargo.
     """
     with torch.no_grad():
-        corrected, _, _ = recalibrator(logits7, torch.ones_like(logits7), sio2)
+        corrected, _, _ = recalibrator(logits7, torch.ones_like(logits7))
     target = torch.sigmoid(corrected).numpy()
     now = coarsen_presence(p21)
 
