@@ -20,7 +20,7 @@ Counts: submitted 460 macros, current 455, unchanged 341, changed 102, removed 1
 - The corpus-size ladder (`explorations/corpus_scaling/results/scaling_realrock.json`) was measured 2026-08-06 with amphibole pinned on the old split; the builder now reads the matrix file, whose slopes differ from the submitted tailed ones (see `cs*` below). Re-run `run_realrock.py`.
 - The sediment results were measured under the pinned layer; the builder now reads their matrix entries. Re-run `run_recalibrate.py` and `run_fewshot_budget.py` if the appendix's recovery numbers are kept.
 - The three-way regen contrast keeps its old-split test column; it is a closed decision and is not re-run.
-- The unit-leakage control reversed direction on the rebuilt split (flagged rocks now evaluate better than the rest, -0.65 nats, unit-clustered 95% [-2.81, +1.12], not established either way); the control paragraph must not claim a direction.
+- The unit-leakage control reversed direction on the rebuilt split (flagged rocks now evaluate better than the rest, -0.65 nats, unit-clustered 95% [-2.81, +1.12], not established either way). The manuscript does not cite the `ctlLeak*` macros, so nothing in the text moves; do not add a paragraph that claims a direction.
 
 ## Removed macros: each is a sentence to rewrite or cut
 

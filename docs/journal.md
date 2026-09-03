@@ -6932,8 +6932,11 @@ split, reads the opposite direction from the paper's control paragraph: the
 evaluate at 0.334 against 0.981 for the other 81, so removing them worsens
 the score where on the old split it had improved it. Unit-clustered 95% on
 the difference is [-2.81, +1.12]: not established either way, on 11 flagged
-units. The control cannot claim a direction; the camera-ready paragraph must
-say so. Whether the remaining `?` and sub-facies fragmentation deserves the
-curated eruption table #67 declined is reopened by this, not decided.
+units. The control cannot claim a direction. The manuscript never cited it
+(the `ctlLeak*` macros are emitted and unused), so nothing in the paper moves;
+what moves is the reasoning on #67 and in the 2026-08-06 entry, which gave
+the backwards direction as the reason not to repair the unit key. Whether the
+remaining `?` and sub-facies fragmentation deserves the curated eruption table
+#67 declined is reopened by this, not decided.
 
 **Next.** Issue sweep, then the research week.

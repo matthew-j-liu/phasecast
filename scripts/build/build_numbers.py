@@ -743,9 +743,9 @@ try:
     # Read the direction off the file, never from memory: on the old split
     # removing the flagged rocks improved the recalibrated score (0.885 against
     # 0.972), on the rebuilt split it worsens it (0.981 against 0.829), and
-    # the paper's control paragraph was written for the first (journal
-    # 2026-09-03). State the recalibrated pair, since that is the scale every
-    # reported result uses.
+    # the #67 note that declined a unit-key repair was written for the first
+    # (journal 2026-09-03). The manuscript does not cite these macros. State
+    # the recalibrated pair, since that is the scale every reported result uses.
     emit("ctlLeakFreeMatrix", fmt(ul["val"]["leak_free"]["matrix_joint"], 3))
     emit("ctlLeakAllMatrix", fmt(ul["val"]["all"]["matrix_joint"], 3),
          "the full validation split under the same fit; the pair's direction is the claim")
