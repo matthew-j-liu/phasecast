@@ -1,5 +1,11 @@
 # mode_mixture
 
+**Archived, and the code path it studied is gone.** The K>1 ModeHead
+(`mode_n_components`, the gate, `magnitude_mixture`) and the
+`joint_heads_allrock_mixture_seed0` checkpoint were removed on 2026-09-02
+(#67 item 4, journal). The scripts below no longer run against HEAD; the
+results and this README stand as the record.
+
 **Question.** The trained K=2 ModeHead dirichlet layer (mixture) wins the
 corpus on both axes but leans against the same-dials K=1 control on
 recalibrated real-rock val (-0.365 [-0.864, +0.118]). Why doesn't the

@@ -50,9 +50,8 @@ def main() -> None:
     pred = predict(ckpt.build_mode_head().to(device), latents, benchmark)
 
     clean = benchmark.clean & benchmark.has_magnitude
-    log_w = pred.get("log_w")
     nll = real_rock_nll(pred["p7"], pred["alpha7"], benchmark.presence,
-                        benchmark.magnitude, benchmark.numeric, log_w=log_w)
+                        benchmark.magnitude, benchmark.numeric)
     null = climatology(benchmark)
     null_nll = real_rock_nll(null["p7"], null["alpha7"], benchmark.presence,
                              benchmark.magnitude, benchmark.numeric)

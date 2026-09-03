@@ -167,11 +167,6 @@ class AdaptedModeHead(nn.Module):
 
     def __init__(self, head: ModeHead, *, rank: int = RANK) -> None:
         super().__init__()
-        if head.n_components != 1:
-            raise ValueError(
-                f"AdaptedModeHead wraps the single-Dirichlet head; got "
-                f"n_components={head.n_components}"
-            )
         # `build_group_predictions` lands every array on the CPU, so the head
         # follows its data rather than making the caller match devices; the
         # whole fit is 380 rows through a 1.3M-parameter head.

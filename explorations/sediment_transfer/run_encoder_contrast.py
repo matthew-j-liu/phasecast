@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval import real_rock
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
+from cnmineral.eval.mode_head import conditional_mean
 from cnmineral.eval.real_rock import (
     climatology, predict, real_rock_nll, unit_bootstrap,
 )
@@ -64,12 +64,10 @@ def main() -> None:
         encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
         latents = bulk_latents(encoder.to(device), benchmark, device)
         pred = predict(ckpt.build_mode_head().to(device), latents, benchmark)
-        log_w = pred.get("log_w")
         nll = real_rock_nll(pred["p7"], pred["alpha7"], benchmark.presence,
-                            benchmark.magnitude, benchmark.numeric, log_w=log_w)
+                            benchmark.magnitude, benchmark.numeric)
         numeric = benchmark.numeric.astype(np.float64)
-        share = (conditional_mean(pred["alpha7"], numeric) if log_w is None
-                 else mixture_conditional_mean(pred["alpha7"], log_w, numeric))
+        share = conditional_mean(pred["alpha7"], numeric)
         results[name] = {"nll": nll, "share": share,
                          "encoder": ckpt.encoder_checkpoint}
 

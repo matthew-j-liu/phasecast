@@ -595,13 +595,6 @@ try:
     emit("rrAlteredN", str(mt["altered"]["n"]))
     emit("rrExposureBias", fmt(mt["exposure_bias"]["delta"], 2),
          "sampled-support minus true-support abundance NLL; a diagnostic, not a score")
-    # the abundance-branch mixture arm. Its zero-shot read survives here; the
-    # recalibrated contrast does NOT have a generated source any more (the
-    # fixed-output-name contrast JSON was overwritten), so prose may cite the
-    # zero-shot only.
-    mx = json.loads((REALROCK / "joint_heads_allrock_mixture_seed0" / "metrics.json").read_text())
-    emit("rrZsJointMixture", fmt(mx["headline"]["joint_nll"], 1))
-    emit("rrZsDirMixture", fmt(mx["headline"]["dirichlet_nll"], 1))
 except Exception as exc:
     tbd("rrGapJointProd", f"real_rock metrics.json unreadable: {exc}")
 

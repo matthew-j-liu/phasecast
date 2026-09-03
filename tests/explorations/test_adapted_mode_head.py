@@ -288,13 +288,6 @@ def test_the_injected_head_is_not_mutated():
     assert all(torch.equal(before[k], after[k]) for k in before)
 
 
-def test_a_mixture_head_is_rejected():
-    """A K>1 head has no `magnitude_alpha`; adapting one would need a gate this
-    arm deliberately does not add."""
-    with pytest.raises(ValueError, match="n_components"):
-        AdaptedModeHead(ModeHead(D_MODEL, hidden=8, n_components=2))
-
-
 def test_a_latentless_slice_is_rejected_rather_than_silently_misfit():
     data = _predictions()
     stripped = GroupPredictions(

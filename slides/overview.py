@@ -914,7 +914,8 @@ def s_mode_head_dirichlet(prs):
             "single-phase rows are excluded (nothing to size). current limits (production "
             "model): amp parity r 0.876 teacher-forced but 0.539 on self-sampled supports; "
             "the interrogation also measured amp bimodal WITHIN one support "
-            "(mixture parameterization is the staged candidate, #25). "
+            "(a K=2 Dirichlet mixture was tried for them and removed: real amphibole at "
+            "matched chemistry is one-humped, journal 2026-08-04). "
             "full report: runs/mode_head/<tag>/ (magnitude_parity, magnitude_pit).",
             10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the magnitude branch, mirroring the presence "
@@ -936,8 +937,8 @@ def s_mode_head_dirichlet(prs):
              "truth swaps to the other hump (plag/amp values exchanged) -- the mechanism "
              "that pinned the support-blind head's amphibole alpha0 low and its mean in "
              "the middle. Support-conditioning resolves the between-support humps; the "
-             "within-support ones still punish confidence the same way (the mixture "
-             "candidate's target). The 0.715 -> 0.876 amp parity jump that justified "
+             "within-support ones still punish confidence the same way (a K=2 mixture "
+             "targeted them and was removed, journal 2026-09-02). The 0.715 -> 0.876 amp parity jump that justified "
              "support-conditioning was measured when the support-conditioned trunk landed "
              "(#25); the production model reads 0.876 on the same axis, and 0.538 under "
              "sampled support. Retunes since have moved sharpness rather than "
@@ -1479,9 +1480,9 @@ def s_outputs(prs):
 
 def s_mode_mixture_proposal(prs):
     s = new_slide(prs)
-    header(s, "HEADS -- K=2 MIXTURE: EVALUATED, KEPT AS A DIAL (K=1 STAYS CANONICAL)",
+    header(s, "HEADS -- K=2 MIXTURE: EVALUATED AND REMOVED (K=1 IS THE HEAD)",
            "The ModeHead dirichlet layer (mixture) -- trained 2026-08-04; wins the corpus, "
-           "leans against on real rocks")
+           "leans against on real rocks; deleted 2026-09-02")
     caption(s, 0.55, 1.15, 12.2, "same bulk, same h, same presence Bernoullis -- only the "
             "'how much, given this mineral set' answer changes: two full-assemblage "
             "components chosen by a gate, instead of one Dirichlet per (rock, support)",
@@ -1494,7 +1495,7 @@ def s_mode_mixture_proposal(prs):
     gaussian(s, 5.05, 2.35, 3.2, 1.3, [(0.29, 0.15, 1.0)], REDX,
              "current: one Dirichlet -- mean in the valley")
     gaussian(s, 9.2, 2.35, 3.2, 1.3, [(0.15, 0.055, 0.6), (0.50, 0.065, 0.4)], ORANGE,
-             "proposed: K=2 -- mass on the humps")
+             "tried: K=2 -- mass on the humps")
     box(s, 0.9, 4.5, 3.6, 1.5, ["gate (the new piece)",
         ("w = [0.60, 0.40] for this rock",),
         ("softmax over 2 logits from the",),
@@ -1508,18 +1509,19 @@ def s_mode_mixture_proposal(prs):
         ("commits to a hump instead of",),
         ("predicting the valley",)], GREEN, size=12)
     caption(s, 0.55, 6.25, 12.2, "unchanged: presence branch, CompHead, CondHead, closure. "
-            "K=1 is the current head exactly (same parameters, same loss), so production "
-            "checkpoints load untouched and the drop path is one deleted code branch.",
+            "K=1 is the head (same parameters, same loss); the K=2 branch was one code "
+            "path and was deleted 2026-09-02 (#67 item 4).",
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.9, 12.2, "verdict 2026-08-04: corpus best-on-record on both axes, amp "
             "two-sided PIT 0.120 -> 0.023, but recalibrated real-rock val leans against the "
             "K=1 control (-0.365 [-0.864, +0.118]) -- the real amp population is one-humped "
             "at matched chemistry; the second hump belongs to the broad hidden-(P, H2O) "
-            "prior. kept as the `mode_n_components` dial, K=1 default. drawings "
+            "prior. removed 2026-09-02; the archived exploration is the record. drawings "
             "illustrative.", 10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Slide for the ModeHead dirichlet layer (mixture), built and evaluated "
-             "2026-08-04 behind the K=1-identity `mode_n_components` dial. VERDICT "
-             "(owner, same day): kept as a dial, K=1 stays the canonical output -- the "
+             "2026-08-04 behind a K=1-identity dial and deleted 2026-09-02 (#67 item 4; "
+             "explorations/archive/mode_mixture is the record). VERDICT "
+             "(owner, 2026-08-04): kept as a dial, K=1 stays the canonical output -- the "
              "trained K=2 posts the best corpus numbers on record on both axes "
              "(teacher-forced -3.0819 vs control -2.6713, sampled-support -2.1161 vs "
              "-1.9620) and collapses the targeted amp two-sided PIT residue, but the "

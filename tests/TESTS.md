@@ -210,8 +210,7 @@ rename, or repurpose a test) updates this file in the same change.**
 6. `test_mixture_k1_is_exactly_single_dirichlet` -- `mixture_dirichlet_nll` at K=1 with zero log-weights equals `masked_dirichlet_nll` bit-for-bit (the drop-path identity).
 7. `test_mixture_k2_matches_hand_logsumexp` -- K=2 mixture NLL equals a hand-rolled logsumexp of two sliced `torch.distributions.Dirichlet` log-probs plus gate log-weights, row by row.
 8. `test_mixture_absent_phases_get_zero_gradient_per_component` -- every component's alphas at masked-out phases receive exactly zero gradient.
-9. `test_mode_head_loss_routes_mixture_log_w` -- passing `log_w` routes the magnitude term through the mixture NLL with the same weighting arithmetic.
-10. `test_gradient_reaches_unfrozen_encoder` -- backprop through ModeHead reaches a live encoder's parameters (the Track C end-to-end readiness gate).
+9. `test_gradient_reaches_unfrozen_encoder` -- backprop through ModeHead reaches a live encoder's parameters (the Track C end-to-end readiness gate).
 
 ### test_comp_loss.py
 
@@ -296,10 +295,6 @@ rename, or repurpose a test) updates this file in the same change.**
 5. `test_support_changes_alpha` -- flipping one support bit moves the magnitude alphas (the support conditioning is live).
 6. `test_presence_logits_ignore_support` -- presence logits are identical across support inputs and match `presence_logits` (the presence branch never sees the support it predicts).
 7. `test_gradients_flow_to_all_parameters` -- every head parameter receives gradient from a combined logits+alpha objective.
-8. `test_k1_module_tree_is_pre_mixture_layout` -- at K=1 the state dict carries exactly the pre-mixture module names and no gate, so every old checkpoint loads strictly.
-9. `test_k1_mixture_view_matches_single_alpha` -- `magnitude_mixture` at K=1 returns the `magnitude_alpha` alphas unsqueezed with log-weights exactly 0.
-10. `test_k2_shapes_gate_and_guard` -- K=2 forward returns a 3-tuple with `[B, 2, P]` alphas and normalized gate log-weights; `magnitude_alpha` refuses K>1; `n_components < 1` raises.
-11. `test_k2_presence_logits_ignore_support` -- the presence branch stays support-blind at K>1 (the gate lives on the magnitude trunk).
 
 ### test_comp_head.py
 
@@ -333,7 +328,7 @@ rename, or repurpose a test) updates this file in the same change.**
 ### test_measured_mode_head.py
 
 1. `test_output_is_always_mixture_shaped` -- every arm's forecast enters one scoring path as (logits, alpha, log_w); dropping the component axis at K=1 would need a special case there.
-2. `test_single_component_gate_is_exactly_zero` -- at K=1 the gate log-weight is exactly 0, matching `ModeHead.magnitude_mixture`.
+2. `test_single_component_gate_is_exactly_zero` -- at K=1 the gate log-weight is exactly 0, so a single-component head scores as a plain Dirichlet.
 3. `test_concentrations_are_strictly_positive` -- the masked Dirichlet forms `mask * lgamma(alpha)`, so a zero would be a NaN gradient rather than a no-op.
 4. `test_presence_branch_cannot_see_the_support` -- the branch predicts the support, so reading it would make the hurdle's first factor free.
 5. `test_standardizer_rides_on_the_module` -- a held-out slice is scored through the shift and scale the fit was written against, not its own.
@@ -417,9 +412,8 @@ rename, or repurpose a test) updates this file in the same change.**
 ### test_joint_heads_train.py
 
 1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs of the joint trainer on synthetic rungs+draws corpora (roster monkeypatched): the monitor tracks every loss term per epoch, `comp_eps`, the loss weights, and the per-head architecture keys are stamped, the saved file round-trips through `JointHeadCheckpoint.load`, and all three `build_*_head` reconstructors return working heads.
-2. `test_mixture_train_roundtrip_and_legacy_config_defaults_k1` -- `mode_n_components: 2` trains, stamps its K, and rebuilds a gated K=2 head from the saved checkpoint; a head_config without the key (every pre-mixture checkpoint) strictly rebuilds the K=1 head with no gate.
-3. `test_per_head_selection_restores_each_heads_best` -- under a forced selection where mode peaks at epoch 1 while comp/cond keep improving, the stamped mode state bitwise-matches a same-seed 1-epoch run and comp/cond states do not (each head keeps its own best epoch).
-4. `test_early_stop_waits_for_slowest_head` -- with mode/comp flat after epoch 1 and cond improving through epoch 4, patience 1 stops at epoch 5, not when the fast heads plateau.
+2. `test_per_head_selection_restores_each_heads_best` -- under a forced selection where mode peaks at epoch 1 while comp/cond keep improving, the stamped mode state bitwise-matches a same-seed 1-epoch run and comp/cond states do not (each head keeps its own best epoch).
+3. `test_early_stop_waits_for_slowest_head` -- with mode/comp flat after epoch 1 and cond improving through epoch 4, patience 1 stops at epoch 5, not when the fast heads plateau.
 
 ### test_joint_heads_hpo.py
 
@@ -589,11 +583,10 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_sample_assemblages_rows_on_simplex` -- every sampled assemblage sums to 1 on its support, zero-probability phases never enter, and sampling is seed-deterministic.
 2. `test_sample_assemblages_alpha_fn_sees_unique_supports` -- `alpha_fn` is called once with deduplicated support patterns, and each sample draws from its own support's alphas (a support-dependent alpha shows up in the drawn shares).
-3. `test_sample_assemblages_mixture_draws_components_from_gate` -- a tuple-returning (mixture) `alpha_fn` makes each sample commit to one gate-drawn component: a one-hot gate yields only that component's regime, a 50/50 gate yields both at roughly gate frequency.
-4. `test_pick_ambiguous_bulk_prefers_even_split` -- a 50/50 two-pattern bulk beats 90/10 and unimodal bulks; the score is the second-pattern share.
-5. `test_pick_ambiguous_bulk_unimodal_fallback` -- an all-unimodal roster returns the first bulk with score 0.
-6. `test_pick_bulk_by_nll_median_and_best` -- per-bulk mean NLL selection respects the rung filter; best = lowest mean, median = middle rank; bad `pick` and empty rung raise.
-7. `test_top_support_patterns_groups_and_shares` -- hand-built samples with two patterns return correct shares, patterns, and per-pattern mean modes.
+3. `test_pick_ambiguous_bulk_prefers_even_split` -- a 50/50 two-pattern bulk beats 90/10 and unimodal bulks; the score is the second-pattern share.
+4. `test_pick_ambiguous_bulk_unimodal_fallback` -- an all-unimodal roster returns the first bulk with score 0.
+5. `test_pick_bulk_by_nll_median_and_best` -- per-bulk mean NLL selection respects the rung filter; best = lowest mean, median = middle rank; bad `pick` and empty rung raise.
+6. `test_top_support_patterns_groups_and_shares` -- hand-built samples with two patterns return correct shares, patterns, and per-pattern mean modes.
 
 ### test_trajectory.py
 
@@ -697,5 +690,4 @@ Tests for archived explorations (moved to `explorations/archive/`,
 13. `test_the_head_stays_in_eval_mode` -- dropout is live on the production head, and waking it would hand this arm a stochastic regularizer no other arm on the curve has.
 14. `test_fitting_reduces_the_loss_it_optimizes` -- the same objective the recalibrator and the measured head minimize, so the three arms' levels are differenceable.
 15. `test_the_injected_head_is_not_mutated` -- one frozen head is shared across every draw and every arm, so adapting in place would leak one draw's fit into the next.
-16. `test_a_mixture_head_is_rejected` -- a K>1 head has no `magnitude_alpha`, and adapting one would need a gate this arm deliberately does not add.
-17. `test_a_latentless_slice_is_rejected_rather_than_silently_misfit` -- `GroupPredictions` without a latent raises, since the adapted head reads nothing else.
+16. `test_a_latentless_slice_is_rejected_rather_than_silently_misfit` -- `GroupPredictions` without a latent raises, since the adapted head reads nothing else.

@@ -6718,3 +6718,34 @@ the model docstring: amphibole's fitted value reads the density assumption.
 Numbers move by ~nothing; restamp at the end of #67 with everything else.
 
 **Next.** #67 item 4.
+
+## 2026-09-02 -- K=2 ModeHead mixture deleted (#67 item 4)
+
+**Q.** Field the K=2 Dirichlet mixture on the ModeHead's abundance branch
+against a benchmark where it pays, or delete it.
+
+**Context.** Built 2026-08-04 to express the corpus's two-humped amphibole
+abundance at matched chemistry; won the corpus on both axes, leaned against
+the K=1 control on recalibrated real-rock val (-0.365 [-0.864, +0.118]), and
+the attribution found why: real amphibole populations at matched chemistry
+have one hump, the second being a property of sampling both wet and dry
+conditions for every composition. The submission's ModeHead is K=1; the
+2-component mixture the paper describes is the tailed recalibration tier's
+contamination, a different object. The K>1 head path has been unused since.
+
+**Considered.** Fielding it against the incoming plutonic benchmark. Rejected:
+the failure is structural (any one locality crystallized under one set of
+conditions), and a rung-mismatched plutonic benchmark would confound the read.
+
+**Decision.** Deleted: the head's `n_components`, gate, and `magnitude_mixture`;
+the `mode_n_components` config plumbing and `mode_log_w` loss plumbing; the
+gate-aware sampler branch; the head-K branches and skip-notes in the mode and
+real-rock interrogations; `joint_heads_mixture.yaml`; the mixture checkpoint;
+six tests that checked K>1 head behaviour. The mixture-shaped scoring
+contract (`mixture_dirichlet_nll`, `mixture_conditional_mean`,
+`mixture_share_interval`) stays because the tailed tier and the measured heads
+emit mixtures. Archived exploration `explorations/archive/mode_mixture/` is
+the record. Production is K=1 throughout, so no number moves.
+
+**Next.** #67 item 2 (re-split without the silica constraint) and the single
+re-stamp of every real-rock number.

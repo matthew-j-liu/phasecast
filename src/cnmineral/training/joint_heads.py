@@ -30,7 +30,7 @@ from cnmineral.data.phase_vocab import SOLID_PHASES
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.training_curves import plot_joint_run_loss
 from cnmineral.losses.joint_loss import joint_heads_loss
-from cnmineral.losses.mode_loss import mixture_dirichlet_nll
+from cnmineral.losses.mode_loss import masked_dirichlet_nll
 from cnmineral.models.comp_head import CompHead
 from cnmineral.models.cond_head import CondHead
 from cnmineral.models.mode_head import ModeHead
@@ -152,9 +152,6 @@ class JointHeadCheckpoint:
             layers=self.head_config.get("mode_layers", 1),
             dropout=self.head_config.get("dropout", 0.0),
             alpha_eps=self.head_config.get("alpha_eps", 1e-6),
-            # .get, not [] like cond_n_components: pre-mixture checkpoints
-            # carry no key and must reconstruct as the single-Dirichlet head
-            n_components=self.head_config.get("mode_n_components", 1),
         )
         head.load_state_dict(self.mode_state)
         head.eval()
@@ -216,25 +213,20 @@ def evaluate_mode_head(
             magnitude = dataset.magnitude[idx].to(device)
             h = latents[dataset.row_bulk_idx[idx].to(device)]
             logits = head.presence_logits(h)
-            alpha, log_w = head.magnitude_mixture(h, presence)
+            alpha = head.magnitude_alpha(h, presence)
 
             bern = F.binary_cross_entropy_with_logits(
                 logits, presence, reduction="none"
             ).sum(-1)
-            # at K=1 (log_w == 0, single-element logsumexp) this is exactly
-            # the single-Dirichlet NLL, floats included
-            dir_nll = mixture_dirichlet_nll(
-                log_w, alpha, magnitude, presence, reduction="none"
-            )
+            dir_nll = masked_dirichlet_nll(alpha, magnitude, presence, reduction="none")
             joint_total += (bern + dir_nll).sum().item()
 
             p = torch.sigmoid(logits)
             freq += presence.sum(0).cpu()
             mean_p += p.sum(0).cpu()
             tp += ((p > 0.5) & (presence > 0)).sum(0).cpu()
-            on = presence.unsqueeze(1) * alpha
-            component_mean = on / on.sum(-1, keepdim=True).clamp_min(1e-12)
-            cond_mean = (log_w.exp().unsqueeze(-1) * component_mean).sum(1)
+            on = presence * alpha
+            cond_mean = on / on.sum(-1, keepdim=True).clamp_min(1e-12)
             mag_abs_err += (presence * (cond_mean - magnitude).abs()).sum(0).cpu()
 
     per_phase = []
@@ -264,7 +256,7 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
     `valtest_corpus_dir`, `epochs`, `lr`, `batch_size`. Optional: `rungs`,
     `presence_cutoff`, `comp_eps`, per-head `{mode,comp,cond}_hidden` +
     `{mode,comp,cond}_layers`, `dropout`, `alpha_eps`, `cond_n_components`,
-    `cond_sigma_eps`, `mode_n_components`, the four loss weights, `weight_decay`,
+    `cond_sigma_eps`, the four loss weights, `weight_decay`,
     `early_stop_patience` (per-head: stop once every head is this many
     epochs past its own best), `seed`, `data_kwargs`,
     `head_checkpoint_dir` + `head_checkpoint_filename`, and the train-tier
@@ -337,7 +329,6 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         "alpha_eps": config.get("alpha_eps", 1e-6),
         "cond_n_components": int(config.get("cond_n_components", 3)),
         "cond_sigma_eps": config.get("cond_sigma_eps", 1e-3),
-        "mode_n_components": int(config.get("mode_n_components", 1)),
     }
     loss_config = {
         "magnitude_weight": config.get("magnitude_weight", 1.0),
@@ -349,7 +340,6 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
         d_model=head_config["d_model"], hidden=head_config["mode_hidden"],
         layers=head_config["mode_layers"], dropout=head_config["dropout"],
         alpha_eps=head_config["alpha_eps"],
-        n_components=head_config["mode_n_components"],
     ).to(device)
     comp_head = CompHead(
         d_model=head_config["d_model"], hidden=head_config["comp_hidden"],
@@ -384,16 +374,13 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
          f_liq, f_fl, c_liq, c_fl, bulk_11) = (t.to(device) for t in batch)
         h = latents[bidx]
         mode_logits = mode_head.presence_logits(h)
-        mode_alpha, mode_log_w = mode_head.magnitude_mixture(h, presence)
-        if mode_head.n_components == 1:
-            mode_alpha, mode_log_w = mode_alpha.squeeze(1), None
+        mode_alpha = mode_head.magnitude_alpha(h, presence)
         comp_alpha = comp_head(h)
         cond_params = cond_head(h, presence)
         return joint_heads_loss(
             mode_logits, mode_alpha, comp_alpha, cond_params,
             presence, magnitude, comp_target, cond_target,
             f_liq, f_fl, c_liq, c_fl, bulk_11,
-            mode_log_w=mode_log_w,
             **loss_config,
         )
 

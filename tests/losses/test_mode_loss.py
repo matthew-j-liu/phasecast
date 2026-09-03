@@ -108,19 +108,6 @@ def test_mixture_absent_phases_get_zero_gradient_per_component():
     assert stacked.grad[~absent].abs().sum() > 0
 
 
-def test_mode_head_loss_routes_mixture_log_w():
-    alpha, magnitude, presence = _random_hurdle_batch()
-    alpha2, _, _ = _random_hurdle_batch(seed=4)
-    stacked = torch.stack([alpha, alpha2], dim=1)
-    log_w = torch.log_softmax(torch.randn(len(alpha), 2), dim=-1)
-    logits = torch.randn_like(alpha)
-    terms = mode_head_loss(logits, stacked, presence, magnitude,
-                           magnitude_weight=0.5, log_w=log_w)
-    nll = mixture_dirichlet_nll(log_w, stacked, magnitude, presence)
-    assert torch.isclose(terms["dirichlet_nll"], nll)
-    assert torch.isclose(terms["total"], terms["presence_bce"] + 0.5 * nll)
-
-
 def test_gradient_reaches_unfrozen_encoder():
     from cnmineral.data.phase_vocab import N_PHASES
     from cnmineral.models.encoder import Encoder

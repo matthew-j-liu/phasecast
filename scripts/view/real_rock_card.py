@@ -29,11 +29,10 @@ from pathlib import Path
 import numpy as np
 
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
+from cnmineral.eval.mode_head import conditional_mean
 from cnmineral.eval.real_rock import (
     climatology,
     load_benchmark,
-    mixture_share_interval,
     plot_cohort_card,
     plot_coverage_sharpness,
     plot_magnitude_ratio,
@@ -64,22 +63,12 @@ def main() -> None:
 
     clean = benchmark.clean & benchmark.has_magnitude
     p7, alpha7 = pred["p7"], pred["alpha7"]
-    log_w = pred.get("log_w")
-    if log_w is None:
-        forced_share = conditional_mean(alpha7, benchmark.numeric.astype(np.float64))
-        model_share = conditional_mean(
-            pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
-        )
-    else:
-        forced_share = mixture_conditional_mean(
-            alpha7, log_w, benchmark.numeric.astype(np.float64)
-        )
-        model_share = mixture_conditional_mean(
-            pred["alpha7_model_support"], pred["log_w_model_support"],
-            pred["model_support7"].astype(np.float64),
-        )
+    forced_share = conditional_mean(alpha7, benchmark.numeric.astype(np.float64))
+    model_share = conditional_mean(
+        pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
+    )
     nll = real_rock_nll(p7, alpha7, benchmark.presence, benchmark.magnitude,
-                        benchmark.numeric, log_w=log_w)
+                        benchmark.numeric)
     null = climatology(benchmark)
     null_nll = real_rock_nll(null["p7"], null["alpha7"], benchmark.presence,
                              benchmark.magnitude, benchmark.numeric)
@@ -109,10 +98,7 @@ def main() -> None:
         benchmark.unit[clean], out_dir / "presence_brier.png", subtitle,
     )
     mask = benchmark.numeric.astype(np.float64)
-    if log_w is None:
-        lo, hi = share_interval(alpha7, mask)
-    else:
-        lo, hi = mixture_share_interval(alpha7, log_w, mask)
+    lo, hi = share_interval(alpha7, mask)
     null_lo, null_hi = share_interval(null["alpha7"], mask)
     plot_coverage_sharpness(
         {"model": (lo[clean], hi[clean]),

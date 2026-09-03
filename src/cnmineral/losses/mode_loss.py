@@ -71,20 +71,14 @@ def mode_head_loss(
     magnitude: torch.Tensor,
     *,
     magnitude_weight: float = 1.0,
-    log_w: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Combined ModeHead loss; returns each term for logging.
 
     `total` is what to backpropagate; `presence_bce` and `dirichlet_nll` are
-    the unweighted terms. `log_w` is None for the single-Dirichlet head
-    (alpha [B, P]); the mixture head passes gate log-weights with alpha
-    [B, K, P].
+    the unweighted terms.
     """
     bce = F.binary_cross_entropy_with_logits(logits, presence)
-    if log_w is None:
-        nll = masked_dirichlet_nll(alpha, magnitude, presence)
-    else:
-        nll = mixture_dirichlet_nll(log_w, alpha, magnitude, presence)
+    nll = masked_dirichlet_nll(alpha, magnitude, presence)
     return {
         "total": bce + magnitude_weight * nll,
         "presence_bce": bce,

@@ -37,10 +37,7 @@ def sample_assemblages(p, alpha_fn, n, rng):
     Two-step ancestral sampling: the magnitude alphas depend on the drawn
     support, so `alpha_fn` (unique supports [U, P] -> alphas [U, P]) is
     called once on the deduplicated support patterns and each sample's
-    Dirichlet is drawn from its own support's alphas. A mixture head's
-    `alpha_fn` instead returns (alphas [U, K, P], log_w [U, K]); each sample
-    then draws its component from the gate before the Dirichlet, so a sample
-    commits to one magnitude regime.
+    Dirichlet is drawn from its own support's alphas.
     """
     supports = np.zeros((n, len(p)), dtype=bool)
     for s in range(n):
@@ -52,20 +49,9 @@ def sample_assemblages(p, alpha_fn, n, rng):
     uniq, inverse = np.unique(supports, axis=0, return_inverse=True)
     out = alpha_fn(uniq.astype(np.float64))
     modes = np.zeros((n, len(p)))
-    if isinstance(out, tuple):
-        alphas, log_w = out
-        gate = np.exp(log_w)
-        for s in range(n):
-            z = supports[s]
-            u = inverse[s]
-            k = rng.choice(gate.shape[1], p=gate[u] / gate[u].sum())
-            modes[s, z] = rng.dirichlet(alphas[u, k][z])
-    else:
-        # single-Dirichlet path kept draw-for-draw identical so seeded
-        # figures reproduce across the mixture change
-        for s in range(n):
-            z = supports[s]
-            modes[s, z] = rng.dirichlet(out[inverse[s]][z])
+    for s in range(n):
+        z = supports[s]
+        modes[s, z] = rng.dirichlet(out[inverse[s]][z])
     return modes
 
 

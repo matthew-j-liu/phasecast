@@ -149,8 +149,11 @@ into two heads trained on separate clean targets, never multiplied:
   by support (deep-wet-much-amp vs shallow-dry-little; support identity
   carries ~80% of the within-bulk conditional variance) -- one mean per bulk
   could only split the humps. Conditioning lets the same bulk answer "how
-  much" differently per mineral set; the within-support humps that remain
-  are the mixture-parameterization candidate's target, not this mechanism's.
+  much" differently per mineral set. The within-support humps that remain
+  were the target of a K=2 Dirichlet mixture on this branch, built and
+  measured 2026-08-04 and removed 2026-09-02: real amphibole at matched
+  chemistry is one-humped, so the second hump modelled the sampling prior,
+  not nature (journal 2026-08-04, 2026-09-02).
   The presence branch stays support-blind by construction (it predicts the
   support). Known cost, as with CondHead: exposure bias -- alphas queried
   with a wrong lineup degrade (measured in `runs/mode_head/<tag>/` as

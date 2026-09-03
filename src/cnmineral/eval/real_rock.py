@@ -48,7 +48,6 @@ from cnmineral.data.phase_vocab import (  # noqa: F401
 from cnmineral.eval.mode_head import (
     conditional_mean,
     magnitude_parity_stats,
-    mixture_conditional_mean,
     presence_scores,
     reliability_table,
 )
@@ -1766,15 +1765,8 @@ def predict(head, latents: torch.Tensor, benchmark: RealRockBenchmark) -> dict:
            "model_support7": coarsen_support(model_support),
            "support21": support}
     with torch.no_grad():
-        if head.n_components == 1:
-            alpha = head.magnitude_alpha(latents, support_t).cpu().numpy()
-            alpha_model = head.magnitude_alpha(latents, model_support_t).cpu().numpy()
-        else:
-            alpha_t, log_w_t = head.magnitude_mixture(latents, support_t)
-            alpha_m_t, log_w_m_t = head.magnitude_mixture(latents, model_support_t)
-            alpha, alpha_model = alpha_t.cpu().numpy(), alpha_m_t.cpu().numpy()
-            out["log_w"] = log_w_t.cpu().numpy()
-            out["log_w_model_support"] = log_w_m_t.cpu().numpy()
+        alpha = head.magnitude_alpha(latents, support_t).cpu().numpy()
+        alpha_model = head.magnitude_alpha(latents, model_support_t).cpu().numpy()
     out["alpha7"], out["off_vocab_alpha"] = coarsen_alpha(alpha, support)
     out["alpha7_model_support"], _ = coarsen_alpha(alpha_model, model_support)
     return out
@@ -1801,24 +1793,18 @@ def run_real_rock_eval(
     print(f"output:  {output_dir}")
 
     head = ckpt.build_mode_head().to(device)
-    n_components = head.n_components
     pred = predict(head, latents, benchmark)
     p7, alpha7 = pred["p7"], pred["alpha7"]
-    log_w = pred.get("log_w")
     numeric_mask = benchmark.numeric.astype(np.float64)
-    if log_w is None:
-        cond_mean = conditional_mean(alpha7, numeric_mask)
-    else:
-        cond_mean = mixture_conditional_mean(alpha7, log_w, numeric_mask)
+    cond_mean = conditional_mean(alpha7, numeric_mask)
 
     clean = benchmark.clean & benchmark.has_magnitude
     nll = real_rock_nll(
         p7, alpha7, benchmark.presence, benchmark.magnitude, benchmark.numeric,
-        log_w=log_w,
     )
     nll_model_support = real_rock_nll(
         p7, pred["alpha7_model_support"], benchmark.presence, benchmark.magnitude,
-        benchmark.numeric, log_w=pred.get("log_w_model_support"),
+        benchmark.numeric,
     )
     # the exposure probe asks what the magnitudes would cost if the model had
     # to stand on its own assemblage rather than the measured one. It is only
@@ -1853,49 +1839,35 @@ def run_real_rock_eval(
         cond_mean[benchmark.clean], clean_bench.magnitude,
         clean_bench.numeric.astype(np.float64),
     )
-    if n_components == 1:
-        plot_magnitude_parity(
-            alpha7[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
-            mag_stats, output_dir / "magnitude_parity.png", subtitle,
-        )
-    else:
-        print("magnitude_parity skipped: Beta-quantile bands have no closed "
-              "form under a mixture (awaits the visualization pass)")
+    plot_magnitude_parity(
+        alpha7[benchmark.clean], clean_bench.magnitude, clean_bench.numeric,
+        mag_stats, output_dir / "magnitude_parity.png", subtitle,
+    )
     plot_gap_summary(
         p7[benchmark.clean], cond_mean[benchmark.clean], clean_bench,
         output_dir / "gap_summary.png", subtitle,
     )
-    if n_components == 1:
-        card_row = int(np.flatnonzero(clean)[np.argsort(nll["joint"][clean])[
-            int(clean.sum()) // 2]])
-        # the card normalizes over every measured group, trace ones included, so
-        # a mineral logged only as a trace still shows what the model says about
-        # it next to the bound it has to sit under.
-        card_mask = (benchmark.numeric | benchmark.censored).astype(np.float64)
-        card_med, _ = share_interval(alpha7, card_mask, q=(0.5, 0.5))
-        real_rock_card(
-            p7, card_med, benchmark, card_row,
-            output_dir / "real_rock_card.png",
-            interval=share_interval(alpha7, card_mask, q=CARD_INTERVAL_Q),
-        )
-    else:
-        print("real_rock_card skipped: whisker form under a mixture awaits "
-              "the visualization pass")
+    card_row = int(np.flatnonzero(clean)[np.argsort(nll["joint"][clean])[
+        int(clean.sum()) // 2]])
+    # the card normalizes over every measured group, trace ones included, so
+    # a mineral logged only as a trace still shows what the model says about
+    # it next to the bound it has to sit under.
+    card_mask = (benchmark.numeric | benchmark.censored).astype(np.float64)
+    card_med, _ = share_interval(alpha7, card_mask, q=(0.5, 0.5))
+    real_rock_card(
+        p7, card_med, benchmark, card_row,
+        output_dir / "real_rock_card.png",
+        interval=share_interval(alpha7, card_mask, q=CARD_INTERVAL_Q),
+    )
 
     null = climatology(benchmark)
     null_nll = real_rock_nll(
         null["p7"], null["alpha7"], benchmark.presence, benchmark.magnitude,
         benchmark.numeric,
     )
-    if n_components == 1:
-        model_share = conditional_mean(
-            pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
-        )
-    else:
-        model_share = mixture_conditional_mean(
-            pred["alpha7_model_support"], pred["log_w_model_support"],
-            pred["model_support7"].astype(np.float64),
-        )
+    model_share = conditional_mean(
+        pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
+    )
     plot_cohort_card(
         p7[clean], cond_mean[clean], model_share[clean],
         pred["model_support7"][clean], benchmark.subset(clean),
@@ -1918,19 +1890,10 @@ def run_real_rock_eval(
     thresholded = presence_scores(p7[benchmark.clean],
                                   benchmark.presence[benchmark.clean])
     scored_mask = benchmark.numeric | benchmark.censored
-    if n_components == 1:
-        alpha0 = (alpha7 * scored_mask).sum(1)
-        off_vocab_share = pred["off_vocab_alpha"] / np.clip(
-            alpha0 + pred["off_vocab_alpha"], 1e-12, None
-        )
-    else:
-        # per-component off-vocab share, gate-weighted (concentrations from
-        # different components are not summable)
-        alpha0_k = (alpha7 * scored_mask[:, None, :]).sum(-1)
-        share_k = pred["off_vocab_alpha"] / np.clip(
-            alpha0_k + pred["off_vocab_alpha"], 1e-12, None
-        )
-        off_vocab_share = (np.exp(log_w) * share_k).sum(1)
+    alpha0 = (alpha7 * scored_mask).sum(1)
+    off_vocab_share = pred["off_vocab_alpha"] / np.clip(
+        alpha0 + pred["off_vocab_alpha"], 1e-12, None
+    )
 
     per_group = []
     for i, group in enumerate(GROUPS):

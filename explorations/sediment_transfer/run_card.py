@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval import real_rock
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
+from cnmineral.eval.mode_head import conditional_mean
 from cnmineral.eval.real_rock import (
     climatology,
     mixture_share_interval,
@@ -80,21 +80,13 @@ def main() -> None:
 
     clean = benchmark.clean & benchmark.has_magnitude
     p7, alpha7 = pred["p7"], pred["alpha7"]
-    log_w = pred.get("log_w")
     numeric = benchmark.numeric.astype(np.float64)
-    if log_w is None:
-        forced_share = conditional_mean(alpha7, numeric)
-        model_share = conditional_mean(
-            pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
-        )
-    else:
-        forced_share = mixture_conditional_mean(alpha7, log_w, numeric)
-        model_share = mixture_conditional_mean(
-            pred["alpha7_model_support"], pred["log_w_model_support"],
-            pred["model_support7"].astype(np.float64),
-        )
+    forced_share = conditional_mean(alpha7, numeric)
+    model_share = conditional_mean(
+        pred["alpha7_model_support"], pred["model_support7"].astype(np.float64)
+    )
     nll = real_rock_nll(p7, alpha7, benchmark.presence, benchmark.magnitude,
-                        benchmark.numeric, log_w=log_w)
+                        benchmark.numeric)
     null = climatology(benchmark)
     null_nll = real_rock_nll(null["p7"], null["alpha7"], benchmark.presence,
                              benchmark.magnitude, benchmark.numeric)
