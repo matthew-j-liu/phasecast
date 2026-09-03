@@ -1,21 +1,21 @@
 """How many labelled real rocks close the sim-to-real gap, and what were the
 simulated labels worth? (#52, #53)
 
-Seven arms fit on real modal labels drawn as whole stratigraphic units and
+Six arms fit on real modal labels drawn as whole stratigraphic units and
 scored on a fixed held-out slice (--eval-split; val since the test slice was
 spent 2026-08-03), over a sweep of labelled-rock budgets.
 
-Three correct the frozen simulator-supervised head (`vector` in `matrix`, and
-`tailed` forking from `matrix`), and answer how many eruptions are worth
-transcribing.  Three more train a group-space hurdle head on measured labels
+Two correct the frozen simulator-supervised head (`vector` in `matrix`), and
+answer how many eruptions are worth transcribing.  Three more train a
+group-space hurdle head on measured labels
 alone, never seeing a simulated label, and differ only in what they read about
 the rock: the frozen encoder's latent (`measured`), the assay that latent was
-computed from (`measured_raw`), or a constant (`measured_ablated`).  A seventh
+computed from (`measured_raw`), or a constant (`measured_ablated`).  A sixth
 (`adapted`) adapts the simulator-supervised head itself rather than its
 outputs, which is what separates "the simulated labels were worth less" from
 "the correction was too thin to carry them".
 
-Differencing across those seven prices four things separately -- what the
+Differencing across those six prices four things separately -- what the
 simulator supervision bought, what the encoder bought over the raw chemistry,
 what the cohort's own label marginal bought without reading the rock at all,
 and how much of the correction arms' shortfall was the correction being
@@ -78,14 +78,14 @@ RESULTS = Path(__file__).resolve().parent / "results"
 # rather than re-selected on every run so the curve is reproducible and the
 # val slice's contribution stays one scalar per arm.
 WEIGHT_DECAY: dict[str, float] = {
-    "vector": 0.1, "matrix": 1.0, "mlp": 3.0, "tailed": 1.0,
-    "measured": 1.0, "measured_raw": 1.0, "measured_ablated": 1.0,
-    "adapted": 10.0,
+    "vector": 0.01, "matrix": 1.0, "mlp": 3.0,
+    "measured": 1.0, "measured_raw": 1.0, "measured_ablated": 10.0,
+    "adapted": 1.0,
 }
 
 # The correction arms compared on the curve; mlp is off it because its capacity
 # never repaid itself at any labelled budget (#52).
-CORRECTION_ARMS: tuple[str, ...] = ("vector", "matrix", "tailed")
+CORRECTION_ARMS: tuple[str, ...] = ("vector", "matrix")
 
 # One head, three inputs.  `measured` reads the frozen encoder's latent;
 # `measured_raw` reads the assay that latent was computed from; and
@@ -94,12 +94,11 @@ CORRECTION_ARMS: tuple[str, ...] = ("vector", "matrix", "tailed")
 # and the cohort's own label marginal each contributed (#53).
 MEASURED_ARMS: tuple[str, ...] = ("measured", "measured_raw", "measured_ablated")
 
-# The correction arms fit at most 123 parameters on the frozen head's outputs,
+# The correction arms fit at most 119 parameters on the frozen head's outputs,
 # so their loss to the measured arm reads as "the head was never adapted, only
 # rescaled".  This arm adapts it: low-rank updates inside its own linear layers,
 # trained on measured labels, at a trainable budget matched to the measured
-# head's.  It inherits the frozen head's single Dirichlet, so the same-K
-# comparison is `matrix` rather than `tailed`.
+# head's.
 ADAPTED_ARM: str = "adapted"
 
 CURVE_ARMS: tuple[str, ...] = CORRECTION_ARMS + MEASURED_ARMS + (ADAPTED_ARM,)
@@ -110,15 +109,15 @@ CONTRAST_ARMS: tuple[str, ...] = (
 )
 
 # Every arm is measured; not every arm communicates.  The figures drop `vector`
-# (dominated everywhere, and its ceiling is not the one being argued about) and
-# `matrix`, since showing two rungs of the same correction invites the reader to
-# adjudicate between them instead of between label sources.  `tailed` is the
-# rung we shipped, so it is the one the figures name.
-PLOT_ARMS: tuple[str, ...] = ("tailed",) + MEASURED_ARMS
+# (dominated everywhere, and its ceiling is not the one being argued about), so
+# the reader adjudicates between label sources rather than between two rungs of
+# the same correction.  `matrix` is the canonical rung, so it is the one the
+# figures name.
+PLOT_ARMS: tuple[str, ...] = ("matrix",) + MEASURED_ARMS
 
 BUDGETS: tuple[int, ...] = (25, 50, 100, 200, 400)
 ARM_COLOR = {"vector": "tab:blue", "matrix": "tab:orange", "mlp": "tab:green",
-             "tailed": "tab:red", "measured": "tab:purple",
+             "measured": "tab:purple",
              "measured_raw": "tab:brown", "measured_ablated": "tab:gray",
              "adapted": "tab:cyan"}
 
@@ -290,7 +289,7 @@ def plot_units_axis(rows, out_path: Path, subtitle: str,
 
 
 ARM_LABEL = {
-    "tailed": "corrected simulator head",
+    "matrix": "corrected simulator head",
     "measured": "measured labels, reads encoder latent",
     "measured_raw": "measured labels, reads raw assay",
     "measured_ablated": "measured labels, reads nothing",
@@ -328,7 +327,7 @@ def plot_share_mae(zero_shot, rows, out_path: Path, subtitle: str,
     print(f"saved {out_path}")
 
 
-def crossing_budget(rows, arm: str = "tailed") -> dict:
+def crossing_budget(rows, arm: str = "matrix") -> dict:
     """Where the measured arm's median overtakes `arm`'s, in labelled rocks.
 
     The exchange rate the two arms price: below this budget the simulated

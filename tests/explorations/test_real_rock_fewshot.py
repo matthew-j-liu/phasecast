@@ -126,7 +126,7 @@ def test_crossing_reports_none_when_the_arms_never_cross():
     it is the exchange rate reading "more than the budget we swept"."""
     rows = [{"arm": a, "budget": b, "n_rocks": b, "joint": j}
             for b in (10, 30)
-            for a, j in (("tailed", 1.0), ("measured", 5.0))]
+            for a, j in (("matrix", 1.0), ("measured", 5.0))]
     assert crossing_budget(rows)["rocks"] is None
 
 

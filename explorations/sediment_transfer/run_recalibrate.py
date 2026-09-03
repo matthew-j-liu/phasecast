@@ -1,10 +1,11 @@
 """How much of the sediment failure is recoverable by rescaling?
 
 The du Bray protocol on a benchmark whose test slice has never been spent:
-weight decay chosen once on val, the layer fit on train, scored on test. All
-three tiers, because the tailed tier's contamination parameters are the part
-#63 suspected of encoding du Bray's visual-estimate precision, and Andrews is
-XRD Rietveld.
+weight decay chosen once on val, the layer fit on train, scored on test.  Both
+tiers.  (A third, `tailed`, was scored here while it existed: its contamination
+parameters were the part #63 suspected of encoding du Bray's visual-estimate
+precision, and Andrews is XRD Rietveld; the tier was deleted 2026-09-03 once its
+margin was traced to the amphibole pin.)
 """
 
 import os
@@ -37,7 +38,7 @@ from load_andrews import load_andrews, write_split
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 DEFAULT_CHECKPOINT = "checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt"
-TIERS = ("vector", "matrix", "tailed")
+TIERS = ("vector", "matrix")
 TERMS = ("bernoulli", "dirichlet", "joint")
 
 

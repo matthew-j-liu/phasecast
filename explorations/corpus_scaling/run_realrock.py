@@ -1,7 +1,6 @@
 """Score the corpus-scaling ladder on the real-rock benchmark (#60).
 
   python explorations/corpus_scaling/run_realrock.py
-  python explorations/corpus_scaling/run_realrock.py --tier tailed
   python explorations/corpus_scaling/run_realrock.py --tags joint_heads_allrock_tuned_seed0
 
 Run from the repo root after `run_ladder.py` has trained the
@@ -67,7 +66,7 @@ SEED_REPEAT_TAG = "corpus_scaling_allrock_n2500_seed1"
 TOP_OF_LADDER = (2500, 5000, 10000)
 
 # values selected on val per tier; see run_curve.WEIGHT_DECAY
-WEIGHT_DECAY = {"matrix": 1.0, "tailed": 1.0}
+WEIGHT_DECAY = {"matrix": 1.0}
 
 
 def assert_nested_rosters() -> None:

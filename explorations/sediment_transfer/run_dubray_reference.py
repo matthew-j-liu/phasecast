@@ -3,8 +3,9 @@
 Same checkpoint, same statistics, so the cross-benchmark comparison is not
 against figures measured on a different arm. Emits the headline NLL against
 climatology, the per-group median share ratio, and climatology per split slice
--- the last because the recorded tailed-tier number is val-scored while the
-Andrews one is test-scored, and a margin over the null only means something
+-- the last because the recorded eruption-v2 recalibrated number is
+val-scored while the Andrews one is test-scored, and a margin over the null
+only means something
 when both sides are on the same slice.
 
 Reads the benchmark on its default basis (the visual phenocryst estimate), so

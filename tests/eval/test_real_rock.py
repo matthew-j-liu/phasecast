@@ -616,7 +616,7 @@ def test_brier_decomposes_into_uncertainty_resolution_reliability():
 
 def test_mixture_share_interval_reduces_to_share_interval_at_one_component():
     """The bisected mixture quantiles must agree with the closed-form Beta
-    ones when the mixture is a single component, or the tailed recalibrator's
+    ones when the mixture is a single component, or a two-component arm's
     coverage numbers are not comparable with the single-Dirichlet arms'."""
     from cnmineral.eval.real_rock import share_interval
 

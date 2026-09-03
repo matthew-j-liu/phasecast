@@ -29,11 +29,12 @@ class MeasuredModeHead(nn.Module):
     mixture-shaped so `training.real_rock_recalibrator.score_predictions` takes
     it unchanged; at `n_components` 1 the single log-weight is exactly 0.
 
-    `n_components` defaults to 2 to match the canonical `tailed` recalibration
-    tier, whose entire margin over `matrix` came from a two-parameter precision
-    contamination.  A single Dirichlet cannot express that tail, and scoring the
-    two arms against each other with only one of them able to would measure tail
-    flexibility rather than label source.
+    `n_components` defaults to 2.  It was set to match the two-component
+    recalibration tier that was canonical when these arms were built (deleted
+    2026-09-03 once its margin was traced to the amphibole pin), so that scoring
+    the two against each other measured label source rather than tail
+    flexibility; the canonical `matrix` tier is a single Dirichlet, and the
+    default stays at 2 so every recorded measured-arm result reproduces.
 
     No dropout: the fit is full-batch with no per-draw early stopping, so weight
     decay is deliberately the one selected regularizer, exactly as it is for the

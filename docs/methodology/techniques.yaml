@@ -411,13 +411,6 @@ techniques:
       - "ablate_latent"
       - "use_raw_chemistry"
       - "raw_chemistry"
-  - name: precision_contamination
-    type: architecture
-    patterns:
-      - "contam_logit"
-      - "contam_logk"
-      - "CONTAM_LOGIT_BIAS"
-      - "mixture_share_interval"
   - name: unit_grouped_split
     type: preprocessing
     patterns:
@@ -434,7 +427,6 @@ techniques:
     patterns:
       - "preferred_basis"
       - "POINTCOUNT_BASIS"
-      - "contamination_responsibility"
       - "counting_noise"
   - name: few_shot_learning_curve
     type: evaluation

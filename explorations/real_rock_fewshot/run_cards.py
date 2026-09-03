@@ -55,7 +55,7 @@ from cnmineral.training.real_rock_recalibrator import (
 RESULTS = Path(__file__).resolve().parent / "results"
 
 # the value selected on val for the matrix tier; see run_curve.WEIGHT_DECAY
-WEIGHT_DECAY = {"vector": 0.1, "matrix": 1.0, "mlp": 3.0}
+WEIGHT_DECAY = {"vector": 0.01, "matrix": 1.0, "mlp": 3.0}
 
 
 def sample_conditions(cond_head, latent, scenarios, n, rng):
@@ -89,9 +89,8 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--budget", type=int, default=25,
                         help="labelled rocks to condition on, drawn as whole units")
-    # single-Dirichlet tiers only: the card intervals and the scenario-view
-    # correction read the Beta marginal directly, which the tailed tier's
-    # mixture output breaks
+    # the card intervals and the scenario-view correction read the Beta
+    # marginal directly, so every tier here must emit a single Dirichlet
     parser.add_argument("--tier", choices=("vector", "matrix", "mlp"),
                         default="matrix")
     parser.add_argument("--draw-seed", type=int, default=0)

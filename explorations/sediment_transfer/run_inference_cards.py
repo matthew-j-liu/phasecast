@@ -60,9 +60,9 @@ DEFAULT_CHECKPOINT = "checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt"
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--checkpoint", type=Path, default=REPO / DEFAULT_CHECKPOINT)
-    # single-Dirichlet tiers only: the card intervals and the scenario-view
-    # correction read the Beta marginal directly, which the tailed tier's
-    # mixture output breaks (same constraint as the volcanic cards)
+    # the card intervals and the scenario-view correction read the Beta
+    # marginal directly, so every tier here must emit a single Dirichlet (same
+    # constraint as the volcanic cards)
     parser.add_argument("--tier", choices=("vector", "matrix", "mlp"),
                         default="matrix")
     parser.add_argument("--budget", type=int, default=None,

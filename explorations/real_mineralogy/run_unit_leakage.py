@@ -32,7 +32,6 @@ import re
 from pathlib import Path
 
 import numpy as np
-import torch
 
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.real_rock import load_benchmark, split_mask
@@ -47,7 +46,7 @@ from cnmineral.training.real_rock_recalibrator import (
 RESULTS = Path(__file__).resolve().parent / "results"
 
 # selected on val for the production recalibrator; see run_curve.WEIGHT_DECAY
-WEIGHT_DECAY_TAILED = 1.0
+WEIGHT_DECAY_MATRIX = 1.0
 
 
 def normalize_unit(unit: str) -> str:
@@ -131,31 +130,31 @@ def main() -> None:
 
     recalibrator = fit_recalibrator(
         build_group_predictions(head, benchmark, latents).subset(train),
-        tier="tailed", weight_decay=WEIGHT_DECAY_TAILED,
+        tier="matrix", weight_decay=WEIGHT_DECAY_MATRIX,
     )
 
     arms = {}
     for name, mask in (("all", val), ("leak_free", val & ~leaking)):
         gp = build_group_predictions(head, benchmark, latents).subset(mask)
         zero = score_recalibrator(None, gp)
-        tailed = score_recalibrator(recalibrator, gp)
+        fitted = score_recalibrator(recalibrator, gp)
         arms[name] = {
             "n": int(mask.sum()),
             "zero_shot_joint": float(zero["joint"].mean()),
-            "tailed_joint": float(tailed["joint"].mean()),
+            "matrix_joint": float(fitted["joint"].mean()),
         }
         print(f"\nval {name} (n={arms[name]['n']})")
         print(f"  zero-shot joint  {arms[name]['zero_shot_joint']:.4f}")
-        print(f"  tailed recalib.  {arms[name]['tailed_joint']:.4f}")
+        print(f"  matrix recalib.  {arms[name]['matrix_joint']:.4f}")
 
-    delta = arms["leak_free"]["tailed_joint"] - arms["all"]["tailed_joint"]
+    delta = arms["leak_free"]["matrix_joint"] - arms["all"]["matrix_joint"]
     # A leak inflates the rocks it touches, so removing them would RAISE the
     # score.  A fall means the flagged rocks were harder than the rest, which is
     # the opposite signature and leaves nothing to repair.
     verdict = ("flagged rocks are harder than the rest -- no leak signature"
                if delta < 0 else
                "flagged rocks score better than the rest -- leak plausible")
-    print(f"\nleak-free minus all, tailed: {delta:+.4f} nats -- {verdict}")
+    print(f"\nleak-free minus all, matrix: {delta:+.4f} nats -- {verdict}")
 
     tag = args.checkpoint.parent.name
     out_dir = RESULTS / tag

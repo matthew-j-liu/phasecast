@@ -628,7 +628,7 @@ def s_workflow(prs):
              "design -- 1.83M head params against a 3.23M frozen encoder -- which is what "
              "makes re-supervising the heads against a different label source a retrain "
              "rather than a rebuild. A fourth stage exists downstream for real rocks: a "
-             "123-parameter recalibrator fit on measured modes, two slides on from here.")
+             "119-parameter recalibrator fit on measured modes, two slides on from here.")
 
 
 def s_heads(prs):
@@ -1304,7 +1304,7 @@ def s_joint_loss(prs):
 
 def s_recalibrator_anatomy(prs):
     s = new_slide(prs)
-    header(s, "SIM-TO-REAL", "Inside the recalibrator: 121 numbers between corpus and real rock")
+    header(s, "SIM-TO-REAL", "Inside the recalibrator: 119 numbers between corpus and real rock")
     caption(s, 0.55, 1.15, 12.2, "the heads learn from MAGEMin labels, so on real rocks the "
             "ranking transfers but the scale does not (Pearson r 0.5-0.76 against negative "
             "R2 on four of seven groups). This is the correction fit on measured modes -- "
@@ -1315,32 +1315,30 @@ def s_recalibrator_anatomy(prs):
     box(s, 3.7, 2.6, 2.4, 1.5, ["coarsen to 7 groups",
         ("fsp px amp bi ol",), ("opq q -- where real",), ("modal data lives",)], BLUE, size=12)
     for i, (y, h_, lines_, col) in enumerate([
-        (1.95, 1.05, ["presence: logit space", ("scale, offset, 7x7 mix",)], TEAL),
-        (3.25, 1.05, ["magnitude: multiplicative", ("alpha x exp(offset + 7x7 mix",),
-                      ("on log alpha) -- keeps exact zeros",)], ORANGE),
-        (4.55, 1.05, ["tail: precision contamination", ("weight eps on a second alpha x k",),
-                      ("component -- same mean, fatter tail",)], PURPLE),
+        (2.3, 1.05, ["presence: logit space", ("scale, offset, 7x7 mix",)], TEAL),
+        (3.9, 1.05, ["magnitude: multiplicative", ("alpha x exp(offset + 7x7 mix",),
+                     ("on log alpha) -- keeps exact zeros",)], ORANGE),
     ]):
         line(s, 6.1, 3.35, 6.5, y + h_ / 2, GRAYT, 1.4)
         box(s, 6.5, y, 4.0, h_, lines_, col, size=12)
         flow_arrow(s, 10.6, y + h_ / 2 - 0.17, 0.35, 0.34)
         box(s, 11.05, y + 0.05, 1.85, h_ - 0.1,
-            [["corrected p", ("per group",)], ["corrected alpha", ("per group",)],
-             ["2-component", ("mixture out",)]][i], col, lit=False, size=11)
-    caption(s, 0.55, 5.8, 12.2, "121 trainable params on a frozen 5.07M stack (0.002%): "
-            "7 presence scales + 7 offsets + 7 magnitude offsets + two 7x7 mixes + 2 "
-            "contamination params. The tiers nest -- vector (21) in matrix (119), "
-            "and tailed = matrix + 2. Identity at initialization, so an unfit recalibrator "
+            [["corrected p", ("per group",)], ["corrected alpha", ("per group",)]][i],
+            col, lit=False, size=11)
+    caption(s, 0.55, 5.8, 12.2, "119 trainable params on a frozen 5.07M stack (0.002%): "
+            "7 presence scales + 7 offsets + 7 magnitude offsets + two 7x7 mixes. The tiers "
+            "nest -- vector (21) in matrix (119) in mlp (1061, a comparison arm that never "
+            "repaid its capacity). Identity at initialization, so an unfit recalibrator "
             "reproduces the zero-shot number exactly and every gain reads as nats recovered.",
             11, INK, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.45, 12.2, "dials: Adam, lr 0.05, 400 epochs, no per-draw early stopping "
-            "by design . weight decay picked on val per tier (vector 0.1, matrix 1.0, tailed "
-            "1.0) . every group's correction is fit; amphibole's is not interpretable (the "
+            "by design . weight decay picked on val per tier (vector 0.01, matrix 1.0) . "
+            "every group's correction is fit; amphibole's is not interpretable (the "
             "mapping audit's density band straddles zero there), which the audit says, "
             "not the layer.", 10, GRAYT, align=PP_ALIGN.LEFT)
     caption(s, 0.55, 6.95, 12.2, "ground truth: measured modal data, eruption-v2 benchmark. "
-            "640 least-altered rocks split by eruption unit -- 368 train (the fit) / 111 val "
-            "(every number on the next slide) / 161 test, sealed.", 10, GRAYT,
+            "640 least-altered rocks split by eruption unit -- 372 train (the fit) / 106 val "
+            "(every number on the next slide) / 162 test, sealed.", 10, GRAYT,
             align=PP_ALIGN.LEFT)
     notes(s, "Anatomy of the sim-to-real recalibrator "
              "(cnmineral.models.real_rock_recalibrator.RealRockRecalibrator). This is the "
@@ -1355,82 +1353,81 @@ def s_recalibrator_anatomy(prs):
              "exact zeros wherever a group has no member phase on the support, alpha*exp(c) "
              "keeps those zeros, and an additive correction in log space would turn them "
              "into -inf. Param counts instantiated from the module, exact: vector 21, matrix "
-             "119, mlp 1061, tailed 121; the 5.07M denominator is the frozen encoder "
+             "119, mlp 1061; the 5.07M denominator is the frozen encoder "
              "(3,234,699 trainable) plus heads (1,830,337). Silica is not an input: a "
-             "magnitude-side location slope was built alongside the tailed tier, measured "
-             "+0.007 [-0.004, +0.016] nats, and excised (journal 2026-08-06); the "
-             "presence-side slopes on q and amp measured +0.002 nats (journal 2026-08-18) "
-             "and were removed after submission (journal 2026-09-02). The contamination "
-             "is parameterized as an offset from a -3.0 prior logit so weight decay shrinks "
-             "toward 'rare contamination' (eps ~0.05) rather than the eps = 0.5 a raw logit "
-             "would decay to; k = 1 at init collapses the mixture, preserving "
-             "identity-at-init. Splits are clustered by eruption unit, not by rock, because "
-             "rocks from one unit are not independent samples.")
+             "magnitude-side location slope was built, measured +0.007 [-0.004, +0.016] "
+             "nats, and excised (journal 2026-08-06); the presence-side slopes on q and amp "
+             "measured +0.002 nats (journal 2026-08-18) and were removed after submission "
+             "(journal 2026-09-02). The submitted layer was matrix plus a two-parameter "
+             "precision contamination ('tailed', 121 params, val 1.277 -> 0.972); that "
+             "margin was traced to the amphibole pin (unpinned matrix scores 0.688 on the "
+             "same rocks and the contaminant sits at its identity), so the tier was deleted "
+             "(journal 2026-09-03). Splits are clustered by eruption unit, not by rock, "
+             "because rocks from one unit are not independent samples.")
 
 
 def s_recalibrator_transfer(prs):
     s = new_slide(prs)
-    header(s, "SIM-TO-REAL", "What 123 parameters buy, and how many labelled rocks it takes")
-    caption(s, 0.55, 1.15, 12.2, "every level below is joint NLL on the same 111 val rocks, "
+    header(s, "SIM-TO-REAL", "What 119 parameters buy, and how many labelled rocks it takes")
+    caption(s, 0.55, 1.15, 12.2, "every level below is joint NLL on the same 106 val rocks, "
             "lower better; contrasts are paired and clustered on the 39 eruption units, "
             "because rocks from one eruption are not independent.", 13, GRAYT,
             align=PP_ALIGN.LEFT)
-    levels = [("zero-shot", 13.44, GRAYT), ("vector (23)", 3.76, TEAL),
-              ("matrix (121)", 1.28, ORANGE), ("tailed (123)", 0.97, GREEN)]
+    levels = [("zero-shot", 11.29, GRAYT), ("vector (21)", 1.42, TEAL),
+              ("matrix (119)", 0.83, ORANGE)]
     for i, (name, v, col) in enumerate(levels):
         y = 2.0 + i * 0.72
         box(s, 0.55, y, 2.6, 0.6, [name], col, lit=(i > 0), size=13)
-        w = max(0.12, v / 13.44 * 5.4)
+        w = max(0.12, v / 11.29 * 5.4)
         bar = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(3.3), Inches(y + 0.1),
                                  Inches(w), Inches(0.4))
         bar.fill.solid(); bar.fill.fore_color.rgb = _rgb(col)
         bar.line.fill.background(); bar.shadow.inherit = False
         caption(s, 3.3 + w + 0.1, y + 0.12, 1.5, f"{v:.2f}", 12, col, align=PP_ALIGN.LEFT)
-    caption(s, 0.55, 4.95, 8.4, "matrix -> tailed is +0.304 [+0.049, +0.659] nats, ALL of it "
-            "in the Dirichlet term -- the two tiers share a presence branch, so that "
-            "contrast is exactly 0.000. Fitted eps 0.052, k 0.507: about 5% of the mass "
-            "moves to a component with half the concentration, same mean.",
-            11, INK, align=PP_ALIGN.LEFT)
-    gaussian(s, 9.3, 2.15, 3.4, 1.25, [(0.45, 0.075, 1.0)], ORANGE,
-             "matrix: one Dirichlet, thin tails")
-    gaussian(s, 9.3, 4.0, 3.4, 1.25, [(0.45, 0.075, 0.948), (0.45, 0.15, 0.052)], GREEN,
-             "tailed: same mean, 5% wide component")
-    caption(s, 9.1, 5.35, 3.8, "the repair is to interval-MISS rocks (score), not to the "
-            "stated intervals (width)", 10, GRAYT)
+    caption(s, 0.55, 4.3, 8.4, "vector -> matrix is +0.59 [+0.25, +0.94] nats, on both terms "
+            "(Dirichlet +0.40, Bernoulli +0.19): the 7x7 coupling pays. Every group's "
+            "correction is fit. With amphibole's pinned at zero (the layer through "
+            "2026-09-02) matrix scored 1.28 here and a two-parameter heavy-tail term won "
+            "0.30 of it back -- the pin's own cost, measured on identical rocks -- so that "
+            "tier is gone.", 11, INK, align=PP_ALIGN.LEFT)
+    box(s, 9.3, 2.0, 3.5, 2.5, ["80% interval coverage on val",
+        ("zero-shot: 0.19-0.55 per group",), ("matrix: 0.64-0.89",),
+        ("median width 0.20-0.31 after the fit",),
+        ("widening buys score, not vacuity",)], ORANGE, lit=False, size=11)
+    caption(s, 9.1, 4.65, 3.8, "the correction widens the Dirichlet (val alpha0 ~2.7x "
+            "smaller) and recentres opq/bi up, q/fsp down", 10, GRAYT)
     box(s, 0.55, 5.75, 12.25, 0.8, ["how many labelled rocks does this need?",
-        ("~26 rocks recover ~77% of the 9.55-nat magnitude gain, then it flattens hard. "
-         "matrix and tailed are indistinguishable there (paired delta -0.001) -- 25 rocks "
-         "carry too few interval misses to identify two contamination parameters -- and "
-         "tailed then wins 10/10 paired draws at every budget from 50 up (-0.11 at 100, "
-         "-0.29 at 200, -0.30 at full train). vector lags from 50 on and never goes "
-         "negative.",)], PURPLE, lit=False, size=12)
+        ("25 rocks (~8 eruptions) recover ~49% of matrix's 7.4-nat magnitude gain and "
+         "~79% of vector's 7.0; 50 rocks recover 86% (matrix). vector and matrix tie on "
+         "paired draws through 50 rocks (5/10), then matrix wins 10/10 from 100 up "
+         "(-0.45 at 100, -0.55 at 200, -0.59 at full train).",)], PURPLE, lit=False, size=12)
     caption(s, 0.55, 6.75, 12.25, "current limits: at 25 rocks the 10-90 draw band spans "
-            "~2.5 nats, so WHICH eruptions you label dominates which tier you fit. The "
-            "silica location hypothesis was tested and refuted at the joint-likelihood "
-            "level. Rendered verdicts stay stamped to the tier that produced them. The "
-            "161-rock test slice is sealed. full report: explorations/real_rock_fewshot/"
-            "results/<tag>/", 10, GRAYT, align=PP_ALIGN.LEFT)
+            "~6 nats (2.5 to 8.8), so WHICH eruptions you label dominates which tier you "
+            "fit. Rendered verdicts stay stamped to the tier that produced them. The "
+            "162-rock test slice is sealed and has never been scored. full report: "
+            "explorations/real_rock_fewshot/results/<tag>/", 10, GRAYT, align=PP_ALIGN.LEFT)
     notes(s, "Eval-semantics slide for the recalibrator. All levels are val-only "
-             "(111 rocks, 39 eruption units) with the layer fit on the 368-rock train "
-             "roster; the test slice is untouched. Levels from tailed_acceptance.json: "
-             "zero-shot joint 13.444 (dirichlet 7.630 + bernoulli 5.813), vector 3.761, "
-             "matrix 1.277, tailed 0.972. The matrix-minus-tailed contrast is +0.30445 "
-             "[+0.04942, +0.65876] over 39 units; the bernoulli component of that contrast "
-             "is exactly 0.0 because tailed forks from matrix and leaves the presence "
-             "branch untouched -- worth saying out loud, since a reader may expect the "
-             "usual both-terms-move pattern. Fitted contamination eps 0.05209, k 0.50665. "
-             "Curve numbers from curve_val.json (10 whole-unit draws per budget, budgets "
-             "25-400, paired across tiers, weight decay re-selected on this checkpoint): "
-             "per-budget median dirichlet for tailed runs 0.324 at 25, -0.753 at 50, -1.154 "
-             "at 100, -1.814 at 200, -1.924 at full train, against a 7.630 zero-shot -- so "
-             "the 9.55-nat gain is 7.630 minus -1.924. The distribution drawings are "
-             "illustrative but to scale for k = 0.507: halving the concentration roughly "
-             "doubles the variance, so the contaminating component is ~1.4x wider at the "
-             "same mean. Note the 111-rock val zero-shot (13.444) is NOT the 640-rock "
+             "(106 rocks, 39 eruption units) with the layer fit on the 372-rock train "
+             "roster, rebuilt 2026-09-02 without the silica-containment rule and with unit "
+             "spellings canonicalized; the test slice is untouched. Levels from "
+             "acceptance.json: zero-shot joint 11.293 (dirichlet 5.284 + bernoulli 6.009), "
+             "vector 1.417, matrix 0.829. The vector-minus-matrix contrast is +0.588 "
+             "[+0.248, +0.943] over 39 units, dirichlet +0.397 [+0.114, +0.690], bernoulli "
+             "+0.191 [+0.038, +0.370]. History: the submitted layer was 'tailed' (matrix + "
+             "2-param precision contamination), 1.277 -> 0.972 on the old 111-rock val "
+             "slice with amphibole's magnitude correction pinned at zero; bisected on "
+             "identical rocks, unpinning alone takes matrix to 0.688 and leaves the "
+             "contaminant at its identity (k 0.99), so the 0.30 was the pin's cost and the "
+             "tier was deleted (journal 2026-09-03). Curve numbers from curve_val.json (10 "
+             "whole-unit draws per budget, budgets 25-400, paired across arms, weight decay "
+             "re-selected on this roster: vector 0.01, matrix 1.0): per-budget median "
+             "dirichlet for matrix runs 1.656 at 25, -1.079 at 50, -1.841 at 100, -2.021 at "
+             "200, -2.133 at full train, against a 5.284 zero-shot -- so the 7.4-nat gain is "
+             "5.284 minus -2.133. Note the 106-rock val zero-shot (11.293) is NOT the 640-rock "
              "headline zero-shot (11.638 in results/real_rock_ledger.yaml) -- different "
              "populations, and mixing them is the easiest mistake to make here. Internal "
              "reference, deliberately not on the slide: the climatology baseline reads val "
-             "joint 2.175 against tailed's 0.965.")
+             "joint 2.286 against matrix's 0.829.")
 
 
 def s_outputs(prs):

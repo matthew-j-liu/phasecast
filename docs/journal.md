@@ -6749,3 +6749,161 @@ the record. Production is K=1 throughout, so no number moves.
 
 **Next.** #67 item 2 (re-split without the silica constraint) and the single
 re-stamp of every real-rock number.
+
+## 2026-09-02 -- benchmark split rebuilt without the silica-containment rule; unit spellings canonicalized (#67 item 2)
+
+**Q.** #67 item 2: rebuild the real-rock roster selecting on the matching
+criterion alone, now that no recalibrator tier reads silica. Which of the other
+roster-moving changes ride along?
+
+**Context.** The rule rejected any candidate whose scored test slice held a rock
+outside train's silica range -- 292 of 400 candidates -- and its only
+justification was the recalibrator's SiO2 terms, which item 1 deleted. A
+read-only re-run of the builder's own loop reproduced the committed roster
+bit-for-bit and showed the rule did almost nothing for balance: dropping it
+moved the winning candidate's score from 0.0794 to 0.0792 while moving 129 of
+724 rocks, because it changes which candidate wins, not how good the winner is.
+Two other pending changes move the roster. The #63 unit-key fragmentation:
+147 spellings collapse to 140 on whitespace and case, six pairs inside one
+subset and one straddling (`FractionTuff`, 1 val rock against 36 train); and
+any change to the unit set reshuffles the whole roster because the candidate
+sequence diverges, so that fix is never free later. And #56 whole-hog.
+
+**Considered.** #56: the undo factor exists for 573 of 640 scored rocks; the 6
+MSH and 5 Pinatubo rocks -- the entire precision tier -- and 67 du Bray rocks
+carry no raw total, and Pinatubo's Table 7 is normalized to 100 by
+construction, so a full conversion is impossible and a partial one is the
+piecemeal state ruled out on 2026-08-06. The silica-quantile term in
+`split_balance` shared the rule's stated rationale but has a model-free one:
+it is the benchmark's counterpart of the corpus's `qap_name` stratification,
+and a slice concentrated at one end of the silica trend scores a different
+task; dropping it would leave no chemistry stratification at all. Weight decay
+for the restamp: the protocol defines the constant as a function of the val
+slice, so it is re-selected on the new one.
+
+**Decision (owner).** All four as recommended. `unit_grouped_split` keeps only
+the `split_balance` argmax. `canonical_units` in the loader maps whitespace /
+case variants to their most common spelling (`?` qualifiers stay distinct; the
+`Strat_Name` disagreement stays unrepaired). Roster rebuilt at seed 0. At the
+July default of 400 candidates the best draw balanced worse than the old
+roster (0.090 against 0.079, val's feldspar base rate 6.7 pp off the
+population), because the smaller unit set changes the candidate sequence and
+the best-of-400 is itself a sample; the criterion reads truth marginals only,
+so searching it harder cannot favour the model, and the default is now 2000
+(`SPLIT_CANDIDATES`), which lands at 0.078 (rate 0.050, silica 0.028).
+Scored 372 train (51 units) / 106 val (43) / 162 test (46); the 90.2 wt%
+rhyolite now sits in train. #56 closed with the benchmark as published; the
+no-renormalization convention is recorded in CLAUDE.md's settled decisions
+and in `tokenize_bulk_frame`'s docstring as a check every new source must
+pass. Test 29 deleted; a loader test for the canonical key added and the
+shipped-benchmark invariant extended.
+
+**Next.** The single restamp of every slice-dependent real-rock number on the
+new roster: weight-decay re-selection, tailed acceptance read, few-shot curve,
+results figures, deck counts, README. Zero-shot ledger entries do not move,
+being scored on all 640 rocks.
+
+## 2026-09-03 -- the tailed tier's margin was the amphibole pin: matrix returns to canonical
+
+**Q.** The restamp's first read on the rebuilt roster scored matrix and tailed
+identically (val joint 0.829 / 0.828) with the contamination term sitting at
+its initialization (eps 0.047, k 0.99). The roster, or yesterday's layer
+changes?
+
+**Context.** Bisected on the old roster with the production checkpoint, the
+same 368 train / 111 val rocks throughout, code checked out per commit:
+
+    before item 1                matrix 1.270   tailed 0.967   k 0.51
+    after item 1 (silica out)    matrix 1.271   tailed 0.968   k 0.51
+    after item 3 (amp unpinned)  matrix 0.688   tailed 0.688   k 0.99
+
+The first two rows reproduce the 08-05 record (the residual 0.005, and
+zero-shot 13.444 -> 13.394, is the 08-18 density-table change). The third is
+the whole effect: freeing amphibole's magnitude correction recovers 0.58 nats
+for matrix on identical rocks, after which the contamination term has nothing
+left to fit. The mechanism is that the per-group magnitude offsets are
+relative, not independent: the fit widens every group's Dirichlet by scaling
+alphas down (vector-tier offsets -0.5 to -2.1), and a zero pinned inside that
+vector held amphibole at its zero-shot sharpness while everything around it
+widened -- inflating amphibole's implied share and leaving exactly the heavy
+tail the contamination term was then fitted against (on val the free fit takes
+the median amphibole alpha 4.5 -> 2.0 with the rest). The pin applied through
+the mixing matrix too, so no tier could route around it. The mapping audit's
+band was a statement about that one offset's location in isolation, and it
+was right about that; it said nothing about the pin's effect on the rest of
+the vector.
+
+**Overturned.** The 2026-08-05 verdict that the contamination term earns the
+whole tailed gain (it earned the pin's cost back), and the item 3 entry's
+"numbers move by ~nothing" (they move by 0.58 nats on val). The paper stands
+as submitted at the tag; this goes on the camera-ready reconcile queue.
+
+**Decision (owner).** Matrix (119 parameters) returns to canonical. Tailed is
+deleted as its own step after this restamp lands, by the rule that deleted the
+K=2 mixture: an exact tie, parameters at initialization, the record kept here
+and at the tag. The restamp records the tie with tailed still present.
+
+**Next.** Finish the restamp (curve with re-selected weight decay, encoder
+pair contrast, trajectory figure, deck, READMEs), then the tailed deletion.
+
+## 2026-09-03 -- restamp on the rebuilt roster (#67 item 2 closes)
+
+**Q.** The single restamp of every slice-dependent real-rock number, on the
+rebuilt roster (372 / 106 / 162 scored) and the layer without silica or the
+amphibole pin, tailed still present so the tie is on record.
+
+**Decision.** Weight decay re-selected per arm on the new val slice: vector
+0.1 -> 0.01, measured_ablated 1 -> 10, adapted 10 -> 1, the rest unchanged;
+the constants are recorded in the fewshot scripts. Acceptance read, val joint:
+zero-shot 11.29, vector 1.42, matrix 0.83, tailed 0.83 (contrast +0.000).
+Encoder pair under identical matrix recalibration, val: allrock-tuned 0.829,
+supportmag 0.957, igneous-tuned 0.946; allrock-tuned minus igneous-tuned
+-0.118 [-0.282, +0.024], supportmag minus allrock-tuned +0.128 [-0.028,
++0.289] -- ties leaning allrock-tuned, as before. Curve (val, ten draws): at
+full train matrix 0.83, measured 0.61, adapted 1.27; matrix wins share error
+against every re-supervised arm (0.102 vs 0.117-0.118, 9-10/10 at every
+budget) and now clears zero-shot share error at 25 rocks; the latent head's
+presence margin over the assay head holds from 50 rocks (+0.37 to +0.51,
+8-10/10) but not at 25; the adapted arm at shrinkage 1 moves presence (6.01 ->
+3.52) and has the best share error from 200 rocks, trailing matrix by +0.44
+joint at full train, all of it presence. The three-way regen contrast JSON is
+left as measured on the old roster: re-running it would either drop its test
+column or spend the new test slice, which nothing has scored. The oracle
+shrinkage read and the plateau probe were not re-run. Results figures, runs/
+metrics and the trajectory figure regenerated; deck regeneration folds into
+the tailed deletion, whose slides it rewrites.
+
+## 2026-09-03 -- tailed tier deleted; matrix is the recalibrator
+
+**Q.** Delete the tailed tier now that it ties matrix exactly with its two
+parameters at initialization, or keep it as a free option.
+
+**Decision (owner).** Deleted, by the rule that deleted the K=2 mixture: an
+exact tie, parameters at initialization, the record kept here and at the
+submission tag. Gone: the tier, `CONTAM_LOGIT_BIAS` and the contamination
+branch in `RealRockRecalibrator`; the two tailed tests; the arm on the curve
+(`matrix` is now the rung the figures name); `run_tailed_acceptance.py`, which
+becomes `run_acceptance.py` (val levels, the vector-vs-matrix contrast,
+coverage and width; `acceptance.json`, `acceptance_coverage_sharpness.png`);
+the point-count contrast's contamination-responsibility read (Spearman +0.22,
+2026-08-06, stands as measured); the tier from the unit-leakage audit, the
+sediment scripts and the corpus-scaling reader; the `precision_contamination`
+technique entry. Recorded results measured under the tier (corpus scaling's
+tailed ladder, the sediment margin, the +0.22) stay in their READMEs marked as
+such. The `MeasuredModeHead` keeps `n_components=2` so its recorded arms
+reproduce; the default now has no canonical-tier reason behind it.
+
+**Acceptance read, matrix canonical (val, 106 rocks / 39 units, fit on 372):**
+zero-shot 11.293, vector 1.417, matrix 0.829; vector minus matrix +0.588
+[+0.248, +0.943] joint, +0.397 Dirichlet, +0.191 Bernoulli -- the coupling
+pays on both terms. 80% coverage per group 0.19-0.55 zero-shot -> 0.64-0.89
+matrix at median width 0.20-0.31. Curve re-run without the arm on the recorded
+constants; matrix recovers 49% of its 7.4-nat magnitude gain at 25 rocks and
+86% at 50, ties vector on paired draws through 50 rocks and wins 10/10 from
+100 up. Deck's two recalibrator slides rewritten around matrix and
+regenerated.
+
+**Left alone, flagged.** `scripts/build/build_numbers.py` still reads
+`tailed_acceptance.json` and the tailed curve rows: it is the submitted
+paper's number builder and belongs to the camera-ready reconcile, not to this
+deletion.

@@ -1,7 +1,7 @@
-"""The honest 25-rock number: median over independent draws, both tiers.
+"""The honest 25-rock number: median over independent draws.
 
-The card run showed one lucky draw; this prices the draw. Fits matrix and
-tailed corrections on 10 independent 25-rock draws from the train slice
+The card run showed one lucky draw; this prices the draw. Fits the matrix
+correction on 10 independent 25-rock draws from the train slice
 (per-rock draws -- no unit labels exist), scores each on the never-spent
 test slice, and reports the median beside the zero-shot, climatology, and
 full-train references.
@@ -76,7 +76,7 @@ def main() -> None:
            "draws": "per-rock (no unit labels exist)",
            "zero_shot": {t: float(zero[t].mean()) for t in TERMS},
            "climatology": clim, "tiers": {}}
-    for tier in ("matrix", "tailed"):
+    for tier in ("matrix",):
         full = score_recalibrator(
             fit_recalibrator(train, tier=tier, weight_decay=wd[tier]), test)
         joints = []

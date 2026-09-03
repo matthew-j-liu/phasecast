@@ -145,7 +145,9 @@ seed repeat at n2500 prices training noise at +0.053 [-0.244, +0.375]).
 
 **The harmful lean is recoverable overconfidence, shown by intervention.**
 Re-scored under the tailed tier (matrix + 2-param heavy-tail precision
-term), the corpus-size penalty mostly vanishes: slope +0.031 [-0.081,
+term; deleted 2026-09-03 after its margin was traced to the amphibole pin,
+so this read is not reproducible from HEAD and the unpinned matrix tier is
+the layer to re-read it with), the corpus-size penalty mostly vanishes: slope +0.031 [-0.081,
 +0.176], top-of-ladder -0.013 [-0.236, +0.203], point spread 0.54 -> 0.21
 nats. Accuracy is insensitive to corpus size everywhere: share MAE
 0.093-0.099 and adapted presence NLL 2.87-2.91 across the full 16x range.

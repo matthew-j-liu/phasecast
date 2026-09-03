@@ -88,8 +88,10 @@ So a few hundred real labels put sedimentary prediction on the same footing as
 volcanic -- which is the most direct evidence yet that the missing ingredient
 is target-domain head supervision, not representation.
 
-**The tailed tier is not a du Bray artifact.** It wins on Andrews too, by 1.08
-nats over matrix. If its heavy tail were mostly modelling visual-estimate
+**The tailed tier is not a du Bray artifact.** (Measured while the tier
+existed; it was deleted 2026-09-03 after its du Bray margin was traced to the
+amphibole pin, and this read was not repeated with the pin gone.) It won on
+Andrews too, by 1.08 nats over matrix. If its heavy tail were mostly modelling visual-estimate
 sloppiness it should not help on XRD Rietveld data. This agrees with the du
 Bray-side result (`explorations/real_mineralogy`, journal 2026-08-06): the
 contamination weight correlates with ruler disagreement at only Spearman +0.22.

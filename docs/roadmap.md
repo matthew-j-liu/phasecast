@@ -190,6 +190,9 @@ Next, one change at a time, each judged on the real-rock benchmark:
    production: matrix and tailed indistinguishable at ~26 rocks,
    tailed wins every paired draw from 50 rocks up, and ~26 rocks
    still recover ~77% of the magnitude gain.
+   **Amended 2026-09-03:** the tailed margin was the cost of the amphibole
+   pin; with the pin gone matrix and tailed tie exactly, the tier was
+   deleted, and matrix (119 parameters) is canonical (journal 2026-09-03).
 4. **#60 real-rock-axis corpus scaling** -- measured and closed
    2026-08-06: corpus-side scaling replicates (no saturation) but the
    real-rock axis is flat across 16x of training bulks -- zero-shot

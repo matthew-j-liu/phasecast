@@ -157,12 +157,10 @@ class AdaptedModeHead(nn.Module):
     The head is deep-copied rather than adapted in place: the caller holds one
     frozen head and shares it across every draw and every arm of the curve.
 
-    It inherits that head's single Dirichlet.  `tailed` and `MeasuredModeHead`
-    are both two-component, and `tailed`'s entire margin over `matrix` was its
-    precision contamination, so the same-K comparison for this arm is `matrix`.
-    Widening `alpha_out` to reach a mixture would be new parameters rather than
-    a low-rank update, and would forfeit the identity at initialization that
-    makes the gain readable.
+    It inherits that head's single Dirichlet, as `matrix` does; only
+    `MeasuredModeHead` is two-component.  Widening `alpha_out` to reach a
+    mixture would be new parameters rather than a low-rank update, and would
+    forfeit the identity at initialization that makes the gain readable.
     """
 
     def __init__(self, head: ModeHead, *, rank: int = RANK) -> None:
@@ -236,7 +234,7 @@ class AdaptedModeHead(nn.Module):
         The head runs at its own dtype and the coarsening at the group map's, so
         the loss is assembled in the same float64 every other arm's is.  The
         trailing `None` is the single-Dirichlet gate, matching what
-        `RealRockRecalibrator` returns off the `tailed` tier.
+        `RealRockRecalibrator` returns.
         """
         out_dtype = self.phase_to_group.dtype
         z = latent.to(self.head_dtype)

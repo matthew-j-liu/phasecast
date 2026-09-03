@@ -22,11 +22,9 @@ Three things make the comparison honest:
     every other contrast in this project reports is close to vacuous here.  It
     is printed for consistency and the paired per-rock distribution is the read.
 
-The last section asks the question that opened this thread: the canonical
-recalibrator's gain comes from a heavy-tail contamination component, and this
-checks whether the rocks it assigns to that component are the rocks the
-geologist eyeballed worst.  61 of the paired rocks are in its fit roster, so
-that read is descriptive, not held out.
+(A last section once asked whether the rocks the tailed recalibrator's
+contamination component claimed were the rocks the geologist eyeballed worst:
+Spearman +0.22, journal 2026-08-06.  It went with the tier on 2026-09-03.)
 
     conda run -n mineral python explorations/real_mineralogy/run_pointcount_contrast.py \
         --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
@@ -52,15 +50,12 @@ from cnmineral.eval.real_rock import (
     POINTCOUNT_BASIS,
     VISUAL_BASIS,
     load_benchmark,
-    split_mask,
 )
 from cnmineral.eval.summary_cards import LEGEND_FS, SUPTITLE_FS, TICK_FS, TITLE_FS
-from cnmineral.losses.mode_loss import masked_dirichlet_nll
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import (
     build_group_predictions,
-    fit_recalibrator,
     paired_bootstrap,
     score_recalibrator,
 )
@@ -72,9 +67,6 @@ RESULTS = Path(__file__).resolve().parent / "results"
 # measured absence and both arms drop them before scoring.
 COVERED_GROUPS: tuple[str, ...] = ("fsp", "amp", "bi", "opq", "q")
 UNCOVERED_PHASES: tuple[str, ...] = ("pyroxene", "olivine")
-
-# selected on val for the production recalibrator; see run_curve.WEIGHT_DECAY
-WEIGHT_DECAY_TAILED = 1.0
 
 
 def _keys(frame: pd.DataFrame) -> pd.Series:
@@ -190,31 +182,8 @@ def total_variation(visual, counted, mask: np.ndarray) -> np.ndarray:
                         - counted.magnitude[mask][:, idx]).sum(1)
 
 
-@torch.no_grad()
-def contamination_responsibility(recalibrator, gp) -> np.ndarray:
-    """Each rock's posterior weight on the fattened Dirichlet component.
-
-    The tailed tier returns the fitted alpha stacked with the same alpha
-    diluted by k, so the responsibility is the softmax of the gate weights plus
-    each component's own log-density.  That is the recalibrator's own statement
-    about which rocks it treats as outliers.  The dilution appends a copy of
-    every component, so the contaminated ones are the second half -- which is
-    the single component at K=1 and stays correct if a mixture head is ever
-    scored here.
-    """
-    _, alpha, log_w = recalibrator(gp.logits7, gp.alpha7, log_w=gp.log_w)
-    logp = []
-    for k in range(alpha.shape[1]):
-        component = alpha[:, k, :]
-        safe = torch.where(gp.numeric > 0, component, torch.ones_like(component))
-        logp.append(-masked_dirichlet_nll(safe, gp.magnitude, gp.numeric,
-                                          reduction="none"))
-    posterior = torch.softmax(torch.stack(logp, dim=1) + log_w, dim=1)
-    return posterior[:, alpha.shape[1] // 2:].sum(1).numpy()
-
-
 def plot_contrast(rows, per_rock, out_path: Path, subtitle: str) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.6))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.6))
 
     ax = axes[0]
     x = np.arange(len(rows))
@@ -236,13 +205,6 @@ def plot_contrast(rows, per_rock, out_path: Path, subtitle: str) -> None:
     ax.set_xlabel("joint NLL vs visual truth", fontsize=TICK_FS)
     ax.set_ylabel("joint NLL vs point count", fontsize=TICK_FS)
     ax.set_title("same rock, same model, two rulers", fontsize=TITLE_FS)
-
-    ax = axes[2]
-    ax.scatter(per_rock["truth_distance"], per_rock["responsibility"], s=22,
-               color="#7a52a1", alpha=0.75)
-    ax.set_xlabel("distance between the two readings", fontsize=TICK_FS)
-    ax.set_ylabel("recalibrator outlier weight", fontsize=TICK_FS)
-    ax.set_title("are the outliers the badly-eyeballed rocks?", fontsize=TITLE_FS)
 
     fig.suptitle(subtitle, fontsize=SUPTITLE_FS)
     fig.tight_layout()
@@ -335,28 +297,11 @@ def main() -> None:
     print(f"\nbinomial floor at {noise['median_points_counted']:.0f} points: "
           + ", ".join(f"{g} +/-{se:.3f}" for g, se in noise["median_share_se"].items()))
 
-    # the production recalibrator is fit on unrestricted visual truth, so the
-    # responsibility read reflects the layer that actually ships
-    scored = full.clean & full.has_magnitude
-    train = build_group_predictions(head, full, latents).subset(
-        split_mask(full, "train") & scored
-    )
-    tailed = fit_recalibrator(train, tier="tailed",
-                              weight_decay=WEIGHT_DECAY_TAILED)
-    responsibility = contamination_responsibility(tailed, gp_visual)
-    distance = total_variation(visual, counted, mask)
-    spearman = float(pd.Series(distance).corr(pd.Series(responsibility),
-                                              method="spearman"))
-    print(f"\ncontamination responsibility vs truth disagreement: "
-          f"spearman {spearman:+.3f} (descriptive -- most of these rocks are "
-          f"in the fit roster)")
-
     per_rock = {
         "bulk_id": visual.bulk_ids[mask].tolist(),
         "nll_visual": zero_visual["joint"],
         "nll_pointcount": zero_counted["joint"],
-        "truth_distance": distance,
-        "responsibility": responsibility,
+        "truth_distance": total_variation(visual, counted, mask),
     }
     tag = args.checkpoint.parent.name
     out_dir = RESULTS / tag
@@ -382,8 +327,6 @@ def main() -> None:
         "contrasts": contrasts,
         "truth_disagreement": rows,
         "counting_noise": noise,
-        "responsibility_spearman": spearman,
-        "responsibility_is_in_sample": True,
         "per_rock": {k: (v if isinstance(v, list) else np.asarray(v).tolist())
                      for k, v in per_rock.items()},
     }, indent=2))

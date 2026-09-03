@@ -19,17 +19,22 @@ tiers: `vector` (21 params: per-group presence scale + offset, per-group
 magnitude log-offset) in `matrix` (119, 7x7 coupling) in `mlp` (1061, with a
 linear skip). Until 2026-09-02 the layer also carried SiO2 slopes on q and amp
 presence (23/121/1095) and pinned amphibole's magnitude correction at zero; the
-results below were measured with both. (Tier names follow the calibration
+July result below was measured with both, and the production-checkpoint
+sections (#53, adapting the head) were restamped on 2026-09-03 without them.
+(Tier names follow the calibration
 literature -- vector scaling, matrix scaling. Before 2026-07-27 they were
 `diagonal` and `linear`; the journal's #52 entries and the shipped figure
 legends carry those older names.)
 
 Split is fixed and grouped by stratigraphic unit (`real_rock_unit_split.csv`,
-built by `scripts/build/build_real_rock_split.py`): 368 train rocks / 51 units,
-111 val, 161 test / 45 units. Units are assigned by rock count rather than
-count of units, or two large units would decide what the test slice measures,
-and the test slice's silica range is constrained to sit inside train's so the
-SiO2 terms are never extrapolated.
+built by `scripts/build/build_real_rock_split.py`): 372 train rocks / 51 units,
+106 val, 162 test / 46 units. Units are assigned by rock count rather than
+count of units, or two large units would decide what the test slice measures.
+The roster was rebuilt on 2026-09-02, without the rule that had kept the test
+slice's silica range inside train's (a rule the recalibrator's SiO2 terms
+required) and with unit spellings canonicalized; the July result below was
+measured on the previous roster, 368 / 111 / 161, and the production-checkpoint
+sections on this one.
 
 The x-axis is labelled rocks drawn as whole units, ten random draws per budget,
 plotted with a 10-90 spread band. Weight decay is chosen once per tier on the
@@ -200,31 +205,37 @@ computed from, or neither.  All six arms fit the identical drawn rocks at each
 (budget, draw), so every comparison is paired within the draw.
 
 Read the paired per-draw difference, never the difference of medians.  At the
-26-rock budget the two differ by almost a nat (+1.38 against +2.28) because the
+25-rock budget the two differ by a nat (+1.10 against +2.10) because the
 arms' worst draws are different draws.  For the same reason the 10-90 bands on
 the figures overlap almost completely while the paired sign is 10/10 -- the
 bands understate every contrast here, and a paired-difference panel is what
 the figures owe.
 
-Three things separate cleanly, all on the val slice at the full 368-rock roster:
+Three things separate, all on the val slice at the full 372-rock roster
+(restamped 2026-09-03, amphibole correction free, rebuilt roster):
 
-- **The encoder earns its place, on presence.** A head given the latent beats
-  one given only the assay by +0.50 to +0.67 nats at every budget swept (9-10
-  of 10 draws), and beats one given neither by +0.77.  The ordering on the
-  presence term alone is 2.77 / 3.36 / 3.55.  Below ~50 rocks the assay-given
-  head is beaten outright by the one given neither: twenty-two raw numbers
-  overfit where the latent does not.
+- **The encoder earns its place, on presence, from 50 rocks up.** A head given
+  the latent beats one given only the assay by +0.37 to +0.51 nats at every
+  budget from 50 (8-10 of 10 draws), and beats one given neither by +0.48 to
+  +0.65 over the same range (9-10 of 10).  The ordering on the presence term
+  alone is 2.99 / 3.37 / 3.58.  At 25 rocks neither margin is established: the
+  latent head splits the draws against the assay head (5 of 10) and loses to
+  the head given nothing (3 of 10), and the assay-given head is beaten outright
+  by the one given neither: twenty-two raw numbers overfit where the latent
+  mostly does not.
 - **Nothing the head reads changes the amounts.**  Given the measured mineral
-  list, the amount term is 2.50 / 2.50 / 2.51 nats across the three -- the head
-  that cannot tell one rock from another matches the one reading full
+  list, the amount term is -2.40 / -2.39 / -2.37 nats across the three -- the
+  head that cannot tell one rock from another matches the one reading full
   chemistry.  Whether that is petrology or the benchmark's 7-group resolution
   is not resolved here.
 - **The simulation-trained head is the only source of per-rock amount
-  information.** It wins absolute share error (0.0954 against ~0.1035 for all
-  three re-supervised heads, 10/10 draws from 210 rocks) while losing the
-  likelihood badly (0.97 against 0.27).  Better centre, wrong confidence.  Its
-  share error only clears the zero-shot line at ~106 rocks; at 26 it is worse
-  than no fit at all.
+  information.** It wins absolute share error (0.102 against 0.117-0.118 for
+  all three re-supervised heads, 9-10 of 10 draws at every budget) while losing
+  the likelihood (0.83 against 0.61 at full train, paired -0.11, 9 of 10; -0.38
+  at 100 rocks).  Better centre, wrong confidence, though the confidence gap is
+  a tenth of what it was with amphibole pinned (1.00 nats, journal 2026-09-03).
+  Its share error clears the zero-shot line (0.121) at every budget, 10 of 10
+  draws at 25 rocks.
 
 `measured_ablated` is not blind to the rock -- every arm receives the true
 mineral list as input to its amount branch.  It knows the assemblage and no
@@ -232,7 +243,7 @@ chemistry.
 
 ## Adapting the head instead of correcting its outputs
 
-The correction tiers fit at most 123 parameters on the frozen head's outputs,
+The correction tiers fit at most 121 parameters on the frozen head's outputs,
 so the obvious objection to their loss above is that the head was never
 adapted -- it was rescaled.  A seventh arm (`adapted`) removes that reading:
 rank-5 low-rank updates inside each of the head's eight linear layers, trained
@@ -249,9 +260,8 @@ jump whenever a member phase crossed 0.5 mid-fit.  Pinning it also keeps this
 arm's Dirichlet on the same support the correction arms' `alpha7` was built on.
 
 Two asymmetries to read the result against.  This arm inherits the frozen
-head's single Dirichlet, while `tailed` and every measured arm are
-two-component and `tailed`'s whole margin over `matrix` was its precision
-contamination -- so the same-K comparison here is `matrix`.  And it runs the
+head's single Dirichlet, as `matrix` does, while every measured arm is
+two-component.  And it runs the
 head inside the training loop, which is why the coarsening onto the seven
 measured groups is reimplemented in torch (`adapted_mode_head.py`); that form
 carries the noisy-OR in logs rather than probabilities, because the shipped
@@ -262,45 +272,49 @@ a gradient.
 `lr` and `epochs` come from `run_plateau_probe.py`, which reads the train loss
 and never val, so this arm spends the same single val-selected scalar every
 other one does.  Probing at zero shrinkage measures nothing: 33k adapters
-against at most 368 rocks drive the Dirichlet density down without bound, and
+against at most 372 rocks drive the Dirichlet density down without bound, and
 the train loss is still descending 0.4 nats per 500 epochs at epoch 2000 with
 no plateau to find.  The probe therefore runs at the shrinkage the measured
-arms and both surviving correction tiers already selected, and this arm's own
-constant is chosen on val afterwards with `lr` and `epochs` already fixed.  That
-lands at lr 1e-3 over 1636 epochs, and a shrinkage of 10 -- an order of
-magnitude above what any other arm wanted, which is what 33k adapters against at
-most 368 rocks cost.  Over-shrinking past it returns the frozen head exactly
-(val joint 5.66 -> 9.35 -> 13.44, and 13.44 is the zero-shot number), which is
-the identity-at-initialization contract showing up in a fit rather than a test.
+arms and the correction tiers already selected, and this arm's own constant is
+chosen on val afterwards with `lr` and `epochs` already fixed.  The probe landed
+at lr 1e-3 over 1636 epochs (measured on the previous roster, not re-run); the
+2026-09-03 re-selection lands the shrinkage at 1, the same constant the
+measured arms and `matrix` want, where the pinned-amphibole layer had wanted
+10.  Over-shrinking past it climbs back toward the frozen head (the selection
+sweep reads 5.01 at 1 and 6.13 at 10), which is the identity-at-initialization
+contract showing up in a fit rather than a test.
 
 ### The result, and the one place the protocol pinches
 
-Median val joint NLL against zero-shot 13.44:
+Median val joint NLL against zero-shot 11.29 (restamped 2026-09-03; budgets
+are unit draws, median rocks 27 / 52 / 113 / 204 / 372):
 
-| budget (rocks) | 26 | 54 | 106 | 210 | 368 |
+| budget | 25 | 50 | 100 | 200 | full train |
 |---|---|---|---|---|---|
-| adapted | 7.19 | 5.75 | 5.86 | 4.97 | 4.86 |
-| adapted, per-budget oracle shrinkage | 7.62 | 3.11 | 3.97 | 1.74 | 1.08 |
-| matrix | 3.97 | 2.62 | 2.36 | 1.37 | 1.28 |
-| tailed | 3.97 | 2.59 | 2.08 | 1.11 | 0.97 |
-| measured | 1.69 | 1.25 | 1.12 | 0.38 | 0.27 |
+| adapted | 11.23 | 6.20 | 3.12 | 1.70 | 1.27 |
+| matrix | 4.95 | 2.10 | 1.27 | 1.00 | 0.83 |
+| measured | 2.85 | 1.82 | 0.92 | 0.77 | 0.61 |
 
-**Adapting the head from the inside does not close the gap, and mostly does not
-even match correcting it from the outside.**  That holds under the shared
-protocol and it still holds after handing this arm an advantage no other arm
-gets: the oracle row picks shrinkage per budget on val and is then scored on
-val, and it loses to `tailed` at all five budgets and to `measured` by a wide
-margin throughout.  So the reading that the correction arms lost only because
-123 parameters cannot carry a real adaptation does not survive.  (Oracle row:
-3 draws rather than 10, and different draws from the sweep's, so the 26-rock
-entry is noisy -- it is an upper bound, not a curve.)
+**Adapting the head from the inside does not close the gap, and does not match
+correcting it from the outside at any budget.**  It loses to `matrix` on 10 of
+10 paired draws at every budget and to `measured` throughout, but the margin
+against `matrix` closes from +6.7 nats at 25 rocks to +0.44 at full train.
+With amphibole pinned and the old roster this arm had sat 3.6 nats behind
+`matrix` at full train, and a per-budget oracle shrinkage (3 draws, chosen on
+val and scored on val) still lost to the then-canonical tailed tier at all
+five budgets; the oracle
+read was not re-run, so the reading that the correction arms lost only because
+121 parameters cannot carry a real adaptation still does not survive, but the
+margin it rests on is now small.
 
-**The loss is almost entirely presence.**  At the swept shrinkage the arm's
-Bernoulli term is 5.813 against `matrix`'s 2.896 -- essentially unmoved from
-zero-shot's 5.813 -- and that accounts for 82% of the gap.  The amount branch
-goes the other way: at a shrinkage of 1 its Dirichlet reaches -2.05 against
-`matrix`'s -1.62, and its share MAE at 26 rocks is 0.099, the lowest of any arm
-on the curve (`tailed` 0.114, `measured` 0.111).
+**The loss is entirely presence.**  At full train the arm's Bernoulli term is
+3.52 against `matrix`'s 2.96 (paired +0.55 at every budget), which is more
+than the whole joint gap: its amount term is already better than `matrix`'s
+(-2.24 against -2.13 at full train, paired -0.11) and its share MAE is the
+lowest of any arm from 200 rocks up (0.097 against `matrix`'s 0.102, 10 of 10
+draws).  At shrinkage 1 the adapters do move presence (zero-shot 6.01), where
+at the old shrinkage of 10 they had not, but seven intercepts still move it
+further.
 
 The mechanism is the arm's own parameterization.  A per-group presence
 correction is an intercept, and a low-rank update with no bias term cannot
@@ -309,18 +323,21 @@ That intercept is exactly what the correction arms get from seven
 `presence_offset` parameters, and what `MeasuredModeHead` gets from biases its
 fit deliberately exempts from shrinkage.  Adding zero-initialized bias deltas
 (~3.1k parameters, identity at init preserved) is the targeted test, and it was
-not run: the oracle bound already loses to `tailed` everywhere, so closing the
-presence gap is unlikely to reverse the ordering.
+not run.  On the old roster the oracle bound lost to the correction tiers
+everywhere, which foreclosed it; on this roster the presence gap (+0.55) exceeds the joint gap
+(+0.44) at full train, so it no longer does.
 
-**One protocol caveat, which this arm is the first to expose.**  Its best
-shrinkage slides 30x across the swept range -- 10, 3, 3, 1, 0.3 from 26 rocks to
-368 -- while `select_weight_decay` searches sizes 25 to 200 and the curve sweeps
-to 400.  For a 23- to 123-parameter correction the optimum is flat and the
-mismatch is invisible; for 33k adapters a near-tie at small budgets (5.76
-against 5.66) picks a constant that costs 3.7 nats at the largest.  The single
-val-selected constant is kept anyway, because it is what makes every arm's
-x-axis mean the same thing, and the conclusion does not depend on the
-handicap.
+**One protocol caveat, which this arm is the first to expose.**  On the old
+roster with amphibole pinned, its best shrinkage slid 30x across the swept
+range -- 10, 3, 3, 1, 0.3 from 26 rocks to 368 -- while `select_weight_decay`
+searches sizes 25 to 200 and the curve sweeps to 400.  For a 21- to
+121-parameter correction the optimum is flat and the mismatch is invisible;
+for 33k adapters a near-tie at small budgets picked a constant that cost 3.7
+nats at the largest.  The per-budget read was not repeated on this roster; the
+single constant it selects is now 1 rather than 10, and the arm sits 0.44
+rather than 3.6 nats behind `matrix` at full train, so the handicap is at most
+that.  The single val-selected constant is kept anyway, because it is what
+makes every arm's x-axis mean the same thing.
 
 ## Files
 
@@ -333,18 +350,20 @@ handicap.
   loss alone; writes to a scratch directory, not `results/`
 - `run_residual_decomposition.py` -- width-vs-location residual decomposition
   after the fit, `results/<tag>/residual_decomposition.{json,png}`
-- `run_tailed_acceptance.py` -- the tailed-vs-matrix acceptance read and the
-  three-arm coverage/sharpness figure, `results/<tag>/tailed_acceptance.json`
+- `run_acceptance.py` -- the val-level acceptance read (vector vs matrix,
+  per-group coverage and width) and the coverage/sharpness figure,
+  `results/<tag>/acceptance.json`
 - `results/joint_heads_supportmag_seed0/learning_curve.png` -- the deliverable
 - `results/joint_heads_supportmag_seed0/curve_by_units.png` -- priced in eruptions
 - `results/joint_heads_allrock_tuned_seed0/learning_curve_val.png` -- the
-  production re-run with the tailed tier
+  production re-run on the rebuilt roster
 - `results/joint_heads_allrock_tuned_seed0/share_mae_val.png` -- absolute share
   error against budget, the four arms that communicate
 - `results/joint_heads_allrock_tuned_seed0/arm_contrast_val.png` -- paired
   per-draw differences against the head given the latent
 
 Backing: journal 2026-07-25 (curve), 2026-07-31 (decomposition), 2026-08-05/06
-(tailed tier + production curve re-run),
+(tailed tier + production curve re-run), 2026-09-03 (tailed margin traced to
+the amphibole pin, tier deleted, restamp on the rebuilt roster),
 `results/real_rock_ledger.yaml` (`eruption-v2`),
 `explorations/real_rock_mapping/` (the truth mapping this rests on).
