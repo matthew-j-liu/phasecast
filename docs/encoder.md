@@ -124,7 +124,7 @@ What it IS useful for:
    thermodynamics, not just mass balance.
 
 The early v1 corpus discarded G_sys during FC; the regen persists it per
-rung (see `docs/corpus_regen_spec.md` storage shape), so a G_sys head is
+rung (see ADR 004 "Storage shape"), so a G_sys head is
 now a free decision -- no corpus cost either way.
 
 **Don't add G_sys in v3 if it would delay shipping.** It's a Tier 2 head,

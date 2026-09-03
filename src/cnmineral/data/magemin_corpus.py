@@ -4,7 +4,7 @@ Sits between the trace-conditional (P, H2O) proposal (`condition_proposal`)
 and the chunked orchestrator (`scripts/build/generate_mineralogy_corpus.py`).
 Per bulk: Fe-split the majors, draw N conditions, expand each draw over the
 cooling ladder into `run_magemin.jl` input rows; then parse the returned JSONL
-into the three corpus tables (corpus_regen_spec "Storage shape"):
+into the three corpus tables (ADR 004 "Storage shape"):
 
     draws  -- one row per (bulk, draw): passthrough bulk columns + traces, the
               renormalized MAGEMin input oxides, (P, H2O, q), the proposal's

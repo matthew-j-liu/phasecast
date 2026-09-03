@@ -11,7 +11,7 @@ Handled here:
     - FeOt <-> FeO + Fe2O3   (split via `Fe3RatioStrategy`)
     - MnO, P2O5              (dropped going INTO MAGEMin)
     - H2O                    (injected by the caller -- sampled per (P, H2O) draw,
-                              not read from the bulk; see corpus_regen_spec item 1)
+                              not read from the bulk; see ADR 004 "Conditions")
 
 Fe provenance tier per bulk (also the item-10 provenance seed):
     measured         : both `feo` and `fe2o3` reported          -> no assumption

@@ -64,8 +64,8 @@ into qap-coherent neighborhoods without ever seeing a label.
 
 Stops here: the encoder is the durable contribution.  Two follow-up
 tracks came out of it: **Track A part 2** (`pretrain_applications.md`)
-and **Track B** (below; its gating corpus regen shipped via
-`docs/corpus_regen_spec.md` / #9).  The all-rock relaxed-Fe
+and **Track B** (below; its gating corpus regen shipped, #9;
+generation record in ADR 004).  The all-rock relaxed-Fe
 re-pretrain (#24) LANDED 2026-07-28 as `pretrain_allrock_redox_seed0`
 -- see "Current status" at the end of this doc.
 
@@ -125,8 +125,8 @@ calibrates better.
 
 ## Current status and next steps (2026-08-05)
 
-Full decision record in `docs/2026_08_03_recap.md`; journal entries
-2026-07-31 through 2026-08-05 hold the measurements.
+Decision record and measurements: journal entries 2026-07-31 through
+2026-08-05.
 
 **Cascade 1 (heads on the traced corpus) is complete and adjudicated
 against.** Both regen checkpoints (`joint_heads_regen_seed0`,
@@ -273,7 +273,7 @@ boring stuff." A practical rule of thumb at the end.
 - **The cnmineral package skeleton.** You decide the module structure;
   Claude generates the empty files and the `__init__.py` exports.
 - **The corpus regen schema.** You decided the persisted columns
-  (`corpus_regen_spec.md` "Storage shape"); Claude implemented the
+  (ADR 004 "Storage shape"); Claude implemented the
   three-table layout in `cnmineral.data.magemin_corpus`.
 
 ### Practical rule of thumb
@@ -332,7 +332,7 @@ to agentic work:
 4. **CompHead parameterization (oxide-wt% vs endmember-fraction).**
    RESOLVED 2026-06-30: per-phase oxide wt% for all phases (endmember
    recon on real bulks leaves the simplex); endmember bonus heads only
-   on clean phases, loss-masked. See `corpus_regen_spec.md`.
+   on clean phases, loss-masked. See ADR 004 "CompHead target".
 5. **lambda_balance for the mass-balance loss term.**
    Sweep 0 / 0.1 / 1.0 / 10.0 when the joint loss lands.
 6. **Whether to add G_sys head.** `G_sys` is persisted per rung in the

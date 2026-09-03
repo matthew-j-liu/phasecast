@@ -1,4 +1,4 @@
-"""Build the stratified bulk tables for corpus generation (corpus_regen_spec "Scale").
+"""Build the stratified bulk tables for corpus generation (ADR 004 "Which corpus is production").
 
 Two disjoint tiers from the volcanic + has-iron core (25 aphanitic QAPF names,
 foidite family excluded for `ig` non-convergence, QC-flagged bulks weighted out

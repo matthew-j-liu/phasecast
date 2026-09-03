@@ -1,6 +1,6 @@
 """Water A/B: flat-box vs solubility-bounded (P, H2O) proposal, same 36 bulks.
 
-The controlled before/after isolating the water redesign (corpus_regen_spec
+The controlled before/after isolating the water redesign (regen spec, now ADR 004,
 "Water A/B"). A = the committed flat-box run (work/), B = the bounded-proposal
 rerun (work/bounded/, via driver.py). Two questions:
   1. Does the amp/opx switch magnitude hold at the phenocryst-regime rungs?

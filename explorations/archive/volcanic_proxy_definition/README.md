@@ -1,7 +1,7 @@
 # volcanic_proxy_definition
 
 **Status: RESOLVED 2026-07-14 — decisions locked into
-`docs/corpus_regen_spec.md`, which supersedes this doc's proposals.** The
+the corpus regen spec (retired 2026-09-03; its record is ADR 004), which supersedes this doc's proposals.** The
 endpoint is the phenocryst regime (stop cooling at residual melt < 30%; label
 rungs 60/50/40/30, single composition-independent rung picked by label-level
 pre-screen), labels are crystals-renormalized solids, water is
@@ -19,7 +19,7 @@ where we stop cooling, equilibrium vs fractional, bulk vs melt) is a facet of it
 
 This doc synthesizes two independent high-reasoning expert reviews (ChatGPT and
 Gemini, on the brief in this repo's history) against the project's own context.
-It is discussion feeding `docs/corpus_regen_spec.md`; it does not itself lock
+It is discussion feeding the corpus regen spec (retired; ADR 004); it does not itself lock
 anything.
 
 ## The question in one breath
@@ -221,7 +221,7 @@ Both read the stored cooling ladders in `../equilibrium_multimodality/work/`
 
 The corpus open items collapse into four tasks (from the earlier F1-F7 triage;
 this section supersedes that list). All four are now decided; statuses below,
-detail in `docs/corpus_regen_spec.md`:
+detail in the corpus regen spec (retired; ADR 004):
 
 - **A -- Endpoint decision.** RESOLVED (2026-07-14): phenocryst regime,
   crystals-renormalized labels, rungs 60/50/40/30 from one stored ladder,

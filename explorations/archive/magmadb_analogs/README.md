@@ -4,7 +4,7 @@
 
 The Track B output layer wants to show a user real rocks with *measured*
 (P, T, fO2) near their query, as transparent evidence, plus a coarse out-of-
-distribution flag (`docs/corpus_regen_spec.md`, Output stance, "Latent-neighbor
+distribution flag (ADR 004 "Output stance", "Latent-neighbor
 analogs"). Our corpus has no measured conditions. MagmaDB (Candioti et al. 2026)
 is a compilation of arc-magma crystallization experiments that does. Two
 questions: can MagmaDB starting bulks be embedded in the frozen SSL encoder
@@ -47,7 +47,7 @@ path with `--magmadb`.
 Use MagmaDB as-is for the shown-not-reweighted analog panel + OOD flag on the
 arc basalt-andesite slice; no larger compilation yet (gated on Track B heads
 existing + a demonstrated case where a panel would have corrected a scenario).
-Verdict recorded in [docs/corpus_regen_spec.md](../../docs/corpus_regen_spec.md)
+Verdict recorded in [ADR 004](../../docs/decisions/004_petthermotools_for_fractional_crystallization.md) "Output stance"
 (Output stance).
 
 Artifacts: `results/magmadb_vs_gard.png`, `results/coverage_metrics.json`.

@@ -3,7 +3,7 @@
 **Date:** 2026-05-15
 **Status:** Resolved → Executed (2026-05-19) → **Superseded for the volcanic
 v1 corpus** by ADR 004's 2026-06-30 amendment (equilibrium generator;
-`docs/corpus_regen_spec.md`). The FC recipe below is deferred with the
+generation record in ADR 004). The FC recipe below is deferred with the
 plutonic/cumulate branch (issue #22).
 
 ## Execution outcome

@@ -1,39 +1,172 @@
 # Decision 004: Use PetThermoTools for fractional-crystallization experiments and (potential) production label generation
 
 **Date:** 2026-05-13
-**Status:** Resolved → Phase B, **amended 2026-06-30 (production scoped to volcanic; equilibrium, not FC)**
+**Status:** Resolved → Phase B, **amended 2026-06-30 (production scoped to volcanic; equilibrium, not FC)**; the volcanic generation record folded in 2026-09-03
 
-## Amendment 2026-06-30 — v1 production is volcanic + equilibrium; FC deferred to the plutonic branch
+## Amendment 2026-06-30 -- v1 production is volcanic + equilibrium; FC deferred to the plutonic branch
 
-The v1 corpus is scoped to the **volcanic + has-iron** subset of gard2019
-(`docs/corpus_regen_spec.md`). For that scope the production generator is
-**MAGEMin equilibrium cooled to near-solidus**, not fractional crystallization.
-This *scopes* the Phase-B decision below; it does not overturn the eq-vs-frac
-measurement.
+The v1 corpus is scoped to the **volcanic + has-iron** subset of gard2019.
+For that scope the production generator is **MAGEMin equilibrium on a
+cooling ladder, read at melt-fraction rungs**, not fractional
+crystallization. This *scopes* the Phase-B decision below; it does not
+overturn the eq-vs-frac measurement.
 
 The eq-vs-frac experiment (Resolution below) measured how closely near-solidus
 equilibrium *reproduces FC endpoint labels* and found a large divergence
 (median L1 0.35). That result stands. What changes is the target physics, not
 the measurement. A volcanic rock crystallizes closed-system, in place: the melt
 keeps its components (water included) and the assemblage that forms **is** the
-equilibrium assemblage at its near-solidus conditions. FC models the
-open-system case -- crystals settle out and the residual melt evolves -- which
-is the plutonic/cumulate story. So for volcanic targets we are not approximating
-FC with equilibrium; equilibrium is the correct generator, and the eq-vs-FC
+equilibrium assemblage at those conditions. FC models the open-system case --
+crystals settle out and the residual melt evolves -- which is the
+plutonic/cumulate story. So for volcanic targets we are not approximating FC
+with equilibrium; equilibrium is the correct generator, and the eq-vs-FC
 divergence is the real difference between two petrogenetic regimes, not error.
+No eq-vs-FC A/B was run for the volcanic scope; the conceptual argument was
+accepted.
 
 Consequences:
-- v1 production generator = the equilibrium near-solidus runner
-  (`magemin/run_magemin.jl`), sampling `(P, H2O)` with T derived at a
-  near-solidus liq threshold; `NearSolidusTPStrategy` stays unimplemented.
-- FC (and PetThermoTools as its driver -- the tooling choice below is unchanged)
-  moves to the deferred **plutonic/cumulate branch**, where it models FC of
-  parent magmas (issue #22). ADR 005's FC production recipe applies there, not
-  to the volcanic v1 corpus.
+- v1 production generator = `magemin/run_magemin.jl` in a Julia subprocess,
+  driven by `scripts/build/generate_mineralogy_corpus.py`; `(P, H2O)` are
+  sampled and T is derived by cooling. `NearSolidusTPStrategy` stays
+  unimplemented.
+- FC (and PetThermoTools as its driver -- the tooling choice below is
+  unchanged) moves to the deferred **plutonic/cumulate branch**, where it
+  models FC of parent magmas (issue #22). ADR 005's FC production recipe
+  applies there, not to the volcanic v1 corpus.
 
-Rationale, locked decisions, and the composition-stratified equilibrium test
-that validates the near-solidus assemblage behavior live in
-`docs/corpus_regen_spec.md` and `explorations/archive/equilibrium_multimodality/`.
+### Generation record (landed 2026-07-27; the planning spec is retired)
+
+The spec that planned this corpus (`docs/corpus_regen_spec.md`, tracker #9)
+was deleted 2026-09-03 once every step had landed. This section is the
+generation-parameter record it left behind. Evidence for each choice lives
+in the archived explorations named at the end.
+
+**Which corpus is production.** Two generations exist.
+
+- First generation (2026-07-14/17): the 10k stratified train bulks x 48
+  draws from the broad proposal, plus 500 valtest bulks x 128 draws
+  (`data/corpus/train`, `data/corpus/valtest`).
+- Traced regen (2026-07-23/27, #45): 35k train bulks (the 10k plus a
+  rare-class-quota expansion, `data/corpus/train_bulks_expansion.csv`,
+  alpha=0.5 temperature smoothing emitted nested-block) x 24 draws from the
+  trace-conditional proposal, plus 2000 valtest bulks x 128 draws
+  (`data/corpus/train_traced`, `data/corpus/valtest_traced`; roster 887 val
+  / 1112 test, grown from the first 500 by extension so earlier assignments
+  never moved).
+
+Heads trained on the traced corpus lost to the first-generation corpus on
+the real-rock benchmark after identical recalibration (journal 2026-08-03),
+so **production heads train on the first generation** (all 48 draws, rungs
+50 + 30, early stopping on the first-generation valtest roster;
+`configs/heads/joint_heads.yaml`). The traced tier is a measured
+non-production arm; its wins are quartz presence and assemblage ranking.
+
+**Subset + QC.** Volcanic core = the 25 aphanitic QAPF names in
+`cnmineral.data.volcanic_subset.VOLCANIC_QAP` (~335k bulks); plutonic-named
+`rock_origin` rows stay out; the foidite family is excluded (`ig` does not
+converge). has-iron = total Fe sufficient, since the locked Fe path imposes
+the class-conditional split regardless; rows with measured FeO + Fe2O3 carry
+a provenance tier so a stricter cut stays available at training time. QC
+flags (oxide-sum window, supersilicic, ultramafic) are tags, not drops, but
+flagged bulks are weighted out of the stratified draw. Bulk tables:
+`scripts/build/build_corpus_bulk_tables.py`; health gate:
+`scripts/build/report_corpus_health.py`.
+
+**Conditions (the bounded sampler).** `(P, H2O)` are sampled per draw and T
+is derived by cooling to the endpoint, never a sampled axis. The broad
+proposal is `q = Uniform(P [0.5, 12] kbar x H2O [0, min(8, S(P))] wt%)`,
+Latin-Hypercube, implemented in `cnmineral.data.condition_proposal`. The
+traced regen (#48) drew instead from the per-bulk trace-conditional proposal
+(`condition_proposal.bulk_proposal`): immobile-element discriminants route
+each bulk to a posterior-weighted mixture of (maficity, tectonic-setting)
+literature boxes, with a per-class fallback and 8% mass always on the broad
+proposal. Every draw stores its exact proposal density `q`, so either
+proposal reweights the same way at inference.
+
+**Water bound `S(P)`.** The Newman & Lowenstern 2002 (VolatileCalc)
+rhyolite-curve H2O solubility, the more water-generous of their two curves
+since a composition-independent bound must cover every composition, capped at
+8 wt% (the melt-inclusion supply ceiling; Wallace 2005; Plank et al. 2013).
+The cap binds above ~4-5 kbar, so the curve is only evaluated inside its
+calibration range. Accepted gap: alkaline melts dissolve somewhat more at low
+P, so very wet low-P alkaline draws are under-covered. Oversaturated draws
+exsolve excess H2O as `fl` inside MAGEMin and are tagged. The Wallace/Plank
+per-class ranges of ADR 003 belong to the inference prior, never the sampler.
+
+**Endpoint and rungs.** Cool each draw until residual melt < 30 wt%, no
+near-solidus leg. The assemblage is read at four rungs, 60/50/40/30%
+residual melt, re-picked from the stored ladder at no extra MAGEMin cost.
+Training rungs **50 + 30** were picked 2026-07-14 by a label-level
+pre-screen against the real benchmark (per-silica-band presence match first,
+rank-level crystals-renormalized proportions second): 50 is the best
+aggregate match, 30 the only rung where intermediate biotite exists to be
+learned. A composition-conditional endpoint (deeper stop for felsic bulks)
+was rejected: quartz and K-feldspar saturate early in felsic bulks, real
+felsic lavas are the crystal-poorest, and near-solidus invents felsic
+phenocrysts in mafic bulks. The amphibole/orthopyroxene multimodality holds
+across the whole 70-1% melt range.
+
+**Label.** Crystals-renormalized solid assemblage: `liq` and `fl` are dropped
+and the solids renormalized to sum to 1, matching the benchmark's granularity
+(itemized phenocrysts plus one lumped groundmass bucket). There is no
+melt-fraction head, since at a fixed rung the melt fraction is a constant and
+real groundmass fraction is set by ascent, not chemistry; the liq/fl
+composition and fraction are stored per row so the mass-balance closure can
+teacher-force the label melt fraction. Presence targets are built at mode >
+0.1 wt%; raw modes are stored, so a different cutoff is a label rebuild, not
+a regen. The pre-screen ran at 0.1 and 1 wt% and the rung choice was
+cutoff-insensitive.
+
+**Fe / fO2.** Class-conditional Middlemost Fe3+/total-Fe split
+(`cnmineral.data.fe_redox`), fO2 fixed, not swept. Per-draw `in_feo` /
+`in_fe2o3` (ratio-invariant under the H2O renormalization) plus the
+`fe_provenance` stamp are the complete source for the optional redox input
+token (#46); no extra column is stamped.
+
+**CompHead target.** Per-phase oxide wt% (`Comp_wt`) for all phases; the
+endmember vector (`emFrac_wt`) is stored as a diagnostic only, because it
+leaves the positive simplex on real bulks. See CLAUDE.md settled decisions.
+
+**Storage shape.** Three tables per chunk in `cnmineral.data.magemin_corpus`:
+`draws` (one row per bulk x draw: passthrough bulk columns and traces, the
+sampled `(P, H2O)`, `q`, Fe inputs and provenance), `ladder` (modes only per
+cooling step, so rungs can be re-picked), `rungs` (full labels at the four
+rungs: modes, `Comp_wt`, `emFrac_wt`, liq/fl composition and fraction,
+`G_sys`, `T_end`). Roughly 5x less disk than full-label ladders.
+
+**Orchestration.** Chunked Python orchestrator wrapping `run_magemin.jl`
+unchanged; ~100-bulk chunks, each flushed atomically to its own parquet and
+appended to a completion manifest, workers recycled per chunk. Resume is
+rerunning the same command with at most one in-flight chunk redone. Solver
+crashes (deterministic MAGEMin segfaults on rare inputs) are bisected at draw
+boundaries and the isolated draw dropped into ordinary attrition accounting;
+NaN-bearing records are serialized as failed rows; a complete output file
+overrides a nonzero exit.
+
+**Encoder / supervised split.** The encoder is pretrained on all of gard2019
+(all-rock, relaxed Fe); the heads are supervised on the volcanic + has-iron
+subset, so OOD and abstention still work on a user's non-volcanic input.
+
+**Output stance (design, not implemented).** Because every draw stores its
+proposal density, an inference-time weight `p(c) / q(c)` can cancel the
+sampling proposal and substitute an evidence-based prior: ADR 003's per-class
+H2O ranges, trace-ratio depth proxies (Sr/Y, La/Yb; soft nudges, large
+single-sample sigma), or user-supplied constraints (#21). Scenario weights
+are labelled prior-weighted plausibility, never nature's rock-specific
+probability. Latent-neighbour analogs against MagmaDB were assessed and
+shelved (too sparse: 78 distinct bulks, arc basalt-andesite only).
+
+**Evidence.** `explorations/archive/volcanic_proxy_definition/` (endpoint
+re-pick, felsic saturation), `explorations/archive/equilibrium_multimodality/`
+(multimodality verdict, water A/B: the amp/opx switch holds at every rung,
+biotite did not move), `explorations/archive/condition_sampling/` (LHS,
+effective sample size), `explorations/archive/trace_conditional_proposal/`
+(the #48 proposal), `explorations/archive/rare_class_quota/` (the expansion
+table), `explorations/archive/magmadb_analogs/`.
+
+**Deferred.** The plutonic/cumulate branch, FC of parent magmas (#22).
+Itemized groundmass, blocked on real itemized data and a kinetic generator;
+a future branch, not a toggle on this corpus.
 
 ## Resolution
 

@@ -1,4 +1,4 @@
-"""Chunked, resumable MAGEMin corpus generation (corpus_regen_spec "Orchestration").
+"""Chunked, resumable MAGEMin corpus generation (ADR 004 "Orchestration").
 
 Wraps `magemin/run_magemin.jl` unchanged. The bulk table is cut into chunks;
 each chunk is expanded (bounded-proposal draws x cooling ladder), run through

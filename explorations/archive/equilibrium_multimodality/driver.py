@@ -2,7 +2,7 @@
 
 Per bulk: Fe-split the majors (class-conditional Middlemost, provenance tagged),
 draw N (P, H2O) by Latin-Hypercube from the LOCKED solubility-bounded proposal
-`q = Uniform(P[0.5,12] kbar x H2O[0, min(8, S(P))] wt%)` (corpus_regen_spec
+`q = Uniform(P[0.5,12] kbar x H2O[0, min(8, S(P))] wt%)` (regen spec, now ADR 004,
 "Bounded sampler"; `cnmineral.data.condition_proposal`), and expand each draw
 over a cooling T-ladder. H2O is injected as an exact wt fraction (anhydrous
 majors renormalized to 100 - H2O) so the sampled H2O axis means the same thing

@@ -246,7 +246,7 @@ don't re-open the question.
   audit attrition).  Don't implement `NearSolidusTPStrategy` — rejected by the
   eq-vs-frac experiment (ADR 004); production uses FC, not near-solidus eq.
   The volcanic v1 corpus does not use this recipe: ADR 004's 2026-06-30
-  amendment (`docs/corpus_regen_spec.md`) generates it by equilibrium on a
+  amendment (generation record in the ADR) generates it by equilibrium on a
   cooling ladder read at melt-fraction rungs, run directly through
   `magemin/run_magemin.jl` in a Julia subprocess with no PetThermoTools in the
   stack; the FC recipe is deferred to the plutonic branch (#22).

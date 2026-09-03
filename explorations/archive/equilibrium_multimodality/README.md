@@ -47,9 +47,9 @@ additional axis, not a replacement. Evidence: `results/multimodality.png`,
 
 **Decision.** The heads.md multimodal-scenario headline stands (do not reframe
 to proportion-only). The full handback below proposes the item-2..7 spec values;
-the owner integrates them into `docs/corpus_regen_spec.md`.
+the owner integrates them into the corpus regen spec (since folded into ADR 004).
 
-## Water A/B (corpus_regen_spec "Water A/B")
+## Water A/B (regen spec, now ADR 004, "Water A/B")
 
 The results above were generated under the since-superseded flat proposal box
 (`q` uniform on the full P x H2O rectangle). `driver.py` now draws from the
@@ -99,7 +99,7 @@ a user sees depends on `p(H2O)`. State this where the headline is sold.
   vs opx@H2O 3.1/P 2.9 (shallower). Anti-correlated (amp-only >> both).
 - Convergence 35/36 bulks 100% at N=1 preflight; foidite (SiO2 36.5) 0%.
 
-### SPEC IMPACT (proposed values, keyed to corpus_regen_spec items)
+### SPEC IMPACT (proposed values, keyed to the regen spec's items; the spec is folded into ADR 004)
 
 - **Item 2 (near-solidus rule).** Adopt **tau = 1%** liq (the verdict is
   threshold-insensitive; 1% vs 5% move nothing material). The real lever is the

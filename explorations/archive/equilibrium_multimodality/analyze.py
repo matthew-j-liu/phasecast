@@ -1,4 +1,4 @@
-"""Near-solidus endpoints + the multimodality verdict (corpus_regen_spec item 7).
+"""Near-solidus endpoints + the multimodality verdict (regen spec, now ADR 004, item 7).
 
 For each test bulk, over its N (P, H2O) draws cooled to near-solidus, ask the
 pivotal question: is the equilibrium assemblage posterior multimodal in PHASE

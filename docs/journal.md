@@ -3048,11 +3048,11 @@ every (P,H2O) path, opx absent -- closed-system keeps its water so the assemblag
 converges; the amp-in/opx-in switch was an FC (melt-drying) phenomenon. If this holds
 across compositions, the "top-K scenarios" headline shifts toward a "conditions +
 proportions + minor-phase-presence" posterior. A composition-stratified small test
-decides it (corpus_regen_spec.md item 7). See [[equilibrium-multimodality-risk]].
+decides it (regen spec, now ADR 004, item 7). See [[equilibrium-multimodality-risk]].
 
 **Next.** New agent owns items 2-6 (near-solidus rule, volcanic subset+QC, productionize
 the extractor, phase vocab, output schema) + the small composition-stratified test,
-per `docs/corpus_regen_spec.md`. Owner-confirm items: near-solidus liq threshold, the
+per the corpus regen spec (retired into ADR 004). Owner-confirm items: near-solidus liq threshold, the
 qap list, and the multimodality headline reframe. Deferred: plutonic/cumulate branch
 via FC-of-parents (#22, high priority, starts after volcanic v1) -- cumulates are the
 one real rock class equilibrium can't generate faithfully. Formal ADR 004 amendment
@@ -3078,7 +3078,7 @@ itemized groundmass. (3) Melt fraction as a secondary predicted diagnostic.
 vs Moore 1998 vs an in-house envelope. (6) Scale: 10k vs 30k bulks vs
 two-tier. (7) Presence cutoff 0.1 vs 1 wt%.
 
-**Decision.** (Spec detail in `docs/corpus_regen_spec.md`; evidence in
+**Decision.** (Spec detail in the corpus regen spec, retired into ADR 004; evidence in
 `explorations/volcanic_proxy_definition/felsic_saturation.py` + updated
 `endpoint_repick.py`, both re-reading the stored 143k-point ladders.)
 
@@ -5221,7 +5221,7 @@ disclosed second look.
 
 ## 2026-08-03 -- Owner decisions: production, cascade 2, mixture, recalibrator order
 
-Recorded with rationale in `docs/2026_08_03_recap.md`; terse ledger here.
+Recorded with rationale in the 2026-08-03 recap doc (retired 2026-09-03; the effective-lambda argument is in heads.md's loss-weighting section, the measurements in the entry above); terse ledger here.
 
 1. **Production remains `joint_heads_supportmag_seed0`.** The provisional
    2026-07-29 adoption of trial 22 is reversed -- it loses to its own
@@ -6940,3 +6940,39 @@ remaining `?` and sub-facies fragmentation deserves the curated eruption table
 #67 declined is reopened by this, not decided.
 
 **Next.** Issue sweep, then the research week.
+
+## 2026-09-03 -- Two planning-era docs retired into ADR 004 and the journal; techniques.md rewritten around the checkpoint config stamp
+
+**Q.** Which of the docs under `docs/` still earn their place after
+submission and #67?
+
+**Context.** Outside the ADRs and the technique index, `docs/` held two
+files past their own expiry and one live file with a stale status.
+`corpus_regen_spec.md` declared itself due for deletion when the regen
+landed 2026-07-27 and was held as the generation-parameter record;
+`2026_08_03_recap.md` was a dated snapshot whose measurements and decisions
+are the two 2026-08-03 entries above and whose effective-lambda argument is
+in heads.md. Both were verified present on `origin/main`, on
+`supervised-mineralogy`, and in the 2026-09-02 pre-rename Desktop backup
+before deletion. `camera_ready_reconcile.md` stays until camera-ready; it
+exists only in unpushed local commits.
+
+**Decision.** `corpus_regen_spec.md` deleted; its parameter record is now
+the "Generation record" section of ADR 004's amendment, keeping the section
+names code docstrings cite (Conditions, Storage shape, Orchestration) and
+stating which corpus is production (first generation, 10k x 48 broad draws,
+rungs 50 + 30; the traced tier is a measured non-production arm). Every
+reference repointed: CLAUDE.md, ADR 005, encoder.md, roadmap.md, three
+`cnmineral.data` docstrings, two build scripts, four archived explorations,
+and the dated mentions in this journal. `2026_08_03_recap.md` deleted; the
+two numbers only it carried, baseline effective lambda 5.3 (magnitude_weight
+0.25 x 21) and trial 22 at 163 (7.76 x 21), are cited from the 2026-07-29
+cascade-1 entry by the number builder. `techniques.md` rewritten: the
+per-run activation registry it proposed in June was never built, and the
+question it was for ("did this run use X?") is answered by the config every
+checkpoint stamps (`Checkpoint.config`, `JointHeadCheckpoint.head_config` /
+`loss_config` / `label_config`); the doc now says so and drops the hook map.
+
+**Next.** `roadmap.md`'s status section is stamped 2026-08-05 and predates
+submission, #67 and the 2026-09-02 thrust ordering; its back half is
+spring rewrite-era text. Separate change.

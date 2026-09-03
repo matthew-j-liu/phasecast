@@ -1,6 +1,6 @@
 """The locked (P, H2O) proposal for Track B corpus generation.
 
-Implements corpus_regen_spec "Bounded sampler": Latin-Hypercube draws from
+Implements ADR 004 "Conditions (the bounded sampler)": Latin-Hypercube draws from
 `q = Uniform(P [0.5, 12] kbar x H2O [0, min(8, S(P))] wt%)`, where `S(P)` is
 the Newman & Lowenstern 2002 (VolatileCalc) rhyolite-curve H2O solubility and
 8 wt% is the melt-inclusion supply ceiling. `q` is uniform in P and uniform in
