@@ -2,57 +2,57 @@
   "benchmark": "eruption-v2",
   "tier": "matrix",
   "weight_decay": 1.0,
-  "fit": "full train roster (368 rocks)",
+  "fit": "full train roster (372 rocks)",
   "levels": {
     "joint_heads_supportmag_seed0": {
       "val": {
-        "zero_shot_joint": 13.594669986669185,
-        "adapted_joint": 1.3758225646587992,
-        "adapted_dirichlet": -1.5074447980466734,
-        "adapted_bernoulli": 2.8832673627054723,
-        "n_rocks": 111
+        "zero_shot_joint": 11.536020387795668,
+        "adapted_joint": 0.9565312851206335,
+        "adapted_dirichlet": -1.999201201388599,
+        "adapted_bernoulli": 2.9557324865092323,
+        "n_rocks": 106
       }
     },
     "joint_heads_allrock_tuned_seed0": {
       "val": {
-        "zero_shot_joint": 13.44363703061916,
-        "adapted_joint": 1.2769208134097645,
-        "adapted_dirichlet": -1.619389690105514,
-        "adapted_bernoulli": 2.8963105035152794,
-        "n_rocks": 111
+        "zero_shot_joint": 11.292768385958704,
+        "adapted_joint": 0.8285012518310999,
+        "adapted_dirichlet": -2.132634164572046,
+        "adapted_bernoulli": 2.9611354164031463,
+        "n_rocks": 106
       }
     },
     "joint_heads_igneous_tuned_seed0": {
       "val": {
-        "zero_shot_joint": 14.220759990896724,
-        "adapted_joint": 1.485779121613062,
-        "adapted_dirichlet": -1.3923807466931046,
-        "adapted_bernoulli": 2.878159868306167,
-        "n_rocks": 111
+        "zero_shot_joint": 12.306614199849893,
+        "adapted_joint": 0.9464870849215888,
+        "adapted_dirichlet": -2.0086277722870522,
+        "adapted_bernoulli": 2.955114857208641,
+        "n_rocks": 106
       }
     }
   },
   "paired_contrasts_adapted_joint": {
     "val": {
       "joint_heads_supportmag_seed0 - joint_heads_allrock_tuned_seed0": {
-        "mean": 0.09890175124903447,
-        "lo": -0.3947813534489908,
-        "hi": 0.5011840779575005,
-        "n_rocks": 111,
+        "mean": 0.12803003328953344,
+        "lo": -0.028056092648255995,
+        "hi": 0.28945579313258873,
+        "n_rocks": 106,
         "n_units": 39
       },
       "joint_heads_supportmag_seed0 - joint_heads_igneous_tuned_seed0": {
-        "mean": -0.10995655695426297,
-        "lo": -0.42544829388966027,
-        "hi": 0.12886280280813206,
-        "n_rocks": 111,
+        "mean": 0.010044200199044555,
+        "lo": -0.09151927276989247,
+        "hi": 0.11222167147122165,
+        "n_rocks": 106,
         "n_units": 39
       },
       "joint_heads_allrock_tuned_seed0 - joint_heads_igneous_tuned_seed0": {
-        "mean": -0.20885830820329745,
-        "lo": -0.46024172932519813,
-        "hi": 0.09039796173890656,
-        "n_rocks": 111,
+        "mean": -0.11798583309048886,
+        "lo": -0.28225250652314093,
+        "hi": 0.023551263160308145,
+        "n_rocks": 106,
         "n_units": 39
       }
     }

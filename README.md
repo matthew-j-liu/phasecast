@@ -25,7 +25,7 @@ Zero-shot on 640 volcanic rocks, the model identifies the minerals present
 and predicts which rocks are richer in each mineral; recalibration fit on as
 few as 25 labeled rocks brings the predicted amounts into agreement with
 measured values, recovering 76 percent of the improvement from fitting on the
-full 368-rock fitting split.
+full 372-rock fitting split.
 
 ## Installation
 
@@ -89,7 +89,7 @@ paper's few-shot experiment.
 
 ```bash
 python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
-python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt --fit-recalibrator tailed
+python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt --fit-recalibrator matrix
 python figures/src/fit_fewshot_curve.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 ```
 
