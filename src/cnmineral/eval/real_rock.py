@@ -1835,7 +1835,7 @@ def run_real_rock_eval(
     )
     censoring = censored_consistency(
         alpha7, (benchmark.numeric | benchmark.censored).astype(np.float64),
-        benchmark.censored, benchmark.censor_bound, log_w=log_w,
+        benchmark.censored, benchmark.censor_bound,
     )
 
     subtitle = f"{int(clean.sum())} least-altered rocks"
