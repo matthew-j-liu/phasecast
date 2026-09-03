@@ -180,6 +180,41 @@ a vendored padding heuristic.  Full story in [docs/encoder.md](docs/encoder.md).
 - **scenario** — RESERVED for the model's posterior clusters at inference
   (heads.md View 2); never a corpus row.
 
+### Lexicon (locked 2026-09-03, applies everywhere)
+
+The manuscript's vocabulary is the project's vocabulary.  It governs code
+identifiers, docstrings, comments, docs, READMEs, journal entries, commit
+messages, issues, the deck, and conversation, not only paper prose.  Existing
+code keeps its older identifiers until the terminology sweep lands; anything
+written from here on uses these.
+
+- **evaluate / evaluated**, not score / scored.  A model is evaluated on a
+  split.  The 640-rock headline set is "the evaluated set" or "grade 1 and 2
+  rocks", never "scoreable" or "the least-altered cohort".
+- **split**, not slice: the train, validation and test splits.  "The test
+  split", never "the test slice".
+- **fitting set**, not roster, for the rocks a recalibration or a head is fit
+  on; **fit size** (or fitting-set size), not budget, for how many.
+- **select** rocks or units, not draw; a random resample of labelled rocks is
+  a **replicate**.  "Draw" keeps its locked meaning above, one sampled
+  (P, H2O) path.
+- **recalibration layer / recalibrator**, never adapter; **recalibrated**, not
+  adapted, for its outputs.  (`adapted` names the low-rank head-update fit and
+  nothing else.)
+- **composition** or **whole-rock geochemistry** for the input; never assay,
+  never "analysis" as a record noun.
+- **mineral category** for the seven benchmark groups in prose; **measured
+  mineralogy / measured mineral proportions** for benchmark truth;
+  **simulated labels / simulated assemblages** for MAGEMin outputs;
+  **corpus** reserved for the simulated label corpus, the pretraining side
+  is the **pretraining set**.
+- The heads trained on measured abundances are named by what they are given:
+  "the head given the latent", "the head given raw geochemistry", "the head
+  given no chemistry".  The umbrella noun is **fit(s)**, not arm.
+- **absolute error** for MAE in prose; **recovers / reduces** for metric
+  changes, never buys, bought, moves, moved, coin flip.
+- Never "load-bearing" or "payload".
+
 ## Settled decisions (don't re-litigate)
 
 If you find yourself recommending a change, address the rationale specifically —
