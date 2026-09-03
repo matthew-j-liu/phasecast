@@ -336,9 +336,10 @@ GitHub auto-closes on merge.
   pretrain mechanic, and the load-bearing code invariant.
 - [docs/heads.md](docs/heads.md) — the supervised heads + multimodal posterior
   (hurdle ModeHead, CompHead, CondHead, mass-balance, output views, eval).
-- [docs/roadmap.md](docs/roadmap.md) — execution plan: Track A (foundation
-  encoder, closed) / Track B (mineralogy heads) / Track C, gate tables, ownership
-  split, current track-status.
+- [docs/roadmap.md](docs/roadmap.md) — execution plan after submission:
+  where the system stands, the three thrusts in order (research week,
+  software, crystal-structure pretraining), what is deprioritized, and
+  where the closed tracks' records live.
 - [docs/pretrain_applications.md](docs/pretrain_applications.md) — the 11
   SSL-encoder capabilities beyond mineralogy (imputation, k-NN, OOD, etc.).
 - [docs/scorecard.md](docs/scorecard.md) — living, provisional rubric for latent

@@ -284,7 +284,7 @@ def main() -> None:
             "stack": {
                 "dials": "joint_heads_allrock_hpo trial 32, 120 epochs",
                 "encoder": next(iter(encoder_stamps.values())),
-                "corpus": "old broad-draw data/corpus/train, 24 draws/bulk, "
+                "corpus": "old broad-draw data/corpus/train, all 48 draws/bulk, "
                           "rungs 50+30",
             },
             "corpus_side": "valtest128-broad val, teacher-forced hurdle "

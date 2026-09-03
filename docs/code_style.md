@@ -45,7 +45,7 @@ Where session-specific evidence DOES belong:
   happened when.
 - `docs/decisions/NNN_*.md` -- ADRs for binding architectural
   choices with rationale.
-- `docs/roadmap.md` Track-status sections -- explicitly
+- `docs/roadmap.md` "Where the system stands" -- explicitly
   current-state; updates as gates close.
 - PR descriptions and commit messages.
 

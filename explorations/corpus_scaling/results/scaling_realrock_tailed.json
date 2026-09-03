@@ -11,7 +11,7 @@
   "stack": {
    "dials": "joint_heads_allrock_hpo trial 32, 120 epochs",
    "encoder": "checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt",
-   "corpus": "old broad-draw data/corpus/train, 24 draws/bulk, rungs 50+30"
+   "corpus": "old broad-draw data/corpus/train, all 48 draws/bulk, rungs 50+30"
   },
   "corpus_side": "valtest128-broad val, teacher-forced hurdle (runs/mode_head)",
   "date": "2026-08-06"
