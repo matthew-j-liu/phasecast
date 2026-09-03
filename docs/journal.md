@@ -6907,3 +6907,33 @@ regenerated.
 `tailed_acceptance.json` and the tailed curve rows: it is the submitted
 paper's number builder and belongs to the camera-ready reconcile, not to this
 deletion.
+
+## 2026-09-03 -- number builder moved to HEAD's artifacts; the reconcile list exists; the leak control reversed
+
+**Q.** Keep the paper's number builder describing the submission, or move it to
+HEAD now that the tailed artifacts it read are gone?
+
+**Decision (owner).** Move it: the submitted state is frozen four times over
+(tag, mirror, backup, Overleaf) and the builder's job is to describe HEAD.
+`build_numbers.py` now reads `acceptance.json` (matrix canonical), the matrix
+rows of the curve, the matrix entries of the sediment and unit-leakage
+results and the matrix corpus ladder; the tailed macros are gone and
+`rrCoupling*` (vector minus matrix) arrive; the re-supervised fits get one
+shrinkage macro each since they no longer share a constant. Against the
+submitted macro file (kept beside the paper as `numbers_submitted.tex`): 341
+unchanged, 102 changed, 17 removed, 12 added. The list is
+`docs/camera_ready_reconcile.md`, prospective, to be deleted when camera-ready
+lands; it also names the artifacts still stale at HEAD (inference-card figure
+data, corpus ladder, sediment results, the three-way contrast).
+
+**Finding.** The unit-leakage control, re-run under matrix on the rebuilt
+split, reads the opposite direction from the paper's control paragraph: the
+25 flagged validation rocks (sub-facies and `?` variants of large tuffs)
+evaluate at 0.334 against 0.981 for the other 81, so removing them worsens
+the score where on the old split it had improved it. Unit-clustered 95% on
+the difference is [-2.81, +1.12]: not established either way, on 11 flagged
+units. The control cannot claim a direction; the camera-ready paragraph must
+say so. Whether the remaining `?` and sub-facies fragmentation deserves the
+curated eruption table #67 declined is reopened by this, not decided.
+
+**Next.** Issue sweep, then the research week.

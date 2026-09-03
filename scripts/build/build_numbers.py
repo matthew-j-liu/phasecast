@@ -229,11 +229,11 @@ try:
 except Exception as exc:
     tbd("rrValNRocks", f"curve_val.json unreadable: {exc}")
 
-section("recalibration tier ladder, frozen production stack, val slice "
-        "(<PROD>/tailed_acceptance.json for the full roster, curve_val.json "
-        "for the 25-rock budget); every number here is val, never test")
+section("recalibration tier ladder, frozen production stack, validation split "
+        "(<PROD>/acceptance.json for the full fitting set, curve_val.json "
+        "for the 25-rock fit size); every number here is validation, never test")
 try:
-    ta = json.loads((FEWSHOT / PROD / "tailed_acceptance.json").read_text())
+    ta = json.loads((FEWSHOT / PROD / "acceptance.json").read_text())
     cv = json.loads((FEWSHOT / PROD / "curve_val.json").read_text())
     lv = ta["val_levels"]
     zs = lv["zero_shot"]["joint"]
@@ -242,7 +242,7 @@ try:
     emit("rrValZsDirProd", fmt(lv["zero_shot"]["dirichlet"], 2))
     clim = ta["internal_climatology_val_joint"]
     emit("rrValClimProd", fmt(clim, 2), "climatology fit and scored inside val")
-    for tier in ("vector", "matrix", "tailed"):
+    for tier in ("vector", "matrix"):
         full = lv[tier]["joint"]
         emit(f"rrVal{tier.capitalize()}Prod", fmt(full, 2))
         pts = [p["joint"] for p in cv["curve"]
@@ -258,21 +258,19 @@ try:
              "nats the 25-rock fit recovers off zero-shot")
         emit(f"fsRecovered{tier.capitalize()}Pct", f"{100 * (zs - at25) / (zs - full):.0f}",
              "share of that tier's own recoverable nats bought by 25 rocks")
-    emit("rrValAheadProd", fmt(clim - lv["tailed"]["joint"], 2),
-         "canonical tailed tier, nats ahead of the val climatology")
-    emit("rrValAdProd", fmt(lv["tailed"]["joint"], 2),
-         "ALIAS of rrValTailedProd; tailed is the canonical layer")
+    emit("rrValAheadProd", fmt(clim - lv["matrix"]["joint"], 2),
+         "canonical matrix tier, nats ahead of the validation climatology")
+    emit("rrValAdProd", fmt(lv["matrix"]["joint"], 2),
+         "ALIAS of rrValMatrixProd; matrix is the canonical layer")
     con = ta["paired_contrasts"]
-    emit("rrTailedGainMean", fmt(con["matrix_minus_tailed_joint"]["mean"], 2, sign=True),
-         "matrix minus tailed, unit-clustered; positive = tailed is better")
-    emit("rrTailedGainLo", fmt(con["matrix_minus_tailed_joint"]["lo"], 2, sign=True))
-    emit("rrTailedGainHi", fmt(con["matrix_minus_tailed_joint"]["hi"], 2, sign=True))
-    emit("rrTailedBernGain", fmt(con["matrix_minus_tailed_bernoulli"]["mean"], 3, sign=True),
-         "the correction moves abundance only; presence contrast is exactly zero")
-    emit("rrTailedEps", fmt(ta["tailed_params"]["eps"], 3))
-    emit("rrTailedK", fmt(ta["tailed_params"]["k"], 3))
+    emit("rrCouplingGainMean", fmt(con["vector_minus_matrix_joint"]["mean"], 2, sign=True),
+         "vector minus matrix, unit-clustered; positive = the 7x7 coupling is better")
+    emit("rrCouplingGainLo", fmt(con["vector_minus_matrix_joint"]["lo"], 2, sign=True))
+    emit("rrCouplingGainHi", fmt(con["vector_minus_matrix_joint"]["hi"], 2, sign=True))
+    emit("rrCouplingDirGain", fmt(con["vector_minus_matrix_dirichlet"]["mean"], 2, sign=True))
+    emit("rrCouplingBernGain", fmt(con["vector_minus_matrix_bernoulli"]["mean"], 2, sign=True))
 except Exception as exc:
-    tbd("rrValZsProd", f"tailed_acceptance.json unreadable: {exc}")
+    tbd("rrValZsProd", f"acceptance.json unreadable: {exc}")
 
 # what the frozen encoder is worth away from the mineralogy task: recovering
 # element concentrations withheld from it, and how well rock type reads off the
@@ -377,7 +375,7 @@ try:
     import statistics
 
     cv = json.loads((FEWSHOT / PROD / "curve_val.json").read_text())
-    ARM_TAG = {"tailed": "Recal", "measured": "Latent",
+    ARM_TAG = {"matrix": "Recal", "measured": "Latent",
                "measured_raw": "Assay", "measured_ablated": "Assemblage"}
     KNEE, FULL = 25, 400
 
@@ -402,7 +400,7 @@ try:
     for budget, when in ((KNEE, "Knee"), (FULL, "Full")):
         emit(f"fsRecalMae{when}Pct",
              fmt(statistics.median(
-                 [r["share_mae"] for r in rows("tailed", budget)]) * 100, 1),
+                 [r["share_mae"] for r in rows("matrix", budget)]) * 100, 1),
              f"fsRecalMae{when} in percentage points")
 
     # paired within the draw: median of the per-draw differences, never the
@@ -416,7 +414,7 @@ try:
 
     for a, tag in (("measured_raw", "OverAssay"),
                    ("measured_ablated", "OverAssemblage"),
-                   ("tailed", "OverRecal")):
+                   ("matrix", "OverRecal")):
         for budget, when in ((KNEE, "Knee"), (FULL, "Full")):
             med, favour, total = paired(a, "measured", budget)
             emit(f"fsLatent{tag}{when}", fmt(med, 2))
@@ -439,7 +437,7 @@ try:
     zs_mae = cv["zero_shot"]["share_mae"]
     cross = [b for b in sorted({r["budget"] for r in cv["curve"]})
              if statistics.median(
-                 [r["share_mae"] for r in rows("tailed", b)]) < zs_mae]
+                 [r["share_mae"] for r in rows("matrix", b)]) < zs_mae]
     if cross:
         emit("fsRecalMaeBeatsZeroShotAt",
              str(round(statistics.mean(
@@ -448,15 +446,15 @@ try:
              "median share error first clears the zero-shot line")
         emit("fsRecalMaeBeatsZeroShotPct",
              fmt(statistics.median(
-                 [r["share_mae"] for r in rows("tailed", cross[0])]) * 100, 1),
-             "median tailed share error at that crossing budget, percentage points")
+                 [r["share_mae"] for r in rows("matrix", cross[0])]) * 100, 1),
+             "median matrix share error at that crossing fit size, percentage points")
     else:
         tbd("fsRecalMaeBeatsZeroShotAt",
             "no budget's median share error clears zero-shot")
 
     def sweeps_share_mae(budget):
         for arm in ("measured", "measured_raw", "measured_ablated"):
-            _, favour, total = paired(arm, "tailed", budget, "share_mae")
+            _, favour, total = paired(arm, "matrix", budget, "share_mae")
             if favour != total:
                 return False
         return True
@@ -477,9 +475,10 @@ except Exception as exc:
 # the inference card's fit is one unit-draw at a stamped seed, scored on the
 # sealed test slice -- a single figure-scoped read, not the few-shot median,
 # and the only test-slice read of the production stack
-section("inference card: tailed tier on one 25-rock unit draw, sealed test "
-        "slice (paper/figures/data/inference_card_*.csv, written by "
-        "figures/src/extract_inference_card.py)")
+section("inference card: submission-time figure data, tailed tier on one "
+        "25-rock unit selection, old test split (paper/figures/data/"
+        "inference_card_*.csv, written by figures/src/extract_inference_card.py; "
+        "regenerate under matrix on the rebuilt split before camera-ready)")
 try:
     figdata = ROOT / "paper" / "figures" / "data"
     with open(figdata / "inference_card_meta.csv") as f:
@@ -598,11 +597,13 @@ try:
 except Exception as exc:
     tbd("rrGapJointProd", f"real_rock metrics.json unreadable: {exc}")
 
-section("corpus-size ladder, tailed tier "
-        "(explorations/corpus_scaling/results/scaling_realrock_tailed.json); "
-        "simulator-side against measured-rock, same recalibration throughout")
+section("corpus-size ladder, matrix tier "
+        "(explorations/corpus_scaling/results/scaling_realrock.json); "
+        "simulator-side against measured-rock, same recalibration throughout. "
+        "Measured 2026-08-06 with amphibole pinned on the old split; re-run "
+        "run_realrock.py before camera-ready")
 try:
-    sc = json.loads((SCALING / "scaling_realrock_tailed.json").read_text())
+    sc = json.loads((SCALING / "scaling_realrock.json").read_text())
     pts = sorted((p for p in sc["points"] if p["seed"] == 0), key=lambda p: p["n_bulks"])
     lo, hi = pts[0], pts[-1]
     emit("csBulksLo", f"{lo['n_bulks']:,}".replace(",", "{,}"))
@@ -633,7 +634,7 @@ try:
     emit("csAdBernLo", fmt(min(bern), 2))
     emit("csAdBernHi", fmt(max(bern), 2))
 except Exception as exc:
-    tbd("csCorpusValGain", f"scaling_realrock_tailed.json unreadable: {exc}")
+    tbd("csCorpusValGain", f"scaling_realrock.json unreadable: {exc}")
 
 section("sedimentary XRD benchmark: a rock class and an instrument the heads "
         "never saw (explorations/sediment_transfer/results/)")
@@ -667,7 +668,7 @@ try:
          "the same failure on the held-out slice alone; quote this beside the recovery")
     # stored as [mean, lo, hi] of a negative delta; prose states the recovery
     # as a magnitude, so the bounds swap
-    dv = rc["tiers"]["tailed"]["joint_delta_vs_zero_shot"]
+    dv = rc["tiers"]["matrix"]["joint_delta_vs_zero_shot"]
     emit("sedRecovMean", fmt(-dv[0], 2))
     emit("sedRecovLo", fmt(-dv[2], 2))
     emit("sedRecovHi", fmt(-dv[1], 2))
@@ -681,7 +682,7 @@ try:
     # presence at 3 decimals: the pair differs by under 0.01, and rounding to 2
     # renders a tie as a visible gap, which is the opposite of the claim
     for term, short, places in (("bernoulli", "Bern", 3), ("dirichlet", "Dir", 2)):
-        emit(f"sedTailed{short}", fmt(rc["tiers"]["tailed"][term], places))
+        emit(f"sedMatrix{short}", fmt(rc["tiers"]["matrix"][term], places))
         emit(f"sedClim{short}", fmt(rc["climatology"][term], places))
     for term, short in (("bernoulli", "Bern"), ("dirichlet", "Dir")):
         d = ec["paired_delta_allrock_minus_igneous"][term]
@@ -692,9 +693,8 @@ try:
     fs = json.loads((SEDIMENT / "fewshot_budget.json").read_text())
     emit("sedFewshotBudget", str(fs["budget"]))
     emit("sedFewshotDraws", str(fs["n_draws"]))
-    for tier in ("matrix", "tailed"):
-        emit(f"sedFewshot{tier.capitalize()}", fmt(fs["tiers"][tier]["median_joint"], 2),
-             f"median over the draws; compare against sedClimTestJoint")
+    emit("sedFewshotMatrix", fmt(fs["tiers"]["matrix"]["median_joint"], 2),
+         "median over the replicates; compare against sedClimTestJoint")
 except Exception as exc:
     tbd("sedGap", f"sediment_transfer results unreadable: {exc}")
 
@@ -740,12 +740,15 @@ try:
     ul = json.loads((CTL / "unit_leakage.json").read_text())
     emit("ctlLeakFlagged", str(ul["n_flagged"]), "validation rocks whose unit name near-merges a training unit")
     emit("ctlLeakFreeN", str(ul["val"]["leak_free"]["n"]))
-    # NOTE the two rows disagree in direction. Recalibrated, removing the
-    # flagged rocks IMPROVES the score (0.885 < rrValTailedProd), so those
-    # rocks were harder, not easier, and cannot have inflated the reported
-    # numbers. Zero-shot, removal moves the other way. State the recalibrated
-    # pair, since that is the scale every reported result uses.
-    emit("ctlLeakFreeTailed", fmt(ul["val"]["leak_free"]["tailed_joint"], 3))
+    # Read the direction off the file, never from memory: on the old split
+    # removing the flagged rocks improved the recalibrated score (0.885 against
+    # 0.972), on the rebuilt split it worsens it (0.981 against 0.829), and
+    # the paper's control paragraph was written for the first (journal
+    # 2026-09-03). State the recalibrated pair, since that is the scale every
+    # reported result uses.
+    emit("ctlLeakFreeMatrix", fmt(ul["val"]["leak_free"]["matrix_joint"], 3))
+    emit("ctlLeakAllMatrix", fmt(ul["val"]["all"]["matrix_joint"], 3),
+         "the full validation split under the same fit; the pair's direction is the claim")
     emit("ctlLeakFreeZs", fmt(ul["val"]["leak_free"]["zero_shot_joint"], 2),
          "zero-shot on the survivors; moves opposite to the recalibrated pair")
 
@@ -894,7 +897,7 @@ except Exception as exc:
 
 section("recalibration fitting protocol (fit defaults from "
         "training/real_rock_recalibrator.fit_recalibrator; selected shrinkage "
-        "from <PROD>/tailed_acceptance.json)")
+        "from <PROD>/acceptance.json)")
 try:
     import inspect
 
@@ -903,21 +906,21 @@ try:
         select_weight_decay,
     )
 
-    ta = json.loads((FEWSHOT / PROD / "tailed_acceptance.json").read_text())
+    ta = json.loads((FEWSHOT / PROD / "acceptance.json").read_text())
     fit_defaults = {
         k: v.default for k, v in
         inspect.signature(fit_recalibrator).parameters.items()
     }
     emit("rcFitLr", f"{fit_defaults['lr']:g}",
          "full-batch Adam, fit_recalibrator default")
-    emit("rcTailedWeightDecay", fmt(ta["weight_decay"]["tailed"], 1),
-         "chosen once on the fixed val slice, shared across budgets and draws")
+    emit("rcMatrixWeightDecay", fmt(ta["weight_decay"]["matrix"], 1),
+         "chosen once on the fixed validation split, shared across fit sizes and replicates")
     grid = sorted(
         inspect.signature(select_weight_decay).parameters["grid"].default)
     emit("rcWdGridLo", pow10(grid[0]))
     emit("rcWdGridHi", f"{grid[-1]:g}")
 except Exception as exc:
-    tbd("rcTailedWeightDecay", f"recalibrator fit sources unreadable: {exc}")
+    tbd("rcMatrixWeightDecay", f"recalibrator fit sources unreadable: {exc}")
 
 # architecture + param counts read from the frozen production checkpoints
 section("architecture and parameter counts (read from checkpoints)")
@@ -966,10 +969,10 @@ try:
     from cnmineral.models.real_rock_recalibrator import RealRockRecalibrator
 
     tiers = {t: sum(p.numel() for p in RealRockRecalibrator(t).parameters())
-             for t in ("vector", "matrix", "tailed")}
+             for t in ("vector", "matrix")}
     emit("sysRecalibVectorParams", str(tiers["vector"]))
     emit("sysRecalibMatrixParams", str(tiers["matrix"]))
-    emit("sysRecalibParams", str(tiers["tailed"]), "canonical tailed tier")
+    emit("sysRecalibParams", str(tiers["matrix"]), "canonical matrix tier")
 
     # the capacity mismatch the #53 contrast runs against: a re-supervised head
     # is ~280x the recalibration layer, whose correction acts on outputs only
@@ -981,7 +984,7 @@ try:
     n_assay = sum(p.numel() for p in MeasuredModeHead(22).parameters())
     emit("sysResupervisedAssayParams", f"{n_assay:,}".replace(",", "{,}"),
          "head given only the assay, 22 element tokens")
-    emit("sysResupervisedOverRecalib", str(round(n_latent / tiers["tailed"])),
+    emit("sysResupervisedOverRecalib", str(round(n_latent / tiers["matrix"])),
          "parameter ratio, re-supervised head over the recalibration layer")
 except Exception as exc:
     tbd("sysRecalibParams", f"recalibrator import failed: {exc}")
@@ -1003,7 +1006,8 @@ try:
                 for k, v in inspect.signature(fit_measured_head).parameters.items()}
     emit("rsHidden", str(defaults["hidden"]), "trunk width, both branches")
     emit("rsComponents", str(defaults["n_components"]),
-         "Dirichlet mixture components, matched to the tailed tier")
+         "Dirichlet mixture components, matched to the two-component tier "
+         "that was canonical when the heads were built")
     emit("rsLr", fmt(defaults["lr"], 2), "full-batch Adam, fixed a priori")
     emit("rsEpochs", str(defaults["epochs"]), "steps to a train-loss plateau")
     emit("rsOvershootPct",
@@ -1011,12 +1015,12 @@ try:
          "a unit overshooting the target budget by more than this is skipped")
 
     cv = json.loads((FEWSHOT / PROD / "curve_val.json").read_text())
-    wd = {cv["weight_decay"][a]
-          for a in ("measured", "measured_raw", "measured_ablated")}
-    if len(wd) != 1:
-        raise ValueError(f"re-supervised arms disagree on weight decay: {wd}")
-    emit("rsWeightDecay", fmt(wd.pop(), 1),
-         "one shrinkage constant, shared by all three re-supervised arms")
+    # one constant per fit, each selected on the validation split; they
+    # coincided at 1.0 on the old split and no longer do
+    for arm, tag in (("measured", ""), ("measured_raw", "Raw"),
+                     ("measured_ablated", "Assemblage")):
+        emit(f"rsWeightDecay{tag}", fmt(cv["weight_decay"][arm], 1),
+             f"shrinkage selected on the validation split for {arm}")
     grid = sorted({r["budget"] for r in cv["curve"]})
     emit("rsBudgetGrid", ", ".join(str(b) for b in grid[:-1]) + f", and {grid[-1]}",
          "target budgets; the largest exceeds the roster, so it realizes as all "
