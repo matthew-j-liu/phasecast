@@ -43,7 +43,8 @@ class RealRockRecalibrator(nn.Module):
     `pin_amp_magnitude` holds amphibole's magnitude correction at zero rather
     than fitting it.  The mapping audit's Monte Carlo band straddles zero for
     that one group and no density recovers the sign, so a fitted value there
-    is reading the mapping's uncertainty, not the model's error.  The pin
+    is reading the mapping's uncertainty, not the model's error (re-measured
+    on production 2026-09-02: -0.026..+0.050, unchanged).  The pin
     applies at every tier, not just to the constant: a coupled correction
     reached through the mixing matrix would be the same unidentifiable
     quantity in a different parameterization.

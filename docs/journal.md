@@ -6667,3 +6667,32 @@ the ablation go with it. Counts from the module: vector 21, matrix 119, mlp
 **Next.** No re-stamp yet. Items 3 and 4 also change the layer and item 2
 re-splits the benchmark, so every real-rock number (acceptance read, few-shot
 curve, ledger, results figures) is restamped once at the end of #67.
+
+## 2026-09-02 -- amphibole magnitude pin re-measured on production: still unidentifiable, pin stands
+
+**Q.** #67 item 3: does amphibole's abundance-correction sign still flip under
+the plausible density range on the production checkpoint and current benchmark?
+If not, un-pin it.
+
+**Context.** The pin dates from the July mapping audit on
+`joint_heads_supportmag_seed0`: amphibole's implied magnitude offset spanned
+-0.033..+0.045 over 200 density draws, inside the audit's 0.10 materiality
+floor, so a fitted value would read the density assumption. Since then the
+production checkpoint, the benchmark cohort (640 du Bray rocks), and the
+density table (08-18) all changed without the band being re-read.
+
+**Considered.** Re-running `run_sensitivity.py` on production (nothing is fit,
+so no stamped fit moves): amphibole -0.026..+0.050, straddling zero and inside
+the floor; the other six groups keep sign and size (opq +0.949..+1.036, bi
++0.480..+0.598, q -0.517..-0.495, fsp -0.146..-0.121, px +0.139..+0.222, ol
++0.061..+0.143); the one magnitude sign flip is px under `all_members`, the
+same mechanical case as July; amp AUROC 0.509-0.592. 312 of the 650 clean
+rocks carry a numeric amphibole share, so this is not a small-sample artifact.
+
+**Decision.** The pin stands, for the original reason: the correction is not
+identifiable from this benchmark at any plausible density. Recorded in the
+audit README and the model docstring; the `pin_amp_magnitude` switch stays a
+real parameter because a future benchmark could resolve it.
+
+**Next.** #67 item 4 (K=2 mixture), then item 2 (re-split) and the single
+re-stamp.

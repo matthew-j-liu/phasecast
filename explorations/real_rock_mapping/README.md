@@ -90,6 +90,15 @@ which is a different measurement regime rather than a better one. The literal
 label is crystals-renormalized so there is no `liq` in the 21-phase vocabulary
 to pair it with, and a Dirichlet needs its components to renormalize.
 
+**Re-run 2026-09-02 on production** (`joint_heads_allrock_tuned_seed0`, the
+640-rock du Bray cohort, the 08-18 density table), for #67 item 3. Amphibole's
+magnitude band is -0.026..+0.050 over 200 density draws, straddling zero and
+inside the 0.10 materiality floor exactly as in July; every other group keeps
+its sign and roughly its size (opq +0.949..+1.036, bi +0.480..+0.598, q
+-0.517..-0.495), the one px flip is the same mechanical `all_members` case,
+and amp AUROC spans 0.509-0.592. The pin stands. Results in
+`results/joint_heads_allrock_tuned_seed0/`.
+
 ## Decision
 
 The mapping is robust where it encodes a measurement and fragile where it
