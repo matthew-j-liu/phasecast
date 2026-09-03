@@ -6976,3 +6976,80 @@ checkpoint stamps (`Checkpoint.config`, `JointHeadCheckpoint.head_config` /
 **Next.** `roadmap.md`'s status section is stamped 2026-08-05 and predates
 submission, #67 and the 2026-09-02 thrust ordering; its back half is
 spring rewrite-era text. Separate change.
+
+## 2026-09-03 -- #69 read: real-rock error is a hump in corpus size, not a plateau, and a 78-composition head beats production on every mineral category
+
+**Q.** #69 asked for zero-shot absolute error per corpus-scaling checkpoint,
+the ruler #60's NLL read folded calibration into. Does share error fall
+with the number of simulated compositions?
+
+**Instruments.** The corpus-scaling ladder
+(`explorations/corpus_scaling/run_ladder.py`) extended below 625 with
+nested 78 / 156 / 312 subsets plus a second training seed at 78, each the
+standard joint-heads config on the frozen all-rock encoder, 96 rows per
+composition (48 draws x rungs 50 + 30). Zero-shot `scripts/eval/real_rock.py`
+on every point, all eight re-evaluated on HEAD (the cached 08-06 values
+reproduce to the third decimal). Per-category magnitude absolute error on
+the 640 evaluated rocks, all three splits, quantified rocks per category;
+the constant forecast (train-split mean share) as the reference. Scripts,
+CSVs and figures in `tmp/` (gitignored): `group_mae_vs_corpus.py`,
+`olivine_mae_vs_corpus.py`, `draw_vs_bulk_variance.py`,
+`climatology_mae.py`. New checkpoints under `checkpoints/corpus_scaling_
+allrock_n{78,156,312}` and `_n78_seed1`, runs under `runs/real_rock/`.
+
+**Result.** Absolute error rises from 78 to about 625 compositions and
+plateaus, in every category. Mean of seven: 0.102 at 78 (0.101 on the
+second seed), 0.116 at 625, 0.113 at 10,000; constant forecast 0.114. At 78
+the model beats the constant forecast on five of seven categories; at
+10,000 it loses on five of seven (the 08-13 finding reproduced). Both 78
+seeds beat the 10,000 head in every category (fsp 0.125 / 0.119 vs 0.145;
+px 0.073 / 0.078 vs 0.081; amp 0.105 / 0.111 vs 0.121; bi 0.077 / 0.071 vs
+0.078; ol 0.098 / 0.097 vs 0.100; opq 0.073 / 0.068 vs 0.084; q 0.165 /
+0.162 vs 0.180). Corpus-side val joint NLL improves monotonically across
+the same ladder (0.96 -> -2.67) while the real-rock headline NLL worsens
+monotonically (3.6 at 78, 8.0 at 625, 11.6 at 10,000). Presence bias per
+category (mean predicted probability minus observed rate) is identical at
+625 and 10,000: amp -0.39, q +0.38, px +0.15, ol -0.16, opq -0.16. Scale
+transfer (magnitude R2) rises only for olivine, 0.52 -> 0.61; every other
+category sits at or below 0.23 or negative at every size. Olivine is the
+one category that recovers past 625, back to where 78 already was.
+
+Two hypotheses tested against the corpus and rejected as the separator.
+Coverage: about a third of bulks at every ladder rung have MgO above 6 wt%,
+so olivine-bearing compositions are not a tail the ladder fills in. Draw
+noise: the within-bulk (draw-set) share of simulated share variance at rung
+50 on 1,991 bulks is amp 0.67, ol 0.58, fsp 0.39, bi 0.36, px 0.21, opq
+0.20, q 0.09, which does not sort the categories by slope (pyroxene and
+quartz are composition-set yet flat; olivine is draw-set yet recovers).
+
+**Reading.** Seventy-eight compositions over the frozen encoder are enough
+to learn the coarse composition-to-mineralogy map, and that map transfers.
+Further doublings add the simulator's fine structure, which is exactly
+where an equilibrium assemblage at half-crystallized disagrees with a
+phenocryst count, so learning it adds error. Olivine is the exception
+because its simulated label is the one that transfers. Two failure
+signatures separate: amphibole is draw-dominated in the corpus and its
+presence discrimination is near chance, so whatever water content is right
+is averaged away by the draw prior; quartz, pyroxene and feldspar are
+composition-set regardless of draw and biased at every draw, so the rung is
+the suspect. Biotite's rank correlation is negative at every size, and
+opaques are set by the fixed fO2 the heads never see. Corpus scaling helps
+exactly where the simulated label and the measured mineralogy describe the
+same thing.
+
+**Decision (owner, 2026-09-03).** The 09-02 Lawrencium rule resolves on the
+dropped side: the cluster has no corpus-size use. The direction is
+calibrating the generator against measured mineralogy, formalized as epic
+#74 with one child per experiment (#75 to #79): three tests on
+labels already on disk (rung-60 heads, a regularized 10,000-composition
+head, the matrix recalibrator on the 78 head), then the generator run on
+the 640 benchmark compositions at all four rungs to separate "right
+conditions buried under the draw prior" from "wrong rung" from "wrong
+recipe", and only then a generator-prior search with its objective locked
+in advance. Three seeds per point before anything is paper-bound; the
+submitted numbers are untouched. Also landed: `run_real_rock_eval` had
+crashed on HEAD since the mixture deletion (a dangling `log_w` argument);
+fixed, one line; the zero-shot eval path has no end-to-end test.
+
+**Next.** The three on-disk tests, about an hour combined, before the
+plumbing day the benchmark-composition run needs.
