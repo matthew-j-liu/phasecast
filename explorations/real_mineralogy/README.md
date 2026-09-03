@@ -163,7 +163,9 @@ Four data facts that surface only here, all encoded in the loader:
 - `run_pointcount_contrast.py` -> `results/<tag>/pointcount_contrast.{json,png}`:
   the frozen stack scored against both rulers on the 64 rocks that carry both.
 - `run_unit_leakage.py` -> `results/<tag>/unit_leakage.json`: whether the
-  fragmented unit key leaks eruptions into val, measured rather than repaired.
+  fragmented unit key leaks eruptions into val, measured rather than repaired
+  (the whitespace / case fragmentation has since been repaired in the loader;
+  the `?` qualifiers and sub-facies suffixes this rule merges have not).
   An over-permissive merge rule flags every val rock that might share an
   eruption with a train rock, and val is scored with and without them under the
   same fitted layer.
@@ -206,16 +208,17 @@ Four data facts that surface only here, all encoded in the loader:
 - unit labels are the raw source strings, so one eruption can appear under
   several spellings (`Fraction Tuff` / `FractionTuff`, trailing spaces, `?`
   qualifiers, `, pumice` suffixes): 148 raw spellings collapse to 141 on case
-  and whitespace alone. That fragments the clusters the split and the bootstrap
-  group by, and one rock reaches val whose 36 same-unit siblings are in train
-  (`fractiontuff` is the only normalized key that straddles the committed
-  roster). Appendix 1's `Strat_Name` is a second labeling at the same
+  and whitespace alone. That fragmented the clusters the split and the bootstrap
+  group by, and one rock reached val whose 36 same-unit siblings were in train.
+  Since 2026-09-02 `load_benchmark` canonicalizes the whitespace / case
+  variants (`canonical_units`) and the roster was rebuilt on the canonical
+  key; the `?` qualifiers and sub-facies suffixes are left distinct.
+  Appendix 1's `Strat_Name` is a second labeling at the same
   granularity (144 distinct either way) that disagrees with the petrography
   column on 91 rows, some substantively rather than by spelling -- four rocks
   logged as `Heller Tuff` there are `Fraction Tuff` in Appendix 1 -- and
   regrouping on it would straddle four keys rather than one. So it is not a
-  drop-in authority. Fixing any of this moves committed split assignments, so
-  it is a separate decision.
+  drop-in authority, and it stays unrepaired.
 - more precision-tier eruptions (Unzen, Soufriere Hills, Colima, Mazama) if the
   benchmark needs weight beyond the coverage tier.
 - nothing pins which revision of the USGS workbooks is on disk: the raw files

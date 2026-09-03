@@ -1,18 +1,16 @@
 source,sample_id,unit,subset
-dubray_ds764,203415,Cinnabar Canyon trachydacite,test
-dubray_ds764,203334,Dacite of Hot Springs Canyon,test
-dubray_ds764,203335,Dacite of Hot Springs Canyon,test
-dubray_ds764,203340,Dacite of Hot Springs Canyon,test
-dubray_ds764,203341,Dacite of Hot Springs Canyon,test
-dubray_ds764,203134,"Dacite of Silver Hill, clast in debris flow",test
-dubray_ds764,203135,"Dacite of Silver Hill, clast in debris flow",test
-dubray_ds764,10SB048A,"Eureka Valley Tuff, middle, By-Day Member, lower part",test
+dubray_ds764,203386,"Basalt of Rancheria, plug",test
+dubray_ds1099,203487,Dacite of Donovan Peak,test
+dubray_ds1099,203506,Dacite of Donovan Peak,test
+dubray_ds1099,T138A,Dacite of Donovan Peak,test
+dubray_ds764,10SB093A,"Eureka Valley Tuff, lower, Tollhouse Flat Member",test
+dubray_ds764,10SB047A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member, upper part",test
+dubray_ds764,10SB054A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member, upper part",test
 dubray_ds764,10SB076A,"Eureka Valley Tuff, pumice",test
 dubray_ds764,10SB082A,"Eureka Valley Tuff, pumice",test
-dubray_ds764,10SB049A,"Eureka Valley Tuff, upper, Upper Member, lower part",test
+dubray_ds764,10SB050A,"Eureka Valley Tuff, upper, Upper Member, upper part",test
 dubray_ds764,10SB025A,"Eureka Valley Tuff, upper, Upper Member?",test
-dubray_ds1099,203476,"Fraction Tuff, basal vitrophyre",test
-dubray_ds764,203377,Granodiorite of Masonic Mountain,test
+dubray_ds1099,14-T-12,"Fraction Tuff, pumice",test
 dubray_ds764,09BA36A,Hornblende trachyandesite plug,test
 dubray_ds764,203145,Hornblende trachyandesite plug,test
 dubray_ds764,203193,Hornblende trachyandesite plug,test
@@ -32,7 +30,25 @@ dubray_ds1099,224-41B,Milltown Andesite,test
 dubray_ds1099,224-42,Milltown Andesite,test
 dubray_ds1099,224-45,Milltown Andesite,test
 dubray_ds1099,226-110,Milltown Andesite,test
-dubray_ds1099,15-T-13,Obsidian megabreccia block in Fraction Tuff,test
+dubray_ds1099,00-T-6,Mizpah Trachyte,test
+dubray_ds1099,14-T-14,Mizpah Trachyte,test
+dubray_ds1099,14-T-15,Mizpah Trachyte,test
+dubray_ds1099,16-T-25,Mizpah Trachyte,test
+dubray_ds1099,203438,Mizpah Trachyte,test
+dubray_ds1099,203439,Mizpah Trachyte,test
+dubray_ds1099,203440,Mizpah Trachyte,test
+dubray_ds1099,203477,Mizpah Trachyte,test
+dubray_ds1099,203502,Mizpah Trachyte,test
+dubray_ds1099,203513,Mizpah Trachyte,test
+dubray_ds1099,T67,Mizpah Trachyte,test
+dubray_ds764,203350,Monzogranite of Murphy Creek,test
+dubray_ds1099,13-T-2,Oddie Rhyolite,test
+dubray_ds1099,203469,Oddie Rhyolite,test
+dubray_ds1099,203480,Oddie Rhyolite,test
+dubray_ds1099,203518,Oddie Rhyolite,test
+dubray_ds1099,203520,Oddie Rhyolite,test
+dubray_ds1099,203539,Oddie Rhyolite,test
+dubray_ds1099,T6,Oddie Rhyolite,test
 pinatubo_pallister1996,CN6791-i,Pinatubo 1991 basalt,test
 dubray_ds764,10BA40,"Plio-Pleistocene, basaltic andesite of Locomotive Pt",test
 dubray_ds764,10SB016A,"Plio-Pleistocene, basaltic andesite of Locomotive Pt",test
@@ -40,13 +56,9 @@ dubray_ds764,10SB016B,"Plio-Pleistocene, basaltic andesite of Locomotive Pt",tes
 dubray_ds764,203184,"Plio-Pleistocene, basaltic andesite of Locomotive Pt",test
 dubray_ds764,203195,"Plio-Pleistocene, basaltic andesite of Locomotive Pt",test
 dubray_ds764,203329,"Plio-Pleistocene, basaltic andesite of Locomotive Pt",test
-dubray_ds764,01BA1,"Plio-Pleistocene, hornblende trachydacite",test
-dubray_ds764,203140,"Plio-Pleistocene, ol basaltic trachyandesite",test
-dubray_ds764,203181,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",test
-dubray_ds764,203246,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",test
-dubray_ds764,203247,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",test
-dubray_ds764,203354,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",test
+dubray_ds764,203326,"Plio-Pleistocene, basaltic trachyandesite of Beauty Peak",test
 dubray_ds764,203398,"Plio-Pleistocene, trachyandesite 1",test
+dubray_ds764,08BA7,"Plio-Pleistocene, trachyandesite 2",test
 dubray_ds764,12BA31,"Plio-Pleistocene, trachyandesite of Cedar Hill",test
 dubray_ds764,12BA34,"Plio-Pleistocene, trachyandesite of Cedar Hill",test
 dubray_ds764,203449,"Plio-Pleistocene, trachydacite of Aurora Peak",test
@@ -59,7 +71,7 @@ dubray_ds764,203399,Pyroxene rhyolite,test
 dubray_ds764,203401,Pyroxene rhyolite,test
 dubray_ds764,203403,Pyroxene rhyolite,test
 dubray_ds1099,16-T-2,Rhyolite block in Fraction Tuff,test
-dubray_ds1099,203510,Rhyolite lava block in Fraction Tuff,test
+dubray_ds1099,203536,Rhyolite flow breccia,test
 dubray_ds764,09SB053A,Rhyolite of Bald Peak,test
 dubray_ds764,203129,Rhyolite of Bald Peak,test
 dubray_ds764,203130,Rhyolite of Bald Peak,test
@@ -69,19 +81,6 @@ dubray_ds764,203378,Rhyolite of Bald Peak,test
 dubray_ds764,203411,Rhyolite of Bald Peak,test
 dubray_ds764,203412,Rhyolite of Bald Peak,test
 dubray_ds764,203414,Rhyolite of Bald Peak,test
-dubray_ds764,08BA52,Rhyolite of Big Alkali,test
-dubray_ds764,203105,Rhyolite of Big Alkali,test
-dubray_ds764,203186,Rhyolite of Big Alkali,test
-dubray_ds764,203197,Rhyolite of Big Alkali,test
-dubray_ds764,203214,Rhyolite of Big Alkali,test
-dubray_ds764,203263,Rhyolite of Big Alkali,test
-dubray_ds764,203285,Rhyolite of Big Alkali,test
-dubray_ds764,203286,Rhyolite of Big Alkali,test
-dubray_ds764,203316,Rhyolite of Big Alkali,test
-dubray_ds764,203330,Rhyolite of Big Alkali,test
-dubray_ds764,203333,Rhyolite of Big Alkali,test
-dubray_ds764,203346,Rhyolite of Big Alkali,test
-dubray_ds764,203417,Rhyolite of Big Alkali ,test
 dubray_ds764,00BA3,Rhyolite of Bodie Hills,test
 dubray_ds764,00BA31,Rhyolite of Bodie Hills,test
 dubray_ds764,08BA50,Rhyolite of Bodie Hills,test
@@ -106,16 +105,25 @@ dubray_ds764,203256,Rhyolite of Del Monte Canyon,test
 dubray_ds764,203257,Rhyolite of Del Monte Canyon,test
 dubray_ds764,203279,Rhyolite of Del Monte Canyon,test
 dubray_ds764,203280,Rhyolite of Del Monte Canyon,test
-dubray_ds764,10BA27,Rhyolite of East Brawley Peak,test
-dubray_ds764,203277,Rhyolite of East Brawley Peak,test
-dubray_ds764,203281,Rhyolite of East Brawley Peak,test
-dubray_ds764,203356,Rhyolite of East Brawley Peak,test
+dubray_ds1099,203484,Rhyolite of Donovan Peak,test
+dubray_ds1099,203486,Rhyolite of Donovan Peak,test
+dubray_ds1099,T145,Rhyolite of Donovan Peak,test
+dubray_ds1099,T162B,Rhyolite of Donovan Peak,test
+dubray_ds1099,15-T-3,Rhyolite porphyry dike,test
 dubray_ds1099,203494,Rhyolite tuff,test
-dubray_ds764,203348,Rhyolite tuff of Big Alkali,test
-dubray_ds764,08SB040,Tephra in Sonoma Basin strata,test
+dubray_ds764,08SB027,"Sediment, ash-flow tuff below Aldrich",test
 dubray_ds1099,16-T-6A,Tonopah Formation ?,test
 dubray_ds1099,16-T-7,Tonopah Formation ?,test
-dubray_ds1099,203501,Tonopah Formation?,test
+dubray_ds1099,203501,Tonopah Formation ?,test
+dubray_ds764,09BA10,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,09E06A,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,09E07,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,203444,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,MAS1072,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,MAS1073,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,MAS1074,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,MAS1075,Trachyandesite intrusion of Masonic Gulch,test
+dubray_ds764,203442,Trachyandesite of Borealis,test
 dubray_ds764,08BA8,Trachyandesite of Clark Canyon,test
 dubray_ds764,203183,Trachyandesite of Clark Canyon,test
 dubray_ds764,203185,Trachyandesite of Clark Canyon,test
@@ -143,38 +151,12 @@ dubray_ds764,203373,Trachyandesite of Del Monte,test
 dubray_ds764,203376,Trachyandesite of Del Monte,test
 dubray_ds764,203413,Trachyandesite of Del Monte,test
 dubray_ds764,203418,Trachyandesite of Del Monte,test
-dubray_ds764,09E01,"Trachyandesite of Masonic, dike",test
-dubray_ds764,203307,"Trachyandesite of Mt. Biedeman, dike",test
-dubray_ds1099,203441,Trachyandesite of Red Mountain,test
-dubray_ds1099,203465,Trachyandesite of Red Mountain,test
-dubray_ds1099,203471,Trachyandesite of Red Mountain,test
-dubray_ds1099,SS64A,Trachyandesite of Red Mountain,test
-dubray_ds1099,SS65,Trachyandesite of Red Mountain,test
-dubray_ds1099,T123B,Trachyandesite of Red Mountain,test
-dubray_ds1099,T77A,Trachyandesite of Red Mountain,test
-dubray_ds764,09811D,Trachyandesite of Sinnamon Cut,test
-dubray_ds764,203174,Trachyandesite of Sinnamon Cut,test
-dubray_ds764,203259,Trachyandesite of Sinnamon Cut,test
-dubray_ds764,00BA39A,Trachyandesite of West Brawley Peak,test
-dubray_ds764,00BA39B,Trachyandesite of West Brawley Peak,test
-dubray_ds764,00BA8,Trachyandesite of West Brawley Peak,test
-dubray_ds764,01BA25,Trachyandesite of West Brawley Peak,test
-dubray_ds764,203106,Trachyandesite of West Brawley Peak,test
-dubray_ds764,203245,Trachyandesite of West Brawley Peak,test
-dubray_ds764,203248,Trachyandesite of West Brawley Peak,test
-dubray_ds764,203255,Trachyandesite of West Brawley Peak,test
-dubray_ds764,203278,Trachyandesite of West Brawley Peak,test
-dubray_ds764,203353,Trachyandesite of West Brawley Peak,test
-dubray_ds764,203355,Trachyandesite of West Brawley Peak,test
+dubray_ds764,MAS1076,"Trachyandesite of Masonic, plug in",test
+dubray_ds764,203381,"Trachyandesite of Mt. Biedeman, magma bleb",test
+dubray_ds1099,203467,Trachyandesite of Red Mountain?,test
+dubray_ds1099,203468,Trachyandesite of Red Mountain?,test
+dubray_ds1099,203489,Trachyandesite of Red Mountain?,test
 dubray_ds764,00BA38,"Trachyandesite of West Brawley Peak, intrusion",test
-dubray_ds764,09BA35,Trachydacite intrusion,test
-dubray_ds764,10SB061A,Trachydacite intrusion,test
-dubray_ds764,203107,Trachydacite intrusion,test
-dubray_ds764,203108,Trachydacite intrusion,test
-dubray_ds764,203320,Trachydacite intrusion,test
-dubray_ds764,203321,Trachydacite intrusion,test
-dubray_ds764,203407,Trachydacite intrusion,test
-dubray_ds764,203457,Trachydacite intrusion,test
 dubray_ds764,203287,Trachydacite of Cinnabar Canyon,test
 dubray_ds764,203338,Trachydacite of Cinnabar Canyon,test
 dubray_ds764,08BA34,Trachydacite of East Canyon,test
@@ -186,31 +168,40 @@ dubray_ds764,203162,Trachydacite of East Canyon,test
 dubray_ds764,203219,Trachydacite of East Canyon,test
 dubray_ds764,203241,Trachydacite of East Canyon,test
 dubray_ds764,203425,Trachydacite of East Canyon,test
-dubray_ds764,00BA5,"Trachydacite of Potato Peak, float block",test
-dubray_ds764,10SB014A,??,train
-dubray_ds764,203110,Andesite of Lakeview Spring,train
-dubray_ds764,203312,Andesite of Lakeview Spring,train
-dubray_ds764,203315,Andesite of Lakeview Spring,train
-dubray_ds764,203362,Andesite of Lakeview Spring,train
-dubray_ds764,MAS1071,Andesite of Lakeview Spring,train
-dubray_ds764,203386,"Basalt of Rancheria, plug",train
-dubray_ds764,09SB007A,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,09SB032A,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,10SB070A,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,12BA23,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,12BA24,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,12BA28,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,203173,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,203260,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,203303,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,203388,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,203452,Basaltic trachyandesite of Rancheria,train
-dubray_ds764,203454,Basaltic trachyandesite of Rancheria,train
-dubray_ds1099,166-57,Chispa Andesite,train
-dubray_ds1099,166-58,Chispa Andesite,train
-dubray_ds1099,203487,Dacite of Donovan Peak,train
-dubray_ds1099,203506,Dacite of Donovan Peak,train
-dubray_ds1099,T138A,Dacite of Donovan Peak,train
+dubray_ds764,09SB049A,Trachydacite of Rough Creek,test
+dubray_ds764,10BA59,Trachydacite of Rough Creek,test
+dubray_ds764,10BA7,Trachydacite of Rough Creek,test
+dubray_ds764,10SB035A,Trachydacite of Rough Creek,test
+dubray_ds764,10SB037A,Trachydacite of Rough Creek,test
+dubray_ds764,10SB101A,Trachydacite of Rough Creek,test
+dubray_ds764,203227,Trachydacite of Rough Creek,test
+dubray_ds764,203228,Trachydacite of Rough Creek,test
+dubray_ds764,203229,Trachydacite of Rough Creek,test
+dubray_ds764,203233,Trachydacite of Rough Creek,test
+dubray_ds764,203234,Trachydacite of Rough Creek,test
+dubray_ds764,203282,Trachydacite of Rough Creek,test
+dubray_ds764,203369,Trachydacite of Rough Creek,test
+dubray_ds1099,203503,Unknown tuff,test
+dubray_ds1099,14-T-05,Volcanics of Lime Mountain,test
+dubray_ds1099,T118,Volcanics of Lime Mountain,test
+dubray_ds1099,T125,Volcanics of Lime Mountain,test
+dubray_ds1099,T132,Volcanics of Lime Mountain,test
+dubray_ds1099,T94C,Volcanics of Lime Mountain,test
+dubray_ds1099,14-T-02,Brougher Rhyolite,train
+dubray_ds1099,203466,Brougher Rhyolite,train
+dubray_ds1099,203478,Brougher Rhyolite,train
+dubray_ds1099,203482,Brougher Rhyolite,train
+dubray_ds1099,SS100,Brougher Rhyolite,train
+dubray_ds1099,SS103,Brougher Rhyolite,train
+dubray_ds1099,T106,Brougher Rhyolite,train
+dubray_ds1099,T109A,Brougher Rhyolite,train
+dubray_ds1099,T142,Brougher Rhyolite,train
+dubray_ds1099,T171,Brougher Rhyolite,train
+dubray_ds764,203415,Cinnabar Canyon trachydacite,train
+dubray_ds764,203334,Dacite of Hot Springs Canyon,train
+dubray_ds764,203335,Dacite of Hot Springs Canyon,train
+dubray_ds764,203340,Dacite of Hot Springs Canyon,train
+dubray_ds764,203341,Dacite of Hot Springs Canyon,train
 dubray_ds764,00BA4,Dacite of Silver Hill,train
 dubray_ds764,07BA4,Dacite of Silver Hill,train
 dubray_ds764,09BA25,Dacite of Silver Hill,train
@@ -228,6 +219,15 @@ dubray_ds764,203430,Dacite of Silver Hill,train
 dubray_ds764,203459,Dacite of Silver Hill,train
 dubray_ds764,203460,Dacite of Silver Hill,train
 dubray_ds764,203461,Dacite of Silver Hill,train
+dubray_ds1099,189-112,Dacite tuff,train
+dubray_ds1099,44-8-1,Dacite tuff,train
+dubray_ds1099,203485,Divide Andesite,train
+dubray_ds1099,203491,Divide Andesite,train
+dubray_ds1099,203504,Divide Andesite,train
+dubray_ds1099,203508,Divide Andesite,train
+dubray_ds1099,203527,Divide Andesite,train
+dubray_ds1099,T38,Divide Andesite,train
+dubray_ds1099,T53,Divide Andesite,train
 dubray_ds764,0777E,Eureka Valley Tuff,train
 dubray_ds764,08SB011A,Eureka Valley Tuff,train
 dubray_ds764,08SB013,Eureka Valley Tuff,train
@@ -251,13 +251,6 @@ dubray_ds764,203200,Eureka Valley Tuff,train
 dubray_ds764,203205,Eureka Valley Tuff,train
 dubray_ds764,203298,Eureka Valley Tuff,train
 dubray_ds764,10SB051A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member, lower part",train
-dubray_ds764,10SB047A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member, upper part",train
-dubray_ds764,10SB054A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member, upper part",train
-dubray_ds764,10SB013A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",train
-dubray_ds764,10SB019A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",train
-dubray_ds764,10SB027A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",train
-dubray_ds764,10SB032A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",train
-dubray_ds764,10SB034A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",train
 dubray_ds764,10SB048B,"Eureka Valley Tuff, middle, By-Day Member, upper part",train
 dubray_ds764,10SB019B,"Eureka Valley Tuff, middle, By-Day Member?",train
 dubray_ds764,10SB026A,"Eureka Valley Tuff, middle, By-Day Member?",train
@@ -278,6 +271,7 @@ dubray_ds1099,16-T-9,Fraction Tuff,train
 dubray_ds1099,17-T-5,Fraction Tuff,train
 dubray_ds1099,17-T-6,Fraction Tuff,train
 dubray_ds1099,17-T-8,Fraction Tuff,train
+dubray_ds1099,203473,Fraction Tuff,train
 dubray_ds1099,203474,Fraction Tuff,train
 dubray_ds1099,203475,Fraction Tuff,train
 dubray_ds1099,203498,Fraction Tuff,train
@@ -301,10 +295,18 @@ dubray_ds1099,203558,Fraction Tuff,train
 dubray_ds1099,203559,Fraction Tuff,train
 dubray_ds1099,17-T-21,"Fraction Tuff (?), megabreccia block",train
 dubray_ds1099,17-T-22,"Fraction Tuff (?), megabreccia block",train
-dubray_ds1099,14-T-12,"Fraction Tuff, pumice",train
+dubray_ds764,203377,Granodiorite of Masonic Mountain,train
 dubray_ds1099,13-T-1,Heller Tuff,train
 dubray_ds1099,14-T-09,Heller Tuff,train
 dubray_ds1099,16-T-29,Heller Tuff,train
+dubray_ds1099,17-T-25,Heller Tuff,train
+dubray_ds1099,17-T-26,Heller Tuff,train
+dubray_ds1099,17-T-29,Heller Tuff,train
+dubray_ds1099,17-T-37,Heller Tuff,train
+dubray_ds1099,17-T-39,Heller Tuff,train
+dubray_ds1099,17-T-42,Heller Tuff,train
+dubray_ds1099,17-T-45,Heller Tuff,train
+dubray_ds1099,17-T-61,Heller Tuff,train
 dubray_ds1099,203488,Heller Tuff,train
 dubray_ds1099,203490,Heller Tuff,train
 dubray_ds1099,203496,Heller Tuff,train
@@ -329,57 +331,31 @@ dubray_ds1099,203552,Heller Tuff,train
 dubray_ds1099,203553,Heller Tuff,train
 dubray_ds1099,203554,Heller Tuff,train
 dubray_ds1099,203555,Heller Tuff,train
+dubray_ds1099,203556,Heller Tuff,train
 dubray_ds1099,203560,Heller Tuff,train
 dubray_ds1099,T173,Heller Tuff,train
 dubray_ds1099,T87,Heller Tuff,train
-dubray_ds1099,17-T-25,Heller Tuff ,train
-dubray_ds1099,17-T-26,Heller Tuff ,train
-dubray_ds1099,17-T-29,Heller Tuff ,train
-dubray_ds1099,17-T-37,Heller Tuff ,train
-dubray_ds1099,17-T-39,Heller Tuff ,train
-dubray_ds1099,17-T-42,Heller Tuff ,train
-dubray_ds1099,17-T-45,Heller Tuff ,train
-dubray_ds1099,17-T-61,Heller Tuff ,train
-dubray_ds1099,203556,Heller Tuff ,train
 dubray_ds1099,17-T-45P,"Heller Tuff , pumice",train
-dubray_ds1099,16-T-27,"Hematitic breccia, Fraction Tuff ?",train
-dubray_ds1099,00-T-6,Mizpah Trachyte,train
-dubray_ds1099,14-T-14,Mizpah Trachyte,train
-dubray_ds1099,14-T-15,Mizpah Trachyte,train
-dubray_ds1099,16-T-25,Mizpah Trachyte,train
-dubray_ds1099,203438,Mizpah Trachyte,train
-dubray_ds1099,203439,Mizpah Trachyte,train
-dubray_ds1099,203440,Mizpah Trachyte,train
-dubray_ds1099,203477,Mizpah Trachyte,train
-dubray_ds1099,203502,Mizpah Trachyte,train
-dubray_ds1099,203513,Mizpah Trachyte,train
-dubray_ds1099,T67,Mizpah Trachyte,train
-dubray_ds1099,13-T-2,Oddie Rhyolite,train
-dubray_ds1099,203469,Oddie Rhyolite,train
-dubray_ds1099,203480,Oddie Rhyolite,train
-dubray_ds1099,203518,Oddie Rhyolite,train
-dubray_ds1099,203520,Oddie Rhyolite,train
-dubray_ds1099,203539,Oddie Rhyolite,train
-dubray_ds1099,T6,Oddie Rhyolite,train
-pinatubo_pallister1996,7-1-91-1A,Pinatubo 1991 andesite,train
+dubray_ds1099,15-T-13,Obsidian megabreccia block in Fraction Tuff,train
 dubray_ds764,203443,Plio-Pleistocene trachyandesite 1,train
-dubray_ds764,203326,"Plio-Pleistocene, basaltic trachyandesite of Beauty Peak",train
-dubray_ds764,08BA6,"Plio-Pleistocene, rhyolite of Martinez Hill",train
-dubray_ds764,08BA7,"Plio-Pleistocene, trachyandesite 2",train
+dubray_ds764,01BA1,"Plio-Pleistocene, hornblende trachydacite",train
+dubray_ds764,203140,"Plio-Pleistocene, ol basaltic trachyandesite",train
+dubray_ds764,203181,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",train
+dubray_ds764,203246,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",train
+dubray_ds764,203247,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",train
+dubray_ds764,203354,"Plio-Pleistocene, pyroxene trachyandesite of Cedar Hill",train
 dubray_ds764,08BA3,"Plio-Pleistocene, trachyandesite of Aurora Crater",train
 dubray_ds764,203393,"Plio-Pleistocene, trachyandesite of Aurora Crater",train
 dubray_ds764,203394,"Plio-Pleistocene, trachyandesite of Aurora Crater",train
+dubray_ds764,09BA1,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",train
+dubray_ds764,09BA3,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",train
+dubray_ds764,203230,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",train
+dubray_ds764,203232,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",train
+dubray_ds764,203402,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",train
 dubray_ds764,203395,"Plio-Pleistocene, trachyandesite of Mud Spring",train
-dubray_ds1099,203493,Rhyodacite of Donovan Peak,train
-dubray_ds1099,203505,Rhyodacite of Donovan Peak,train
-dubray_ds1099,203507,Rhyodacite of Donovan Peak,train
-dubray_ds1099,203517,Rhyodacite of Donovan Peak,train
-dubray_ds1099,T137B,Rhyodacite of Donovan Peak,train
-dubray_ds1099,T143,Rhyodacite of Donovan Peak,train
-dubray_ds1099,T28A,Rhyodacite of Donovan Peak,train
-dubray_ds1099,T30,Rhyodacite of Donovan Peak,train
+dubray_ds1099,203483,Rhyodacite of Donovan Peak?,train
 dubray_ds1099,203550,Rhyolite block,train
-dubray_ds1099,203536,Rhyolite flow breccia,train
+dubray_ds1099,203510,Rhyolite lava block in Fraction Tuff,train
 dubray_ds764,00BA12,Rhyolite of Aurora Creek,train
 dubray_ds764,07BA32,Rhyolite of Aurora Creek,train
 dubray_ds764,203251,Rhyolite of Aurora Creek,train
@@ -388,11 +364,26 @@ dubray_ds764,203254,Rhyolite of Aurora Creek,train
 dubray_ds764,203420,Rhyolite of Aurora Creek,train
 dubray_ds764,203421,Rhyolite of Aurora Creek,train
 dubray_ds764,203431,Rhyolite of Aurora Creek,train
-dubray_ds764,203194,"Rhyolite of Big Alkali, tuff ",train
-dubray_ds1099,203484,Rhyolite of Donovan Peak,train
-dubray_ds1099,203486,Rhyolite of Donovan Peak,train
-dubray_ds1099,T145,Rhyolite of Donovan Peak,train
-dubray_ds1099,T162B,Rhyolite of Donovan Peak,train
+dubray_ds764,08BA52,Rhyolite of Big Alkali,train
+dubray_ds764,203105,Rhyolite of Big Alkali,train
+dubray_ds764,203186,Rhyolite of Big Alkali,train
+dubray_ds764,203197,Rhyolite of Big Alkali,train
+dubray_ds764,203214,Rhyolite of Big Alkali,train
+dubray_ds764,203263,Rhyolite of Big Alkali,train
+dubray_ds764,203285,Rhyolite of Big Alkali,train
+dubray_ds764,203286,Rhyolite of Big Alkali,train
+dubray_ds764,203316,Rhyolite of Big Alkali,train
+dubray_ds764,203330,Rhyolite of Big Alkali,train
+dubray_ds764,203333,Rhyolite of Big Alkali,train
+dubray_ds764,203346,Rhyolite of Big Alkali,train
+dubray_ds764,203417,Rhyolite of Big Alkali,train
+dubray_ds764,0779B,Rhyolite of Bodie Creek,train
+dubray_ds764,10811A,Rhyolite of Bodie Creek,train
+dubray_ds764,11BA60,Rhyolite of Bodie Creek,train
+dubray_ds764,203324,Rhyolite of Bodie Creek,train
+dubray_ds764,203370,Rhyolite of Bodie Creek,train
+dubray_ds764,203405,Rhyolite of Bodie Creek,train
+dubray_ds764,203343,"Rhyolite of Bodie Hills, dike",train
 dubray_ds764,08BA14,Rhyolite of Rock Springs,train
 dubray_ds764,203142,Rhyolite of Rock Springs,train
 dubray_ds764,203146,Rhyolite of Rock Springs,train
@@ -400,10 +391,21 @@ dubray_ds764,203317,Rhyolite of Rock Springs,train
 dubray_ds764,203327,Rhyolite of Rock Springs,train
 dubray_ds1099,228-1,Rhyolite of Wildhorse Spring,train
 dubray_ds1099,228-2,Rhyolite of Wildhorse Spring,train
-dubray_ds1099,T100A,Rhyolite of the Cleft,train
 dubray_ds764,0778A,Rhyolite tuff of Paramount,train
 dubray_ds1099,17-T-7,Siebert Formation,train
-dubray_ds764,203442,Trachyandesite of Borealis,train
+dubray_ds1099,16-T-30,Tonopah Formation (?),train
+dubray_ds764,00BA30,Trachyandesite of Aurora Canyon,train
+dubray_ds764,00BA32,Trachyandesite of Aurora Canyon,train
+dubray_ds764,00BA33,Trachyandesite of Aurora Canyon,train
+dubray_ds764,00BA34,Trachyandesite of Aurora Canyon,train
+dubray_ds764,00BA35,Trachyandesite of Aurora Canyon,train
+dubray_ds764,08BA57,Trachyandesite of Aurora Canyon,train
+dubray_ds764,08BA58,Trachyandesite of Aurora Canyon,train
+dubray_ds764,08BA9,Trachyandesite of Aurora Canyon,train
+dubray_ds764,09BA32,Trachyandesite of Aurora Canyon,train
+dubray_ds764,203126,Trachyandesite of Aurora Canyon,train
+dubray_ds764,203144,Trachyandesite of Aurora Canyon,train
+dubray_ds764,203192,Trachyandesite of Aurora Canyon,train
 dubray_ds764,08BA16,Trachyandesite of Masonic,train
 dubray_ds764,08BA19,Trachyandesite of Masonic,train
 dubray_ds764,08BA24,Trachyandesite of Masonic,train
@@ -477,7 +479,11 @@ dubray_ds764,203432,Trachyandesite of Masonic,train
 dubray_ds764,203445,Trachyandesite of Masonic,train
 dubray_ds764,203458,Trachyandesite of Masonic,train
 dubray_ds764,MAS1032,Trachyandesite of Masonic,train
-dubray_ds764,203299,"Trachyandesite of Masonic, altered",train
+dubray_ds764,09E01,"Trachyandesite of Masonic, dike",train
+dubray_ds764,09BA13,"Trachyandesite of Masonic, plug",train
+dubray_ds764,09BA17,"Trachyandesite of Masonic, plug",train
+dubray_ds764,09BA18,"Trachyandesite of Masonic, plug",train
+dubray_ds764,09BA39,"Trachyandesite of Masonic, plug",train
 dubray_ds764,07BA13,Trachyandesite of Mt. Biedeman,train
 dubray_ds764,08SB051,Trachyandesite of Mt. Biedeman,train
 dubray_ds764,09811E,Trachyandesite of Mt. Biedeman,train
@@ -517,11 +523,21 @@ dubray_ds764,203451,Trachyandesite of Mt. Biedeman,train
 dubray_ds764,203455,Trachyandesite of Mt. Biedeman,train
 dubray_ds764,203462,Trachyandesite of Mt. Biedeman,train
 dubray_ds764,203463,Trachyandesite of Mt. Biedeman,train
-dubray_ds764,10BA61,"Trachyandesite of Mt. Biedeman, lahar block",train
-dubray_ds764,12BA3,Trachyandesite of Mud Spring Canyon,train
-dubray_ds764,203396,Trachyandesite of Mud Spring Canyon,train
-dubray_ds764,203397,Trachyandesite of Mud Spring Canyon,train
+dubray_ds764,203307,"Trachyandesite of Mt. Biedeman, dike",train
+dubray_ds1099,203525,Trachyandesite of Mud Lake,train
+dubray_ds1099,T159,Trachyandesite of Mud Lake,train
+dubray_ds1099,T166,Trachyandesite of Mud Lake,train
 dubray_ds764,203434,Trachyandesite of Rancheria,train
+dubray_ds1099,203441,Trachyandesite of Red Mountain,train
+dubray_ds1099,203465,Trachyandesite of Red Mountain,train
+dubray_ds1099,203471,Trachyandesite of Red Mountain,train
+dubray_ds1099,SS64A,Trachyandesite of Red Mountain,train
+dubray_ds1099,SS65,Trachyandesite of Red Mountain,train
+dubray_ds1099,T123B,Trachyandesite of Red Mountain,train
+dubray_ds1099,T77A,Trachyandesite of Red Mountain,train
+dubray_ds764,09811D,Trachyandesite of Sinnamon Cut,train
+dubray_ds764,203174,Trachyandesite of Sinnamon Cut,train
+dubray_ds764,203259,Trachyandesite of Sinnamon Cut,train
 dubray_ds764,00BA1,Trachyandesite of Willow Springs,train
 dubray_ds764,00BA2,Trachyandesite of Willow Springs,train
 dubray_ds764,0777B,Trachyandesite of Willow Springs,train
@@ -545,12 +561,12 @@ dubray_ds764,203339,Trachyandesite of Willow Springs,train
 dubray_ds764,09SB001B,Trachydacite of Bridgeport Canyon,train
 dubray_ds764,09SB020A,Trachydacite of Bridgeport Canyon,train
 dubray_ds764,203154,Trachydacite of Bridgeport Canyon,train
+dubray_ds764,203158,Trachydacite of Bridgeport Canyon,train
 dubray_ds764,203296,Trachydacite of Bridgeport Canyon,train
+dubray_ds764,203416,Trachydacite of Bridgeport Canyon,train
 dubray_ds764,203453,Trachydacite of Bridgeport Canyon,train
 dubray_ds764,203456,Trachydacite of Bridgeport Canyon,train
 dubray_ds764,203464,Trachydacite of Bridgeport Canyon,train
-dubray_ds764,203158,Trachydacite of Bridgeport Canyon ,train
-dubray_ds764,203416,Trachydacite of Bridgeport Canyon ,train
 dubray_ds764,08BA40,Trachydacite of Potato Peak,train
 dubray_ds764,09SB062A,Trachydacite of Potato Peak,train
 dubray_ds764,10BA36,Trachydacite of Potato Peak,train
@@ -580,105 +596,91 @@ dubray_ds764,203323,Trachydacite of Potato Peak,train
 dubray_ds764,203359,Trachydacite of Potato Peak,train
 dubray_ds764,203380,Trachydacite of Potato Peak,train
 dubray_ds764,203426,Trachydacite of Potato Peak,train
-dubray_ds764,09SB049A,Trachydacite of Rough Creek,train
-dubray_ds764,10BA59,Trachydacite of Rough Creek,train
-dubray_ds764,10BA7,Trachydacite of Rough Creek,train
-dubray_ds764,10SB035A,Trachydacite of Rough Creek,train
-dubray_ds764,10SB037A,Trachydacite of Rough Creek,train
-dubray_ds764,10SB101A,Trachydacite of Rough Creek,train
-dubray_ds764,203227,Trachydacite of Rough Creek,train
-dubray_ds764,203228,Trachydacite of Rough Creek,train
-dubray_ds764,203229,Trachydacite of Rough Creek,train
-dubray_ds764,203233,Trachydacite of Rough Creek,train
-dubray_ds764,203234,Trachydacite of Rough Creek,train
-dubray_ds764,203282,Trachydacite of Rough Creek,train
-dubray_ds764,203369,Trachydacite of Rough Creek,train
-dubray_ds764,203375,"Trachydacite of Rough Creek, magma bleb",train
-dubray_ds764,09BA23,Tuff of Jack Spring,train
-dubray_ds764,10SB071A,Tuff of Jack Spring,train
-dubray_ds764,203156,Tuff of Jack Spring,train
-dubray_ds764,203159,Tuff of Jack Spring,train
-dubray_ds764,203264,Tuff of Jack Spring,train
+dubray_ds764,00BA5,"Trachydacite of Potato Peak, float block",train
+dubray_ds1099,166-55,Tuff of Chispa Hills,train
+dubray_ds1099,166-67,Tuff of Chispa Hills,train
+dubray_ds764,10SB014A,??,val
+dubray_ds764,203110,Andesite of Lakeview Spring,val
+dubray_ds764,203312,Andesite of Lakeview Spring,val
+dubray_ds764,203315,Andesite of Lakeview Spring,val
+dubray_ds764,203362,Andesite of Lakeview Spring,val
+dubray_ds764,MAS1071,Andesite of Lakeview Spring,val
 dubray_ds1099,203492,Andesite of northern Goldfield Hills,val
-dubray_ds1099,14-T-02,Brougher Rhyolite,val
-dubray_ds1099,203466,Brougher Rhyolite,val
-dubray_ds1099,203478,Brougher Rhyolite,val
-dubray_ds1099,203482,Brougher Rhyolite,val
-dubray_ds1099,SS100,Brougher Rhyolite,val
-dubray_ds1099,SS103,Brougher Rhyolite,val
-dubray_ds1099,T106,Brougher Rhyolite,val
-dubray_ds1099,T109A,Brougher Rhyolite,val
-dubray_ds1099,T142,Brougher Rhyolite,val
-dubray_ds1099,T171,Brougher Rhyolite,val
-dubray_ds1099,189-112,Dacite tuff,val
-dubray_ds1099,44-8-1,Dacite tuff,val
-dubray_ds1099,203485,Divide Andesite,val
-dubray_ds1099,203491,Divide Andesite,val
-dubray_ds1099,203504,Divide Andesite,val
-dubray_ds1099,203508,Divide Andesite,val
-dubray_ds1099,203527,Divide Andesite,val
-dubray_ds1099,T38,Divide Andesite,val
-dubray_ds1099,T53,Divide Andesite,val
-dubray_ds764,10SB093A,"Eureka Valley Tuff, lower, Tollhouse Flat Member",val
+dubray_ds764,09SB007A,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,09SB032A,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,10SB070A,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,12BA23,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,12BA24,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,12BA28,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,203173,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,203260,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,203303,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,203388,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,203452,Basaltic trachyandesite of Rancheria,val
+dubray_ds764,203454,Basaltic trachyandesite of Rancheria,val
+dubray_ds1099,166-57,Chispa Andesite,val
+dubray_ds1099,166-58,Chispa Andesite,val
+dubray_ds764,203134,"Dacite of Silver Hill, clast in debris flow",val
+dubray_ds764,203135,"Dacite of Silver Hill, clast in debris flow",val
+dubray_ds764,10SB013A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",val
+dubray_ds764,10SB019A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",val
+dubray_ds764,10SB027A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",val
+dubray_ds764,10SB032A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",val
+dubray_ds764,10SB034A,"Eureka Valley Tuff, lowest, Tollhouse Flat Member?",val
 dubray_ds764,10SB013B,"Eureka Valley Tuff, middle, By-Day Member",val
 dubray_ds764,10SB094A,"Eureka Valley Tuff, middle, By-Day Member",val
-dubray_ds764,10SB050A,"Eureka Valley Tuff, upper, Upper Member, upper part",val
-dubray_ds764,08SB032,Fletcher Basin biotite tuff ,val
-dubray_ds1099,203473,FractionTuff,val
+dubray_ds764,10SB048A,"Eureka Valley Tuff, middle, By-Day Member, lower part",val
+dubray_ds764,10SB049A,"Eureka Valley Tuff, upper, Upper Member, lower part",val
+dubray_ds764,08SB032,Fletcher Basin biotite tuff,val
+dubray_ds1099,203476,"Fraction Tuff, basal vitrophyre",val
+dubray_ds1099,203534,Heller Tuff ?,val
 dubray_ds1099,203557,Heller Tuff ?,val
 dubray_ds1099,203561,Heller Tuff ?,val
-dubray_ds1099,203534,Heller Tuff?,val
+dubray_ds1099,16-T-27,"Hematitic breccia, Fraction Tuff ?",val
 msh_pallister2008,SH304-2A,MSH 2004-06 dome,val
 msh_pallister2008,SH304-2G1,MSH 2004-06 dome,val
 msh_pallister2008,SH305-1A,MSH 2004-06 dome,val
 msh_pallister2008,SH315-4,MSH 2004-06 dome,val
 msh_pallister2008,SH319-1,MSH 2004-06 dome,val
 msh_pallister2008,SH325-1A,MSH 2004-06 dome,val
-dubray_ds764,203350,Monzogranite of Murphy Creek,val
 dubray_ds764,203387,Monzogranite of Rattlesnake Gulch,val
+pinatubo_pallister1996,7-1-91-1A,Pinatubo 1991 andesite,val
 pinatubo_pallister1996,EW910615-1,Pinatubo 1991 dacite,val
 pinatubo_pallister1996,EW910615-2,Pinatubo 1991 dacite,val
 pinatubo_pallister1996,PH13d,Pinatubo 1991 dacite,val
 dubray_ds764,203176,"Plio-Pleistocene, Cedar Hill hornblende trachydacite",val
+dubray_ds764,12BA33,"Plio-Pleistocene, hornblende trachydacite of Cedar Hill",val
 dubray_ds764,13BA4,"Plio-Pleistocene, hornblende trachydacite of Cedar Hill",val
-dubray_ds764,12BA33,"Plio-Pleistocene, hornblende trachydacite of Cedar Hill ",val
+dubray_ds764,08BA6,"Plio-Pleistocene, rhyolite of Martinez Hill",val
 dubray_ds764,11BA46,"Plio-Pleistocene, rhyolite of Spring Peak",val
 dubray_ds764,203382,"Plio-Pleistocene, rhyolite of Spring Peak",val
 dubray_ds764,203447,"Plio-Pleistocene, rhyolite of Spring Peak",val
 dubray_ds764,203448,"Plio-Pleistocene, rhyolite of Spring Peak",val
-dubray_ds764,09BA1,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",val
-dubray_ds764,09BA3,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",val
-dubray_ds764,203230,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",val
-dubray_ds764,203232,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",val
-dubray_ds764,203402,"Plio-Pleistocene, trachyandesite of Cow Camp Creek",val
 dubray_ds764,203450,"Plio-Pleistocene, trachyandesite of Mt. Hicks",val
 dubray_ds764,12BA32,"Plio-Pleistocene, trachybasalt of Cedar Hill",val
-dubray_ds1099,203483,Rhyodacite of Donovan Peak?,val
+dubray_ds1099,203493,Rhyodacite of Donovan Peak,val
+dubray_ds1099,203505,Rhyodacite of Donovan Peak,val
+dubray_ds1099,203507,Rhyodacite of Donovan Peak,val
+dubray_ds1099,203517,Rhyodacite of Donovan Peak,val
+dubray_ds1099,T137B,Rhyodacite of Donovan Peak,val
+dubray_ds1099,T143,Rhyodacite of Donovan Peak,val
+dubray_ds1099,T28A,Rhyodacite of Donovan Peak,val
+dubray_ds1099,T30,Rhyodacite of Donovan Peak,val
 dubray_ds1099,203472,Rhyolite,val
 dubray_ds1099,203522,Rhyolite,val
 dubray_ds1099,47-31,Rhyolite,val
 dubray_ds1099,47-33,Rhyolite,val
 dubray_ds1099,49-31,Rhyolite,val
 dubray_ds1099,16-T-4,Rhyolite blocks in Siebert Formation,val
-dubray_ds764,0779B,Rhyolite of Bodie Creek,val
-dubray_ds764,10811A,Rhyolite of Bodie Creek,val
-dubray_ds764,11BA60,Rhyolite of Bodie Creek,val
-dubray_ds764,203324,Rhyolite of Bodie Creek,val
-dubray_ds764,203370,Rhyolite of Bodie Creek,val
-dubray_ds764,203405,Rhyolite of Bodie Creek,val
-dubray_ds764,203343,"Rhyolite of Bodie Hills, dike",val
-dubray_ds1099,15-T-3,Rhyolite porphyry dike,val
-dubray_ds764,08SB027,"Sediment, ash-flow tuff below Aldrich",val
+dubray_ds764,203194,"Rhyolite of Big Alkali, tuff",val
+dubray_ds764,10BA27,Rhyolite of East Brawley Peak,val
+dubray_ds764,203277,Rhyolite of East Brawley Peak,val
+dubray_ds764,203281,Rhyolite of East Brawley Peak,val
+dubray_ds764,203356,Rhyolite of East Brawley Peak,val
+dubray_ds1099,T100A,Rhyolite of the Cleft,val
+dubray_ds764,203348,Rhyolite tuff of Big Alkali,val
+dubray_ds764,08SB040,Tephra in Sonoma Basin strata,val
 dubray_ds1099,203535,Tonopah Formation,val
-dubray_ds1099,16-T-30,Tonopah Formation (?),val
-dubray_ds764,09BA10,Trachyandesite intrusion of Masonic Gulch,val
-dubray_ds764,09E06A,Trachyandesite intrusion of Masonic Gulch,val
-dubray_ds764,09E07,Trachyandesite intrusion of Masonic Gulch,val
-dubray_ds764,203444,Trachyandesite intrusion of Masonic Gulch,val
-dubray_ds764,MAS1072,Trachyandesite intrusion of Masonic Gulch,val
-dubray_ds764,MAS1073,Trachyandesite intrusion of Masonic Gulch,val
-dubray_ds764,MAS1074,Trachyandesite intrusion of Masonic Gulch,val
-dubray_ds764,MAS1075,Trachyandesite intrusion of Masonic Gulch,val
 dubray_ds764,00BA14,Trachyandesite of Aurora,val
 dubray_ds764,00BA24,Trachyandesite of Aurora,val
 dubray_ds764,01BA22,Trachyandesite of Aurora,val
@@ -688,38 +690,36 @@ dubray_ds764,12BA4,Trachyandesite of Aurora,val
 dubray_ds764,203249,Trachyandesite of Aurora,val
 dubray_ds764,203250,Trachyandesite of Aurora,val
 dubray_ds764,203276,Trachyandesite of Aurora,val
-dubray_ds764,00BA30,Trachyandesite of Aurora Canyon,val
-dubray_ds764,00BA32,Trachyandesite of Aurora Canyon,val
-dubray_ds764,00BA33,Trachyandesite of Aurora Canyon,val
-dubray_ds764,00BA34,Trachyandesite of Aurora Canyon,val
-dubray_ds764,00BA35,Trachyandesite of Aurora Canyon,val
-dubray_ds764,08BA57,Trachyandesite of Aurora Canyon,val
-dubray_ds764,08BA58,Trachyandesite of Aurora Canyon,val
-dubray_ds764,08BA9,Trachyandesite of Aurora Canyon,val
-dubray_ds764,09BA32,Trachyandesite of Aurora Canyon,val
-dubray_ds764,203126,Trachyandesite of Aurora Canyon,val
-dubray_ds764,203144,Trachyandesite of Aurora Canyon,val
-dubray_ds764,203192,Trachyandesite of Aurora Canyon,val
-dubray_ds764,09BA13,"Trachyandesite of Masonic, plug",val
-dubray_ds764,09BA17,"Trachyandesite of Masonic, plug",val
-dubray_ds764,09BA18,"Trachyandesite of Masonic, plug",val
-dubray_ds764,09BA39,"Trachyandesite of Masonic, plug",val
-dubray_ds764,MAS1076,"Trachyandesite of Masonic, plug in",val
-dubray_ds764,203381,"Trachyandesite of Mt. Biedeman, magma bleb",val
+dubray_ds764,203299,"Trachyandesite of Masonic, altered",val
+dubray_ds764,10BA61,"Trachyandesite of Mt. Biedeman, lahar block",val
 dubray_ds764,10SB080A,"Trachyandesite of Mt. Biedeman, plug",val
 dubray_ds764,203389,"Trachyandesite of Mt. Biedeman, plug",val
-dubray_ds1099,203525,Trachyandesite of Mud Lake,val
-dubray_ds1099,T159,Trachyandesite of Mud Lake,val
-dubray_ds1099,T166,Trachyandesite of Mud Lake,val
-dubray_ds1099,203467,Trachyandesite of Red Mountain?,val
-dubray_ds1099,203468,Trachyandesite of Red Mountain?,val
-dubray_ds1099,203489,Trachyandesite of Red Mountain?,val
+dubray_ds764,12BA3,Trachyandesite of Mud Spring Canyon,val
+dubray_ds764,203396,Trachyandesite of Mud Spring Canyon,val
+dubray_ds764,203397,Trachyandesite of Mud Spring Canyon,val
+dubray_ds764,00BA39A,Trachyandesite of West Brawley Peak,val
+dubray_ds764,00BA39B,Trachyandesite of West Brawley Peak,val
+dubray_ds764,00BA8,Trachyandesite of West Brawley Peak,val
+dubray_ds764,01BA25,Trachyandesite of West Brawley Peak,val
+dubray_ds764,203106,Trachyandesite of West Brawley Peak,val
+dubray_ds764,203245,Trachyandesite of West Brawley Peak,val
+dubray_ds764,203248,Trachyandesite of West Brawley Peak,val
+dubray_ds764,203255,Trachyandesite of West Brawley Peak,val
+dubray_ds764,203278,Trachyandesite of West Brawley Peak,val
+dubray_ds764,203353,Trachyandesite of West Brawley Peak,val
+dubray_ds764,203355,Trachyandesite of West Brawley Peak,val
 dubray_ds764,08BA2,"Trachyandesite of West Brawley Peak, magma bleb",val
-dubray_ds1099,166-55,Tuff of Chispa Hills,val
-dubray_ds1099,166-67,Tuff of Chispa Hills,val
-dubray_ds1099,203503,Unknown tuff,val
-dubray_ds1099,14-T-05,Volcanics of Lime Mountain,val
-dubray_ds1099,T118,Volcanics of Lime Mountain,val
-dubray_ds1099,T125,Volcanics of Lime Mountain,val
-dubray_ds1099,T132,Volcanics of Lime Mountain,val
-dubray_ds1099,T94C,Volcanics of Lime Mountain,val
+dubray_ds764,09BA35,Trachydacite intrusion,val
+dubray_ds764,10SB061A,Trachydacite intrusion,val
+dubray_ds764,203107,Trachydacite intrusion,val
+dubray_ds764,203108,Trachydacite intrusion,val
+dubray_ds764,203320,Trachydacite intrusion,val
+dubray_ds764,203321,Trachydacite intrusion,val
+dubray_ds764,203407,Trachydacite intrusion,val
+dubray_ds764,203457,Trachydacite intrusion,val
+dubray_ds764,203375,"Trachydacite of Rough Creek, magma bleb",val
+dubray_ds764,09BA23,Tuff of Jack Spring,val
+dubray_ds764,10SB071A,Tuff of Jack Spring,val
+dubray_ds764,203156,Tuff of Jack Spring,val
+dubray_ds764,203159,Tuff of Jack Spring,val
+dubray_ds764,203264,Tuff of Jack Spring,val

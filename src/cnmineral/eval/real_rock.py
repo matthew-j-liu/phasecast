@@ -301,6 +301,30 @@ def preferred_basis(modes: pd.DataFrame, prefer_basis: str) -> pd.DataFrame:
     return modes[~both | (modes["basis"] == prefer_basis)]
 
 
+def canonical_units(raw: pd.Series) -> np.ndarray:
+    """One label per stratigraphic unit, whatever the workbook's spelling.
+
+    du Bray's unit column is free text and the same unit appears with a
+    trailing space, a missing space or different case (`Heller Tuff ` /
+    `Heller Tuff`, `FractionTuff` / `Fraction Tuff`).  Both the split and the
+    bootstrap group rocks by this string, so a second spelling fragments a
+    cluster: the split can put the two halves in different subsets and the
+    bootstrap resamples them as independent.  Spellings that agree once
+    whitespace and case are ignored map to the most common of them; a `?`
+    qualifier stays distinct, since it records the mapper's doubt about
+    which unit the rock belongs to rather than a variant spelling.
+    """
+    text = raw.astype(str).str.split().str.join(" ")
+    if raw.isna().any() or (text == "").any():
+        raise ValueError(
+            "every benchmark rock needs a stratigraphic unit; the split and the "
+            "bootstrap cluster by it"
+        )
+    key = text.str.replace(" ", "", regex=False).str.lower()
+    display = text.groupby(key).agg(lambda v: v.value_counts().sort_index().idxmax())
+    return key.map(display).to_numpy()
+
+
 def load_benchmark(
     benchmark_dir: Path | str = BENCHMARK_DIR,
     *,
@@ -354,13 +378,16 @@ def load_benchmark(
         grade=grade,
         clean=np.isin(grade, list(CLEAN_GRADES)),
         sio2=samples["sio2"].to_numpy(dtype=np.float64),
-        unit=samples["unit"].to_numpy(),
+        unit=canonical_units(samples["unit"]),
         **truth,
     )
 
 
 SPLIT_SUBSETS: tuple[str, ...] = ("train", "val", "test")
 SPLIT_FRACTIONS: tuple[float, ...] = (0.60, 0.15, 0.25)
+# best-of-N over the greedy dealer's random tie-breaks: 400 left val's
+# feldspar base rate 6.7 pp off the population, 2000 brings it within 5.
+SPLIT_CANDIDATES: int = 2000
 SIO2_QUANTILES: tuple[float, ...] = (0.05, 0.5, 0.95)
 SPLIT_PATH = Path(__file__).resolve().parents[1] / "data" / "real_rock_unit_split.csv"
 
@@ -379,7 +406,7 @@ def _assign_units(
 
     Walks units largest-first and gives each to whichever subset is furthest
     below its rock quota, so no single unit can decide a slice.  Ties break at
-    random, which is where candidate diversity comes from -- 73 of the 147
+    random, which is where candidate diversity comes from -- 67 of the 140
     units are singletons, so most of the assignment is a tie.
     """
     targets = {s: f * total for s, f in zip(SPLIT_SUBSETS, fractions)}
@@ -399,18 +426,17 @@ def split_balance(
 ) -> dict[str, float]:
     """How far each slice drifts from the whole population it is drawn from.
 
-    Two departures matter for this benchmark and both are checked: a slice
-    whose group base rates are off scores a different task, and a slice that
-    does not span the silica trend cannot exercise the q / amp corrections
-    that are the only silica-dependent part of the recalibrator.  Reads truth
-    marginals only -- never a model output -- so selecting on it cannot leak.
+    Two departures are checked: a slice whose mineral-group base rates are off
+    scores a different task, and so does a slice concentrated at one end of
+    the silica trend -- silica is the benchmark's axis of chemical variation,
+    the counterpart of the `qap_name` stratification the corpus split uses.
+    Reads truth marginals only -- never a model output -- so selecting on it
+    cannot leak.
 
     `SIO2_QUANTILES` stays interior on purpose.  The silica tails here are one
     or two rocks -- 6 above 80 wt% with the largest at 90.2 against a 99th
     percentile of 80.0, and 9 below 52.7 -- so scoring the endpoints hands the
-    whole split selection to an outlier.  What the endpoints are actually
-    needed for is the containment rule in `unit_grouped_split`, which is a
-    constraint rather than a term.
+    whole split selection to an outlier.
     """
     base = presence.mean(0)
     span = max(float(sio2.max() - sio2.min()), 1e-9)
@@ -435,23 +461,18 @@ def unit_grouped_split(
     *,
     seed: int = 0,
     fractions: tuple[float, ...] = SPLIT_FRACTIONS,
-    n_candidates: int = 400,
+    n_candidates: int = SPLIT_CANDIDATES,
 ) -> np.ndarray:
     """Assign every rock to train / val / test as whole stratigraphic units.
 
     Rocks from one eruption share nearly identical chemistry, so a rock-level
     split leaks -- the same call the corpus makes with bulk-level splits.  The
-    unit distribution is severely skewed (135 units over 640 scoreable rocks,
-    median 2, 65 singletons, largest 66), which is why units are assigned by
+    unit distribution is severely skewed (130 units over 640 scoreable rocks,
+    median 2, 60 singletons, largest 66), which is why units are assigned by
     rock count rather than by count of units: otherwise which two large units
     land in the test slice decides what the test slice measures.
 
-    Candidates are drawn and scored by `split_balance`, and the best feasible
-    one wins.  Feasible means the test slice's silica range sits inside the
-    train slice's: the recalibrator carries SiO2 terms on q and amp, and scoring it
-    on rocks more extreme than anything it was fit on measures extrapolation
-    rather than adaptation.  That constraint is what the tails are for --
-    they are too thin to balance on (see `split_balance`).
+    Candidates are drawn and scored by `split_balance`, and the best one wins.
 
     Altered rocks are assigned along with the rest so a unit never straddles a
     boundary, but balance is scored on the rocks the headline actually scores.
@@ -461,17 +482,10 @@ def unit_grouped_split(
     scored = benchmark.clean & benchmark.has_magnitude
     total = int(scored.sum())
 
-    best, best_score, n_feasible = None, np.inf, 0
+    best, best_score = None, np.inf
     for _ in range(n_candidates):
         assignment = _assign_units(order, fractions, total, rng)
         subsets = np.array([assignment[u] for u in benchmark.unit])
-        train_sio2 = benchmark.sio2[scored & (subsets == "train")]
-        test_sio2 = benchmark.sio2[scored & (subsets == "test")]
-        if not train_sio2.size or not test_sio2.size:
-            continue
-        if test_sio2.min() < train_sio2.min() or test_sio2.max() > train_sio2.max():
-            continue
-        n_feasible += 1
         balance = split_balance(
             subsets[scored], benchmark.presence[scored], benchmark.sio2[scored]
         )
@@ -479,8 +493,8 @@ def unit_grouped_split(
             best, best_score = subsets, balance["score"]
     if best is None:
         raise ValueError(
-            f"no candidate of {n_candidates} put the test silica range inside "
-            "train's; raise n_candidates or revisit the fractions"
+            f"none of {n_candidates} candidates filled every subset with scored "
+            "rocks; revisit the fractions"
         )
     return best
 

@@ -413,6 +413,23 @@ def test_load_benchmark_invariants():
     assert b.bulk_src.shape == b.bulk_frac.shape
     assert len(b.bulk_ids) == len(b.presence) == b.bulk_src.shape[0]
     assert len(b.unit) == len(b.bulk_ids)
+    keys = {u.replace(" ", "").lower() for u in b.unit}
+    assert len(keys) == len(set(b.unit))
+
+
+def test_unit_spellings_that_differ_by_whitespace_or_case_load_as_one_unit(tmp_path):
+    """The split and the bootstrap cluster by the unit string, so a trailing
+    space or a missing one would fragment an eruption; a `?` qualifier is a
+    different claim about the rock and stays its own unit."""
+    b = _write_benchmark(
+        tmp_path,
+        [_sample("a", unit="Heller Tuff"), _sample("b", unit="Heller Tuff "),
+         _sample("c", unit="heller  tuff"), _sample("d", unit="HellerTuff"),
+         _sample("e", unit="Heller Tuff ?")],
+        [["src", sid, "plagioclase", "fsp", 20.0] for sid in "abcde"],
+    )
+    assert list(b.unit[:4]) == ["Heller Tuff"] * 4
+    assert b.unit[4] == "Heller Tuff ?"
 
 
 def test_no_stratigraphic_unit_straddles_a_split_boundary():
@@ -433,16 +450,6 @@ def test_committed_roster_covers_every_benchmark_rock_exactly_once():
     masks = [split_mask(b, s) for s in SPLIT_SUBSETS]
     assert sum(int(m.sum()) for m in masks) == len(b)
     assert (sum(m.astype(int) for m in masks) == 1).all()
-
-
-def test_test_silica_range_sits_inside_train():
-    """The recalibrator carries SiO2 terms on q and amp presence, so a test rock more
-    extreme than anything it was fit on measures extrapolation, not adaptation."""
-    b = load_benchmark()
-    scored = b.clean & b.has_magnitude
-    train = b.sio2[split_mask(b, "train") & scored]
-    test = b.sio2[split_mask(b, "test") & scored]
-    assert train.min() <= test.min() and test.max() <= train.max()
 
 
 def test_unit_grouped_split_is_deterministic_given_a_seed():

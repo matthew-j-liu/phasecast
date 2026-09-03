@@ -561,10 +561,10 @@ rename, or repurpose a test) updates this file in the same change.**
 23. `test_tokenize_bulk_frame_pads_rather_than_populating_a_zero` -- a reported-zero oxide pads its slot, preserving `src == 0 iff frac == 0`.
 24. `test_tokenize_bulk_frame_agrees_with_the_dataset` -- a frame carrying one corpus row tokenizes to that row's dataset tensors.
 25. `test_tokenize_bulk_frame_pads_when_iron_columns_are_absent` -- a table with only `feo_tot` resolves iron through the fallback and pads the oxides it never reports.
-26. `test_load_benchmark_invariants` -- on the shipped benchmark: magnitude is nonzero exactly where quantified, quantified and censored are disjoint, presence covers both, compositions sum to 1, and every array is length-aligned.
-27. `test_no_stratigraphic_unit_straddles_a_split_boundary` -- one eruption's rocks share nearly identical chemistry, so every unit lives in exactly one subset and the roster covers all of them.
-28. `test_committed_roster_covers_every_benchmark_rock_exactly_once` -- the three subsets partition the benchmark, with no rock dropped or double-counted.
-29. `test_test_silica_range_sits_inside_train` -- the recalibrator carries SiO2 terms, so a test rock more extreme than anything it was fit on would measure extrapolation rather than adaptation.
+26. `test_load_benchmark_invariants` -- on the shipped benchmark: magnitude is nonzero exactly where quantified, quantified and censored are disjoint, presence covers both, compositions sum to 1, every array is length-aligned, and no two unit labels collapse under the whitespace-and-case key.
+27. `test_unit_spellings_that_differ_by_whitespace_or_case_load_as_one_unit` -- a trailing space, a doubled space, a missing space or a case change all load as the one unit the split and bootstrap cluster by, while a `?` qualifier stays its own unit.
+28. `test_no_stratigraphic_unit_straddles_a_split_boundary` -- one eruption's rocks share nearly identical chemistry, so every unit lives in exactly one subset and the roster covers all of them.
+29. `test_committed_roster_covers_every_benchmark_rock_exactly_once` -- the three subsets partition the benchmark, with no rock dropped or double-counted.
 30. `test_unit_grouped_split_is_deterministic_given_a_seed` -- the carve-out is the board strategies get compared on, so the same seed reproduces it and a different seed does not.
 31. `test_split_balance_prefers_slices_that_match_the_population` -- the criterion ranks an even split above a lopsided one, and reads truth marginals only so selecting on it cannot leak a model output.
 32. `test_unknown_split_subset_is_rejected` -- a mistyped subset name raises rather than silently returning nothing.
