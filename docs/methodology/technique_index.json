@@ -595,6 +595,10 @@
       "src/cnmineral/training/imputation_head.py",
       "src/cnmineral/training/splits.py",
       "src/cnmineral/training/ssl_pretrain.py"
+    ],
+    "target_split_model_selection": [
+      "configs/heads/joint_heads.yaml",
+      "src/cnmineral/training/joint_heads.py"
     ]
   }
 }

@@ -13,6 +13,7 @@ sweeps them (ADR 006).
 """
 
 import datetime
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from time import time
@@ -249,7 +250,11 @@ def _row_tensors(ds: JointHeadDataset) -> TensorDataset:
     )
 
 
-def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint:
+def train_joint_heads(
+    config: dict,
+    device: torch.device,
+    epoch_probe: Callable[[ModeHead], dict[str, float]] | None = None,
+) -> JointHeadCheckpoint:
     """Train all three heads per `config`; return the best-val checkpoint.
 
     Required config keys: `encoder_checkpoint`, `corpus_dir`,
@@ -263,6 +268,16 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
     subset knobs `train_bulk_ids` (path to a CSV with a `sample_id` column)
     + `train_draw_limit` (keep draws with id below it) -- both stamped into
     `label_config` when set.
+
+    `mode_selection` picks the ModeHead's selection rule: `val` (default, the
+    `selection_series` assemblage NLL on corpus val), `final` (the stamped mode
+    state is the last epoch's; the mode head then never trips patience, so
+    `epochs` sets the depth), or the name of a `monitor` series. `epoch_probe`,
+    called on the mode head after every epoch, supplies such series: each key
+    it returns is appended to `monitor` and stamped with the checkpoint. Comp
+    and cond always select on corpus val. Under a rule other than `val`,
+    `selection_series(ckpt.monitor)` no longer reproduces the mode head's
+    selected epoch; the probe series in `monitor` does.
     """
     encoder_ckpt_path = config["encoder_checkpoint"]
     encoder, enc_ckpt = load_encoder_from_checkpoint(encoder_ckpt_path)
@@ -390,6 +405,7 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
                   *(f"val_{t}" for t in _TERMS))
     }
     patience = config.get("early_stop_patience")
+    mode_selection = config.get("mode_selection", "val")
     heads_by_name = dict(zip(HEAD_NAMES, heads))
     best = {name: float("inf") for name in HEAD_NAMES}
     best_epoch = {name: 0 for name in HEAD_NAMES}
@@ -441,7 +457,15 @@ def train_joint_heads(config: dict, device: torch.device) -> JointHeadCheckpoint
             f"elapsed={time() - epoch_start:.1f}s"
         )
 
+        if epoch_probe is not None:
+            for key, value in epoch_probe(mode_head).items():
+                monitor.setdefault(key, []).append(float(value))
+
         sel = {name: series[-1] for name, series in selection_series(monitor).items()}
+        if mode_selection == "final":
+            sel["mode"] = -float(epoch + 1)
+        elif mode_selection != "val":
+            sel["mode"] = monitor[mode_selection][-1]
         for name, value in sel.items():
             if value < best[name]:
                 best[name], best_epoch[name] = value, epoch + 1

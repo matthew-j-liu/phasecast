@@ -412,6 +412,8 @@ rename, or repurpose a test) updates this file in the same change.**
 1. `test_train_smoke_and_checkpoint_roundtrip` -- two epochs of the joint trainer on synthetic rungs+draws corpora (roster monkeypatched): the monitor tracks every loss term per epoch, `comp_eps`, the loss weights, and the per-head architecture keys are stamped, the saved file round-trips through `JointHeadCheckpoint.load`, and all three `build_*_head` reconstructors return working heads.
 2. `test_per_head_selection_restores_each_heads_best` -- under a forced selection where mode peaks at epoch 1 while comp/cond keep improving, the stamped mode state bitwise-matches a same-seed 1-epoch run and comp/cond states do not (each head keeps its own best epoch).
 3. `test_early_stop_waits_for_slowest_head` -- with mode/comp flat after epoch 1 and cond improving through epoch 4, patience 1 stops at epoch 5, not when the fast heads plateau.
+4. `test_mode_selection_final_keeps_last_epoch_state` -- under a forced selection where mode worsens every epoch, `mode_selection: final` stamps a mode state that bitwise-matches a same-seed run whose selection improves every epoch (last epoch), and differs from the default rule's epoch-1 state.
+5. `test_epoch_probe_series_drives_mode_selection` -- a probe scripting [3, 1, 2] under `mode_selection: probe_nll` is called with the head in eval mode, stamps the series verbatim in `monitor`, and the mode state bitwise-matches a same-seed run whose forced selection peaks at epoch 2.
 
 ### test_joint_heads_hpo.py
 

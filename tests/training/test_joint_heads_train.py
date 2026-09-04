@@ -152,3 +152,88 @@ def test_early_stop_waits_for_slowest_head(
         {**config, "epochs": 8, "early_stop_patience": 1}, torch.device("cpu")
     )
     assert len(ckpt.monitor["val"]) == 5
+
+
+def test_mode_selection_final_keeps_last_epoch_state(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+    tmp_path, monkeypatch,
+):
+    """`mode_selection: final` stamps the mode head as it stood after the last epoch.
+
+    Under a forced selection where mode worsens every epoch, the default rule
+    keeps epoch 1.  With `final` the same 3-epoch run must instead match a
+    same-seed run whose forced selection improves every epoch (best at epoch
+    3), and differ from the epoch-1 state.
+    """
+    config = _setup_config(
+        tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+        tmp_path, monkeypatch,
+    )
+    config.pop("head_checkpoint_dir")
+    config.pop("head_checkpoint_filename")
+
+    def worsening(monitor, split="val"):
+        n = len(monitor[f"{split}_mode_nll"])
+        return {"mode": [float(i) for i in range(n)],
+                "comp": [-float(i) for i in range(n)],
+                "cond": [-float(i) for i in range(n)]}
+
+    def improving(monitor, split="val"):
+        n = len(monitor[f"{split}_mode_nll"])
+        return {k: [-float(i) for i in range(n)] for k in ("mode", "comp", "cond")}
+
+    monkeypatch.setattr(joint_heads_train, "selection_series", worsening)
+    ckpt_default = train_joint_heads({**config, "epochs": 3}, torch.device("cpu"))
+    ckpt_final = train_joint_heads(
+        {**config, "epochs": 3, "mode_selection": "final"}, torch.device("cpu")
+    )
+    monkeypatch.setattr(joint_heads_train, "selection_series", improving)
+    ckpt_last = train_joint_heads({**config, "epochs": 3}, torch.device("cpu"))
+
+    def same(a, b):
+        return all(torch.equal(a[k], b[k]) for k in a)
+
+    assert same(ckpt_final.mode_state, ckpt_last.mode_state)
+    assert not same(ckpt_final.mode_state, ckpt_default.mode_state)
+
+
+def test_epoch_probe_series_drives_mode_selection(
+    tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+    tmp_path, monkeypatch,
+):
+    """A probe series named by `mode_selection` is stamped and selects the mode head.
+
+    The probe scripts [3, 1, 2] over three epochs, so the mode head must come
+    from epoch 2: it matches a same-seed run whose forced selection peaks at
+    epoch 2, and the stamped monitor carries the probe values verbatim.
+    """
+    config = _setup_config(
+        tiny_pretrain_checkpoint, corpus_subset_path, synthetic_joint_corpus,
+        tmp_path, monkeypatch,
+    )
+    config.pop("head_checkpoint_dir")
+    config.pop("head_checkpoint_filename")
+    scripted = [3.0, 1.0, 2.0]
+    calls = []
+
+    def probe(mode_head):
+        calls.append(mode_head.training)
+        return {"probe_nll": scripted[len(calls) - 1]}
+
+    ckpt = train_joint_heads(
+        {**config, "epochs": 3, "mode_selection": "probe_nll"},
+        torch.device("cpu"), epoch_probe=probe,
+    )
+    assert ckpt.monitor["probe_nll"] == scripted
+    assert calls == [False, False, False]
+
+    def peak_at_two(monitor, split="val"):
+        n = len(monitor[f"{split}_mode_nll"])
+        return {"mode": [3.0, 1.0, 2.0][:n],
+                "comp": [-float(i) for i in range(n)],
+                "cond": [-float(i) for i in range(n)]}
+
+    monkeypatch.setattr(joint_heads_train, "selection_series", peak_at_two)
+    reference = train_joint_heads({**config, "epochs": 3}, torch.device("cpu"))
+    assert all(torch.equal(ckpt.mode_state[k], reference.mode_state[k])
+               for k in ckpt.mode_state)

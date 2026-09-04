@@ -166,6 +166,11 @@ techniques:
     patterns:
       - "selection_series"
       - "per-head bests"
+  - name: target_split_model_selection
+    type: training_strategy
+    patterns:
+      - "mode_selection"
+      - "epoch_probe"
 
   # ---- optimization ----
   - name: adamw

@@ -45,6 +45,7 @@ batch_size: 1024
 lr: 4.703766518931478e-04
 weight_decay: 2.456466790845704e-05
 seed: 0
+mode_selection: val   # ModeHead selection rule: val | final | a monitor series name
 
 head_checkpoint_dir: checkpoints/joint_heads_allrock_tuned_seed0
 head_checkpoint_filename: heads_best.pt
