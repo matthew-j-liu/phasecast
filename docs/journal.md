@@ -7078,3 +7078,215 @@ scoring path fails it. It uses the shipped benchmark rather than a synthetic
 one because the null forecast fits on the committed roster, and because the
 benchmark's own edge cases (trace-only rocks, single-group compositions,
 censoring) are what the path has to survive.
+
+## 2026-09-03 -- #75, #76, #77: the hump is fitting depth, not corpus size, and the recalibrator absorbs it
+
+**Q.** Epic #74 step 1, the three tests on labels already on disk: do
+rung-60 labels shrink the quartz / pyroxene / feldspar error (#75); does a
+regularised 10,000-composition head match the 78-composition head (#76);
+does corpus fidelity matter after matrix recalibration (#77)?
+
+**Instruments.** `tmp/train_variant.py` trains the standard joint-heads
+config with key overrides (rungs, weight decay, ModeHead width, an epoch
+truncated to its first N shuffled batches) and evaluates zero-shot;
+`tmp/variant_read.py` reads per-category absolute error, presence bias, R2
+and AUROC beside the ladder points; `tmp/recalibrated_78.py` fits the
+matrix recalibrator on the train roster and reads val, paired between
+checkpoints by the unit bootstrap. Checkpoints
+`checkpoints/{rung60,steps*}_allrock_n*`, runs under `runs/real_rock/`,
+logs under `tmp/logs/`. Gradient steps count batches of 1,024 rows: the 78
+head's ModeHead was selected at epoch 7 of 8 batches, 56 steps; production's
+at epoch 6 of 938, about 5,600.
+
+**#75, rung.** Rung-60 heads at 625 and 10,000 compositions (ModeHead
+selected at epochs 9 and 11, no early-stop trouble, so [60, 40] was not
+needed). At 10,000, absolute error against the rung 50 + 30 head: feldspar
+0.141 vs 0.145, pyroxene 0.086 vs 0.081, quartz 0.196 vs 0.180; mean of
+seven 0.116 vs 0.113; seed gap 0.004-0.006 per category. None of the three
+clears the gate and two go the wrong way. What the rung does move is
+presence: quartz presence bias falls from +0.41 to +0.14 at both sizes, and
+biotite flips from +0.05 to -0.23 (the generator makes little biotite at 60%
+melt, the reason ADR 004 kept rung 30). Headline NLL 8.2 vs 11.6 at 10,000,
+all in the width term. The read-out depth sets which phases the equilibrium
+assemblage contains, not how much of each; the share error of the
+composition-set categories is upstream of the rung.
+
+**#76, regularisation.** The arm that answers it is the step-matched one. A
+10,000-composition head trained with 8 batches per epoch for 7 epochs, 56
+gradient steps, the schedule the 78 head was selected under, lands at
+mean-of-seven 0.104 and 0.102 on two seeds (78 head 0.102 / 0.101;
+production 0.113), beats production in six of seven categories, and sits
+inside the seed gap of the 78 head on the mean. A step ladder at 10,000
+compositions reproduces the corpus-size hump as a hump in fitting depth:
+24 steps 0.103; 56 steps 0.104 / 0.102; 112 steps 0.110; 224 steps 0.111;
+448 steps 0.115; about 950 steps selected on corpus val 0.115; production
+at about 5,600 steps 0.113. Headline NLL 2.3, 3.4 / 3.0, 4.0, 5.0, 6.8, 7.7,
+11.6, monotone. The 56-step head's corpus val hurdle NLL is -0.23 nats per
+row against production's -2.67: the emulator that transfers best is the one
+that has barely fit the simulator. The weight-decay arms (10x, 100x, 1000x) and the narrow-ModeHead arm,
+finished after the pause, do not reproduce it: 10x is production to the
+third decimal (0.113, ModeHead selected at the same epoch); 100x and 1000x
+land at 0.114 with headline NLL 15.1 / 14.8 (the ModeHead selects later,
+epoch 18, about 16,800 steps); the 64-wide ModeHead at 0.110 with NLL 7.0
+(selected at epoch 61). Only stopping early reproduces the 78 head; a
+weight-norm or width brake does not, so the effect is optimization depth,
+not parameter capacity.
+
+**#77, recalibration.** Matrix recalibrator fit on the 372-rock train
+roster, read on 106 val rocks / 39 units, weight decay re-selected at 1.0
+for every head. Val joint: production 0.829 (reproduces the restamp), the
+78 head 0.849 and 0.727 on its two seeds, the 625 head 0.971. Paired,
+production minus 78: -0.020 [-0.555, +0.440] and +0.102 [-0.343, +0.500];
+production minus 625: -0.142 [-0.382, +0.080]; the 78 seed gap +0.122
+[+0.031, +0.237]. Share error after recalibration 0.102 / 0.103 / 0.100 for
+production and the two 78 seeds (zero-shot val 0.121 / 0.114 / 0.111). A
+7-8 nat zero-shot gap on the same rocks (11.3 vs 4.5 / 3.5) becomes a tie
+inside the seed gap after one 119-parameter layer. The 56-step 10,000 head
+recalibrates to 0.673 / 0.685 (production minus it +0.155 [-0.204, +0.512]
+and +0.144 [-0.212, +0.468]) and the rung-60 10,000 head to 0.851 (-0.022
+[-0.343, +0.293]); share error after recalibration 0.102 / 0.101 and 0.104.
+Every head on disk is a tie after the layer.
+
+**Reading.** The three results are one finding. Fitting the simulator past a
+few dozen gradient steps adds per-category location and width bias that
+measured mineralogy does not share; that bias is what the corpus-size
+ladder measured (a larger corpus reaches the same steps sooner), what the
+78 head avoided by starving, and what the matrix recalibrator removes. The
+rung changes the phase list, not the share sizes. For the epic: the
+zero-shot baseline every #74 experiment must beat is the early-stopped
+10,000 head (0.102-0.104), not the 78 head; #79's objective must be
+recalibrated error or the slope of a ladder read after recalibration,
+since zero-shot differences of several nats do not survive the layer; the
+rung leaves the search as a share dimension and stays a presence dimension
+for quartz and biotite, which #78 reads directly. The head-selection rule
+(early stopping on corpus val) is what places production at 5,600 steps,
+the worst real-rock point of the ladder; selecting on the real-rock train
+split, which #74's rules allow, is a candidate the owner has not ruled on.
+
+**Next.** Owner reads the verdicts before #78; every #76 arm is finished. The two
+ladders overlaid on gradient steps at ModeHead selection are
+`tmp/group_mae_vs_steps.py` (+ `.csv`, `.png`): the mean-of-seven traces one
+curve. No point has more than two seeds.
+
+## 2026-09-04 -- Corpus size at fixed fitting depth: the hump was the stopping rule, and the two rulers want different heads
+
+**Q.** Once gradient steps are held fixed, does a larger simulated corpus
+help real rocks at all? The #69 ladder and the #76 step ladder had varied
+corpus size and fitting depth together (journal 2026-09-03): each ladder
+point was stopped where corpus val was best, which is 56 steps at 78
+compositions and about 5,600 at 10,000.
+
+**Instruments.** `tmp/train_variant.py` with every training epoch cut to
+its first 8 shuffled batches of 1,024 rows, so every head sees one step
+schedule and only the composition pool differs; a grid of 78 / 312 / 1,250
+/ 5,000 / 10,000 compositions by 24 / 56 / 112 / 224 / 448 steps (25
+heads, the 10,000 row being the #76 step ladder), the traced-regen corpus
+at 10,000 compositions as a second row, and `tmp/depth_ladder_read.py` for
+the zero-shot and matrix-recalibrated reads (fit on the 372 train rocks,
+read on 106 val rocks / 39 units, unit bootstrap on per-rock slopes).
+Bias here is always relative to this benchmark's convention, du Bray's
+phenocryst point counts on quenched lavas; nothing below says the
+simulator is wrong, only that what a head learns past a few dozen steps
+is not what that convention counts (owner's framing).
+
+**Result.** Zero-shot mean-of-seven absolute error at 24 or 56 steps is
+flat in corpus size: 0.101 to 0.104 from 78 to 10,000, slope +0.0002 and
++0.0000 per doubling. Every depth line rises with depth at every size. After
+recalibration corpus size helps modestly at 56 to 224 steps, 0.02 to 0.05
+nats per doubling: 0.85 at 78 down to 0.64 to 0.69 at 5,000 to 10,000
+against production's 0.83, share error unchanged at 0.101 to 0.104. The
+recalibrator wants a deeper head than zero-shot does: the 24-step heads
+recalibrate worst (0.85 to 1.01) and get worse with size, the 56 to 224
+step heads best. The traced corpus is 0.003 to 0.007 better zero-shot at
+24 and 56 steps (0.0965 and 0.0999, three seeds, range under 0.001) and
+identical after recalibration. Per category, biotite is worse than a
+constant forecast at every size and depth, olivine is flat everywhere, and
+feldspar, opaques and quartz are pure depth effects. One caveat found in
+the read: the trainer keeps the best corpus-val epoch, so the 78 and 312
+rows never reached the 112 to 448 cells (their corpus-val optimum stops
+them at 56 and 176 steps); the next entry fills them.
+
+**Reading.** Corpus size is a weak lever on both rulers and fitting depth
+a strong one (0.104 versus 0.113 zero-shot; 0.65 versus 0.83
+recalibrated), so on this benchmark the stopping rule matters more than
+the generator. The three experiments that round this out are the fair
+learning curve with selection on the real-rock train split, true fixed
+depth for the small corpora, and seeds; next entry.
+
+## 2026-09-04 -- The fair learning curve is flat: real-rock selection picks 16 to 24 steps at every corpus size, and the recalibrated read wants a different head
+
+**Q.** Three follow-ups to the grid, planned with the owner. (1) The
+community's learning-curve method with the right validation set: stop
+the ModeHead where the real-rock train split says to, once on hurdle NLL
+and once on share absolute error, read val. (2) True fixed depth for the
+small corpora: keep the last-epoch state. (3) Seeds on the cells the
+conclusions rest on.
+
+**Instruments.** `train_joint_heads` gained an optional per-epoch
+`epoch_probe` whose series are stamped in the checkpoint monitor, and a
+`mode_selection` config key (`val`, today's rule and the default; `final`;
+or a monitor series name), tested in `tests/training/test_joint_heads_train.py`
+and indexed as `target_split_model_selection`. `tmp/train_variant.py
+--mode-selection` builds the probe (per epoch: the mode head's hurdle NLL
+terms and share error on the 372 evaluated train rocks, from one cached
+set of latents). Runs: `stop{nll,mae}_allrock_n{78..10000}` on the 8-batch
+schedule with patience 10 on the chosen series; `final{112,224,448}_allrock_n{78,312}`;
+seeds 1 and 2 at 10,000 x {56, 112, 224}, 78 x 56, 5,000 x 56, traced x
+{24, 56}, and the stop rows at 78 and 10,000. Thirty-eight heads, forty
+minutes in three detached chains. Read by `tmp/depth_ladder_read.py`;
+figures `tmp/results/depth_ladder.png`, `depth_ladder_groups.png`,
+`stop_on_real_rock.png`.
+
+**Result, selection on the real-rock train split.** The per-epoch curves
+are nearly the same at every corpus size: train hurdle NLL bottoms at 16
+to 24 steps and rises monotonically to 8 to 10 nats by 1,000 steps; share
+error bottoms at 16 to 56 steps and rises to 0.11 to 0.13. The NLL rule
+selects 16 to 24 steps at all five sizes (three seeds at 78 and 10,000:
+16 / 24 / 24 both), the share-error rule 16 to 56. Zero-shot mean-of-seven
+under either rule is flat in corpus size, 0.100 to 0.103 (NLL rule) and
+0.098 to 0.101 (share rule), slopes -0.0004 and -0.0001 per doubling; the
+10,000 head under the share rule is the best zero-shot head measured,
+0.098 (three seeds 0.097 to 0.100). After recalibration the same heads
+are among the worst: 0.82 to 0.95 val joint (NLL rule, slope +0.016
+[-0.001, +0.036] per doubling), no better than production's 0.83 and 0.2
+nats behind the 56 to 224 step heads.
+
+**Result, true fixed depth.** With the last-epoch state, 78 compositions
+at 112 / 224 / 448 steps give 0.110 / 0.119 / 0.125 zero-shot and 0.82 /
+0.98 / 1.00 recalibrated; 312 gives 0.108 / 0.113 / 0.117 and 0.85 / 0.89 /
+1.00. A small corpus pushed past its corpus-val optimum overfits its own
+compositions. With those cells filled, the deep lines slope down with
+corpus size on both rulers: at 224 steps -0.0010 per doubling zero-shot
+and -0.046 [-0.087, -0.010] nats per doubling recalibrated, the one
+corpus-size slope whose interval excludes zero.
+
+**Result, seeds.** Three seeds at 10,000 x 56 / 112 / 224 span 0.002
+zero-shot and 0.03 to 0.05 nats recalibrated; 5,000 x 56 spans 0.001 and
+0.04; 78 x 56 spans 0.004 and 0.12. The traced edge at 24 steps holds on
+three seeds (0.0964 to 0.0968 against 0.103). Every grid conclusion
+survives.
+
+**Reading.** The learning curve done the community's way, each corpus
+size stopped on the target split, is flat in corpus size on the zero-shot
+ruler and picks the same depth everywhere, so a fixed budget of about 24
+steps reproduces it with no real labels in the loop. The corpus-size hump
+of #69 was the selection set, nothing else. But the zero-shot optimum and
+the recalibrated optimum are different heads: the recalibrator wants a
+head fit four to ten times deeper (112 to 224 steps), where corpus size
+does help and where the best heads sit 0.15 to 0.19 nats below
+production. Selection on real-rock train NLL therefore serves the
+zero-shot claim and hurts the recalibrated one. Whichever ruler the paper
+reports through decides the rule, and the rule can be a fixed step budget
+either way. At fixed deep depth more simulated data helps in the ordinary
+sense, by preventing a small corpus from overfitting its compositions;
+that is a different claim from "more data improves the best achievable
+head", which stays unsupported zero-shot and weakly supported after
+recalibration.
+
+**Decision.** The stopping rule is the owner's call; not taken here.
+Candidates named, not adopted: selection on recalibrated train NLL (the
+layer fit inside the epoch loop, untested), and a three-seed 10,000 x 112
+to 224 head as the recalibrated baseline for #74. tmp/ stays as laid out
+in `tmp/README.md` until the rule is decided.
+
+**Next.** Owner reads; then #78 or the rule.
