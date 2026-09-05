@@ -7290,3 +7290,30 @@ to 224 head as the recalibrated baseline for #74. tmp/ stays as laid out
 in `tmp/README.md` until the rule is decided.
 
 **Next.** Owner reads; then #78 or the rule.
+
+## 2026-09-04 -- Rulings after the depth grid: the target is a scaling pair, no stopping rule yet, plutonic parked, one figure
+
+**Decision (owner).** Four rulings on the day's results. (1) The target of
+epic #74 is a **scaling pair**: a simulated label convention and a
+measurement convention whose error falls with corpus size at fixed depth,
+after recalibration, on seeds; on the canon figure, a line that falls in
+the zero-shot and recalibrated share-error panels to below the shallow
+heads. The volcanic search for one is the priority, exhaustive on the
+simulator side (rung, water and pressure prior, redox, recipe, the
+phenocryst/groundmass split of the label) since the benchmark side is thin.
+(2) No stopping rule is chosen. There is no time pressure, the canon figure
+shows every depth side by side, and a convention picked now would be
+picked on less evidence than a convention picked after the candidate
+corpora are drawn; the only step that needs a written convention is #79's
+objective, which comes last. (3) #63 and #22, the plutonic branch, are
+parked until every volcanic pair tried fails to scale. (4)
+`tmp/results/depth_ladder.png` as regenerated today (56 / 224 / 448-step
+lines, the head stopped on the real-rock train split, a no-information
+reference per ruler, production as a star) is the figure every scaling
+experiment is reviewed on; seeds are spent only on lines that look like a
+pair. Recorded in `tmp/README.md`; roadmap re-sequenced.
+
+**Next.** #78. Before its plumbing day, a one-bulk smoke run of the
+generator (`scripts/build/generate_mineralogy_corpus.py` over
+`magemin/run_magemin.jl`) to confirm Julia and MAGEMin still run on this
+machine; nothing has generated since the split rebuild.

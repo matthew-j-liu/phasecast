@@ -27,12 +27,17 @@ the rulings that sequence them. Status stamped 2026-09-03.
   frozen for it; `docs/camera_ready_reconcile.md` lists the macros that
   moved between the submitted numbers and HEAD, and is deleted at
   camera-ready. Refactors must not move stamped numbers before then.
-- **Corpus scaling** (#60 2026-08-06, #69 2026-09-03): more simulated
-  compositions under the current generator do not help real rocks. The
-  #69 read found a hump, not a plateau: zero-shot error rises from 78 to
-  about 625 compositions and flattens, in every mineral category, while
-  corpus-side emulation keeps improving. The mechanism is label mismatch
-  (rung, water prior, redox), not composition coverage.
+- **Corpus scaling** (#60 2026-08-06, #69 2026-09-03, grid 2026-09-04):
+  the #69 hump was the stopping rule, not the corpus. Heads were selected
+  where corpus val was best, which is 56 gradient steps at 78 compositions
+  and about 5,600 at 10,000; at matched depth, or stopped on the real-rock
+  train split, zero-shot error is flat in corpus size. After
+  recalibration corpus size helps modestly at 56 to 224 steps, all of it
+  in the width of the amount distributions, none in the predicted amounts.
+  Fitting depth is the large lever, the generator the small one so far.
+  The target is a **scaling pair**: a simulated label convention and a
+  measurement convention whose error falls with corpus size on the canon
+  figure (`tmp/README.md`, "The scaling figure").
 
 ## Three thrusts, in order
 
@@ -40,21 +45,23 @@ Ruled 2026-09-02, amended 2026-09-03. All on `main` until the third.
 
 ### 1. Research week (now)
 
-- **Epic #74, generator calibration against measured mineralogy.** Run in
-  order: #75 (rung-60 labels vs the 50 + 30 ladder), #76 (regularised
-  10,000-composition head vs the 78 head), #77 (matrix recalibrator on the
-  78 head), then #78 (the generator on the 640 benchmark compositions at
-  all four rungs, model-free: buried conditions, wrong rung, or wrong
-  recipe, per category). #78's verdict closes the week. #79 (the
-  generator-prior search) is deferred past thrust 2 and the camera-ready.
-- **#63, plutonic harvest**: du Bray DS 942 and PP 1793, then the current
-  heads evaluated zero-shot on plutonic point counts to measure the gap
-  #22 must close. Inside #74 this is the second ruler: the prior selected
-  on volcanic phenocryst counts should not be the one plutonics select.
-- **#22, the plutonic recipe**: equilibrium-to-solidus of the rock's own
-  composition (cheap, current generator) versus fractional crystallisation
-  of parents (PetThermoTools back). #78 is this crux read on the volcanic
-  side, so the two decide together.
+- **Epic #74, the search for a scaling pair.** #75, #76, #77 measured
+  2026-09-03/04 (journal). Next, in order: #78 (the generator on the 640
+  benchmark compositions at all four rungs, model-free: buried conditions,
+  wrong rung, or wrong recipe, per category; also the only cheap test of
+  whether a scaling pair can exist under equilibrium at all); then each
+  generator setting #78 points at becomes one candidate corpus drawn on
+  the canon figure, single seed, three seeds on the endpoints of any line
+  that falls (the traced-regen corpus on disk is the first candidate);
+  #79 (the generator-prior search, the one candidate cluster job) only if
+  those figures show a direction, with its objective written before any
+  corpus is generated. The stopping rule (fixed step budget, and on which
+  ruler) is deliberately undecided until those results coalesce; no head
+  is promoted and production is untouched.
+- **#63 and #22, the plutonic branch**, are parked: a different recipe
+  and a different counting convention, so a volcanic failure to scale
+  says nothing about them. They open only if every volcanic pair tried
+  fails to scale.
 - **Lawrencium**: the corpus-size use is dropped (#69). The one candidate
   workload is #79.
 
