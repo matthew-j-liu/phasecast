@@ -615,6 +615,9 @@ Tests for archived explorations (moved to `explorations/archive/`,
 3. `test_point_config_overrides_only_the_subset_keys` -- per-point configs change only checkpoint dir + subset knobs + seed, drop stale subset keys from the base, and leave the base dict untouched.
 4. `test_point_record_parses_both_axes` -- `corpus_scaling_n*` / `corpus_scaling_d*` tags parse into bulk/draw axis coordinates with the right nominal row counts and per-phase metrics.
 5. `test_last_doubling_deltas` -- the slope table compares the two largest bulk points only (draw points excluded) and is empty with fewer than two.
+6. `test_selected_steps_follows_the_cell_rule` -- a depth-grid cell's gradient-step count follows its rule (corpus-val argmin, last epoch, or a real-rock probe series) at 8 batches per epoch, and the corpus-val ladder rows use the full-epoch batch count.
+7. `test_aggregate_spans_seeds_and_line_prefers_final_cells` -- seed repeats collapse to mean / min / max with a seed count, and a depth line takes the last-epoch `final` cell over the corpus-val-stopped `grid` cell at the same corpus size.
+8. `test_truncated_loader_cuts_only_shuffled_epochs` -- the variant trainer's loader override truncates the shuffled training epoch to N batches and leaves the unshuffled val loader whole.
 
 ### test_input_probe_ceiling.py
 

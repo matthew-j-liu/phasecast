@@ -75,3 +75,73 @@ def test_last_doubling_deltas() -> None:
     g_pf = next(r for r in deltas if r["metric"] == "pf_r" and r["phase"] == "g")
     assert abs(g_pf["delta"] - 0.2) < 1e-12
     assert last_doubling_deltas(points[:1]) == []
+
+
+from torch.utils.data import TensorDataset
+import pandas as pd
+import torch
+
+from explorations.corpus_scaling.run_depth_grid import (
+    aggregate,
+    batches_per_epoch,
+    line,
+    selected_steps,
+)
+from explorations.corpus_scaling.run_variant import truncated_loader
+
+
+def _monitor(mode_curve: list[float], probe_curve: list[float]) -> dict:
+    n = len(mode_curve)
+    return {"train": [0.0] * n, "val": [0.0] * n,
+            "val_presence_bce": [0.0] * n, "val_mode_nll": mode_curve,
+            "val_comp_nll": [0.0] * n, "val_cond_nll": [0.0] * n,
+            "real_rock_train_share_mae": probe_curve}
+
+
+def test_selected_steps_follows_the_cell_rule() -> None:
+    monitor = _monitor(mode_curve=[3.0, 1.0, 2.0, 4.0], probe_curve=[0.9, 0.8, 0.7, 0.75])
+    grid = dict(series="grid", n_bulks=78, rule="val")
+    final = dict(series="final", n_bulks=78, rule="final")
+    stop = dict(series="stop mae", n_bulks=78, rule="real_rock_train_share_mae")
+    ladder = dict(series="corpus val", n_bulks=78, rule="val")
+    assert selected_steps(grid, monitor) == 8 * 2
+    assert selected_steps(final, monitor) == 8 * 4
+    assert selected_steps(stop, monitor) == 8 * 3
+    assert selected_steps(ladder, monitor) == batches_per_epoch(78) * 2
+    assert batches_per_epoch(78) == 8
+    assert batches_per_epoch(10000) == 932
+
+
+def _rows() -> pd.DataFrame:
+    def row(series, n, depth, seed, mae, steps):
+        r = dict(series=series, n_bulks=n, depth=depth, seed=seed,
+                 tag=f"{series}{n}s{seed}", rule="val", steps=steps, mae_mean=mae)
+        r.update({m: 0.0 for m in ("headline_nll", "auroc_mean", "recal_val_joint",
+                                   "recal_share_mae")})
+        r.update({f"mae_{g}": 0.0 for g in ("fsp", "px", "amp", "bi", "ol", "opq", "q")})
+        return r
+    return pd.DataFrame([
+        row("grid", 78, 224, 0, 0.30, 56), row("final", 78, 224, 0, 0.12, 224),
+        row("grid", 312, 224, 0, 0.11, 224),
+        row("grid", 10000, 224, 0, 0.10, 224), row("grid", 10000, 224, 1, 0.12, 224),
+        row("grid", 10000, 224, 2, 0.11, 224),
+    ])
+
+
+def test_aggregate_spans_seeds_and_line_prefers_final_cells() -> None:
+    agg = aggregate(_rows())
+    big = agg[(agg.series == "grid") & (agg.n_bulks == 10000)].iloc[0]
+    assert big.seeds == 3
+    assert (big.mae_mean_min, big.mae_mean_max) == (0.10, 0.12)
+    assert abs(big.mae_mean_mean - 0.11) < 1e-12
+    curve = line(agg, "grid", 224)
+    assert curve.n_bulks.tolist() == [78, 312, 10000]
+    assert curve.series.tolist() == ["final", "grid", "grid"]
+    assert curve.mae_mean_mean.tolist()[0] == 0.12
+
+
+def test_truncated_loader_cuts_only_shuffled_epochs() -> None:
+    data = TensorDataset(torch.arange(40.0))
+    loader_cls = truncated_loader(3)
+    assert len(list(loader_cls(data, batch_size=4, shuffle=True))) == 3
+    assert len(list(loader_cls(data, batch_size=4))) == 10

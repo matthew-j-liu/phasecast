@@ -162,3 +162,120 @@ nats/doubling under the canonical instrument, against 0.25-0.30 corpus-side
 -- the sim-to-real gap is not a data-quantity problem. The freed background
 thread pivots to real-data expansion and a provenance audit of the existing
 benchmark (owner decision 2026-08-06; journal).
+
+Correction (2026-09-09): every point on this ladder was stopped where corpus
+val was best, about 800 gradient steps at 625 compositions and 5,600 at
+10,000, so it varied fitting depth with corpus size. The next section holds
+corpus size at fixed depth; the verdict stands.
+
+## Corpus size at fixed fitting depth (#69, #74 step 1)
+
+The zero-shot re-read of the ladder above on absolute error (#69, journal
+2026-09-03) found a hump: error rising from 78 to about 625 compositions
+and flattening, in every mineral category, with a 78-composition head
+beating production on all seven. Each point had been stopped where corpus
+val was best, 56 gradient steps at 78 compositions and about 5,600 at
+10,000, so the ladder varied fitting depth with corpus size. This section
+holds the grid that separated the two, and the two figures every scaling
+experiment is reviewed on.
+
+### Method
+
+- `run_variant.py` trains one cell: the standard config with every
+  training epoch cut to its first 8 shuffled batches of 1,024 rows, so
+  `--set epochs=E` fixes the head at 8E gradient steps and only the
+  composition pool differs between cells. The ModeHead is selected on
+  corpus val within the epoch budget (`grid` cells), kept at the last
+  epoch (`final`), or selected on the real-rock train split's per-epoch
+  probe (`stopnll`, `stopmae`; the trainer's `mode_selection` key and
+  `epoch_probe` hook, patience 10).
+- Tag grammar, which `run_depth_grid.py` enumerates cells by:
+  `steps{D}_allrock_n10000` (the full corpus at D steps);
+  `depth{D}_allrock_n{N}` (the md5-nested N-composition roster at D
+  steps); `final{D}_allrock_n{N}` (same, last-epoch state);
+  `stopnll_allrock_n{N}` / `stopmae_allrock_n{N}` (selected on the train
+  split's hurdle NLL or share error); `depth{D}_traced_n10000` (the
+  traced-regen corpus at D steps); each with an optional `_seed{K}`
+  suffix. D is 24 / 56 / 112 / 224 / 448, N is 78 / 312 / 1250 / 5000.
+  Rosters are `checkpoints/corpus_scaling_allrock_n{N}/train_bulk_ids.csv`;
+  the traced cells pass `--roster data/corpus/train_bulks.csv --set
+  corpus_dir=data/corpus/train_traced --set
+  valtest_corpus_dir=data/corpus/valtest_traced`. The checkpoint does not
+  stamp the seed, the batches per epoch, the selection rule or the roster,
+  so the tag is their record.
+- `run_depth_grid.py` reads every cell whose checkpoint and zero-shot run
+  both exist: per-category absolute error and headline NLL from
+  `runs/real_rock/<tag>/metrics.json`, then the matrix recalibrator fit on
+  the 372-rock train split and read on the 106-rock / 39-unit val split,
+  with per-doubling slopes (least squares on log2 compositions; the
+  recalibrated slope is a unit bootstrap over per-rock slopes) and the
+  production-minus-cell contrasts. Test stays sealed. The corpus-val ladder
+  above is read alongside as its own row. Writes
+  `results/depth_ladder.{csv,json}`; `--figures-only` redraws.
+
+```
+python explorations/corpus_scaling/run_variant.py --tag depth56_allrock_n78 \
+    --roster checkpoints/corpus_scaling_allrock_n78/train_bulk_ids.csv \
+    --batches-per-epoch 8 --set epochs=7
+python explorations/corpus_scaling/run_depth_grid.py
+```
+
+### The two review figures (owner ruling 2026-09-04, amended 09-09)
+
+`results/depth_ladder.png` and `results/depth_ladder_groups.png` are the
+figures every scaling experiment is reviewed on, in their current style.
+Corpus size on the x axis. The first has four panels for four rulers:
+zero-shot share error (mean of seven categories), zero-shot headline NLL,
+matrix-recalibrated val NLL, recalibrated val share error. The second has
+one panel per mineral category plus the mean, on the zero-shot share-error
+ruler. Four curves on every panel: heads at fixed 56, 224 and 448 gradient
+steps (last-epoch state where corpus-val selection would stop short; a
+hollow marker is a cell it did stop short on), and the head stopped where
+share error on the real-rock train split is lowest. One dashed
+no-information reference per ruler: the constant forecast (train-split mean
+share) for the zero-shot rulers, the head given no chemistry for the
+recalibrated ones. Production as a star; bars span the seeds.
+
+A **scaling pair** is a simulated label convention and a measurement
+convention whose error falls with corpus size at fixed depth, after
+recalibration, on seeds: on these figures, a line that falls in the
+zero-shot and recalibrated share-error panels to below the shallow heads.
+A candidate corpus gets its cells trained under the grammar above and its
+own pair of figures, single seed; if a line looks like a pair, its two
+endpoints get three seeds before the word is used. Paper styling (the
+ratified frame, fonts, cividis) waits until a pair exists.
+
+### Result
+
+Run 2026-09-04, 78 rows in the csv (journal 2026-09-03 and 09-04 hold the
+full read).
+
+- Zero-shot mean-of-seven absolute error at 24 or 56 steps is flat in
+  corpus size, 0.101 to 0.104 from 78 to 10,000 compositions. Every depth
+  line rises with depth at every size. The hump of #69 was the selection
+  set.
+- After recalibration corpus size helps modestly at 56 to 224 steps, 0.02
+  to 0.05 nats per doubling (0.85 at 78 down to 0.64 to 0.69 at 5,000 to
+  10,000, against production's 0.83), all of it width: recalibrated share
+  error stays 0.101 to 0.104. The one corpus-size slope whose interval
+  excludes zero is the 224-step line, -0.046 [-0.087, -0.010] nats per
+  doubling, once the small corpora are held at true fixed depth (a
+  78-composition head pushed to 224 steps overfits its own compositions).
+- Selection on the real-rock train split picks 16 to 24 steps at every
+  corpus size and is flat zero-shot (0.098 to 0.103); those heads
+  recalibrate among the worst (0.82 to 0.95). The zero-shot optimum and the
+  recalibrated optimum are different heads.
+- The traced corpus is 0.003 to 0.007 better zero-shot at 24 and 56 steps
+  (three seeds, range under 0.001) and identical after recalibration.
+- Seeds: three at 10,000 x 56 / 112 / 224 span 0.002 zero-shot and 0.03 to
+  0.05 nats recalibrated; 78 x 56 spans 0.004 and 0.12.
+
+### Decision
+
+Owner, 2026-09-04: fitting depth is the large lever and the generator the
+small one so far. No stopping rule is chosen, no head is promoted,
+production is untouched. The target of #74 is a scaling pair, searched on
+the simulator side (rung, water and pressure prior, redox, recipe, the
+phenocryst/groundmass split of the label) through #78 and then #79; the
+plutonic branch (#63, #22) is parked until every volcanic pair tried fails
+to scale.

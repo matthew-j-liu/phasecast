@@ -36,8 +36,9 @@ the rulings that sequence them. Status stamped 2026-09-03.
   in the width of the amount distributions, none in the predicted amounts.
   Fitting depth is the large lever, the generator the small one so far.
   The target is a **scaling pair**: a simulated label convention and a
-  measurement convention whose error falls with corpus size on the canon
-  figure (`tmp/README.md`, "The scaling figure").
+  measurement convention whose error falls with corpus size on the two
+  review figures (`explorations/corpus_scaling/README.md`, "Corpus size at
+  fixed fitting depth").
 
 ## Three thrusts, in order
 

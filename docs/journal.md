@@ -7317,3 +7317,45 @@ pair. Recorded in `tmp/README.md`; roadmap re-sequenced.
 generator (`scripts/build/generate_mineralogy_corpus.py` over
 `magemin/run_magemin.jl`) to confirm Julia and MAGEMin still run on this
 machine; nothing has generated since the split rebuild.
+
+## 2026-09-09 -- The depth-grid method graduates to explorations/corpus_scaling; two review figures in their current style; tmp/ emptied
+
+**Q.** What from the corpus-scaling scratch directory survives, and where?
+
+**Context.** `tmp/README.md` tied its own graduation to the stopping-rule
+decision, which the 09-04 rulings deliberately left open, while the canon
+figure's generator sat in a gitignored directory where deletions are
+permanent. On 09-08 the figure script had gained an unrecorded `_clean`
+variant (no references, no production star, larger text) for a talk.
+
+**Decision (owner).** Two figures are the ones every scaling experiment is
+reviewed on: `depth_ladder.png` (four rulers) and its per-category
+companion `depth_ladder_groups.png`, in their current matplotlib style.
+The clean variant was a one-off presentation export and is dropped. Paper
+styling (the ratified frame, fonts, cividis) waits until a scaling pair is
+found. Graduation no longer waits on the stopping rule. Everything in
+`tmp/` not behind those two figures is flushed: the per-category table and
+step-ladder readers (the step ladder is the 10,000-composition row of the
+grid), the three run.sh chains and their logs, the #69 and #77 csv/json
+side products, the stop-curve figure (its per-epoch series stay stamped in
+every checkpoint's monitor), and the clean exports. The run.sh files were
+not redundant with the checkpoint stamp, which records neither the seed,
+the batches per epoch, the selection rule nor the roster; the tag grammar,
+written once in the README, covers all 63 grid heads and the 25 whose
+run.sh had already gone.
+
+**Landed.** `explorations/corpus_scaling/run_variant.py` (the cell trainer)
+and `run_depth_grid.py` (the reader and the two figures), the latter with
+the constant-forecast reference folded in from the deleted
+`climatology_mae.py` (reproduces its json to the last digit) and without
+the clean and stop-curve drawing; `results/depth_ladder.{csv,json,png}` and
+`depth_ladder_groups.png` moved beside the #27 and #60 artifacts, and the
+`--figures-only` redraw from the new location is byte-identical to the
+09-08 files. Three tripwire tests (cell rule to gradient steps, seed
+aggregation and the final-over-grid line rule, the truncated loader).
+README fourth section with the tag grammar, the two-figure ruling, the
+scaling-pair definition and the seeds protocol, plus an inline correction
+to the #60 decision (the ladder confounded depth with size; the verdict
+stands). Roadmap and memory repointed.
+
+**Next.** The one-bulk generator smoke run, then #78.
