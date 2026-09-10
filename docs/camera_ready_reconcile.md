@@ -16,7 +16,7 @@ Counts: submitted 460 macros, current 455, unchanged 341, changed 102, removed 1
 
 ## Still stale at HEAD, re-run before reading the numbers below
 
-- The inference-card figure data (`paper/figures/data/inference_card_*.csv`) is submission-time: tailed tier, old test split. Regenerate under matrix on the rebuilt split; note the new test split has never been evaluated, so this is its one read.
+- The inference-card figure data (`paper/figures/data/inference_card_*.csv`) is submission-time: tailed tier, old test split. Regenerate under matrix on the rebuilt split; note the new test split has never been evaluated, so this is its one read. The extractor itself (`paper/figures/src/extract_inference_card.py`) still fits `tier="tailed"` and asserts a two-component head, both deleted 2026-09-03, so it raises on HEAD and must be repointed at matrix (single component) before that regeneration (found 2026-09-10).
 - The corpus-size ladder (`explorations/corpus_scaling/results/scaling_realrock.json`) was measured 2026-08-06 with amphibole pinned on the old split; the builder now reads the matrix file, whose slopes differ from the submitted tailed ones (see `cs*` below). Re-run `run_realrock.py`.
 - The sediment results were measured under the pinned layer; the builder now reads their matrix entries. Re-run `run_recalibrate.py` and `run_fewshot_budget.py` if the appendix's recovery numbers are kept.
 - The three-way regen contrast keeps its old-split test column; it is a closed decision and is not re-run.
