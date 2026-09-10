@@ -110,6 +110,11 @@ explicit rationale — don't smuggle one in as a "convenience override."
 Before adding anything to a production class, run the test: "is the
 only caller a test?".  If yes, rework the test or rework the API
 surface explicitly — never both bend the schema *and* call it a feature.
+The same test applies to experiments: a parameter, hook or config key whose
+only non-default caller is an exploration is not a feature, it is that
+exploration's scaffolding and belongs in its directory (CLAUDE.md,
+"Production code is not an experiment's configuration surface";
+`explorations/README.md`).
 
 ## Frozen dataclasses
 

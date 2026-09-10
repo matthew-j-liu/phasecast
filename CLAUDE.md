@@ -148,6 +148,17 @@ use the function / class / variable name and let the reader grep.
 **Don't leave dead code "because it's harmless."**  Unused fields, functions, or
 branches are hand grenades — git has it if you need it back.
 
+**Production code is not an experiment's configuration surface.**  An
+experiment that needs a variant of a production step (a different sampler, a
+truncated loader, an extra output, a selection rule) writes the variant inside
+its exploration, duplicating a few dozen lines if it must; it never adds a
+flag, branch, optional parameter, hook or config key to `src/` or `scripts/`
+whose only caller is that experiment.  A variant that becomes the production
+choice replaces the step it beat, in the same change, rather than sitting
+beside it behind a switch.  Every branch in production serves a caller that
+exists today.  `explorations/README.md` has the operational version and
+`docs/code_style.md` the sibling rule for tests.
+
 **Planning documents stay prospective.**  A plan answers "what does someone need
 to know to finish these steps?" — nothing else.  As a step lands, "how it works
 now" migrates to permanent docs; the landed step collapses to a terse pointer.

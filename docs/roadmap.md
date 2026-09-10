@@ -68,6 +68,10 @@ Ruled 2026-09-02, amended 2026-09-03. All on `main` until the third.
 
 ### 2. Software thrust
 
+- #81, the first sweep under the rule that production code is not an
+  experiment's configuration surface (CLAUDE.md, 2026-09-10): eleven
+  verified cases in `src/` and `scripts/`, one commit each, before or as
+  the opening step of #71.
 - #71 architecture audit (abstractions, duplication, coupling, config
   brittleness) and #70 stable inference API. #73, the terminology sweep,
   rides this thrust since it touches every identifier.

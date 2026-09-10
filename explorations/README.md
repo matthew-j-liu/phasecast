@@ -9,10 +9,15 @@ isn't held to production standards.
 
 - **Not in `src/`.** Exploration code lives in `explorations/<name>/`. It is not
   installed.
-- **Reuse flows one direction.** Explorations import production `cnmineral`
-  (encoder, `extract_latents`, the scoring helpers in `cnmineral/eval/`).
+- **Reuse flows one direction, and production is not widened to make it
+  flow.** Explorations import production `cnmineral` (encoder,
+  `extract_latents`, the scoring helpers in `cnmineral/eval/`).
   Exploration-specific scaffolding stays in the exploration dir; it never goes
-  into `src/`.
+  into `src/`. If a production step almost fits, copy it into the exploration
+  and change the copy: no exploration-only flags, optional parameters, hooks
+  or config keys in `src/` or `scripts/`. A variant that wins replaces the
+  production step it beat (CLAUDE.md, "Production code is not an experiment's
+  configuration surface").
 - **Mirrored, tripwire test.** Each exploration's test lives at
   `tests/explorations/test_<name>.py` (mirroring how `tests/` mirrors `src/`).
   Its smoke test doubles as a tripwire: a `src/` change that breaks a downstream

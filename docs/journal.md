@@ -7358,4 +7358,52 @@ scaling-pair definition and the seeds protocol, plus an inline correction
 to the #60 decision (the ladder confounded depth with size; the verdict
 stands). Roadmap and memory repointed.
 
-**Next.** The one-bulk generator smoke run, then #78.
+**Next.** #78. The one-bulk generator smoke run passed the same day: one
+dacite at two trace-conditional draws, 62 MAGEMin points, all converged,
+7.6 s wall including Julia startup under Julia 1.12.6, four-rung
+assemblages as expected (quartz, feldspar, biotite, spinel, amphibole in
+one draw); Julia and MAGEMin are intact after the split rebuild.
+
+## 2026-09-10 -- Production code is not an experiment's configuration surface: the rule lands, and #81 lists its first eleven cases
+
+**Q.** Where should the rule that experiments do not patch production live,
+and what does the codebase already violate?
+
+**Context.** Preparing #78, the owner ruled that its scripts must be a
+self-contained exploration: the generator's expansion step hard-codes the
+trace-conditional prior, and the fix is a copy inside the exploration, not
+a flag on `scripts/build/generate_mineralogy_corpus.py`. The rule behind
+that ruling existed only in pieces: `explorations/README.md` said reuse
+flows one direction, `docs/code_style.md` said production classes serve
+callers rather than tests, CLAUDE.md said leave unrelated code alone and
+delete dead code. None said that a flag, branch, hook or config key whose
+only caller is an experiment is that experiment's scaffolding.
+
+**Decision (owner).** The rule is written in three places: CLAUDE.md
+("Production code is not an experiment's configuration surface", the
+authoritative statement), `explorations/README.md` (the operational
+version: copy the step into the exploration and change the copy) and
+`docs/code_style.md` (one sentence extending the tests rule to
+experiments). The `mode_selection` key and `epoch_probe` hook added to
+`train_joint_heads` on 09-04 are the rule's first case and will be
+reverted into the corpus-scaling exploration. Three read-only audits over
+`src/cnmineral/training` + `models`, `eval` + `data`, and `scripts/`
+produced the rest; every candidate's caller list, originating commit and
+recorded decision were verified by hand before filing. #81 (P1, refactor)
+holds eleven items with per-item instructions, ground rules (one commit
+each, technique index regenerated, `numbers.tex` byte-identical before and
+after, explorations carry their own copies) and a checked-but-borderline
+list so the next sweep does not re-find them. Nothing is removed yet;
+sequenced before or as the opening step of #71. Two audit claims fell on
+verification and were dropped: the predicted-modes closure function is
+called by the head HPO objective, and the `--redox` probe flag has a
+standing scorecard axis behind it (recorded as borderline instead).
+
+**Also found.** `paper/figures/src/extract_inference_card.py` fits the
+deleted `tailed` tier and asserts a two-component head, so it raises on
+HEAD; `paper/` is gitignored, so this goes on the camera-ready reconcile
+list rather than #81.
+
+**Next.** #78 as a self-contained exploration: the benchmark composition
+table, the exploration's own expansion over the broad box at 128 draws,
+the run, the three-way read.
