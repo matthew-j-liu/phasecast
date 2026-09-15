@@ -619,6 +619,21 @@ Tests for archived explorations (moved to `explorations/archive/`,
 7. `test_aggregate_spans_seeds_and_line_prefers_final_cells` -- seed repeats collapse to mean / min / max with a seed count, and a depth line takes the last-epoch `final` cell over the corpus-val-stopped `grid` cell at the same corpus size.
 8. `test_truncated_loader_cuts_only_shuffled_epochs` -- the variant trainer's loader override truncates the shuffled training epoch to N batches and leaves the unshuffled val loader whole.
 
+### test_generator_reach.py
+
+1. `test_tas_fields_land_known_points_on_iron_ratio_keys` -- every TAS polygon is valid, an interior point of each field classifies as named, every field resolves to a `MIDDLEMOST_1989` key (the two non-key names through `TAS_TO_CLASS`), and an unknown name raises.
+2. `test_tas_outside_every_field_takes_the_nearest_and_flags_it` -- a 92 wt% SiO2 composition takes the nearest field (rhyolite) with `tas_inside` False; a point on a field boundary is inside.
+3. `test_composition_table_is_the_evaluated_rocks_in_benchmark_order` -- only clean rocks with a quantified mode survive, `bulk` counts 0..n-1 in benchmark order beside the key, a `feo_tot` row and a `fe2o3_tot` row both take the `assumed_class` split, the TAS silica is the anhydrous renormalization, and rocks off the committed roster read subset `none`.
+4. `test_build_inputs_draws_the_broad_box_without_routing_columns` -- the 11 input oxides sum to 100 with H2O injected, P and H2O lie in the broad box with q equal to `q_density`, every draw expands to 31 steps, no proposal or trace columns are stamped, and a rock's draws are identical whether expanded alone or with neighbours.
+5. `test_parse_chunk_keeps_the_whole_ladder_with_liq_frac` -- a ladder crossing 30% melt keeps every point (no truncation) with the melt fraction on each row, and both rungs read the highest-T point below their melt fraction.
+6. `test_parse_chunk_counts_failures_attrition_and_oversaturation` -- a failed point counts and leaves no rows, a ladder stuck above 50% melt flags attrition at both rungs with NaN `T_end`, and fluid at the hottest point sets `oversaturated`.
+7. `test_run_chunk_writes_both_tables_and_the_manifest` -- through a fake Julia runner, one chunk writes the draws table (with rung read-outs merged) and the ladder table with the schema columns, and a manifest line with the bulk range, point count and wall time.
+8. `test_main_resumes_and_rejects_a_changed_draw_count` -- a second `main` on the same out dir makes no Julia call and deletes a stray unmanifested chunk file; a changed `--draws` raises SystemExit.
+9. `test_shares_renormalize_over_quantified_categories` -- a point's crystal mass renormalizes over the rock's quantified categories only (off-vocabulary solids and unquantified categories excluded), distances are NaN off the quantified mask, and a point with no mass in those categories scores all-zero shares and is counted as zero-mass.
+10. `test_marginal_best_draw_and_best_step_on_a_synthetic_ladder` -- with one draw missing rung 30, the marginal pools the three rung rows present, the per-category best draw is the argmin over (draw, rung), the best step is found at a near-liquidus non-rung point of that draw with its melt fraction recorded, `d_best_step` never exceeds `d_best_draw`, and the 10th-percentile column never falls below the minimum.
+11. `test_bins_partition_at_tau_and_a_missing_marginal_is_a_miss` -- four synthetic rows land one per bin at tau 0.05, the split moves as expected at 0.02, a row with no distances is `wrong_recipe`, and the fractions sum to one.
+12. `test_read_end_to_end_on_a_fake_run` -- the tripwire: a fake-runner chunk on a fixture benchmark flows through `build_points`, the distance table (one row per rock and quantified category), `summarize` (every category present, empty ones as None, run facts from the manifest, JSON-serializable) and the three figures.
+
 ### test_input_probe_ceiling.py
 
 1. `test_representations_have_expected_widths_and_exclude_the_redox_slot` -- the four raw matrices are 22/44 wide over element slots only, never the redox slot the latent arm's `PaddedRedoxView` zeroes, so neither arm reads chemistry the other cannot.
