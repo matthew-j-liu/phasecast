@@ -58,6 +58,7 @@ one-line verdict each.
 | Exploration | Question |
 |---|---|
 | [corpus_scaling](corpus_scaling/README.md) | How do the heads scale with training bulks and draws? Corpus-axis answer measured (#27); the real-rock-axis rerun is #60. |
+| [generator_reach](generator_reach/README.md) | Can equilibrium on the benchmark rocks' own chemistry reach their measured mineralogy, and where does it fail per mineral category: buried conditions, wrong stage, or wrong recipe? The generator run on the 640 evaluated rocks, model-free (#78). |
 | [input_probe_ceiling](input_probe_ceiling/README.md) | Does the qap probe measure the latent's organization, or just that gard2019's `qap_name` is computed from the same majors the encoder reads? The same probe on the raw assay, paired on identical rows -- the missing ceiling for the scorecard's two decodability rows (#19). |
 | [real_mineralogy](real_mineralogy/README.md) | The sim-to-real benchmark: real volcanic rocks with measured modal mineralogy, harvested + EDA'd. Zero-shot gap measured (10.406 nats over 640 rocks, `eruption-v2`); split by stratigraphic unit and adapted on from there. Stays active: `harvest.py` is the sole builder of the gitignored benchmark inputs. |
 | [real_rock_fewshot](real_rock_fewshot/README.md) | How many labelled real rocks close the sim-to-real gap while still generalizing to unseen eruptions? ~25 rocks (8 eruptions) recovers 3.4-3.8 of the 5.0 nats the full 368 recover; coupling pays, nonlinearity does not. |
