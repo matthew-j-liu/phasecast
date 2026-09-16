@@ -115,8 +115,58 @@ fractions at each tau, quantiles, the reference errors, the run facts) and
 
 ## Result
 
-Pending the run.
+Run 2026-09-15/16: 640 rocks x 128 draws x 31 steps, 2,539,520 points,
+6.1 h wall, no solver crashes, 4% of points failed, every draw reached both
+rungs, 3.5% of draws oversaturated at the liquidus. Fractions of rocks per
+category at tau 0.05 (`results/summary.json` holds 0.02 and 0.10 and the
+rocks quantifying at least two categories, which read the same):
+
+| category | n | reproduced | buried | wrong stage | wrong recipe | median error, marginal / best draw / best step |
+|---|---|---|---|---|---|---|
+| fsp | 601 | 0.16 | 0.71 | 0.05 | 0.08 | 0.147 / 0.002 / 0.002 |
+| px | 292 | 0.45 | 0.50 | 0.03 | 0.02 | 0.056 / 0.001 / 0.001 |
+| amp | 312 | 0.23 | 0.69 | 0.03 | 0.05 | 0.124 / 0.003 / 0.003 |
+| bi | 322 | 0.41 | 0.39 | 0.04 | 0.16 | 0.064 / 0.002 / 0.001 |
+| ol | 79 | 0.22 | 0.23 | 0.13 | 0.43 | 0.141 / 0.061 / 0.030 |
+| opq | 559 | 0.31 | 0.25 | 0.10 | 0.34 | 0.076 / 0.043 / 0.030 |
+| q | 148 | 0.11 | 0.59 | 0.17 | 0.14 | 0.171 / 0.006 / 0.005 |
+
+- Buried conditions dominate the silicates: some draw reaches within 0.05
+  for 80 to 95% of feldspar, pyroxene, amphibole and biotite rocks while the
+  marginal reaches for 16 to 45%. The hits are a mass for pyroxene and
+  biotite (a tenth of a rock's draws reach for 80% and 66% of rocks) and a
+  tail for feldspar and amphibole (42% and 21%).
+- The rung is not the lever: scanning the best draw's whole path adds 3 to
+  17 points, and the melt fraction at the best step barely tracks the
+  rock's crystallinity (Spearman 0.04 to 0.27, `results/reach_melt.png`).
+- Olivine and Fe-Ti oxides are recipe-limited: no draw at either rung comes
+  within 0.05 for 43% and 34% of their rocks, and the best step on the best
+  draw still misses by about 0.1.
+- The categories disagree on where the hits sit. Feldspar, pyroxene,
+  amphibole and biotite hits are at high pressure and moderate water
+  (median 8 to 10 kbar, 3.6 to 4.7 wt%). Oxide, olivine and quartz hits are
+  low and dry (median 1 to 3 kbar, 1.3 to 2.4 wt%).
+- Read jointly (scratch, not in `run_read.py`): one (draw, rung) reaches
+  every quantified category of a rock within 0.05 for 28% of rocks and
+  within 0.10 for 59%; the joint best row halves the typical rock's mean
+  error against the marginal (0.058 vs 0.114); its conditions spread over
+  the whole box with the box's own median pressure and water; the oxides
+  block the joint hit most often.
+- Not measured here: reading each rock at its own melt fraction (the
+  rulings deferred it), and joint reach over the four silicates alone.
 
 ## Decision
 
-Pending the debrief.
+Owner, 2026-09-16. Pursue the coherent subset, feldspar, pyroxene, amphibole
+and biotite (about 90% of the crystal cargo on the typical rock, hits in the
+same direction), at high pressure and relatively wet. #79 becomes a screen
+of candidate (P, H2O) priors ranked by a scalability score written before
+any corpus is generated: the per-doubling slope of the recalibrated val
+share error on the four categories across a short ladder at fixed fitting
+depth, with a level check against the production-prior cells at matched
+size and seeds on the endpoints of any winner. Stage 0 ranks priors by
+reweighting this run's broad-box draws (no MAGEMin); stage 1 generates the
+top schemes at 312 and 1,250 compositions in the production table shape;
+stage 2 extends survivors to 5,000 with three seeds. Lawrencium readiness
+for stage 2 is the next session's discussion. Direction for the oxides,
+olivine and quartz is not chosen; they are reported beside the score.

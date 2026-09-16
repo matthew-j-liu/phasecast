@@ -1,0 +1,599 @@
+{
+ "run": {
+  "work": "/Users/mliu/git_clones/phasecast/explorations/generator_reach/work/broad128",
+  "n_chunks": 7,
+  "n_rocks": 640,
+  "n_draws_per_rock": 128,
+  "n_points_run": 2539520,
+  "n_ladder_rows": 11145816,
+  "mean_failed_per_draw": 0.041,
+  "attrition_50": 0.0,
+  "attrition_30": 0.0,
+  "oversaturated": 0.0354,
+  "solver_crashes": 0,
+  "wall_h": 6.07
+ },
+ "settings": {
+  "tau": 0.05,
+  "tau_grid": [
+   0.02,
+   0.05,
+   0.1
+  ],
+  "best_draw": "per category"
+ },
+ "reference": {
+  "path": "/Users/mliu/git_clones/phasecast/explorations/corpus_scaling/results/depth_ladder.csv",
+  "tag": "joint_heads_allrock_tuned_seed0",
+  "mae": {
+   "fsp": 0.1447,
+   "px": 0.0811,
+   "amp": 0.1208,
+   "bi": 0.0779,
+   "ol": 0.0998,
+   "opq": 0.0839,
+   "q": 0.1798
+  }
+ },
+ "per_category": {
+  "fsp": {
+   "n_rocks": 601,
+   "n_rocks_multi": 594,
+   "bins": {
+    "0.02": {
+     "reproduced": 0.0582,
+     "buried": 0.7454,
+     "wrong_stage": 0.0599,
+     "wrong_recipe": 0.1364
+    },
+    "0.05": {
+     "reproduced": 0.1564,
+     "buried": 0.7088,
+     "wrong_stage": 0.0532,
+     "wrong_recipe": 0.0815
+    },
+    "0.1": {
+     "reproduced": 0.3295,
+     "buried": 0.574,
+     "wrong_stage": 0.0349,
+     "wrong_recipe": 0.0616
+    }
+   },
+   "bins_multi": {
+    "0.02": {
+     "reproduced": 0.0488,
+     "buried": 0.7525,
+     "wrong_stage": 0.0606,
+     "wrong_recipe": 0.138
+    },
+    "0.05": {
+     "reproduced": 0.1481,
+     "buried": 0.7155,
+     "wrong_stage": 0.0539,
+     "wrong_recipe": 0.0825
+    },
+    "0.1": {
+     "reproduced": 0.3232,
+     "buried": 0.5791,
+     "wrong_stage": 0.0354,
+     "wrong_recipe": 0.0623
+    }
+   },
+   "quantiles": {
+    "d_marginal": [
+     0.0299,
+     0.0711,
+     0.1475,
+     0.2405,
+     0.3556
+    ],
+    "d_best_draw": [
+     0.0002,
+     0.0006,
+     0.0022,
+     0.0112,
+     0.0901
+    ],
+    "d_best_step": [
+     0.0001,
+     0.0005,
+     0.0016,
+     0.0064,
+     0.0374
+    ]
+   },
+   "mean": {
+    "d_marginal": 0.1753,
+    "d_best_draw": 0.0303,
+    "d_best_step": 0.0181,
+    "d_best_any_step": 0.0038
+   },
+   "reference_mae": 0.1447,
+   "melt_spearman": 0.1737,
+   "n_no_rung": 0
+  },
+  "px": {
+   "n_rocks": 292,
+   "n_rocks_multi": 291,
+   "bins": {
+    "0.02": {
+     "reproduced": 0.2568,
+     "buried": 0.637,
+     "wrong_stage": 0.024,
+     "wrong_recipe": 0.0822
+    },
+    "0.05": {
+     "reproduced": 0.4521,
+     "buried": 0.4966,
+     "wrong_stage": 0.0274,
+     "wrong_recipe": 0.024
+    },
+    "0.1": {
+     "reproduced": 0.7158,
+     "buried": 0.2534,
+     "wrong_stage": 0.0137,
+     "wrong_recipe": 0.0171
+    }
+   },
+   "bins_multi": {
+    "0.02": {
+     "reproduced": 0.2543,
+     "buried": 0.6392,
+     "wrong_stage": 0.0241,
+     "wrong_recipe": 0.0825
+    },
+    "0.05": {
+     "reproduced": 0.4502,
+     "buried": 0.4983,
+     "wrong_stage": 0.0275,
+     "wrong_recipe": 0.0241
+    },
+    "0.1": {
+     "reproduced": 0.7148,
+     "buried": 0.2543,
+     "wrong_stage": 0.0137,
+     "wrong_recipe": 0.0172
+    }
+   },
+   "quantiles": {
+    "d_marginal": [
+     0.0077,
+     0.0196,
+     0.0555,
+     0.1044,
+     0.171
+    ],
+    "d_best_draw": [
+     0.0001,
+     0.0002,
+     0.0006,
+     0.0025,
+     0.0222
+    ],
+    "d_best_step": [
+     0.0001,
+     0.0002,
+     0.0005,
+     0.0018,
+     0.0135
+    ]
+   },
+   "mean": {
+    "d_marginal": 0.087,
+    "d_best_draw": 0.0131,
+    "d_best_step": 0.0088,
+    "d_best_any_step": 0.0031
+   },
+   "reference_mae": 0.0811,
+   "melt_spearman": 0.0629,
+   "n_no_rung": 0
+  },
+  "amp": {
+   "n_rocks": 312,
+   "n_rocks_multi": 311,
+   "bins": {
+    "0.02": {
+     "reproduced": 0.0801,
+     "buried": 0.7756,
+     "wrong_stage": 0.0385,
+     "wrong_recipe": 0.1058
+    },
+    "0.05": {
+     "reproduced": 0.2308,
+     "buried": 0.6923,
+     "wrong_stage": 0.0256,
+     "wrong_recipe": 0.0513
+    },
+    "0.1": {
+     "reproduced": 0.4359,
+     "buried": 0.5385,
+     "wrong_stage": 0.0032,
+     "wrong_recipe": 0.0224
+    }
+   },
+   "bins_multi": {
+    "0.02": {
+     "reproduced": 0.0804,
+     "buried": 0.7749,
+     "wrong_stage": 0.0386,
+     "wrong_recipe": 0.1061
+    },
+    "0.05": {
+     "reproduced": 0.2315,
+     "buried": 0.6913,
+     "wrong_stage": 0.0257,
+     "wrong_recipe": 0.0514
+    },
+    "0.1": {
+     "reproduced": 0.4373,
+     "buried": 0.537,
+     "wrong_stage": 0.0032,
+     "wrong_recipe": 0.0225
+    }
+   },
+   "quantiles": {
+    "d_marginal": [
+     0.0243,
+     0.0547,
+     0.1242,
+     0.1926,
+     0.2828
+    ],
+    "d_best_draw": [
+     0.0004,
+     0.0013,
+     0.0034,
+     0.0083,
+     0.0367
+    ],
+    "d_best_step": [
+     0.0004,
+     0.0011,
+     0.0028,
+     0.0063,
+     0.0217
+    ]
+   },
+   "mean": {
+    "d_marginal": 0.1391,
+    "d_best_draw": 0.0134,
+    "d_best_step": 0.0106,
+    "d_best_any_step": 0.0029
+   },
+   "reference_mae": 0.1208,
+   "melt_spearman": 0.1299,
+   "n_no_rung": 0
+  },
+  "bi": {
+   "n_rocks": 322,
+   "n_rocks_multi": 322,
+   "bins": {
+    "0.02": {
+     "reproduced": 0.1677,
+     "buried": 0.5807,
+     "wrong_stage": 0.0435,
+     "wrong_recipe": 0.2081
+    },
+    "0.05": {
+     "reproduced": 0.4099,
+     "buried": 0.3944,
+     "wrong_stage": 0.0373,
+     "wrong_recipe": 0.1584
+    },
+    "0.1": {
+     "reproduced": 0.6988,
+     "buried": 0.1925,
+     "wrong_stage": 0.0217,
+     "wrong_recipe": 0.087
+    }
+   },
+   "bins_multi": {
+    "0.02": {
+     "reproduced": 0.1677,
+     "buried": 0.5807,
+     "wrong_stage": 0.0435,
+     "wrong_recipe": 0.2081
+    },
+    "0.05": {
+     "reproduced": 0.4099,
+     "buried": 0.3944,
+     "wrong_stage": 0.0373,
+     "wrong_recipe": 0.1584
+    },
+    "0.1": {
+     "reproduced": 0.6988,
+     "buried": 0.1925,
+     "wrong_stage": 0.0217,
+     "wrong_recipe": 0.087
+    }
+   },
+   "quantiles": {
+    "d_marginal": [
+     0.0124,
+     0.0297,
+     0.0638,
+     0.1138,
+     0.175
+    ],
+    "d_best_draw": [
+     0.0001,
+     0.0003,
+     0.0016,
+     0.0202,
+     0.1053
+    ],
+    "d_best_step": [
+     0.0001,
+     0.0003,
+     0.0014,
+     0.0093,
+     0.0813
+    ]
+   },
+   "mean": {
+    "d_marginal": 0.0844,
+    "d_best_draw": 0.03,
+    "d_best_step": 0.0244,
+    "d_best_any_step": 0.0054
+   },
+   "reference_mae": 0.0779,
+   "melt_spearman": 0.2126,
+   "n_no_rung": 0
+  },
+  "ol": {
+   "n_rocks": 79,
+   "n_rocks_multi": 77,
+   "bins": {
+    "0.02": {
+     "reproduced": 0.0759,
+     "buried": 0.2278,
+     "wrong_stage": 0.0886,
+     "wrong_recipe": 0.6076
+    },
+    "0.05": {
+     "reproduced": 0.2152,
+     "buried": 0.2278,
+     "wrong_stage": 0.1266,
+     "wrong_recipe": 0.4304
+    },
+    "0.1": {
+     "reproduced": 0.3924,
+     "buried": 0.2658,
+     "wrong_stage": 0.0759,
+     "wrong_recipe": 0.2658
+    }
+   },
+   "bins_multi": {
+    "0.02": {
+     "reproduced": 0.0779,
+     "buried": 0.2208,
+     "wrong_stage": 0.0909,
+     "wrong_recipe": 0.6104
+    },
+    "0.05": {
+     "reproduced": 0.2208,
+     "buried": 0.2208,
+     "wrong_stage": 0.1299,
+     "wrong_recipe": 0.4286
+    },
+    "0.1": {
+     "reproduced": 0.4026,
+     "buried": 0.2597,
+     "wrong_stage": 0.0779,
+     "wrong_recipe": 0.2597
+    }
+   },
+   "quantiles": {
+    "d_marginal": [
+     0.0278,
+     0.0553,
+     0.1411,
+     0.3199,
+     0.6217
+    ],
+    "d_best_draw": [
+     0.0025,
+     0.0178,
+     0.061,
+     0.1237,
+     0.298
+    ],
+    "d_best_step": [
+     0.0019,
+     0.0087,
+     0.0304,
+     0.1043,
+     0.175
+    ]
+   },
+   "mean": {
+    "d_marginal": 0.221,
+    "d_best_draw": 0.1091,
+    "d_best_step": 0.0785,
+    "d_best_any_step": 0.0396
+   },
+   "reference_mae": 0.0998,
+   "melt_spearman": 0.073,
+   "n_no_rung": 0
+  },
+  "opq": {
+   "n_rocks": 559,
+   "n_rocks_multi": 554,
+   "bins": {
+    "0.02": {
+     "reproduced": 0.068,
+     "buried": 0.2576,
+     "wrong_stage": 0.1091,
+     "wrong_recipe": 0.5653
+    },
+    "0.05": {
+     "reproduced": 0.3131,
+     "buried": 0.254,
+     "wrong_stage": 0.0966,
+     "wrong_recipe": 0.3363
+    },
+    "0.1": {
+     "reproduced": 0.6708,
+     "buried": 0.1342,
+     "wrong_stage": 0.0501,
+     "wrong_recipe": 0.1449
+    }
+   },
+   "bins_multi": {
+    "0.02": {
+     "reproduced": 0.0686,
+     "buried": 0.2509,
+     "wrong_stage": 0.1101,
+     "wrong_recipe": 0.5704
+    },
+    "0.05": {
+     "reproduced": 0.3159,
+     "buried": 0.2473,
+     "wrong_stage": 0.0975,
+     "wrong_recipe": 0.3394
+    },
+    "0.1": {
+     "reproduced": 0.6733,
+     "buried": 0.13,
+     "wrong_stage": 0.0505,
+     "wrong_recipe": 0.1462
+    }
+   },
+   "quantiles": {
+    "d_marginal": [
+     0.0254,
+     0.0419,
+     0.076,
+     0.1185,
+     0.1917
+    ],
+    "d_best_draw": [
+     0.0002,
+     0.0102,
+     0.0426,
+     0.0789,
+     0.1438
+    ],
+    "d_best_step": [
+     0.0001,
+     0.0023,
+     0.0301,
+     0.0673,
+     0.1197
+    ]
+   },
+   "mean": {
+    "d_marginal": 0.0983,
+    "d_best_draw": 0.0614,
+    "d_best_step": 0.048,
+    "d_best_any_step": 0.0098
+   },
+   "reference_mae": 0.0839,
+   "melt_spearman": 0.038,
+   "n_no_rung": 0
+  },
+  "q": {
+   "n_rocks": 148,
+   "n_rocks_multi": 147,
+   "bins": {
+    "0.02": {
+     "reproduced": 0.0405,
+     "buried": 0.5811,
+     "wrong_stage": 0.1351,
+     "wrong_recipe": 0.2432
+    },
+    "0.05": {
+     "reproduced": 0.1081,
+     "buried": 0.5878,
+     "wrong_stage": 0.1689,
+     "wrong_recipe": 0.1351
+    },
+    "0.1": {
+     "reproduced": 0.2905,
+     "buried": 0.5203,
+     "wrong_stage": 0.1486,
+     "wrong_recipe": 0.0405
+    }
+   },
+   "bins_multi": {
+    "0.02": {
+     "reproduced": 0.034,
+     "buried": 0.585,
+     "wrong_stage": 0.1361,
+     "wrong_recipe": 0.2449
+    },
+    "0.05": {
+     "reproduced": 0.102,
+     "buried": 0.5918,
+     "wrong_stage": 0.1701,
+     "wrong_recipe": 0.1361
+    },
+    "0.1": {
+     "reproduced": 0.2857,
+     "buried": 0.5238,
+     "wrong_stage": 0.1497,
+     "wrong_recipe": 0.0408
+    }
+   },
+   "quantiles": {
+    "d_marginal": [
+     0.0478,
+     0.0859,
+     0.171,
+     0.2636,
+     0.3289
+    ],
+    "d_best_draw": [
+     0.0003,
+     0.0011,
+     0.0057,
+     0.0771,
+     0.1641
+    ],
+    "d_best_step": [
+     0.0003,
+     0.0011,
+     0.0048,
+     0.0196,
+     0.0615
+    ]
+   },
+   "mean": {
+    "d_marginal": 0.1867,
+    "d_best_draw": 0.0535,
+    "d_best_step": 0.0224,
+    "d_best_any_step": 0.0093
+   },
+   "reference_mae": 0.1798,
+   "melt_spearman": 0.2708,
+   "n_no_rung": 0
+  }
+ },
+ "mean_of_categories": {
+  "bins": {
+   "0.02": {
+    "reproduced": 0.1067,
+    "buried": 0.5436,
+    "wrong_stage": 0.0712,
+    "wrong_recipe": 0.2784
+   },
+   "0.05": {
+    "reproduced": 0.2694,
+    "buried": 0.4802,
+    "wrong_stage": 0.0765,
+    "wrong_recipe": 0.1739
+   },
+   "0.1": {
+    "reproduced": 0.5048,
+    "buried": 0.3541,
+    "wrong_stage": 0.0497,
+    "wrong_recipe": 0.0913
+   }
+  },
+  "mean": {
+   "d_marginal": 0.1417,
+   "d_best_draw": 0.0444,
+   "d_best_step": 0.0301
+  }
+ }
+}
