@@ -3,7 +3,7 @@
 Execution plan after the 2026-08-27 submission. `docs/encoder.md` and
 `docs/heads.md` say what the system is; this doc says what happens next
 and in what order. Tasks live in GitHub issues; this doc names them and
-the rulings that sequence them. Status stamped 2026-09-03.
+the rulings that sequence them. Status stamped 2026-09-16.
 
 ## Where the system stands
 
@@ -39,6 +39,13 @@ the rulings that sequence them. Status stamped 2026-09-03.
   measurement convention whose error falls with corpus size on the two
   review figures (`explorations/corpus_scaling/README.md`, "Corpus size at
   fixed fitting depth").
+- **Generator reach** (#78 2026-09-16, `explorations/generator_reach/`):
+  model-free, equilibrium on each benchmark rock's own chemistry over the
+  broad (P, H2O) box reaches the measured share of feldspar, pyroxene,
+  amphibole and biotite for 80 to 95% of rocks at some draw while the
+  marginal over draws reaches 16 to 45%; the rung adds little; olivine and
+  Fe-Ti oxides are recipe-limited. The silicate hits sit at high pressure
+  and moderate water, the oxide, olivine and quartz hits low and dry.
 
 ## Three thrusts, in order
 
@@ -46,25 +53,30 @@ Ruled 2026-09-02, amended 2026-09-03. All on `main` until the third.
 
 ### 1. Research week (now)
 
-- **Epic #74, the search for a scaling pair.** #75, #76, #77 measured
-  2026-09-03/04 (journal). Next, in order: #78 (the generator on the 640
-  benchmark compositions at all four rungs, model-free: buried conditions,
-  wrong rung, or wrong recipe, per category; also the only cheap test of
-  whether a scaling pair can exist under equilibrium at all); then each
-  generator setting #78 points at becomes one candidate corpus drawn on
-  the canon figure, single seed, three seeds on the endpoints of any line
-  that falls (the traced-regen corpus on disk is the first candidate);
-  #79 (the generator-prior search, the one candidate cluster job) only if
-  those figures show a direction, with its objective written before any
-  corpus is generated. The stopping rule (fixed step budget, and on which
-  ruler) is deliberately undecided until those results coalesce; no head
-  is promoted and production is untouched.
+- **Epic #74, the search for a scaling pair.** #75 to #78 measured and
+  closed (journal 2026-09-03/04; `explorations/generator_reach/README.md`
+  for #78). Owner ruling 2026-09-16: pursue the four-silicate subset
+  (feldspar, pyroxene, amphibole, biotite, about 90% of the crystal cargo
+  on the typical rock) at high pressure and relatively wet. #79 is the
+  screen: candidate (P, H2O) priors ranked by a scalability score written
+  before any corpus is generated (the per-doubling slope of recalibrated
+  val share error on the four categories across 312 / 1,250 / 5,000
+  compositions at fixed fitting depth, a level check against the
+  production-prior cells on disk, seeds on any winner's endpoints). Stage
+  0 reweights the #78 draws with no MAGEMin, stage 1 generates the top
+  schemes at 1,250 compositions locally, stage 2 extends survivors to
+  5,000 with seeds. The stopping rule stays fixed depth for the screen; no
+  head is promoted and production is untouched. Oxides, olivine and quartz
+  are reported beside the score, their direction not chosen.
 - **#63 and #22, the plutonic branch**, are parked: a different recipe
   and a different counting convention, so a volcanic failure to scale
   says nothing about them. They open only if every volcanic pair tried
-  fails to scale.
+  fails to scale. Olivine and Fe-Ti oxides carry #78's recipe verdict to
+  #22 on the volcanic side.
 - **Lawrencium**: the corpus-size use is dropped (#69). The one candidate
-  workload is #79.
+  workload is #79 stage 2; readiness (what of the environment, Julia and
+  MAGEMin, corpus tables and checkpoints must be on the cluster) is the
+  next session's discussion before any port.
 
 ### 2. Software thrust
 

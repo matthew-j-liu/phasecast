@@ -7407,3 +7407,76 @@ list rather than #81.
 **Next.** #78 as a self-contained exploration: the benchmark composition
 table, the exploration's own expansion over the broad box at 128 draws,
 the run, the three-way read.
+
+## 2026-09-16 -- #78: equilibrium on the benchmark rocks' own chemistry reaches the silicates but the marginal buries them; the four-silicate subset is the target and #79 becomes a prior screen
+
+**Q.** Can the equilibrium generator reproduce the measured mineralogy of
+the 640 evaluated benchmark rocks at all, and where it cannot, is the miss
+the draw prior, the read-out stage, or the recipe?
+
+**Context.** Every corpus tried is flat on the real-rock axis at fixed
+fitting depth (journal 2026-09-04). #78 removed the model:
+`explorations/generator_reach/` runs MAGEMin on each evaluated rock's own
+chemistry at 128 draws from the broad box the production corpus used,
+keeps all 31 ladder points, and per rock and category measures three
+absolute errors from the measured share on the paper's crystal
+normalization (the mean over the pooled rung-50 and rung-30 rows, the best
+single draw at those rungs chosen per category, the best step along that
+draw's whole path), sorted at tolerance 0.05 into reproduced / buried /
+wrong stage / wrong recipe (owner rulings 09-09/10 and 09-15, written into
+the README because the earlier record sat in the emptied `tmp/`). Plumbing
+facts the build found: the repo has no QAPF-from-chemistry classifier
+(gard's names are precomputed), so the iron split takes a TAS class
+computed from the majors; benchmark ids collide numerically with gard2019
+ids, so the table carries its own index; shapely was an undeclared
+leftover of PetThermoTools, so the classifier uses matplotlib's path
+geometry. 2.54M points, 6.1 h, no solver crashes, every draw reached both
+rungs.
+
+**Result.** At 0.05, buried dominates feldspar (0.71), amphibole (0.69),
+quartz (0.59), pyroxene (0.50) and biotite (0.39): some draw reaches
+within 0.05 for 80 to 95% of the silicate rocks while the marginal reaches
+16 to 45%. Wrong stage is 3 to 17% everywhere and the best-step melt
+fraction barely tracks crystallinity (Spearman 0.04 to 0.27), so the rung
+is not the share lever. Olivine (0.43) and Fe-Ti oxides (0.34) are wrong
+recipe, the best step on the best draw still off by about 0.1. The hits
+are a mass for pyroxene and biotite and a tail for feldspar and amphibole.
+The categories disagree on where the hits sit: the four silicates at high
+pressure and moderate water (median 8 to 10 kbar, 3.6 to 4.7 wt%), oxides,
+olivine and quartz low and dry (1 to 3 kbar, 1.3 to 2.4 wt%). Read jointly
+(scratch, not in the read script), one (draw, rung) reaches every
+quantified category of a rock within 0.05 for 28% of rocks and within 0.10
+for 59%, halving the typical rock's error against the marginal, with
+conditions spread over the whole box; oxides block the joint hit most
+often. Not measured: reading each rock at its own melt fraction, and joint
+reach over the four silicates alone.
+
+**Considered.** Reachable is not scalable: the run shows the recipe can
+produce the silicate shares somewhere in the box, not that the right draw
+is predictable from chemistry. A prior aimed at one corner helps the
+silicates and hurts oxides, olivine and quartz, and shares renormalize
+over a rock's quantified categories, so an oxide that stays wrong drags on
+the same rock's silicates. Per-category verdicts flatter against the joint
+read.
+
+**Decision (owner).** Pursue the coherent subset, feldspar, pyroxene,
+amphibole and biotite (about 90% of the crystal cargo on the typical rock,
+hits in one direction), high pressure and relatively wet. #79 is unblocked
+and rewritten as a screen of candidate (P, H2O) priors ranked by a
+scalability score written before any corpus is generated: the per-doubling
+slope of matrix-recalibrated val share error on the four categories across
+312 / 1,250 / 5,000 compositions at fixed fitting depth (224 steps as the
+primary, 56 as the zero-shot check), a level check against the
+production-prior cells already on disk, a spread term, three seeds on any
+winner's endpoints. Stage 0 reweights the #78 draws with no MAGEMin
+(selection on the train split, reading on val); stage 1 generates the top
+schemes at 1,250 compositions locally in the production table shape; stage
+2 extends survivors to 5,000 with seeds and is the Lawrencium case.
+Oxides, olivine and quartz are reported beside the score, direction not
+chosen; their recipe verdict goes to #22 on the volcanic side. #75, #76,
+#77 and #78 closed with their verdicts; #74 and the roadmap updated.
+Nothing here touches production or the paper's numbers.
+
+**Next.** Lawrencium readiness for stage 2, a discussion before any port:
+what of the environment, Julia and MAGEMin, the corpus tables and
+checkpoints must be on the cluster. Then #79 stage 0.
