@@ -301,6 +301,16 @@ don't re-open the question.
   was acceptable here; every new data source needs its total convention
   checked against the corpus before it is scored, and any renormalization
   applied to every row or none.
+- **The condition prior is not the lever for the phenocryst ruler** (#79,
+  closed 2026-09-18).  For single-condition equilibrium scored against du
+  Bray's phenocryst counts, no (P, H2O) prior, global or conditioned on the
+  major oxides, moves the four-silicate labels by more than 0.03 in share;
+  38% of the evaluated rocks have no single condition that reproduces all
+  four silicates together; and the heads already score within 0.01 of a
+  per-rock oracle prior.  Don't re-open pressure or water as the fix for
+  the volcanic pair.  A scaling pair changes the ruler (plutonic whole-rock
+  modes at a solidus rung) or the recipe (fractional crystallization);
+  `explorations/prior_search/README.md`, journal 2026-09-18.
 - **Hand-written stoichiometric rules kept** (from mineralML): training-time
   endmember label generators, inference-time canonical naming, eval-time ground
   truth.  But don't depend on mineralML at runtime — vendor the specific

@@ -1,0 +1,114 @@
+{
+ "facts": {
+  "tau": 0.05,
+  "fallback_rows": 8,
+  "n_rocks": 623,
+  "n_fallback": 234,
+  "hit_fraction_median": 0.03125,
+  "best_e_median": 0.03743069608567274,
+  "hit_p_std_median": 1.3857535619242929,
+  "hit_w_std_median": 1.0045614904822655,
+  "hit_p_iqr": [
+   4.951604102506662,
+   9.703062793161877
+  ],
+  "hit_w_iqr": [
+   2.7485395653324343,
+   4.992153470161591
+  ]
+ },
+ "references": {
+  "broad": 0.1360011357698459,
+  "best rectangle (p10_w3_wide)": 0.1297404695507506
+ },
+ "rows": [
+  {
+   "name": "hit rows",
+   "kind": "ceiling",
+   "silicate_train": 0.07850863232846929,
+   "silicate_val": 0.08822639385184024,
+   "other_val": 0.14292976568399773,
+   "n_eff_median": 8.0
+  },
+  {
+   "name": "own hit center, narrow",
+   "kind": "ceiling",
+   "silicate_train": 0.09016919859860362,
+   "silicate_val": 0.10208708214012943,
+   "other_val": 0.1459978412440799,
+   "n_eff_median": 16.0
+  },
+  {
+   "name": "own hit center, wide",
+   "kind": "ceiling",
+   "silicate_train": 0.0948289887180373,
+   "silicate_val": 0.10715870023321165,
+   "other_val": 0.14865286649616816,
+   "n_eff_median": 37.66267512396739
+  },
+  {
+   "name": "train_mean, narrow",
+   "kind": "predicted",
+   "silicate_train": 0.11889630802586423,
+   "silicate_val": 0.14069772489710547,
+   "other_val": 0.2047741080591221,
+   "n_eff_median": 16.999999999999996
+  },
+  {
+   "name": "train_mean, wide",
+   "kind": "predicted",
+   "silicate_train": 0.1187139371302811,
+   "silicate_val": 0.1385798968021622,
+   "other_val": 0.2036432076787922,
+   "n_eff_median": 42.00000000000001
+  },
+  {
+   "name": "class_mean, narrow",
+   "kind": "predicted",
+   "silicate_train": 0.11206299025640677,
+   "silicate_val": 0.13772949905191656,
+   "other_val": 0.1896226715838153,
+   "n_eff_median": 16.999999999999996
+  },
+  {
+   "name": "class_mean, wide",
+   "kind": "predicted",
+   "silicate_train": 0.11176940139569044,
+   "silicate_val": 0.1369829720119804,
+   "other_val": 0.18250273007490744,
+   "n_eff_median": 42.00000000000001
+  },
+  {
+   "name": "ridge, narrow",
+   "kind": "predicted",
+   "silicate_train": 0.11386628596713692,
+   "silicate_val": 0.13679424760525372,
+   "other_val": 0.18199709852669788,
+   "n_eff_median": 16.999999999999996
+  },
+  {
+   "name": "ridge, wide",
+   "kind": "predicted",
+   "silicate_train": 0.11375735950893633,
+   "silicate_val": 0.13658543151242644,
+   "other_val": 0.17898212187165688,
+   "n_eff_median": 42.0
+  },
+  {
+   "name": "forest, narrow",
+   "kind": "predicted",
+   "silicate_train": 0.09978795968632725,
+   "silicate_val": 0.13241072341650803,
+   "other_val": 0.19495391726832315,
+   "n_eff_median": 16.999999999999996
+  },
+  {
+   "name": "forest, wide",
+   "kind": "predicted",
+   "silicate_train": 0.10089097057178271,
+   "silicate_val": 0.13056139219326154,
+   "other_val": 0.18708486316746534,
+   "n_eff_median": 42.00000000000001
+  }
+ ]
+}

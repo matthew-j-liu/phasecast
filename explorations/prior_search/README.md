@@ -63,6 +63,7 @@ intermediate screen at 512; local first, the cluster delayed.
 ```
 python explorations/prior_search/run_prior_screen.py                 # seconds
 python explorations/prior_search/run_prior_screen.py --figures-only
+python explorations/prior_search/run_predictability.py               # seconds
 ```
 
 Reference cells for the production prior at the five sizes, last-epoch
@@ -84,8 +85,11 @@ rectangle, area fraction, per-category and pooled errors per subset,
 spread, effective-draw facts), `screen.json` (settings, ranking, top three,
 the reproduction check), `prior_ranking.png` (schemes sorted by train
 silicate error, val filled and train hollow, the controls as lines, the
-cost on the others beneath) and `prior_grid.png` (val error by rectangle
-center, one heatmap per width).
+cost on the others beneath), `prior_grid.png` (val error by rectangle
+center, one heatmap per width), and from the predictability read
+`predictability.csv`, `predictability.json` and `predictability.png`
+(ceilings and predicted windows on val, and the predicted against the
+true hit centers).
 
 ## Result (stage 0, 2026-09-16)
 
@@ -122,6 +126,57 @@ Absolute share error of the reweighted marginal, train / val:
 - Narrow and wide agree on the ordering of centers; narrow reads slightly
   worse at the same center, the direction of the effective-draw bias.
 
+## Does chemistry predict where a rock's hits sit? (2026-09-18)
+
+The rectangle result leaves one family: a prior that changes with the
+rock. Before writing one, `run_predictability.py` reads on the same draws
+whether any could work. A rock's hits are the (draw, rung) rows whose mean
+absolute share error over its quantified silicates is within 0.05 (623
+rocks quantify a silicate; 234 have no such row and keep their 8 best).
+Two ceilings, then the same rectangle centered where a predictor fit on
+the train rocks puts it, read on val:
+
+| prior | silicates train / val | others val |
+|---|---|---|
+| broad box (stage 0) | 0.116 / 0.136 | 0.190 |
+| best rectangle (stage 0) | 0.108 / 0.130 | 0.211 |
+| hit rows only (ceiling) | 0.079 / 0.088 | 0.143 |
+| wide window on the rock's own hit center (ceiling) | 0.095 / 0.107 | 0.149 |
+| wide window on the train-mean center | 0.119 / 0.139 | 0.204 |
+| wide window on the TAS-class mean center | 0.112 / 0.137 | 0.183 |
+| wide window on a ridge prediction from the majors | 0.114 / 0.137 | 0.179 |
+| wide window on a random-forest prediction from the majors | 0.101 / 0.131 | 0.187 |
+
+- **The joint ceiling is far above the per-category one.** #78 found a
+  draw within 0.05 for 80 to 95% of rocks per category; on the four
+  silicates together, 38% of rocks have none, and the median best joint
+  error is 0.037. Feldspar's best draw is not amphibole's. Even the hit
+  rows alone leave 0.088 on val.
+- **The hits are localized but not predictable from majors.** Within a
+  rock, hits spread 1.4 kbar and 1.0 wt% (medians), so a window around
+  them is meaningful; across rocks the centers spread 5 to 10 kbar and 2.7
+  to 5.0 wt% (interquartile). The forest recovers R2 0.17 of the pressure
+  center and 0.04 of the water center on val; ridge and the class mean
+  recover none. The best predicted window scores 0.131, the best global
+  rectangle's number.
+- **The heads already beat every marginal but the oracle.** Zero-shot
+  silicate share error on the val rocks (scratch, `magnitude_parity_stats`
+  on the split): production head 0.119, the 5,000-composition heads at 224
+  and 56 steps 0.123 and 0.112. A head trained on the broad-box corpus
+  sits between the best global rectangle (0.130) and the oracle per-rock
+  window (0.107), so the most a perfectly conditioned prior could open is
+  about 0.01, and majors predict none of it.
+
 ## Decision
 
-Pending the owner's read of stage 0.
+Owner, 2026-09-18 (journal that date). For the current (generator, ruler)
+pair, single-condition equilibrium against du Bray's phenocryst counts,
+there is no way to change how the generator runs to attain scaling. The
+pair has to change: the recipe, fractional crystallization of the rock's
+own bulk with the accumulated crystals as the label against the same
+ruler, or the ruler, plutonic whole-rock modes read on the current
+generator at a solidus rung. The ruler first, because it costs a harvest
+and a rung and its outcome sorts the recipe question. #79 closed on its
+gate; no scheme was generated; the rosters under `rosters/` stay as the
+ladder for the next pair; the condition prior is a settled decision in
+CLAUDE.md.

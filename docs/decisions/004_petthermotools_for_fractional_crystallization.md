@@ -24,6 +24,18 @@ divergence is the real difference between two petrogenetic regimes, not error.
 No eq-vs-FC A/B was run for the volcanic scope; the conceptual argument was
 accepted.
 
+Measured 2026-09-18 (`explorations/generator_reach/`,
+`explorations/prior_search/`, journal 2026-09-16 and 09-18). The argument
+holds for the whole rock but not for the benchmark's ruler: du Bray counts
+phenocrysts, and no single (P, H2O) equilibrium of the rock's own bulk
+reproduces all four silicate phenocryst shares for 38% of the evaluated
+rocks, while no prior over conditions, global or chemistry-conditioned,
+moves those labels by more than 0.03 in share. The production recipe is
+unchanged by this; it sequences the next generator (fractional
+crystallization of the rock's own bulk with the accumulated crystals as
+the label, against the phenocryst ruler) behind a plutonic whole-rock
+ruler read at a solidus rung (`docs/roadmap.md`).
+
 Consequences:
 - v1 production generator = `magemin/run_magemin.jl` in a Julia subprocess,
   driven by `scripts/build/generate_mineralogy_corpus.py`; `(P, H2O)` are

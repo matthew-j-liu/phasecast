@@ -1,7 +1,7 @@
 """Tripwire for `explorations/prior_search`: the scheme family (clipping,
 density, draws), the importance reweighting of the #78 draws, the score
 aggregation per subset, the nested rosters, and the screen end to end on a
-synthetic run."""
+synthetic run; the predictability read on the same synthetic run."""
 
 import json
 
@@ -15,6 +15,7 @@ from cnmineral.eval.real_rock import load_benchmark
 from explorations.corpus_scaling.run_ladder import hash_order
 from explorations.generator_reach import run_read
 from explorations.generator_reach.compositions import composition_table
+from explorations.prior_search import run_predictability as predict
 from explorations.prior_search import run_prior_screen as screen
 from explorations.prior_search.schemes import GRID, Scheme, area_fraction, density, draw
 
@@ -176,3 +177,50 @@ def test_screen_end_to_end_on_a_synthetic_run(tmp_path):
     screen.draw_figures(table, tmp_path / "res")
     for name in ("prior_ranking.png", "prior_grid.png"):
         assert (tmp_path / "res" / name).stat().st_size > 0
+
+
+def test_hits_use_tau_then_fall_back_to_the_best_rows():
+    rungs = _rungs()
+    rungs["e_sil"] = [0.01, 0.02, 0.2, 0.3, 0.04, 0.5, 0.6, 0.7]
+    draws = pd.DataFrame(dict(bulk=0, draw=range(4), P_kbar=[2.0, 5.0, 8.0, 11.0], H2O=[1.0, 2.0, 3.0, 4.0]))
+    hits, summary = predict.hit_rows(rungs, draws, tau=0.05, fallback=2)
+    assert len(hits) == 3 and not hits["fallback"].any()
+    assert summary.loc[0, "n_hits"] == 3 and summary.loc[0, "best_e"] == pytest.approx(0.01)
+    assert summary.loc[0, "hit_p"] == pytest.approx((2.0 + 2.0 + 8.0) / 3)
+    weights = predict.hit_weights(draws, hits)
+    assert weights["w"].tolist() == [1.0, 0.0, 0.5, 0.0]
+    hits, summary = predict.hit_rows(rungs, draws, tau=0.001, fallback=2)
+    assert len(hits) == 2 and hits["fallback"].all() and summary.loc[0, "fallback"]
+    assert sorted(hits["e_sil"]) == [0.01, 0.02]
+
+
+def test_window_weights_center_a_rectangle_on_each_rock():
+    draws = pd.DataFrame(dict(bulk=[0, 0, 1, 1], draw=[0, 1, 0, 1],
+                              P_kbar=[8.0, 2.0, 8.0, 2.0], H2O=[4.0, 4.0, 4.0, 4.0], q=0.01))
+    centers = pd.DataFrame(dict(hit_p=[8.0, 2.0], hit_w=[4.0, 4.0]), index=[0, 1])
+    w = predict.window_weights(draws, centers, 2.0, 1.5)["w"].to_numpy()
+    assert w[0] > 0 and w[1] == 0 and w[2] == 0 and w[3] > 0
+    centers.loc[1] = np.nan
+    w = predict.window_weights(draws, centers, 2.0, 1.5)["w"].to_numpy()
+    assert w[0] > 0 and (w[1:] == 0).all()
+
+
+def test_predictability_read_end_to_end_on_a_synthetic_run(tmp_path):
+    benchmark, samples = _benchmark(tmp_path)
+    comps = composition_table(benchmark, samples)
+    comps["subset"] = ["train", "val"]
+    mask = benchmark.clean & benchmark.has_magnitude
+    magnitude, numeric = benchmark.magnitude[mask], benchmark.numeric[mask]
+    raw_points, draws = _synthetic_run()
+    points = run_read.shares_and_distances(raw_points, magnitude, numeric)
+    table, summary, preds, facts = predict.read(points, draws, comps, magnitude, numeric, tau=0.05, fallback=4)
+    assert facts["n_rocks"] == 2 and set(preds) == {"train_mean", "class_mean", "ridge", "forest"}
+    assert table["name"].tolist()[:3] == ["hit rows", "own hit center, narrow", "own hit center, wide"]
+    assert (table["kind"].iloc[:3] == "ceiling").all() and (table["kind"].iloc[3:] == "predicted").all()
+    wide = table["name"].str.endswith("wide") | (table["name"] == "hit rows")
+    assert np.isfinite(table.loc[wide, "silicate_val"]).all()
+    assert table.loc[0, "silicate_train"] <= table.loc[2, "silicate_train"] + 1e-9
+    assert (table["n_empty_val"] <= 1).all()
+    assert {"r2_hit_p_val", "r2_hit_w_train"} <= set(table.columns)
+    predict.draw_figure(table, summary, preds, comps, {"broad": 0.2}, tmp_path)
+    assert (tmp_path / "predictability.png").stat().st_size > 0

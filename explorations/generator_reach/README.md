@@ -170,3 +170,9 @@ top schemes at 312 and 1,250 compositions in the production table shape;
 stage 2 extends survivors to 5,000 with three seeds. Lawrencium readiness
 for stage 2 is the next session's discussion. Direction for the oxides,
 olivine and quartz is not chosen; they are reported beside the score.
+
+Superseded 2026-09-18 by `explorations/prior_search/`: the prior screen
+and the predictability read, both on this run's draws, found no condition
+prior that moves the silicate labels, and no single condition that
+reaches all four silicates for 38% of rocks. The scaling pair changes
+ruler first (journal 2026-09-18).

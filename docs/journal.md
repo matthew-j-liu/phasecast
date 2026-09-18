@@ -7480,3 +7480,81 @@ Nothing here touches production or the paper's numbers.
 **Next.** Lawrencium readiness for stage 2, a discussion before any port:
 what of the environment, Julia and MAGEMin, the corpus tables and
 checkpoints must be on the cluster. Then #79 stage 0.
+
+## 2026-09-18 -- #79: no condition prior moves the silicate labels, chemistry cannot place them, the heads already sit at the labels' ceiling; the scaling pair changes ruler first
+
+**Q.** Can any (P, H2O) prior for single-condition equilibrium, global or
+conditioned on the rock's chemistry, bring the corpus labels close enough
+to the phenocryst counts for corpus size to matter?
+
+**Context.** #78 found that some draw reaches the measured silicate share
+of most benchmark rocks while the broad-box marginal buries it. Owner
+rulings 2026-09-16: the ladder is 128 / 256 / 512 / 1,024 / 2,048
+compositions (four doublings, one night of MAGEMin per scheme, every size
+by nesting), seeds on the endpoints are training seeds so no scheme is
+generated twice, no intermediate screen, the cluster delayed.
+`explorations/prior_search/` screens priors without MAGEMin: every #78
+draw carries the broad-box density, so any prior inside the box is scored
+by the reweighted mean share over the pooled rung rows against the
+measured share, per category over the rocks quantifying it, the
+four-silicate mean, the train split selecting and val reading. The broad
+control reproduces #78's marginal to floating point.
+
+**Result.** The rectangle family (centers 6 / 8 / 10 kbar x 3 / 4.5 / 6
+wt%, two widths): the best takes the silicate error from 0.116 / 0.136
+(train / val) to 0.108 / 0.130 and the grid spans 0.02 with the broad box
+in its middle; pressure helps mildly, water not at all, 6 wt% is the worst
+column everywhere, and a pressure band of 8 to 12 kbar with water left
+open equals the best rectangle; every silicate-aimed scheme raises the
+oxide, olivine and quartz error from 0.19 to about 0.21. The production
+trace-conditional prior is the mirror image (0.126 / 0.144 on the
+silicates, 0.181 on the others): its literature boxes sit at storage
+depths of 1 to 6 kbar while the silicate hits want 7 to 12. The
+predictability read defines a rock's hits as the rows within 0.05 on the
+four silicates together: 38% of rocks have none (median best joint error
+0.037; feldspar's best draw is not amphibole's). Ceilings on val: 0.088
+under the hit rows themselves, 0.107 under a wide window on each rock's
+own hit center. Windows on a predicted center: random forest on the
+majors 0.131 (R2 0.17 for pressure, 0.04 for water), ridge and the
+TAS-class mean 0.137, the train mean 0.139. The existing heads, zero-shot
+on the same val rocks: production 0.119, the 5,000-composition heads at
+224 and 56 steps 0.123 and 0.112, between the best global window and the
+oracle.
+
+**Considered.** The reweighting is a label-side proxy, but the heads
+anchor it: trained on the broad box, they already beat every global
+marginal, so the prior is not what limits them, and the most a perfectly
+conditioned prior could open is about 0.01. Untested single-condition
+knobs, the iron oxidation state, the database and traces as conditioning
+inputs, act mostly on the oxide side, which #78 already ruled
+recipe-limited. ADR 004's amendment chose equilibrium for volcanics on the
+argument that a volcanic rock crystallizes closed-system, and records that
+no test was run; this is the first measurement bearing on it. The
+argument holds for the whole rock, but the ruler counts phenocrysts,
+which formed over a history before eruption, and no single condition
+reproduces all four silicates for 38% of rocks. The generator and the
+ruler count different things.
+
+**Decision (owner, 2026-09-18).** For the current (generator, ruler) pair
+there is no way to change how the generator runs to attain scaling. The
+pair has to change: rethink the generator and introduce fractional
+crystallization against the same ruler, or find a new ruler. Two paths.
+(1) Same ruler, new recipe: fractional crystallization of the rock's own
+bulk with the accumulated crystals as the label, the phenocryst cargo as
+it forms. (2) Same generator, new ruler: du Bray's plutonic whole-rock
+modes, read on the current generator at a solidus rung, which does not
+require FC (FC-of-parents is for cumulates only, the crux recorded on
+#22). Path 2 first, because it costs a harvest and a rung and its outcome
+sorts path 1: if whole-rock equilibrium scales on whole-rock modes, the
+volcanic failure is the phenocryst ruler and FC is that ruler's fix; if
+it does not, the problem is deeper than the recipe. #79 closes on its
+own gate; #74's step 4 becomes the active thrust; stage 1 and the
+reference cells are not run; the rosters stay as the ladder for the next
+pair. The condition prior joins the settled decisions in CLAUDE.md. Every
+open issue was re-audited against this (the audit table lives in the
+issue comments dated today). Nothing here touches production or the
+paper's numbers.
+
+**Next.** The plutonic harvest (DS 942 and PP 1793, the #63 workstream-2
+shortlist) and the model-free solidus-rung reach on each plutonic rock's
+own bulk, then the ladder on the two review figures.
