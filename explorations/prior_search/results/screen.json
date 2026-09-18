@@ -1,0 +1,237 @@
+{
+ "run": {
+  "work": "/Users/mliu/git_clones/phasecast/explorations/generator_reach/work/broad128",
+  "n_chunks": 7,
+  "n_rocks": 640,
+  "n_draws_per_rock": 128,
+  "n_points_run": 2539520,
+  "n_ladder_rows": 11145816,
+  "mean_failed_per_draw": 0.041,
+  "attrition_50": 0.0,
+  "attrition_30": 0.0,
+  "oversaturated": 0.0354,
+  "solver_crashes": 0,
+  "wall_h": 6.07
+ },
+ "settings": {
+  "ladder": [
+   128,
+   256,
+   512,
+   1024,
+   2048
+  ],
+  "widths": {
+   "narrow": [
+    2.0,
+    1.5
+   ],
+   "wide": [
+    3.0,
+    2.5
+   ]
+  },
+  "p_centers": [
+   6.0,
+   8.0,
+   10.0
+  ],
+  "w_centers": [
+   3.0,
+   4.5,
+   6.0
+  ],
+  "score": "mean absolute share error over fsp, px, amp, bi; per category averaged over the rocks quantifying it",
+  "selects_on": "train",
+  "reads_on": "val",
+  "thin_floor": 10
+ },
+ "reproduction_max_abs_diff": 5.551115123125783e-17,
+ "controls": {
+  "broad": {
+   "silicate_train": 0.11559537293465302,
+   "silicate_val": 0.13600113576984593,
+   "other_val": 0.19045365597334704,
+   "mean7_val": 0.15933793014277495,
+   "n_eff_median": 128.0,
+   "frac_thin": 0.0
+  },
+  "traced": {
+   "silicate_train": 0.12569954076681428,
+   "silicate_val": 0.14432886280645277,
+   "other_val": 0.1811422934638518,
+   "mean7_val": 0.16010604737390952,
+   "n_eff_median": 28.023276556210654,
+   "frac_thin": 0.0203125
+  }
+ },
+ "ranking": [
+  {
+   "name": "p10_w3_wide",
+   "silicate_train": 0.10851219355152998,
+   "silicate_val": 0.12974046955075064,
+   "other_val": 0.21113969587349382,
+   "mean7_val": 0.1646258522604977,
+   "n_eff_median": 35.0,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p10_w4.5_wide",
+   "silicate_train": 0.1096162636646803,
+   "silicate_val": 0.13713414222100684,
+   "other_val": 0.22359651394364954,
+   "mean7_val": 0.17418944438785372,
+   "n_eff_median": 35.0,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p10_w3_narrow",
+   "silicate_train": 0.10978101085079457,
+   "silicate_val": 0.13311553457355288,
+   "other_val": 0.21382547473153035,
+   "mean7_val": 0.1677055089269718,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.0125
+  },
+  {
+   "name": "p8_w3_wide",
+   "silicate_train": 0.11300525701634728,
+   "silicate_val": 0.13314216324911493,
+   "other_val": 0.20423903727566003,
+   "mean7_val": 0.16361225211763425,
+   "n_eff_median": 42.00000000000001,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p10_w4.5_narrow",
+   "silicate_train": 0.1130791601858688,
+   "silicate_val": 0.14395182471570528,
+   "other_val": 0.22913038211102635,
+   "mean7_val": 0.18045692074227146,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.0140625
+  },
+  {
+   "name": "p8_w3_narrow",
+   "silicate_train": 0.1135595031183747,
+   "silicate_val": 0.13553846981133924,
+   "other_val": 0.2055294497425216,
+   "mean7_val": 0.16553460406756026,
+   "n_eff_median": 16.5,
+   "frac_thin": 0.0109375
+  },
+  {
+   "name": "p10_w6_wide",
+   "silicate_train": 0.1136313052983046,
+   "silicate_val": 0.14321276450440798,
+   "other_val": 0.23215401069286515,
+   "mean7_val": 0.1813304414423182,
+   "n_eff_median": 31.000000000000007,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p8_w4.5_wide",
+   "silicate_train": 0.1151097305993263,
+   "silicate_val": 0.13777280619918178,
+   "other_val": 0.21329686250063543,
+   "mean7_val": 0.1701402588998048,
+   "n_eff_median": 42.00000000000001,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p10_w6_narrow",
+   "silicate_train": 0.11715240446399301,
+   "silicate_val": 0.14800445610876412,
+   "other_val": 0.2396363987033756,
+   "mean7_val": 0.1872752886493119,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.0140625
+  },
+  {
+   "name": "p8_w4.5_narrow",
+   "silicate_train": 0.11721807191427018,
+   "silicate_val": 0.1405404115427838,
+   "other_val": 0.21514447517532007,
+   "mean7_val": 0.17251358167101363,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.003125
+  },
+  {
+   "name": "p8_w6_wide",
+   "silicate_train": 0.12062836107611688,
+   "silicate_val": 0.14379068742603607,
+   "other_val": 0.2196437791322109,
+   "mean7_val": 0.176299155300111,
+   "n_eff_median": 38.00000000000001,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p6_w3_narrow",
+   "silicate_train": 0.12078818393741204,
+   "silicate_val": 0.14168514569129204,
+   "other_val": 0.19926393605032064,
+   "mean7_val": 0.16636177013087572,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.00625
+  },
+  {
+   "name": "p6_w3_wide",
+   "silicate_train": 0.12080817626080642,
+   "silicate_val": 0.14135084807142545,
+   "other_val": 0.19413036385833818,
+   "mean7_val": 0.1639706405515309,
+   "n_eff_median": 41.999943190402924,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p6_w4.5_wide",
+   "silicate_train": 0.12301765247615128,
+   "silicate_val": 0.14175487058464536,
+   "other_val": 0.20367543097529384,
+   "mean7_val": 0.16829225360920902,
+   "n_eff_median": 41.999971181850654,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p6_w4.5_narrow",
+   "silicate_train": 0.12303775279704855,
+   "silicate_val": 0.1427050603257192,
+   "other_val": 0.2052021470741757,
+   "mean7_val": 0.1694895260750577,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.0046875
+  },
+  {
+   "name": "p8_w6_narrow",
+   "silicate_train": 0.12633778594749448,
+   "silicate_val": 0.14697213447643406,
+   "other_val": 0.21953595425786343,
+   "mean7_val": 0.17807091438276096,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.0046875
+  },
+  {
+   "name": "p6_w6_wide",
+   "silicate_train": 0.12692636624634687,
+   "silicate_val": 0.1466888064220782,
+   "other_val": 0.20597521964436183,
+   "mean7_val": 0.17209726923162832,
+   "n_eff_median": 37.999995765531175,
+   "frac_thin": 0.0
+  },
+  {
+   "name": "p6_w6_narrow",
+   "silicate_train": 0.12997632213979163,
+   "silicate_val": 0.14814000021671858,
+   "other_val": 0.20880346146337156,
+   "mean7_val": 0.17413862646528416,
+   "n_eff_median": 16.999999999999996,
+   "frac_thin": 0.009375
+  }
+ ],
+ "top": [
+  "p10_w3_wide",
+  "p10_w4.5_wide",
+  "p10_w3_narrow"
+ ]
+}

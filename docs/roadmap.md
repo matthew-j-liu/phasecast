@@ -60,23 +60,28 @@ Ruled 2026-09-02, amended 2026-09-03. All on `main` until the third.
   on the typical rock) at high pressure and relatively wet. #79 is the
   screen: candidate (P, H2O) priors ranked by a scalability score written
   before any corpus is generated (the per-doubling slope of recalibrated
-  val share error on the four categories across 312 / 1,250 / 5,000
-  compositions at fixed fitting depth, a level check against the
-  production-prior cells on disk, seeds on any winner's endpoints). Stage
-  0 reweights the #78 draws with no MAGEMin, stage 1 generates the top
-  schemes at 1,250 compositions locally, stage 2 extends survivors to
-  5,000 with seeds. The stopping rule stays fixed depth for the screen; no
-  head is promoted and production is untouched. Oxides, olivine and quartz
-  are reported beside the score, their direction not chosen.
+  val share error on the four categories across 128 / 256 / 512 / 1,024 /
+  2,048 compositions at fixed fitting depth, a level check against
+  production-prior cells at the same sizes, three training seeds on any
+  winner's endpoints). Stage 0 (`explorations/prior_search/`, 2026-09-16)
+  reweighted the #78 draws with no MAGEMin: the rectangle family moves the
+  silicate marginal by 0.007 at best, through pressure rather than water,
+  at a 0.02 cost on the others; the owner reads that before any scheme is
+  generated (one night of MAGEMin per scheme to 2,048, every size by
+  nesting). The stopping rule stays fixed depth for the screen; no head is
+  promoted and production is untouched. Oxides, olivine and quartz are
+  reported beside the score, their direction not chosen.
 - **#63 and #22, the plutonic branch**, are parked: a different recipe
   and a different counting convention, so a volcanic failure to scale
   says nothing about them. They open only if every volcanic pair tried
   fails to scale. Olivine and Fe-Ti oxides carry #78's recipe verdict to
   #22 on the volcanic side.
-- **Lawrencium**: the corpus-size use is dropped (#69). The one candidate
-  workload is #79 stage 2; readiness (what of the environment, Julia and
-  MAGEMin, corpus tables and checkpoints must be on the cluster) is the
-  next session's discussion before any port.
+- **Lawrencium**: the corpus-size use is dropped (#69). With training
+  seeds and a 2,048 top rung, the only cluster use left in #79 is
+  generating more schemes in parallel (discussed 2026-09-16; the port is
+  Julia plus the pinned Manifest, a pandas-only env, the bulk table and
+  rosters, and a sharded driver). Delayed by the owner; the local machine
+  runs a scheme a night.
 
 ### 2. Software thrust
 

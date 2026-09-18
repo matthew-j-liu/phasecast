@@ -641,6 +641,14 @@ Tests for archived explorations (moved to `explorations/archive/`,
 3. `test_standardization_never_reads_the_test_rows` -- perturbing the test rows leaves the train matrix bit-identical, so the raw arm's center/scale is fit on its own training data.
 4. `test_probe_slice_keeps_labeled_roster_rows_only` -- the slice both arms are fit on is disjoint train/test, carries no null qap label, and scores only roster rows.
 
+### test_prior_search.py
+
+1. `test_scheme_clips_to_the_broad_box_and_the_solubility_bound` -- a rectangle past the box edge clips to it, the density is zero outside the rectangle and above the solubility bound, a scheme spanning the whole box draws with exactly `q_density`, its area fraction is 1, and every grid scheme lies inside the box under half its area.
+2. `test_reweighting_is_the_plain_mean_over_the_draws_inside` -- indicator weights give the plain mean over the draws inside with the effective draw count equal to their number, unequal weights give the weighted mean and `(sum w)^2 / sum w^2`, and a rock with no weight anywhere reads NaN with zero effective draws.
+3. `test_scores_average_per_category_then_over_the_silicates_per_subset` -- per subset the per-category error averages over the rocks quantifying that category, the silicate and other means skip empty categories, the silicate spread averages the same way, and the effective-draw facts (median, thin fraction) span all rocks.
+4. `test_rosters_nest_and_prefix_the_hash_order` -- the five ladder rosters are sorted prefixes of the md5 hash order, each a strict subset of the next, a rerun is idempotent, and a roster file that no longer matches raises SystemExit.
+5. `test_screen_end_to_end_on_a_synthetic_run` -- the tripwire: broad-box draws over a two-rock fixture benchmark flow through the shares, the weights (broad, the trace-conditional prior on the TAS class, two grid schemes) and the score table (controls first, grid sorted by train silicate error, the broad control's effective draws equal to the draw count, a val-only category NaN on train), the reproduction check against a `d_marginal` table, `summarize` (JSON-serializable, top-k) and both figures.
+
 ### test_redox_padding.py
 
 1. `test_padded_on_the_curve_recovers_its_ratio` -- a padded latent placed exactly at a grid ratio is reported nearest to that ratio, at zero distance from the sweep curve.
