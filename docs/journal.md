@@ -7551,10 +7551,13 @@ it does not, the problem is deeper than the recipe. #79 closes on its
 own gate; #74's step 4 becomes the active thrust; stage 1 and the
 reference cells are not run; the rosters stay as the ladder for the next
 pair. The condition prior joins the settled decisions in CLAUDE.md. Every
-open issue was re-audited against this (the audit table lives in the
-issue comments dated today). Nothing here touches production or the
+open issue was re-audited against this: #79 closed, #74, #22, #63, #57
+and #21 updated by comment, the rest unchanged, and step 4 filed as #82,
+#83 and #84. Nothing here touches production or the
 paper's numbers.
 
-**Next.** The plutonic harvest (DS 942 and PP 1793, the #63 workstream-2
-shortlist) and the model-free solidus-rung reach on each plutonic rock's
-own bulk, then the ladder on the two review figures.
+**Next.** The plutonic harvest (#82: DS 942 and PP 1793, the #63
+workstream-2 shortlist), then the model-free solidus-rung reach on each
+plutonic rock's own bulk and the ladder on the two review figures (#83);
+fractional crystallization of the rock's own bulk against the phenocryst
+ruler (#84) opens after #83 reads.

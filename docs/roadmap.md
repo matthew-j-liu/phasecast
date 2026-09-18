@@ -66,19 +66,20 @@ the third.
 - **Path 2 first, the ruler.** du Bray's plutonic whole-rock modes (DS 942,
   332 rocks with modes and chemistry, 67 intrusions; PP 1793, 259 rocks,
   35 intrusions; DS 875 is a duplicate of eruption-v2 and stays out) read
-  on the current generator at a solidus rung. Order: the harvest (#63
-  workstream 2, the same parser shape as the volcanic sources; the
-  intrusion is the unit key; cumulates flagged), then the model-free reach
-  on each plutonic rock's own bulk as #78 did, then the ladder on the two
-  review figures with the `explorations/prior_search/rosters/` sizes and
+  on the current generator at a solidus rung. Order: the harvest (#82,
+  the same parser shape as the volcanic sources; the intrusion is the
+  unit key; cumulates flagged), then the model-free reach on each
+  plutonic rock's own bulk as #78 did and the ladder on the two review
+  figures (#83) with the `explorations/prior_search/rosters/` sizes and
   training seeds on the endpoints. FC-of-parents (#22) serves cumulates
   only. Its outcome sorts path 1: whole-rock equilibrium scaling on
   whole-rock modes says the volcanic failure was the phenocryst ruler;
   failing there too says the problem is deeper than the recipe.
 - **Path 1 after it, the recipe.** Fractional crystallization of the
   rock's own bulk with the accumulated crystals as the label, the
-  phenocryst cargo as it forms, against the du Bray ruler. PetThermoTools
-  returns to the stack for it (ADR 004, #22's container note).
+  phenocryst cargo as it forms, against the du Bray ruler (#84).
+  PetThermoTools returns to the stack for it (ADR 004, #22's container
+  note).
 - **Held throughout.** The stopping rule stays fixed depth on the review
   figures; no head is promoted; production and the paper's numbers are
   untouched. The condition prior for the volcanic pair is settled
