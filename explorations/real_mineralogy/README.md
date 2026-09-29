@@ -108,6 +108,51 @@ mineral python explorations/real_mineralogy/harvest.py`. The scored-set
 breakdown lives in `results/benchmark_composition.md`, generated rather than
 hand-counted.
 
+## The plutonic benchmark
+
+A second, separate benchmark of whole-rock modes, the ruler #83 reads the
+generator against near the solidus. `harvest.py` writes it to
+`data/real_mineralogy/plutonic/` in the same schema; it never joins the
+volcanic tables above, which every eruption-v2 verdict evaluates in full.
+
+- **Sources.** du Bray DS 942 (1.4 Ga A-type granitoids, `Data` tab, 332
+  rocks, SiO2 57-77) and PP 1793 (Boulder batholith, Appendix 1, 246 rocks
+  with chemistry, SiO2 48-78, reaching the mafic end). Each source's own
+  primary dataset is taken as published: DS 942's `Alt` and `PoorLocSamps`
+  tabs stay out, and PP 1793's altered rocks were already removed by DS 454's
+  screens. Neither grades alteration per rock, so every rock counts as fresh.
+- **Ruler.** Point counts of thin sections or stained slabs, volume percent
+  of the whole rock (DS 942's Data Fields table; DS 454's for PP 1793, whose
+  appendix defers to it). No groundmass, crystallinity 100, and a rock's
+  modes sum to about 100. `mode_basis` is `wholerock_vol_pointcount`.
+- **Unit.** The intrusion: DS 942's `Shorthand` (55 units), which keeps an
+  intrusion's facies together where `Intrs_Name` splits them, and PP 1793's
+  `intrs_name` (30 units after `canonical_units`, including a `??` for two
+  satellite rocks of unknown intrusion).
+- **Minerals.** Muscovite is kept as a row (`mu`, in the vocabulary but
+  outside the seven groups; on 112 DS 942 rocks). Accessories, secondary
+  (alteration) minerals and two lumps are kept as rows outside the groups so
+  each rock's modes close. The lumps mark where a group was **not measured**,
+  so a missing row there is silence rather than absence: `accessory_opq`
+  with no Fe-Ti oxide row (oxides counted with the accessories; 64 PP 1793
+  rocks, 4 DS 942) and `mafic_unsplit` (3 DS 942 rocks with a mafic total
+  only). On the 12 rocks carrying `accessory_opq` beside an oxide row the
+  modes still sum to 100, so that lump holds accessories alone. PP 1793 never
+  counts muscovite, and DS 942 has no olivine column.
+- **Traces.** `TR` is below 0.5 vol% in DS 942 and `tr` generally below 0.1
+  in PP 1793 (DS 454); `<x` cells keep their qualifier.
+- **Chemistry.** Majors recalculated to 100 volatile-free with all Fe as FeO,
+  the volcanic du Bray convention, so they pass through (#56);
+  `analytical_total_pct` and `volatile_pct` carry the pre-recalculation total.
+  Trace coverage is thin: 9 to 70% per element, against about 92% for the
+  volcanic du Bray rocks.
+- **Source quirks the harvest handles.** PP 1793 interleaves a pluton
+  `AVERAGE` row after each pluton's samples (dropped); six DS 942 field
+  numbers label two different rocks each (suffixed with the unit); three
+  typo cells are corrected through `MODE_TYPOS`, each asserted against its
+  published text. One PP 1793 rock (`10KL071`) has a mode and no chemistry,
+  and the loader drops it.
+
 ## Model compatibility
 
 - **Input (samples.csv -> encoder): ready.** Column names match the tokenizer;

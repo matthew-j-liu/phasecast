@@ -12,6 +12,10 @@ Sources (open-access; see README for the screen they passed):
   - Pallister et al. 2008 (MSH 2004-06, PP1750 ch. 30) and Pallister et al.
     1996 (Pinatubo): downloaded here; table extraction is manual/vision work,
     parsed separately (precision tier).
+  - du Bray et al. USGS DS 942 (1.4 Ga A-type granitoids) and PP 1793
+    (Boulder batholith): whole-rock point counts of plutonic rocks, a second
+    benchmark written to data/real_mineralogy/plutonic/ rather than joined to
+    the volcanic one.
 
 Output: samples.csv (one row per sample: chemistry + crystallinity + QC) and
 modes.csv (one row per sample x phase: reported abundance + basis), with phase
@@ -341,6 +345,212 @@ def parse_pinatubo():
     return pd.DataFrame(samples), pd.DataFrame(modes)
 
 
+# The plutonic benchmark: du Bray DS 942 (1.4 Ga A-type granitoids) and PP 1793
+# (Boulder batholith).  Both are point counts of the whole rock in volume
+# percent -- DS 942's Data Fields table says so, and PP 1793's appendix defers
+# to DS 454's -- so there is no groundmass and a rock's modes sum to about 100.
+# They are written to their own directory: every eruption-v2 verdict evaluates
+# all the rocks in `DATA`'s tables, so these must never join them.
+PLUTONIC_DIR = DATA / "plutonic"
+PLUTONIC_BASIS = "wholerock_vol_pointcount"
+
+# mode column -> (reported name, MAGEMin phase).  Accessories, the
+# accessories-with-oxides lump, the mafic-total-only column and the secondary
+# (alteration) minerals are kept as rows outside the seven comparison groups,
+# so each rock's modes still close and a later freshness or cumulate rule can
+# read them.  The two lumps also record where a comparison group was not
+# measured: on a rock carrying `accessory_opq` and no Fe-Ti oxide row the
+# oxides were never counted apart from the accessories, and on one carrying
+# `mafic_unsplit` no mafic mineral was counted individually, so an absent row
+# there is silence rather than absence.  Where a rock carries both
+# `accessory_opq` and an oxide row, the modes still sum to 100, so the lump
+# holds the accessories alone and nothing is counted twice.
+DS942_PHASES = {
+    "Abd_Pl": ("plagioclase", "fsp"),
+    "Abd_AlkFld": ("alkali feldspar", "fsp"),
+    "Abd_Qtz": ("quartz", "q"),
+    "Abd_Hbl": ("hornblende", "amp"),
+    "Abd_Opx": ("orthopyroxene", "opx"),
+    "Abd_Cpx": ("clinopyroxene", "cpx"),
+    "Abd_Bt": ("biotite", "bi"),
+    "Abd_Mu": ("muscovite", "mu"),
+    "Abd_Opq": ("Fe-Ti oxides", "opq_unsplit"),
+    "Abd_Tot_mafics": ("mafic minerals", "mafic_unsplit"),
+    "Abd_Acc": ("accessory minerals", "accessory"),
+    "Abd_Acces (incl opq)": ("accessory minerals and Fe-Ti oxides", "accessory_opq"),
+    "Abd_Alt": ("secondary minerals", "secondary"),
+}
+# PP 1793 never counts muscovite, so its absence there is silence too.  `Pyx`
+# is lumped pyroxene; a rock carrying both `Pyx` and a split column counts
+# them as separate minerals (they sum with the rest to 100), so both are kept.
+PP1793_PHASES = {
+    "Plag": ("plagioclase", "fsp"),
+    "Kspar": ("alkali feldspar", "fsp"),
+    "Qtz": ("quartz", "q"),
+    "Hb": ("hornblende", "amp"),
+    "Pyx": ("pyroxene", "px_unsplit"),
+    "Opx": ("orthopyroxene", "opx"),
+    "Cpx": ("clinopyroxene", "cpx"),
+    "Ol": ("olivine", "ol"),
+    "Bi": ("biotite", "bi"),
+    "Opq": ("Fe-Ti oxides", "opq_unsplit"),
+    "Acc": ("accessory minerals", "accessory"),
+    "Acces(incl opq)": ("accessory minerals and Fe-Ti oxides", "accessory_opq"),
+    "Alt": ("secondary minerals", "secondary"),
+}
+
+# Majors are recalculated to 100 volatile-free with all Fe as FeO in both
+# sources, the convention du Bray's volcanic tables use, so they pass through
+# unrenormalized.  The pre-recalculation analytical total and the volatile
+# total are carried so that convention stays checkable and invertible per rock.
+DS942_CHEM = {
+    "SiO2_pct": "sio2", "TiO2_pct": "tio2", "Al2O3_pct": "al2o3",
+    "FeO_pct": "feo_tot", "MnO_pct": "mno", "MgO_pct": "mgo",
+    "CaO_pct": "cao", "Na2O_pct": "na2o", "K2O_pct": "k2o",
+    "P2O5_pct": "p2o5", "LOI_pct": "loi",
+    "Total_I_pct": "analytical_total_pct", "Volatile_pct": "volatile_pct",
+    **TRACES,
+}
+PP1793_CHEM = {
+    "SiO2": "sio2", "TiO2": "tio2", "Al2O3": "al2o3", "FeO*": "feo_tot",
+    "MnO": "mno", "MgO": "mgo", "CaO": "cao", "Na2O": "na2o", "K2O": "k2o",
+    "P2O5": "p2o5", "LOI": "loi",
+    "total": "analytical_total_pct", "vol_sum": "volatile_pct",
+    **{src.removesuffix("_ppm"): dst for src, dst in TRACES.items()},
+}
+
+# Cells whose published text is a typo for a number: the letter l for the
+# digit 1, and a stray backtick before a zero.  Keyed by the cell, and every
+# entry must be found, so a revised download that fixes or moves one fails
+# here instead of passing through unexamined.
+MODE_TYPOS = {
+    ("dubray_ds942", "N13", "Abd_Hbl"): ("l.0", 1.0),
+    ("dubray_ds942", "N13", "Abd_Opq"): ("l.0", 1.0),
+    ("dubray_pp1793", "28693", "Opq"): ("`0", 0.0),
+}
+
+
+def _mode_cell(raw):
+    """One plutonic mode cell as (abundance, qualifier), or None when blank.
+
+    `TR` / `tr` is a trace -- below 0.5 vol% in DS 942, generally below 0.1 in
+    PP 1793 (DS 454) -- and `<x` is present below x.  Both are left-censored
+    presences: no number, qualifier kept.  A reported zero is a row with
+    abundance 0, which the loader reads as looked-for-and-not-found.  A cell
+    holding only whitespace is blank.
+    """
+    if pd.isna(raw):
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    if text.lower() == "tr" or text.startswith("<"):
+        return np.nan, text
+    try:
+        return float(text), None
+    except ValueError:
+        raise ValueError(f"unparsed plutonic mode cell {raw!r}") from None
+
+
+def _plutonic_rocks(source, frame, ids, units, phases, chem, rock_class, form):
+    """samples / modes rows for one plutonic workbook, one rock per `frame` row.
+
+    Only rocks with at least one mode cell are emitted.  Every rock is
+    crystalline throughout, so `total_crystals_pct` is 100, and neither source
+    grades alteration per rock -- each already removed the rocks its chemical
+    screens flag -- so `alteration_extent` is left blank.
+    """
+    samples, modes, typos_found = [], [], set()
+    for (_, row), sid, unit in zip(frame.iterrows(), ids, units):
+        rock_modes = []
+        for col, (name, mgm) in phases.items():
+            raw = row[col]
+            typo = MODE_TYPOS.get((source, sid, col))
+            if typo is not None:
+                if str(raw).strip() != typo[0]:
+                    raise ValueError(
+                        f"{source} {sid} {col}: expected the typo {typo[0]!r}, "
+                        f"found {raw!r} -- check the download"
+                    )
+                raw = typo[1]
+                typos_found.add((source, sid, col))
+            cell = _mode_cell(raw)
+            if cell is None:
+                continue
+            rock_modes.append(dict(source=source, sample_id=sid, phase=name,
+                                   magemin_phase=mgm, abundance_pct=cell[0],
+                                   qualifier=cell[1], basis=PLUTONIC_BASIS))
+        if not rock_modes:
+            continue
+        modes.extend(rock_modes)
+        rock = dict(source=source, sample_id=sid, unit=unit,
+                    rock_class=row[rock_class], intrusive_form=row[form],
+                    total_crystals_pct=100.0, alteration_extent=np.nan,
+                    mode_basis=PLUTONIC_BASIS)
+        for src, dst in chem.items():
+            rock[dst] = _num(pd.Series([row[src]])).iloc[0]
+        samples.append(rock)
+    missing = {k for k in MODE_TYPOS if k[0] == source} - typos_found
+    if missing:
+        raise ValueError(f"typo cells not found in the download: {sorted(missing)}")
+    return pd.DataFrame(samples), pd.DataFrame(modes)
+
+
+def parse_ds942():
+    """DS 942's `Data` tab, the rocks that passed the source's screens.
+
+    The `Alt` tab (chemically altered or off the 97-103 analytical-total
+    window) and `PoorLocSamps` (no usable location) stay out, as they stay out
+    of the source's own primary dataset.
+
+    The unit is `Shorthand`, not `Intrs_Name`: `Intrs_Name` names the facies of
+    one intrusion separately (the San Isabel Granite's coarse and medium
+    facies, the Virginia Dale core and cap rocks), and the split and the
+    bootstrap would then treat parts of one body as independent.
+
+    Six `Field_Number`s each label two different rocks in different
+    intrusions, so those take their unit as a suffix to stay unique.
+    """
+    frame = pd.read_excel(DATA / "dubray_ds942" / "1.4GaIntrsChemModData.xlsx",
+                          sheet_name="Data")
+    frame.columns = [c.strip() for c in frame.columns]
+    frame = frame[frame[list(DS942_PHASES)].notna().any(axis=1)]
+    ids = frame["Field_Number"].astype(str).str.strip()
+    shared = ids.duplicated(keep=False)
+    ids[shared] = ids[shared] + " (" + frame.loc[shared, "Shorthand"] + ")"
+    samples, modes = _plutonic_rocks(
+        "dubray_ds942", frame, ids, frame["Shorthand"], DS942_PHASES,
+        DS942_CHEM, "Lithology", "Ign_Form",
+    )
+    if samples["sample_id"].duplicated().any():
+        raise ValueError("DS 942 sample ids are not unique after the unit suffix")
+    return samples, modes
+
+
+def parse_pp1793():
+    """PP 1793's Appendix 1, less the pluton averages interleaved with it.
+
+    The appendix places an `AVERAGE` row after each pluton's samples; those
+    are summaries, not rocks.  The unit is `intrs_name`, which names whole
+    intrusions (its `alt name` neighbor lumps fifteen separate satellite
+    stocks under `Satellitic`).  The rock name is `modal_lithology`; the
+    `lithology` column is the source's unverified name and is blank wherever a
+    mode exists.
+    """
+    frame = pd.read_excel(DATA / "dubray_pp1793" / "Appendix_1.xls", header=2)
+    frame.columns = [c.strip() for c in frame.columns]
+    ids = frame["sample _number"].astype(str).str.strip()
+    keep = frame["sample _number"].notna() & (ids != "AVERAGE")
+    frame, ids = frame[keep], ids[keep]
+    samples, modes = _plutonic_rocks(
+        "dubray_pp1793", frame, ids, frame["intrs_name"], PP1793_PHASES,
+        PP1793_CHEM, "modal_lithology", "ign_form",
+    )
+    if samples["sample_id"].duplicated().any():
+        raise ValueError("PP 1793 sample ids are not unique")
+    return samples, modes
+
+
 def main():
     s764, m764 = parse_dubray("dubray_ds764", "dubray_ds764/Appendix2.xls",
                               "dubray_ds764/Appendix3.xls", "TotXls")
@@ -365,6 +575,16 @@ def main():
     print(f"crystallinity known: {samples.total_crystals_pct.notna().sum()}")
     print(f"point-counted (appendix 10): {len(pc_points)} joined, "
           f"{pc_skipped} with no petrography row")
+
+    s942, m942 = parse_ds942()
+    s1793, m1793 = parse_pp1793()
+    plutonic = pd.concat([s942, s1793], ignore_index=True)
+    PLUTONIC_DIR.mkdir(exist_ok=True)
+    plutonic.to_csv(PLUTONIC_DIR / "samples.csv", index=False)
+    pd.concat([m942, m1793], ignore_index=True).to_csv(
+        PLUTONIC_DIR / "modes.csv", index=False)
+    print(f"plutonic samples: {len(plutonic)} ({dict(plutonic.source.value_counts())}), "
+          f"SiO2 {plutonic.sio2.min():.0f}-{plutonic.sio2.max():.0f}")
 
 
 if __name__ == "__main__":

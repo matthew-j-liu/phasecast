@@ -7,6 +7,7 @@ from cnmineral.eval.real_rock import (
     GROUP_INDEX,
     POINTCOUNT_BASIS,
     VISUAL_BASIS,
+    canonical_units,
     load_benchmark,
     split_mask,
 )
@@ -16,10 +17,24 @@ from explorations.real_mineralogy import run_scale_convention as scale_script
 from explorations.real_mineralogy import run_unit_leakage as leakage_script
 from explorations.real_mineralogy.harvest import (
     DATA,
+    PLUTONIC_BASIS,
     POINTCOUNT_PHASES,
+    _mode_cell,
     _pointcount_cell,
     parse_dubray_pointcounts,
+    parse_ds942,
+    parse_pp1793,
 )
+
+PLUTONIC_SOURCES = {"dubray_ds942", "dubray_pp1793"}
+MAJORS = ["sio2", "tio2", "al2o3", "feo_tot", "mno", "mgo", "cao", "na2o",
+          "k2o", "p2o5"]
+
+
+@pytest.fixture(scope="module")
+def plutonic():
+    """Both plutonic workbooks parsed once, as (samples, modes) per source."""
+    return {"dubray_ds942": parse_ds942(), "dubray_pp1793": parse_pp1793()}
 
 
 @pytest.fixture(scope="module")
@@ -244,3 +259,97 @@ def test_leak_flagging_is_confined_to_val_and_stays_a_minority():
     # every flag is explainable by a named train unit, so the report is complete
     merges = leakage_script.merge_report(benchmark.unit, leaking, train)
     assert {m["val_unit"] for m in merges} == set(benchmark.unit[leaking])
+
+
+def test_plutonic_mode_cell_grammar():
+    """The cell forms the two plutonic workbooks contain.
+
+    A trace or `<x` cell is a present-but-unquantified mineral and must keep
+    its qualifier, a whitespace-only cell is blank, and a reported zero stays a
+    row so the loader can read it as looked-for-and-not-found.  Anything else
+    must raise rather than parse: the known typos go through `MODE_TYPOS`, not
+    through a lenient reader.
+    """
+    assert _mode_cell(np.nan) is None
+    assert _mode_cell("   ") is None
+    assert _mode_cell(12.5) == (12.5, None)
+    assert _mode_cell(0) == (0.0, None)
+    for text in ("TR", "tr", "<0.01", "<1"):
+        value, qualifier = _mode_cell(text)
+        assert np.isnan(value) and qualifier == text
+    for text in ("l.0", "`0", "about half"):
+        with pytest.raises(ValueError):
+            _mode_cell(text)
+
+
+def test_plutonic_harvest_emits_each_rock_once_from_its_own_screens(plutonic):
+    """Each source contributes the rocks its own primary dataset holds, once.
+
+    PP 1793 interleaves a pluton `AVERAGE` row after each pluton's samples;
+    reading one as a rock would add a synthetic mean to the benchmark and put
+    it in the same unit as the rocks it averages.  DS 942 reuses six field
+    numbers across different intrusions, which would collide on the
+    `source|sample_id` key.  The unit counts pin the grouping the split and
+    the bootstrap will cluster on: whole intrusions, not their facies.
+    """
+    s942, _ = plutonic["dubray_ds942"]
+    s1793, _ = plutonic["dubray_pp1793"]
+    assert len(s942) == 332
+    # one PP 1793 rock carries a mode but no chemistry, which the loader drops
+    assert len(s1793) == 247 and s1793["sio2"].notna().sum() == 246
+    assert not (s1793["sample_id"] == "AVERAGE").any()
+    for samples in (s942, s1793):
+        assert samples["sample_id"].is_unique
+        assert samples["unit"].notna().all()
+    assert {"83-1 (Oracle)", "83-1 (Fort Huachuca)"} <= set(s942["sample_id"])
+    assert s942["sample_id"].str.endswith(")").sum() == 12
+    assert len(set(canonical_units(s942["unit"]))) == 55
+    assert len(set(canonical_units(s1793["unit"]))) == 30
+
+
+def test_plutonic_modes_close_on_the_whole_rock(plutonic):
+    """Whole-rock point counts sum to about 100, with no groundmass.
+
+    That closure is what the whole-rock basis means, and it only holds if the
+    accessory, secondary and lumped columns are kept alongside the comparison
+    minerals.  The majors are recalculated to 100 volatile-free in both
+    sources, the convention the volcanic du Bray tables use.
+    """
+    for samples, modes in plutonic.values():
+        assert set(modes["basis"]) == {PLUTONIC_BASIS}
+        assert "groundmass" not in set(modes["magemin_phase"])
+        totals = modes.groupby("sample_id")["abundance_pct"].sum()
+        assert totals.between(96.0, 102.0).mean() > 0.95
+        chem = samples[samples["sio2"].notna()]
+        assert np.allclose(chem[MAJORS].sum(axis=1), 100.0, atol=0.01)
+        assert (samples["total_crystals_pct"] == 100.0).all()
+
+
+def test_mode_typos_must_be_found_where_they_are_expected(monkeypatch):
+    """A typo correction that does not find its cell fails the harvest.
+
+    The corrections rewrite published text, so each is asserted against the
+    cell it names: a revised download that fixed or moved the typo has to be
+    looked at, not silently corrected twice or skipped.
+    """
+    monkeypatch.setitem(harvest.MODE_TYPOS,
+                        ("dubray_pp1793", "no-such-rock", "Opq"), ("`0", 0.0))
+    with pytest.raises(ValueError, match="not found"):
+        parse_pp1793()
+    monkeypatch.delitem(harvest.MODE_TYPOS, ("dubray_pp1793", "no-such-rock", "Opq"))
+    monkeypatch.setitem(harvest.MODE_TYPOS,
+                        ("dubray_pp1793", "28693", "Opq"), ("x0", 0.0))
+    with pytest.raises(ValueError, match="expected the typo"):
+        parse_pp1793()
+
+
+def test_plutonic_rocks_stay_out_of_the_volcanic_benchmark():
+    """The frozen volcanic tables hold no plutonic rock.
+
+    Every eruption-v2 verdict evaluates all the rocks in its tables, so a
+    plutonic rock landing there would move stamped numbers.
+    """
+    for table in ("samples.csv", "modes.csv"):
+        sources = set(pd.read_csv(BENCHMARK_DIR / table)["source"])
+        assert not sources & PLUTONIC_SOURCES
+    assert harvest.PLUTONIC_DIR != BENCHMARK_DIR

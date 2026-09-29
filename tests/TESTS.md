@@ -690,6 +690,11 @@ Tests for archived explorations (moved to `explorations/archive/`,
 7. `test_undoing_the_recalculation_lands_on_the_raw_analytical_total` -- the scale-convention undo puts the published majors back on the pre-recalculation total the workbooks record, and moves chemistry only, so the contrast measures the translation it claims to and not some other rescale.
 8. `test_eruption_merge_rule_splits_prefixes_it_must_not_join` -- the leak rule merges sub-facies and `?` qualifiers but keeps the nineteen `Plio-Pleistocene, ...` units and a bare `Rhyolite` apart, the two over-merges that would flag most of val and make the contrast vacuous.
 9. `test_leak_flagging_is_confined_to_val_and_stays_a_minority` -- the flag marks only val rocks, stays a minority of the slice, and every flagged rock is explained by a named train unit, so a broadened normalization cannot quietly read as agreement.
+10. `test_plutonic_mode_cell_grammar` -- the plutonic workbooks' cell forms: `TR`/`tr`/`<x` are present with their qualifier kept, a whitespace-only cell is blank, a reported zero stays a row, and a typo raises rather than parsing leniently.
+11. `test_plutonic_harvest_emits_each_rock_once_from_its_own_screens` -- DS 942's 332 rocks and PP 1793's 247 (246 with chemistry), no pluton `AVERAGE` row read as a rock, the six reused DS 942 field numbers made unique by their unit, and the unit counts (55 and 30) that pin the grouping to whole intrusions rather than facies.
+12. `test_plutonic_modes_close_on_the_whole_rock` -- whole-rock point counts sum to about 100 with no groundmass row, which holds only if the accessory, secondary and lumped columns are kept; the majors are recalculated to 100 volatile-free.
+13. `test_mode_typos_must_be_found_where_they_are_expected` -- a typo correction that misses its cell, or finds different text there, fails the harvest, so a revised download is looked at rather than corrected blind.
+14. `test_plutonic_rocks_stay_out_of_the_volcanic_benchmark` -- the eruption-v2 tables on disk hold no plutonic rock and the plutonic tables are written elsewhere, since every eruption-v2 verdict evaluates all the rocks in its tables.
 
 ### test_real_rock_fewshot.py
 
