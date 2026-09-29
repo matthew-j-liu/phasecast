@@ -58,6 +58,45 @@ https://pubs.usgs.gov/ds/1099/ , downloaded 2026-07-01; the report added
 the `chem_src` key naming the seven publications its chemistry was compiled
 from, going back to Ransome (1909).
 
+## du Bray, USGS DS 942 -- 1.4 Ga A-type granitoid intrusions, conterminous US
+
+https://pubs.usgs.gov/ds/0942/ (2015), downloaded 2026-09-29.
+
+| file | bytes | sha256 |
+|---|---|---|
+| `dubray_ds942/1.4GaIntrsChemModData.xlsx` | 4638846 | e28024d16df86379310cc1eed5dc9adf9faef558b22ed1a6712d2762e5af721c |
+| `dubray_ds942/ds942.pdf` | 6036439 | e1d3978fd1008aabc1f1a6d4adaa5597fb0903a5a407f36897c664f18adf6693 |
+
+`ds942.pdf` defines every column in its "Data Fields" table 1: the modes are
+point counts of stained slabs or thin sections in volume percent of the whole
+rock, `TR` is below 0.5 volume percent, `Lithology` is capitalized when the
+name is supported by modal data, and the majors are recalculated to 100
+volatile-free with all Fe as FeO. Its "Geochemical and Modal Data" section
+states the chemical screens that move a rock to the `Alt` tab and that
+`PoorLocSamps` holds rocks without a usable location.
+
+## du Bray, USGS PP 1793 -- Boulder batholith, Montana
+
+https://pubs.usgs.gov/pp/1793/ (2012), downloaded 2026-09-29.
+
+| file | bytes | sha256 |
+|---|---|---|
+| `dubray_pp1793/Appendix_1.xls` | 324096 | e4aa2990fb6c9c4929c1f0073fb15e67a99aac547c5669f478427f723f7fe68e |
+| `dubray_pp1793/PP1793.pdf` | 9459438 | 9a59218d4b31f7b1b026cbbcb17217bb4f98d4021686b16c4b8479ffdc5f8cd2 |
+| `dubray_pp1793/DS454.pdf` | 27699655 | 108f5cfc3497bb43a73c359ae7ddc39444f5a3f0f4fdf918055489e965318d96 |
+
+`PP1793.pdf` has no "Data Fields" section; the appendix's own header defers to
+du Bray and others (2009), USGS Data Series 454
+(https://pubs.usgs.gov/ds/454/, downloaded 2026-09-29), whose "Data Fields"
+section is the **authoritative definition of the appendix's columns**. It
+states that the modes are point counts of thin sections or stained slabs in
+volume percent summing to about 100, that `tr` is generally below 0.1 percent
+(not DS 942's 0.5), that a blank mineral cell means the mineral is not present,
+that `Acces(incl opq)` carries the opaque oxides for sources that did not count
+them separately, and the chemical screens behind the altered rocks it removed
+(including an analytical-total window of 95 to 103, wider than DS 942's 97 to
+103).
+
 ## Pallister and others 2008 -- Mount St. Helens 2004-06 dome
 
 https://pubs.usgs.gov/pp/1750/ (chapter 30) and https://pubs.usgs.gov/of/2008/1130/
