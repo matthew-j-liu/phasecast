@@ -153,6 +153,60 @@ volcanic tables above, which every eruption-v2 verdict evaluates in full.
   published text. One PP 1793 rock (`10KL071`) has a mode and no chemistry,
   and the loader drops it.
 
+**Evaluating it.** `plutonic.py` is the one entry point: `load_plutonic()`
+loads the tables with densities for the new mineral names, and
+`plutonic_benchmark()` yields the evaluated rocks with
+`cnmineral.eval.real_rock` reading the plutonic split, restoring the eruption
+split when the block exits. Every rock counts as fresh (neither source grades
+alteration per rock). The 71 rocks on which a category was not measured
+(`unmeasured_keys`: 64 PP 1793 and 4 DS 942 rocks with the oxides lumped into
+the accessories, 3 DS 942 rocks with only a mafic total) stay in the split but
+outside the evaluated set, so 507 rocks are evaluated.
+
+**Split** (`plutonic_split.csv`, built once by `run_plutonic_split.py`): whole
+intrusions, balanced on the evaluated rocks by `split_balance`. The eruption
+split's largest-first dealer could not balance here -- a few intrusions are so
+large they always land in train, and val came out with amphibole in 21% of
+rocks against 57% overall -- so the plutonic dealer deals in random order and
+requires at least 15 intrusions per subset. Train 291 evaluated rocks / 43
+intrusions, val 61 / 19, test 155 / 23; every category within 0.07 of its
+population rate, silica quantiles within 4% of the span. Test is sealed.
+
+**First number** (`run_plutonic_zero_shot.py` ->
+`results/joint_heads_allrock_tuned_seed0/plutonic_zero_shot.json`): the
+production head zero-shot on the train and val rocks of each benchmark, test
+sealed on both. Raw NLL is not comparable across the two, since a plutonic
+rock spans 4.4 categories against eruption-v2's 3.6 and the Dirichlet term
+scales with that count; each is read against its own climatology null.
+
+| | rocks | joint NLL | climatology | model minus null |
+|---|---|---|---|---|
+| plutonic | 352 | -1.46 | -4.26 | +2.80 |
+| eruption-v2 | 478 | 12.03 | 1.41 | +10.63 |
+
+| category | rocks with it, plutonic / eruption-v2 | presence AUROC | share absolute error |
+|---|---|---|---|
+| feldspar | 1.00 / 0.95 | n/a / 0.86 | 0.104 / 0.143 |
+| pyroxene | 0.09 / 0.53 | 0.78 / 0.77 | 0.054 / 0.077 |
+| amphibole | 0.54 / 0.65 | 0.76 / 0.58 | 0.090 / 0.119 |
+| biotite | 0.97 / 0.60 | 0.48 / 0.79 | 0.035 / 0.082 |
+| olivine | 0.01 / 0.17 | 0.83 / 0.82 | 0.045 / 0.095 |
+| Fe-Ti oxides | 0.93 / 0.98 | 0.46 / 0.63 | 0.019 / 0.084 |
+| quartz | 1.00 / 0.33 | 1.00 / 0.85 | 0.066 / 0.190 |
+
+Where nearly every plutonic rock carries a category (feldspar, quartz,
+biotite, oxides), its presence AUROC rests on a handful of rocks without it.
+
+**The paper's two cards, on these rocks** (`run_plutonic_figures.py` ->
+`results/joint_heads_allrock_tuned_seed0/plutonic_{cohort,inference}_card.{pdf,png}`,
+tables in `plutonic_figure_data/`). The extraction is this exploration's;
+the drawing imports the paper's own `fig_cohort_card` / `fig_inference_card`
+from the gitignored `paper/figures/src/`, so redrawing needs that folder. The
+cohort card covers the 352 train and val rocks. The inference card shows the
+median val rock (`dubray_ds942|PP329`, test sealed) under the canonical
+matrix recalibrator fit on 25 train rocks from 6 intrusions, which takes the
+val joint NLL from 0.60 to -2.86 over 61 rocks.
+
 ## Model compatibility
 
 - **Input (samples.csv -> encoder): ready.** Column names match the tokenizer;

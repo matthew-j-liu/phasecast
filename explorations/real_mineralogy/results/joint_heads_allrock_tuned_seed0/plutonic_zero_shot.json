@@ -1,0 +1,417 @@
+{
+  "checkpoint": "checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt",
+  "code": {
+    "head": "3e3a0ebb479ba7953bf5006b1f0fae1b53aefb96",
+    "src_dirty": false
+  },
+  "subsets": [
+    "train",
+    "val"
+  ],
+  "plutonic": {
+    "checkpoint_tag": "joint_heads_allrock_tuned_seed0",
+    "encoder_checkpoint": "checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt",
+    "benchmark": {
+      "dir": "data/real_mineralogy/plutonic",
+      "groups": [
+        "fsp",
+        "px",
+        "amp",
+        "bi",
+        "ol",
+        "opq",
+        "q"
+      ],
+      "n_with_chemistry_and_modes": 352,
+      "n_headline": 352,
+      "n_altered_or_ungraded": 0,
+      "n_precision_tier": 0,
+      "n_no_quantified_phase": 0,
+      "n_single_group_composition": 0,
+      "trace_bound_vol_pct": 0.5,
+      "split": "explorations/real_mineralogy/plutonic_split.csv",
+      "n_left_out_unmeasured_category": 55
+    },
+    "headline": {
+      "n": 352,
+      "joint_nll": -1.455566070811821,
+      "bernoulli_nll": 3.195710021349153,
+      "dirichlet_nll": -4.651276092160975,
+      "mean_composition_size": 4.4375
+    },
+    "climatology": {
+      "concentration": 31.59517431436905,
+      "n_fit": 352,
+      "n": 352,
+      "joint_nll": -4.256520395850941,
+      "bernoulli_nll": 1.4553264969575013,
+      "dirichlet_nll": -5.711846892808442,
+      "mean_composition_size": 4.4375
+    },
+    "altered": {
+      "n": 0
+    },
+    "all_rocks": {
+      "n": 352,
+      "joint_nll": -1.455566070811821,
+      "bernoulli_nll": 3.195710021349153,
+      "dirichlet_nll": -4.651276092160975,
+      "mean_composition_size": 4.4375
+    },
+    "precision_tier": {
+      "n": 0
+    },
+    "exposure_bias": {
+      "n": 167,
+      "coverage": 0.4744318181818182,
+      "dirichlet_nll_truth_support": -4.524797007811673,
+      "dirichlet_nll_model_support": -4.590864219094612,
+      "delta": -0.06606721128293902
+    },
+    "censored": {
+      "n_instances": 30,
+      "mean_prob_below_bound": 0.14678857040667473,
+      "mean_nll": 2.455684644046585
+    },
+    "off_vocabulary_mass": {
+      "mean": 0.0017287548816490581,
+      "p90": 0.008791209783847159
+    },
+    "per_group": [
+      {
+        "group": "fsp",
+        "observed_rate": 1.0,
+        "mean_predicted_p": 0.9944806997665602,
+        "auroc": null,
+        "best_threshold": null,
+        "best_f1": null,
+        "recall_at_0.5": 1.0,
+        "precision_at_0.5": 1.0,
+        "magnitude_r2": -2.1880913370530473,
+        "magnitude_spearman": 0.3023097063465335,
+        "magnitude_mae": 0.10395721900579749,
+        "magnitude_pearson_r": 0.3775780252297079,
+        "n_quantified": 352,
+        "n_trace_only": 0,
+        "censored_prob_below_bound": null,
+        "censored_mean_below_bound_rate": null
+      },
+      {
+        "group": "px",
+        "observed_rate": 0.08522727272727272,
+        "mean_predicted_p": 0.5002836480238254,
+        "auroc": 0.7785714285714286,
+        "best_threshold": 0.698,
+        "best_f1": 0.3270440251572327,
+        "recall_at_0.5": 0.9,
+        "precision_at_0.5": 0.1656441717791411,
+        "magnitude_r2": 0.5704029915815054,
+        "magnitude_spearman": 0.4402669632925473,
+        "magnitude_mae": 0.05372670030724698,
+        "magnitude_pearson_r": 0.8848038871661856,
+        "n_quantified": 30,
+        "n_trace_only": 0,
+        "censored_prob_below_bound": null,
+        "censored_mean_below_bound_rate": null
+      },
+      {
+        "group": "amp",
+        "observed_rate": 0.5369318181818182,
+        "mean_predicted_p": 0.12639491412449966,
+        "auroc": 0.7638848313694938,
+        "best_threshold": 0.032,
+        "best_f1": 0.7355163727959698,
+        "recall_at_0.5": 0.07936507936507936,
+        "precision_at_0.5": 0.9375,
+        "magnitude_r2": -4.618365743338398,
+        "magnitude_spearman": 0.5464140548246036,
+        "magnitude_mae": 0.09001931502733428,
+        "magnitude_pearson_r": 0.5360640807194237,
+        "n_quantified": 184,
+        "n_trace_only": 5,
+        "censored_prob_below_bound": 0.04497468921619703,
+        "censored_mean_below_bound_rate": 0.0
+      },
+      {
+        "group": "bi",
+        "observed_rate": 0.9659090909090909,
+        "mean_predicted_p": 0.7302313011816957,
+        "auroc": 0.48480392156862745,
+        "best_threshold": 0.016,
+        "best_f1": 0.9826589595375722,
+        "recall_at_0.5": 0.9882352941176471,
+        "precision_at_0.5": 0.9655172413793104,
+        "magnitude_r2": 0.2951494445577164,
+        "magnitude_spearman": 0.5172506306811356,
+        "magnitude_mae": 0.034765913366824774,
+        "magnitude_pearson_r": 0.6254972102689909,
+        "n_quantified": 339,
+        "n_trace_only": 1,
+        "censored_prob_below_bound": 0.019185398792610355,
+        "censored_mean_below_bound_rate": 0.0
+      },
+      {
+        "group": "ol",
+        "observed_rate": 0.008522727272727272,
+        "mean_predicted_p": 0.002483019774610346,
+        "auroc": 0.8309455587392549,
+        "best_threshold": 0.062,
+        "best_f1": 0.4,
+        "recall_at_0.5": 0.0,
+        "precision_at_0.5": null,
+        "magnitude_r2": -14.89399208691018,
+        "magnitude_spearman": -1.0,
+        "magnitude_mae": 0.0448695037530499,
+        "magnitude_pearson_r": -0.8536175737019663,
+        "n_quantified": 3,
+        "n_trace_only": 0,
+        "censored_prob_below_bound": null,
+        "censored_mean_below_bound_rate": null
+      },
+      {
+        "group": "opq",
+        "observed_rate": 0.9289772727272727,
+        "mean_predicted_p": 0.8922656876843192,
+        "auroc": 0.462262996941896,
+        "best_threshold": 0.117,
+        "best_f1": 0.9631811487481591,
+        "recall_at_0.5": 0.9938837920489296,
+        "precision_at_0.5": 0.9312320916905444,
+        "magnitude_r2": -0.7946687833597621,
+        "magnitude_spearman": 0.39649298234110614,
+        "magnitude_mae": 0.01891125070123974,
+        "magnitude_pearson_r": 0.38799421568192693,
+        "n_quantified": 303,
+        "n_trace_only": 24,
+        "censored_prob_below_bound": 0.17331659447194359,
+        "censored_mean_below_bound_rate": 0.0
+      },
+      {
+        "group": "q",
+        "observed_rate": 0.9971590909090909,
+        "mean_predicted_p": 0.9239431775429032,
+        "auroc": 0.9971509971509972,
+        "best_threshold": 0.06,
+        "best_f1": 0.9985775248933144,
+        "recall_at_0.5": 0.9686609686609686,
+        "precision_at_0.5": 1.0,
+        "magnitude_r2": -0.03970333210204835,
+        "magnitude_spearman": 0.590963480963481,
+        "magnitude_mae": 0.06557114422680729,
+        "magnitude_pearson_r": 0.6180546738011031,
+        "n_quantified": 351,
+        "n_trace_only": 0,
+        "censored_prob_below_bound": null,
+        "censored_mean_below_bound_rate": null
+      }
+    ]
+  },
+  "eruption_v2": {
+    "checkpoint_tag": "joint_heads_allrock_tuned_seed0",
+    "encoder_checkpoint": "checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt",
+    "benchmark": {
+      "dir": "/Users/mliu/git_clones/phasecast/data/real_mineralogy",
+      "groups": [
+        "fsp",
+        "px",
+        "amp",
+        "bi",
+        "ol",
+        "opq",
+        "q"
+      ],
+      "n_with_chemistry_and_modes": 536,
+      "n_headline": 478,
+      "n_altered_or_ungraded": 52,
+      "n_precision_tier": 10,
+      "n_no_quantified_phase": 7,
+      "n_single_group_composition": 12,
+      "trace_bound_vol_pct": 0.5,
+      "clean_grades": [
+        1,
+        2
+      ]
+    },
+    "headline": {
+      "n": 478,
+      "joint_nll": 12.034337746021034,
+      "bernoulli_nll": 5.492490009667132,
+      "dirichlet_nll": 6.541847736353902,
+      "mean_composition_size": 3.6150627615062763
+    },
+    "climatology": {
+      "concentration": 12.456414059953623,
+      "n_fit": 478,
+      "n": 478,
+      "joint_nll": 1.4051935673566291,
+      "bernoulli_nll": 3.379695805790004,
+      "dirichlet_nll": -1.9745022384333746,
+      "mean_composition_size": 3.6150627615062763
+    },
+    "altered": {
+      "n": 51,
+      "joint_nll": 9.141416921057868,
+      "bernoulli_nll": 4.905856936945291,
+      "dirichlet_nll": 4.235559984112577,
+      "mean_composition_size": 3.450980392156863
+    },
+    "all_rocks": {
+      "n": 529,
+      "joint_nll": 11.755436116393204,
+      "bernoulli_nll": 5.4359337020890335,
+      "dirichlet_nll": 6.319502414304171,
+      "mean_composition_size": 3.5992438563327034
+    },
+    "precision_tier": {
+      "n": 10,
+      "joint_nll": 5.1793863869884635,
+      "bernoulli_nll": 6.1047818106983645,
+      "dirichlet_nll": -0.9253954237099002,
+      "mean_composition_size": 4.1
+    },
+    "exposure_bias": {
+      "n": 225,
+      "coverage": 0.4707112970711297,
+      "dirichlet_nll_truth_support": 9.552150625720687,
+      "dirichlet_nll_model_support": 10.019853558632636,
+      "delta": 0.46770293291194953
+    },
+    "censored": {
+      "n_instances": 314,
+      "mean_prob_below_bound": 0.45415384076661175,
+      "mean_nll": 4.5154611611473925
+    },
+    "off_vocabulary_mass": {
+      "mean": 0.0011867343868648282,
+      "p90": 0.0
+    },
+    "per_group": [
+      {
+        "group": "fsp",
+        "observed_rate": 0.9504132231404959,
+        "mean_predicted_p": 0.9911634023574204,
+        "auroc": 0.8616847826086956,
+        "best_threshold": 0.954,
+        "best_f1": 0.9751887810140237,
+        "recall_at_0.5": 0.9978260869565218,
+        "precision_at_0.5": 0.9503105590062112,
+        "magnitude_r2": -0.21918866573032303,
+        "magnitude_spearman": 0.4242858897615124,
+        "magnitude_mae": 0.1434286595037467,
+        "magnitude_pearson_r": 0.449997380377708,
+        "n_quantified": 452,
+        "n_trace_only": 8,
+        "censored_prob_below_bound": 0.08905627661988601,
+        "censored_mean_below_bound_rate": 0.125
+      },
+      {
+        "group": "px",
+        "observed_rate": 0.53099173553719,
+        "mean_predicted_p": 0.6951715491533914,
+        "auroc": 0.771850734500077,
+        "best_threshold": 0.297,
+        "best_f1": 0.7687400318979266,
+        "recall_at_0.5": 0.8871595330739299,
+        "precision_at_0.5": 0.6666666666666666,
+        "magnitude_r2": 0.18194416628038634,
+        "magnitude_spearman": 0.39732910326478704,
+        "magnitude_mae": 0.07660382934691967,
+        "magnitude_pearson_r": 0.6646138855770547,
+        "n_quantified": 211,
+        "n_trace_only": 46,
+        "censored_prob_below_bound": 0.461927776736145,
+        "censored_mean_below_bound_rate": 0.30434782608695654
+      },
+      {
+        "group": "amp",
+        "observed_rate": 0.6508264462809917,
+        "mean_predicted_p": 0.2581767574075825,
+        "auroc": 0.5814689583920354,
+        "best_threshold": 0.008,
+        "best_f1": 0.8043184885290149,
+        "recall_at_0.5": 0.18095238095238095,
+        "precision_at_0.5": 0.5816326530612245,
+        "magnitude_r2": -0.009822043623775478,
+        "magnitude_spearman": 0.3890001134178125,
+        "magnitude_mae": 0.11946914324345409,
+        "magnitude_pearson_r": 0.5488352119197416,
+        "n_quantified": 229,
+        "n_trace_only": 86,
+        "censored_prob_below_bound": 0.4324769732318907,
+        "censored_mean_below_bound_rate": 0.36046511627906974
+      },
+      {
+        "group": "bi",
+        "observed_rate": 0.5991735537190083,
+        "mean_predicted_p": 0.6599552657239693,
+        "auroc": 0.7861180234624956,
+        "best_threshold": 0.624,
+        "best_f1": 0.8289676425269645,
+        "recall_at_0.5": 0.9758620689655172,
+        "precision_at_0.5": 0.6674528301886793,
+        "magnitude_r2": -0.6575464976702956,
+        "magnitude_spearman": -0.07999669506840261,
+        "magnitude_mae": 0.08249351255990198,
+        "magnitude_pearson_r": -0.07940913573770755,
+        "n_quantified": 236,
+        "n_trace_only": 54,
+        "censored_prob_below_bound": 0.4919496881278632,
+        "censored_mean_below_bound_rate": 0.42592592592592593
+      },
+      {
+        "group": "ol",
+        "observed_rate": 0.17355371900826447,
+        "mean_predicted_p": 0.005059490642271751,
+        "auroc": 0.8223214285714286,
+        "best_threshold": 0.002,
+        "best_f1": 0.5555555555555556,
+        "recall_at_0.5": 0.0,
+        "precision_at_0.5": null,
+        "magnitude_r2": 0.5320185863579248,
+        "magnitude_spearman": 0.7353635836010033,
+        "magnitude_mae": 0.09483329195581996,
+        "magnitude_pearson_r": 0.7951229330518997,
+        "n_quantified": 60,
+        "n_trace_only": 24,
+        "censored_prob_below_bound": 0.4520717849794682,
+        "censored_mean_below_bound_rate": 0.4166666666666667
+      },
+      {
+        "group": "opq",
+        "observed_rate": 0.981404958677686,
+        "mean_predicted_p": 0.8311973323371681,
+        "auroc": 0.6301754385964912,
+        "best_threshold": 0.012,
+        "best_f1": 0.9895615866388309,
+        "recall_at_0.5": 0.9557894736842105,
+        "precision_at_0.5": 0.980561555075594,
+        "magnitude_r2": 0.10852866415013662,
+        "magnitude_spearman": 0.15644274709799588,
+        "magnitude_mae": 0.08374813172402976,
+        "magnitude_pearson_r": 0.7295329170035542,
+        "n_quantified": 429,
+        "n_trace_only": 46,
+        "censored_prob_below_bound": 0.940459681587913,
+        "censored_mean_below_bound_rate": 0.9347826086956522
+      },
+      {
+        "group": "q",
+        "observed_rate": 0.33264462809917356,
+        "mean_predicted_p": 0.746859437054839,
+        "auroc": 0.8523354421860277,
+        "best_threshold": 0.931,
+        "best_f1": 0.7440476190476191,
+        "recall_at_0.5": 0.9751552795031055,
+        "precision_at_0.5": 0.3915211970074813,
+        "magnitude_r2": -0.5705060435338882,
+        "magnitude_spearman": 0.5770853305676631,
+        "magnitude_mae": 0.18963525542399962,
+        "magnitude_pearson_r": 0.539023220905684,
+        "n_quantified": 111,
+        "n_trace_only": 50,
+        "censored_prob_below_bound": 0.05548014016991771,
+        "censored_mean_below_bound_rate": 0.0
+      }
+    ]
+  }
+}

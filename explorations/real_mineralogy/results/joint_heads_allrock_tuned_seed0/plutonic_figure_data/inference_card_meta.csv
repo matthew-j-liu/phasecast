@@ -1,0 +1,2 @@
+bulk_id,unit,sio2,tier,n_fit_rocks,n_fit_units,draw_seed,n_samples,n_val,n_measured_groups,val_joint_zero_shot,val_joint_recalibrated,val_bernoulli_zero_shot,val_bernoulli_recalibrated,val_dirichlet_zero_shot,val_dirichlet_recalibrated
+dubray_ds942|PP329,Priest,69.07,matrix,25,6,0,2048,61,4,0.602,-2.864,3.198,1.956,-2.596,-4.819
