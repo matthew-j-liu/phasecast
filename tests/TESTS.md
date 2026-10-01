@@ -695,6 +695,11 @@ Tests for archived explorations (moved to `explorations/archive/`,
 12. `test_plutonic_modes_close_on_the_whole_rock` -- whole-rock point counts sum to about 100 with no groundmass row, which holds only if the accessory, secondary and lumped columns are kept; the majors are recalculated to 100 volatile-free.
 13. `test_mode_typos_must_be_found_where_they_are_expected` -- a typo correction that misses its cell, or finds different text there, fails the harvest, so a revised download is looked at rather than corrected blind.
 14. `test_plutonic_rocks_stay_out_of_the_volcanic_benchmark` -- the eruption-v2 tables on disk hold no plutonic rock and the plutonic tables are written elsewhere, since every eruption-v2 verdict evaluates all the rocks in its tables.
+15. `test_plutonic_split_covers_every_rock_by_whole_intrusion` -- the committed plutonic split knows every rock, no intrusion straddles two subsets, and each subset holds at least `MIN_UNITS_PER_SUBSET` intrusions.
+16. `test_unmeasured_rocks_leave_the_evaluated_set` -- the accessories-with-oxides lump marks the oxides unmeasured only when it stands alone, a mafic total alone marks every mafic category unmeasured, and the 71 such rocks are outside what `plutonic_benchmark` yields.
+17. `test_plutonic_benchmark_restores_the_eruption_split` -- `real_rock.SPLIT_PATH` points at the plutonic split inside the block and is back on the eruption split after it, including when the block raises.
+18. `test_plutonic_benchmark_refuses_a_split_missing_rocks` -- a split that does not know a rock fails before anything is evaluated, and leaves the eruption split in place.
+19. `test_zero_shot_scoring_runs_on_the_plutonic_benchmark` -- the tripwire: a random head through `score_real_rock` and `real_rock_metrics` on the plutonic benchmark reaches a finite headline and a climatology null fit on the train and val rocks, not on none.
 
 ### test_real_rock_fewshot.py
 

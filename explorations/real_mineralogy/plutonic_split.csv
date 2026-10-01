@@ -1,0 +1,579 @@
+source,sample_id,unit,subset
+dubray_ds942,MC831,Ak-Chin,test
+dubray_ds942,MC832,Ak-Chin,test
+dubray_pp1793,10501-9,Alaskite-aplite,test
+dubray_pp1793,29122,Alaskite-aplite,test
+dubray_pp1793,52-C-15,Alaskite-aplite,test
+dubray_pp1793,53-BC-5,Alaskite-aplite,test
+dubray_pp1793,53-BC-9,Alaskite-aplite,test
+dubray_pp1793,54-C-249,Alaskite-aplite,test
+dubray_pp1793,62K00,Alaskite-aplite,test
+dubray_pp1793,11,Antelope Creek,test
+dubray_ds942,EP20,Barrel Spring,test
+dubray_ds942,277,Butler Hill,test
+dubray_ds942,45,Butler Hill,test
+dubray_ds942,46,Butler Hill,test
+dubray_ds942,47,Butler Hill,test
+dubray_ds942,48,Butler Hill,test
+dubray_pp1793,03KL072,Climax Gulch,test
+dubray_pp1793,10701-1,Climax Gulch,test
+dubray_pp1793,10701-2,Climax Gulch,test
+dubray_pp1793,10701-6,Climax Gulch,test
+dubray_pp1793,28673,Climax Gulch,test
+dubray_pp1793,28674,Climax Gulch,test
+dubray_pp1793,28675,Climax Gulch,test
+dubray_pp1793,28676,Climax Gulch,test
+dubray_pp1793,28677,Climax Gulch,test
+dubray_pp1793,28678,Climax Gulch,test
+dubray_pp1793,28680,Climax Gulch,test
+dubray_pp1793,28681,Climax Gulch,test
+dubray_pp1793,28682,Climax Gulch,test
+dubray_pp1793,28683,Climax Gulch,test
+dubray_pp1793,28684,Climax Gulch,test
+dubray_pp1793,28685,Climax Gulch,test
+dubray_pp1793,28686,Climax Gulch,test
+dubray_pp1793,28687,Climax Gulch,test
+dubray_pp1793,28688,Climax Gulch,test
+dubray_pp1793,28689,Climax Gulch,test
+dubray_pp1793,28690,Climax Gulch,test
+dubray_pp1793,28691,Climax Gulch,test
+dubray_pp1793,28692,Climax Gulch,test
+dubray_pp1793,28693,Climax Gulch,test
+dubray_pp1793,28694,Climax Gulch,test
+dubray_pp1793,28695,Climax Gulch,test
+dubray_pp1793,28696,Climax Gulch,test
+dubray_pp1793,28697,Climax Gulch,test
+dubray_pp1793,28698,Climax Gulch,test
+dubray_pp1793,28699,Climax Gulch,test
+dubray_pp1793,28700,Climax Gulch,test
+dubray_pp1793,28705,Climax Gulch,test
+dubray_pp1793,28706,Climax Gulch,test
+dubray_pp1793,28708,Climax Gulch,test
+dubray_pp1793,28709,Climax Gulch,test
+dubray_pp1793,28710,Climax Gulch,test
+dubray_pp1793,5T-207,Climax Gulch,test
+dubray_ds942,DM-1C,Dead,test
+dubray_ds942,400,Dells,test
+dubray_ds942,"Table 8, #11",Dells,test
+dubray_pp1793,10KL090,Dry Cottonwood Cr,test
+dubray_pp1793,03KL066,Homestake,test
+dubray_pp1793,10686-1,Homestake,test
+dubray_pp1793,10693-4,Homestake,test
+dubray_ds942,K-2,Kenosha Pass,test
+dubray_ds942,30-1,Log Cabin,test
+dubray_pp1793,61K6600,Lone Mountain,test
+dubray_ds942,MB-1A,Marble,test
+dubray_ds942,MB-1B,Marble,test
+dubray_ds942,MB-2A,Marble,test
+dubray_ds942,MB-2B,Marble,test
+dubray_ds942,MB-5B,Marble,test
+dubray_pp1793,04KL059,Moose Creek,test
+dubray_pp1793,10702,Moose Creek,test
+dubray_pp1793,28712,Moose Creek,test
+dubray_pp1793,28713,Moose Creek,test
+dubray_pp1793,28714,Moose Creek,test
+dubray_pp1793,28715,Moose Creek,test
+dubray_ds942,15,Mountain Pass,test
+dubray_ds942,18,Mountain Pass,test
+dubray_ds942,19,Mountain Pass,test
+dubray_ds942,2,Mountain Pass,test
+dubray_ds942,33 (Mountain Pass),Mountain Pass,test
+dubray_ds942,G6,Mountain Pass,test
+dubray_ds942,HP13,Mountain Pass,test
+dubray_ds942,HP7 (Mountain Pass),Mountain Pass,test
+dubray_ds942,TORQSY,Mountain Pass,test
+dubray_pp1793,49-KC-10,Rattlesnake,test
+dubray_pp1793,49-KC-7,Rattlesnake,test
+dubray_pp1793,49-KC-8,Rattlesnake,test
+dubray_pp1793,49-KC-9,Rattlesnake,test
+dubray_ds942,TG-1,San Isabel,test
+dubray_ds942,TG-10,San Isabel,test
+dubray_ds942,TG-100,San Isabel,test
+dubray_ds942,TG-102,San Isabel,test
+dubray_ds942,TG-105,San Isabel,test
+dubray_ds942,TG-108,San Isabel,test
+dubray_ds942,TG-109,San Isabel,test
+dubray_ds942,TG-110,San Isabel,test
+dubray_ds942,TG-12,San Isabel,test
+dubray_ds942,TG-124,San Isabel,test
+dubray_ds942,TG-125,San Isabel,test
+dubray_ds942,TG-126,San Isabel,test
+dubray_ds942,TG-127,San Isabel,test
+dubray_ds942,TG-129,San Isabel,test
+dubray_ds942,TG-13,San Isabel,test
+dubray_ds942,TG-134,San Isabel,test
+dubray_ds942,TG-135,San Isabel,test
+dubray_ds942,TG-136,San Isabel,test
+dubray_ds942,TG-137,San Isabel,test
+dubray_ds942,TG-139,San Isabel,test
+dubray_ds942,TG-14,San Isabel,test
+dubray_ds942,TG-142,San Isabel,test
+dubray_ds942,TG-143,San Isabel,test
+dubray_ds942,TG-16,San Isabel,test
+dubray_ds942,TG-17,San Isabel,test
+dubray_ds942,TG-18,San Isabel,test
+dubray_ds942,TG-22,San Isabel,test
+dubray_ds942,TG-23,San Isabel,test
+dubray_ds942,TG-24,San Isabel,test
+dubray_ds942,TG-25,San Isabel,test
+dubray_ds942,TG-26,San Isabel,test
+dubray_ds942,TG-27,San Isabel,test
+dubray_ds942,TG-28,San Isabel,test
+dubray_ds942,TG-29,San Isabel,test
+dubray_ds942,TG-3,San Isabel,test
+dubray_ds942,TG-32,San Isabel,test
+dubray_ds942,TG-4,San Isabel,test
+dubray_ds942,TG-48,San Isabel,test
+dubray_ds942,TG-5,San Isabel,test
+dubray_ds942,TG-56,San Isabel,test
+dubray_ds942,TG-59,San Isabel,test
+dubray_ds942,TG-68,San Isabel,test
+dubray_ds942,TG-70,San Isabel,test
+dubray_ds942,TG-77,San Isabel,test
+dubray_ds942,TG-79,San Isabel,test
+dubray_ds942,TG-87,San Isabel,test
+dubray_ds942,TG-91,San Isabel,test
+dubray_ds942,TG-93,San Isabel,test
+dubray_ds942,TG-94,San Isabel,test
+dubray_ds942,TG-95,San Isabel,test
+dubray_ds942,TG-96,San Isabel,test
+dubray_ds942,N11,Sandia-north,test
+dubray_ds942,N12,Sandia-north,test
+dubray_ds942,N13,Sandia-north,test
+dubray_ds942,N15,Sandia-north,test
+dubray_ds942,N16,Sandia-north,test
+dubray_ds942,N17,Sandia-north,test
+dubray_ds942,N30,Sandia-north,test
+dubray_ds942,N31,Sandia-north,test
+dubray_ds942,N33,Sandia-north,test
+dubray_ds942,N35,Sandia-north,test
+dubray_ds942,N36,Sandia-north,test
+dubray_ds942,N9,Sandia-north,test
+dubray_ds942,C-3,Silver Plume,test
+dubray_ds942,GH-201-73,Silver Plume,test
+dubray_ds942,GSP-1,Silver Plume,test
+dubray_ds942,GH-175-75,St. Vrain,test
+dubray_ds942,GH-24-71,St. Vrain,test
+dubray_ds942,GH-269-75,St. Vrain,test
+dubray_ds942,GH-274-75,St. Vrain,test
+dubray_ds942,GH-320-76,St. Vrain,test
+dubray_ds942,GH-330-76,St. Vrain,test
+dubray_ds942,GH-351-75,St. Vrain,test
+dubray_ds942,GH-395-74,St. Vrain,test
+dubray_ds942,GH-52A-72,St. Vrain,test
+dubray_ds942,R-1,St. Vrain,test
+dubray_ds942,R-3 (St. Vrain),St. Vrain,test
+dubray_ds942,R-350N,St. Vrain,test
+dubray_ds942,R-4,St. Vrain,test
+dubray_ds942,R-80N,St. Vrain,test
+dubray_ds942,W255-71,St. Vrain,test
+dubray_ds942,W39-72,St. Vrain,test
+dubray_pp1793,51-KC-1a,Vosburg,test
+dubray_ds942,GR4A,Wolf River,test
+dubray_ds942,841A,Beer Bottle,train
+dubray_ds942,841D,Beer Bottle,train
+dubray_ds942,58M,Belongia,train
+dubray_ds942,JP200,Bowmans Wash,train
+dubray_ds942,JP410,Bowmans Wash,train
+dubray_ds942,JP413,Bowmans Wash,train
+dubray_ds942,JP44,Bowmans Wash,train
+dubray_ds942,LM11-3,Bowmans Wash,train
+dubray_ds942,VA5-2,Bowmans Wash,train
+dubray_ds942,VM9-5,Bowmans Wash,train
+dubray_ds942,VM9-6,Bowmans Wash,train
+dubray_ds942,W7818,Bowmans Wash,train
+dubray_ds942,37,"Breadtray, Butler Hill, Stono, Silvermine",train
+dubray_pp1793,04KL057,Burton Park,train
+dubray_pp1793,10696-16,Burton Park,train
+dubray_pp1793,10697-9,Burton Park,train
+dubray_pp1793,53-C-191,Burton Park,train
+dubray_pp1793,54-C-248,Burton Park,train
+dubray_ds942,104,Continental,train
+dubray_ds942,1046,Continental,train
+dubray_ds942,1220,Continental,train
+dubray_ds942,R83-1,Continental,train
+dubray_ds942,"Table 1, 1",Curecanti Needle,train
+dubray_ds942,"Table 1, 2",Curecanti Needle,train
+dubray_ds942,"Table 1, 3",Curecanti Needle,train
+dubray_ds942,"Table 1, 4",Curecanti Needle,train
+dubray_ds942,NY-11A,Davis Dam,train
+dubray_ds942,NY-13A,Davis Dam,train
+dubray_pp1793,03KL069,Donald,train
+dubray_pp1793,10505-3,Donald,train
+dubray_pp1793,10696-10,Donald,train
+dubray_pp1793,10696-9,Donald,train
+dubray_pp1793,28631,Donald,train
+dubray_pp1793,28632,Donald,train
+dubray_pp1793,28633,Donald,train
+dubray_pp1793,28635,Donald,train
+dubray_pp1793,28636,Donald,train
+dubray_pp1793,28637,Donald,train
+dubray_pp1793,28638,Donald,train
+dubray_pp1793,28661,Donald,train
+dubray_pp1793,28662,Donald,train
+dubray_pp1793,28663,Donald,train
+dubray_pp1793,28664,Donald,train
+dubray_pp1793,28669,Donald,train
+dubray_pp1793,28670,Donald,train
+dubray_pp1793,28671,Donald,train
+dubray_pp1793,28672,Donald,train
+dubray_pp1793,28701,Donald,train
+dubray_pp1793,28702,Donald,train
+dubray_pp1793,28703,Donald,train
+dubray_pp1793,28704,Donald,train
+dubray_pp1793,53-C-150,Donald,train
+dubray_pp1793,53-C-154a,Donald,train
+dubray_pp1793,7W-21,Donald,train
+dubray_ds942,E-2,Doublehead Gulch,train
+dubray_ds942,83-1 (Fort Huachuca),Fort Huachuca,train
+dubray_ds942,83-2 (Fort Huachuca),Fort Huachuca,train
+dubray_ds942,CR-2,Four Mile Creek,train
+dubray_ds942,CR-2A,Four Mile Creek,train
+dubray_ds942,CR-4,Four Mile Creek,train
+dubray_ds942,GB-3,Gold Butte,train
+dubray_ds942,GB-6,Gold Butte,train
+dubray_ds942,HM-4,Homer,train
+dubray_ds942,HP2,Hualapai,train
+dubray_ds942,HP3,Hualapai,train
+dubray_ds942,HP7 (Hualapai),Hualapai,train
+dubray_ds942,50,Knoblick,train
+dubray_pp1793,S1419,Kokoruda Ranch,train
+dubray_pp1793,53-C-230,Marysville,train
+dubray_ds942,157,Mt. Ethel,train
+dubray_ds942,347,Mt. Ethel,train
+dubray_ds942,437,Mt. Ethel,train
+dubray_ds942,520,Mt. Ethel,train
+dubray_ds942,521,Mt. Ethel,train
+dubray_ds942,522,Mt. Ethel,train
+dubray_ds942,523,Mt. Ethel,train
+dubray_ds942,525,Mt. Ethel,train
+dubray_ds942,526,Mt. Ethel,train
+dubray_ds942,527,Mt. Ethel,train
+dubray_ds942,NY-6a,Newberry,train
+dubray_ds942,NY-6b,Newberry,train
+dubray_ds942,JS-1,Oak Creek,train
+dubray_ds942,JS-100,Oak Creek,train
+dubray_ds942,JS-101,Oak Creek,train
+dubray_ds942,JS-102,Oak Creek,train
+dubray_ds942,JS-106,Oak Creek,train
+dubray_ds942,JS-109,Oak Creek,train
+dubray_ds942,JS-14,Oak Creek,train
+dubray_ds942,JS-16,Oak Creek,train
+dubray_ds942,JS-18,Oak Creek,train
+dubray_ds942,JS-2,Oak Creek,train
+dubray_ds942,JS-23,Oak Creek,train
+dubray_ds942,JS-29,Oak Creek,train
+dubray_ds942,JS-3,Oak Creek,train
+dubray_ds942,JS-31,Oak Creek,train
+dubray_ds942,JS-32b,Oak Creek,train
+dubray_ds942,JS-33,Oak Creek,train
+dubray_ds942,JS-41,Oak Creek,train
+dubray_ds942,JS-42,Oak Creek,train
+dubray_ds942,JS-44,Oak Creek,train
+dubray_ds942,JS-51,Oak Creek,train
+dubray_ds942,JS-61,Oak Creek,train
+dubray_ds942,JS-65,Oak Creek,train
+dubray_ds942,JS-77,Oak Creek,train
+dubray_ds942,JS-78,Oak Creek,train
+dubray_ds942,JS-80,Oak Creek,train
+dubray_ds942,JS-81a,Oak Creek,train
+dubray_ds942,JS-84,Oak Creek,train
+dubray_ds942,JS-85,Oak Creek,train
+dubray_ds942,JS-86,Oak Creek,train
+dubray_ds942,JS-87,Oak Creek,train
+dubray_ds942,JS-89,Oak Creek,train
+dubray_ds942,JS-9,Oak Creek,train
+dubray_ds942,JS-93,Oak Creek,train
+dubray_ds942,JS-95,Oak Creek,train
+dubray_ds942,JS-96,Oak Creek,train
+dubray_ds942,JS-98,Oak Creek,train
+dubray_ds942,83-1 (Oracle),Oracle,train
+dubray_ds942,83-2 (Oracle),Oracle,train
+dubray_ds942,YA1,Oracle,train
+dubray_pp1793,60S599,Orphan Boy,train
+dubray_ds942,280,Parker Dam,train
+dubray_ds942,281,Parker Dam,train
+dubray_ds942,282,Parker Dam,train
+dubray_ds942,412,Parker Dam,train
+dubray_ds942,7825a,Parker Dam,train
+dubray_ds942,7826,Parker Dam,train
+dubray_ds942,7828,Parker Dam,train
+dubray_ds942,7831,Parker Dam,train
+dubray_ds942,7835,Parker Dam,train
+dubray_ds942,78430,Parker Dam,train
+dubray_pp1793,98KL007,Pulpit Rock,train
+dubray_pp1793,10510-2,Rader Creek,train
+dubray_pp1793,10510-3,Rader Creek,train
+dubray_pp1793,10510-5,Rader Creek,train
+dubray_pp1793,10510-6,Rader Creek,train
+dubray_pp1793,10510-7,Rader Creek,train
+dubray_pp1793,10696-11,Rader Creek,train
+dubray_pp1793,10703-10,Rader Creek,train
+dubray_pp1793,10703-11,Rader Creek,train
+dubray_pp1793,10703-12,Rader Creek,train
+dubray_pp1793,1K-647,Rader Creek,train
+dubray_pp1793,1K661,Rader Creek,train
+dubray_pp1793,28622,Rader Creek,train
+dubray_pp1793,28623,Rader Creek,train
+dubray_pp1793,28624,Rader Creek,train
+dubray_pp1793,28625,Rader Creek,train
+dubray_pp1793,28626,Rader Creek,train
+dubray_pp1793,28627,Rader Creek,train
+dubray_pp1793,28628,Rader Creek,train
+dubray_pp1793,28629,Rader Creek,train
+dubray_pp1793,28634,Rader Creek,train
+dubray_pp1793,28639,Rader Creek,train
+dubray_pp1793,28641,Rader Creek,train
+dubray_pp1793,28642,Rader Creek,train
+dubray_pp1793,28643,Rader Creek,train
+dubray_pp1793,28644,Rader Creek,train
+dubray_pp1793,28645,Rader Creek,train
+dubray_pp1793,28646,Rader Creek,train
+dubray_pp1793,28647,Rader Creek,train
+dubray_pp1793,28648,Rader Creek,train
+dubray_pp1793,28649,Rader Creek,train
+dubray_pp1793,28650,Rader Creek,train
+dubray_pp1793,28651,Rader Creek,train
+dubray_pp1793,28652,Rader Creek,train
+dubray_pp1793,28653,Rader Creek,train
+dubray_pp1793,28654,Rader Creek,train
+dubray_pp1793,28655,Rader Creek,train
+dubray_pp1793,28656,Rader Creek,train
+dubray_pp1793,28657,Rader Creek,train
+dubray_pp1793,28658,Rader Creek,train
+dubray_pp1793,28659,Rader Creek,train
+dubray_pp1793,28660,Rader Creek,train
+dubray_pp1793,28665,Rader Creek,train
+dubray_pp1793,28666,Rader Creek,train
+dubray_pp1793,28667,Rader Creek,train
+dubray_pp1793,28668,Rader Creek,train
+dubray_pp1793,2T-1057,Rader Creek,train
+dubray_pp1793,2T-1058,Rader Creek,train
+dubray_pp1793,2T-1059,Rader Creek,train
+dubray_pp1793,2T-1060,Rader Creek,train
+dubray_pp1793,2T-1061,Rader Creek,train
+dubray_pp1793,2T-1062,Rader Creek,train
+dubray_pp1793,2T-1063,Rader Creek,train
+dubray_pp1793,2T-1064,Rader Creek,train
+dubray_pp1793,2T-1065,Rader Creek,train
+dubray_pp1793,2T-1066,Rader Creek,train
+dubray_pp1793,2T-1067,Rader Creek,train
+dubray_pp1793,2T-1068,Rader Creek,train
+dubray_pp1793,2T-1069,Rader Creek,train
+dubray_pp1793,2T-1070,Rader Creek,train
+dubray_pp1793,2T-1071,Rader Creek,train
+dubray_pp1793,2T-1072,Rader Creek,train
+dubray_pp1793,2T-1073,Rader Creek,train
+dubray_pp1793,2T-1074,Rader Creek,train
+dubray_pp1793,2T-1075,Rader Creek,train
+dubray_pp1793,2T-1076,Rader Creek,train
+dubray_pp1793,2T-1077,Rader Creek,train
+dubray_pp1793,2T-1078,Rader Creek,train
+dubray_pp1793,2T-1080,Rader Creek,train
+dubray_pp1793,2T-1081,Rader Creek,train
+dubray_pp1793,2T-1082,Rader Creek,train
+dubray_pp1793,2T-1083,Rader Creek,train
+dubray_pp1793,2T-1084,Rader Creek,train
+dubray_pp1793,2T-1085,Rader Creek,train
+dubray_pp1793,2T-1086,Rader Creek,train
+dubray_pp1793,2T-1087,Rader Creek,train
+dubray_pp1793,2T-1088,Rader Creek,train
+dubray_pp1793,2T-1089,Rader Creek,train
+dubray_pp1793,2T-1090,Rader Creek,train
+dubray_pp1793,2T-1091,Rader Creek,train
+dubray_pp1793,2T-1092,Rader Creek,train
+dubray_pp1793,2T-1093,Rader Creek,train
+dubray_pp1793,3T-15,Rader Creek,train
+dubray_pp1793,3T-20,Rader Creek,train
+dubray_pp1793,3T-32,Rader Creek,train
+dubray_pp1793,4T-489,Rader Creek,train
+dubray_pp1793,53-C-163,Rader Creek,train
+dubray_pp1793,53-C-166,Rader Creek,train
+dubray_pp1793,53-C-168,Rader Creek,train
+dubray_pp1793,98KL002,Rader Creek,train
+dubray_pp1793,10682-6,Ringing Rocks,train
+dubray_pp1793,10682-7,Ringing Rocks,train
+dubray_pp1793,63K-350,Ringing Rocks,train
+dubray_ds942,83-1A,Ruin,train
+dubray_ds942,83-1B,Ruin,train
+dubray_ds942,"Table 4, #2",Ruin,train
+dubray_ds942,HV-1,Sandia-south,train
+dubray_ds942,S24,Sandia-south,train
+dubray_ds942,S25,Sandia-south,train
+dubray_ds942,S26,Sandia-south,train
+dubray_ds942,S27,Sandia-south,train
+dubray_ds942,S28,Sandia-south,train
+dubray_ds942,S29,Sandia-south,train
+dubray_ds942,S44,Sandia-south,train
+dubray_ds942,S49,Sandia-south,train
+dubray_ds942,S84A,Sandia-south,train
+dubray_ds942,T11,Sandia-south,train
+dubray_ds942,T5,Sandia-south,train
+dubray_ds942,T9,Sandia-south,train
+dubray_ds942,M782,Sherman,train
+dubray_ds942,M786,Sherman,train
+dubray_ds942,M787,Sherman,train
+dubray_ds942,M788,Sherman,train
+dubray_ds942,M790,Sherman,train
+dubray_ds942,M796,Sherman,train
+dubray_ds942,M798,Sherman,train
+dubray_ds942,M800A,Sherman,train
+dubray_ds942,M802A,Sherman,train
+dubray_ds942,M805,Sherman,train
+dubray_ds942,M810,Sherman,train
+dubray_ds942,M822,Sherman,train
+dubray_ds942,M823,Sherman,train
+dubray_ds942,M949,Sherman,train
+dubray_ds942,M955,Sherman,train
+dubray_ds942,M995,Sherman,train
+dubray_ds942,31-41,Sherman-Trail Creek,train
+dubray_ds942,49-18,Sherman-Trail Creek,train
+dubray_ds942,79-47,Sherman-Trail Creek,train
+dubray_ds942,81-46,Sherman-Trail Creek,train
+dubray_ds942,R-3 (Sherman-Trail Creek),Sherman-Trail Creek,train
+dubray_ds942,33-10B,Sherman-Virginia Dale,train
+dubray_ds942,33-4,Sherman-Virginia Dale,train
+dubray_ds942,79-14,Sherman-Virginia Dale,train
+dubray_ds942,80-83A,Sherman-Virginia Dale,train
+dubray_ds942,A100,Sherman-Virginia Dale,train
+dubray_ds942,A111,Sherman-Virginia Dale,train
+dubray_ds942,A235,Sherman-Virginia Dale,train
+dubray_ds942,A7,Sherman-Virginia Dale,train
+dubray_ds942,A79,Sherman-Virginia Dale,train
+dubray_ds942,A9,Sherman-Virginia Dale,train
+dubray_ds942,B119,Sherman-Virginia Dale,train
+dubray_ds942,B123,Sherman-Virginia Dale,train
+dubray_ds942,B126,Sherman-Virginia Dale,train
+dubray_ds942,B238,Sherman-Virginia Dale,train
+dubray_ds942,B267,Sherman-Virginia Dale,train
+dubray_ds942,B269,Sherman-Virginia Dale,train
+dubray_ds942,B336,Sherman-Virginia Dale,train
+dubray_ds942,B339,Sherman-Virginia Dale,train
+dubray_ds942,VD-16,Sherman-Virginia Dale,train
+dubray_ds942,VD-22,Sherman-Virginia Dale,train
+dubray_ds942,VD-26,Sherman-Virginia Dale,train
+dubray_ds942,VD-3,Sherman-Virginia Dale,train
+dubray_ds942,VD-32,Sherman-Virginia Dale,train
+dubray_ds942,VD-33,Sherman-Virginia Dale,train
+dubray_ds942,32,Slabtown,train
+dubray_ds942,33 (Slabtown),Slabtown,train
+dubray_pp1793,49-KC-11,Slim Sam,train
+dubray_pp1793,49-KC-5,Spar,train
+dubray_ds942,2050,St. Kevin,train
+dubray_ds942,38,Stono,train
+dubray_ds942,65G,Taylor Park,train
+dubray_ds942,CC297,Taylor Park,train
+dubray_ds942,CC298,Taylor Park,train
+dubray_ds942,CC299,Taylor Park,train
+dubray_pp1793,53-C-140,Unionville,train
+dubray_pp1793,98KL005,Unionville,train
+dubray_ds942,100,West McCoy Gulch,train
+dubray_ds942,101,West McCoy Gulch,train
+dubray_ds942,14,West McCoy Gulch,train
+dubray_ds942,17,West McCoy Gulch,train
+dubray_ds942,28a,West McCoy Gulch,train
+dubray_ds942,30a,West McCoy Gulch,train
+dubray_ds942,31,West McCoy Gulch,train
+dubray_ds942,35,West McCoy Gulch,train
+dubray_ds942,44,West McCoy Gulch,train
+dubray_ds942,56,West McCoy Gulch,train
+dubray_ds942,59,West McCoy Gulch,train
+dubray_ds942,62 (West McCoy Gulch),West McCoy Gulch,train
+dubray_ds942,66,West McCoy Gulch,train
+dubray_ds942,68,West McCoy Gulch,train
+dubray_ds942,7c,West McCoy Gulch,train
+dubray_ds942,8,West McCoy Gulch,train
+dubray_ds942,9,West McCoy Gulch,train
+dubray_ds942,91,West McCoy Gulch,train
+dubray_ds942,4291,White Sands,train
+dubray_ds942,5491,White Sands,train
+dubray_ds942,5591,White Sands,train
+dubray_ds942,C-4,Yankee Boy,train
+dubray_ds942,CO91-48,Yankee Boy,train
+dubray_ds942,CO91-49,Yankee Boy,train
+dubray_ds942,CO91-50,Yankee Boy,train
+dubray_ds942,1131,central Idaho,train
+dubray_pp1793,10KL085,??,val
+dubray_pp1793,10KL087,??,val
+dubray_ds942,61,Big Spring,val
+dubray_pp1793,Page 514-A.,Black Butte,val
+dubray_ds942,41,Breadtray,val
+dubray_ds942,43,Breadtray,val
+dubray_pp1793,10KL074,Broadwater,val
+dubray_pp1793,03KL067,Butte,val
+dubray_pp1793,03KL068,Butte,val
+dubray_pp1793,10529-2,Butte,val
+dubray_pp1793,10670-4,Butte,val
+dubray_pp1793,10680-17,Butte,val
+dubray_pp1793,112,Butte,val
+dubray_pp1793,1K-241,Butte,val
+dubray_pp1793,3S288,Butte,val
+dubray_pp1793,52-C-10a,Butte,val
+dubray_pp1793,52-C-113a,Butte,val
+dubray_pp1793,52-C-114,Butte,val
+dubray_pp1793,52-C-13,Butte,val
+dubray_pp1793,52-C-45,Butte,val
+dubray_pp1793,52-C-52b,Butte,val
+dubray_pp1793,52-C-60,Butte,val
+dubray_pp1793,52-C-65,Butte,val
+dubray_pp1793,53-BC-1 (also 53-C-202),Butte,val
+dubray_pp1793,53-BC-13 (also 53-C-205),Butte,val
+dubray_pp1793,53-BC-14 (also 53-C-209),Butte,val
+dubray_pp1793,53-BC-16a,Butte,val
+dubray_pp1793,53-BC-3 (also 53-C-203),Butte,val
+dubray_pp1793,53-BC-4,Butte,val
+dubray_pp1793,53-BC-7 (also 53-C-206),Butte,val
+dubray_pp1793,53-C-149,Butte,val
+dubray_pp1793,625,Butte,val
+dubray_pp1793,98KL001a,Butte,val
+dubray_pp1793,98KL003,Butte,val
+dubray_pp1793,98KL004,Butte,val
+dubray_ds942,G02-9,Guadalupe Box,val
+dubray_pp1793,04KL058,Hell Canyon,val
+dubray_pp1793,10643-1,Hell Canyon,val
+dubray_pp1793,10643-2,Hell Canyon,val
+dubray_pp1793,29123,Hell Canyon,val
+dubray_pp1793,29125,Hell Canyon,val
+dubray_pp1793,29126,Hell Canyon,val
+dubray_pp1793,29128,Hell Canyon,val
+dubray_pp1793,29129,Hell Canyon,val
+dubray_pp1793,29130,Hell Canyon,val
+dubray_pp1793,29131,Hell Canyon,val
+dubray_pp1793,53-C-171,Hell Canyon,val
+dubray_ds942,HP-1A-2,Holy Moses,val
+dubray_ds942,HP-1B-1,Holy Moses,val
+dubray_ds942,HP-1B-2,Holy Moses,val
+dubray_ds942,"Table 10, #1",Lawler Peak,val
+dubray_pp1793,10696-15,Moosetown,val
+dubray_pp1793,10697-1,Moosetown,val
+dubray_pp1793,28711,Moosetown,val
+dubray_ds942,AP222,Priest,val
+dubray_ds942,AP223,Priest,val
+dubray_ds942,AP224,Priest,val
+dubray_ds942,AP225,Priest,val
+dubray_ds942,AP227,Priest,val
+dubray_ds942,PP217,Priest,val
+dubray_ds942,PP327,Priest,val
+dubray_ds942,PP328,Priest,val
+dubray_ds942,PP329,Priest,val
+dubray_ds942,PP330,Priest,val
+dubray_ds942,PP331,Priest,val
+dubray_ds942,PP386,Priest,val
+dubray_ds942,PP388,Priest,val
+dubray_ds942,PP475,Priest,val
+dubray_ds942,PP477,Priest,val
+dubray_ds942,PP478,Priest,val
+dubray_ds942,PP479,Priest,val
+dubray_pp1793,49-KC-2,Sagebrush Park,val
+dubray_ds942,SE831,Sierra Estrella,val
+dubray_ds942,268,Silvermine,val
+dubray_ds942,52,Silvermine,val
+dubray_ds942,60,St. Francois Mtns,val
+dubray_ds942,62 (St. Francois Mtns),St. Francois Mtns,val
+dubray_pp1793,10KL072,"granodiorite, undivided, of Knopf",val
+dubray_pp1793,52-C-116,"granodiorite, undivided, of Knopf",val
+dubray_pp1793,Macdonald,"granodiorite, undivided, of Knopf",val
+dubray_pp1793,52-C-37,leucogranite,val
+dubray_pp1793,53-BC-6 (also 53-C-207),leucogranite,val
+dubray_pp1793,53-BC-8 (also 53-C-204),leucogranite,val
+dubray_pp1793,10KL073,porphyritc granodiorite of Knopf,val

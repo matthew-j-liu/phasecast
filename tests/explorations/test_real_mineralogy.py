@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 
+from cnmineral.eval import real_rock
 from cnmineral.eval.real_rock import (
     BENCHMARK_DIR,
     GROUP_INDEX,
@@ -9,9 +11,13 @@ from cnmineral.eval.real_rock import (
     VISUAL_BASIS,
     canonical_units,
     load_benchmark,
+    real_rock_metrics,
+    score_real_rock,
     split_mask,
 )
+from cnmineral.models.mode_head import ModeHead
 from explorations.real_mineralogy import harvest
+from explorations.real_mineralogy import plutonic as plutonic_module
 from explorations.real_mineralogy import run_composition_tables as tables_script
 from explorations.real_mineralogy import run_scale_convention as scale_script
 from explorations.real_mineralogy import run_unit_leakage as leakage_script
@@ -25,6 +31,13 @@ from explorations.real_mineralogy.harvest import (
     parse_ds942,
     parse_pp1793,
 )
+from explorations.real_mineralogy.plutonic import (
+    PLUTONIC_SPLIT_PATH,
+    load_plutonic,
+    plutonic_benchmark,
+    unmeasured_keys,
+)
+from explorations.real_mineralogy.run_plutonic_split import MIN_UNITS_PER_SUBSET
 
 PLUTONIC_SOURCES = {"dubray_ds942", "dubray_pp1793"}
 MAJORS = ["sio2", "tio2", "al2o3", "feo_tot", "mno", "mgo", "cao", "na2o",
@@ -353,3 +366,97 @@ def test_plutonic_rocks_stay_out_of_the_volcanic_benchmark():
         sources = set(pd.read_csv(BENCHMARK_DIR / table)["source"])
         assert not sources & PLUTONIC_SOURCES
     assert harvest.PLUTONIC_DIR != BENCHMARK_DIR
+
+
+def test_plutonic_split_covers_every_rock_by_whole_intrusion():
+    """The committed plutonic split knows every rock and never splits an intrusion.
+
+    A rock the split does not know drops out of the climatology null's fitting
+    set, and an intrusion straddling two subsets puts near-identical rocks on
+    both sides of the boundary the split exists to draw.
+    """
+    benchmark = load_plutonic()
+    roster = pd.read_csv(PLUTONIC_SPLIT_PATH)
+    keys = roster["source"] + "|" + roster["sample_id"].astype(str)
+    assert set(keys) == set(benchmark.bulk_ids)
+    assert (roster.groupby("unit")["subset"].nunique() == 1).all()
+    units_per_subset = roster.groupby("subset")["unit"].nunique()
+    assert set(units_per_subset.index) == {"train", "val", "test"}
+    assert (units_per_subset >= MIN_UNITS_PER_SUBSET).all()
+
+
+def test_unmeasured_rocks_leave_the_evaluated_set():
+    """A category nobody measured is not scored as absent.
+
+    The oxides are unmeasured only where the accessories-with-oxides lump
+    stands alone; beside an oxide row the lump holds accessories and the rock
+    is fully measured.  A mafic total alone leaves every mafic category
+    unmeasured.
+    """
+    modes = pd.DataFrame({
+        "source": ["s"] * 5,
+        "sample_id": ["lump_only", "lump_and_oxide", "lump_and_oxide",
+                      "mafic_total", "plain"],
+        "magemin_phase": ["accessory_opq", "accessory_opq", "opq_unsplit",
+                          "mafic_unsplit", "q"],
+    })
+    assert unmeasured_keys(modes) == {"s|lump_only", "s|mafic_total"}
+
+    benchmark = load_plutonic()
+    left_out = set(benchmark.bulk_ids[~benchmark.clean])
+    assert len(left_out) == 71
+    with plutonic_benchmark() as evaluated:
+        assert len(evaluated) == len(benchmark) - 71
+        assert not set(evaluated.bulk_ids) & left_out
+
+
+def test_plutonic_benchmark_restores_the_eruption_split():
+    """The eruption split is back in place after the block, even on an error.
+
+    Every eruption-v2 number reads `real_rock.SPLIT_PATH`; if the plutonic
+    split leaked past its block, a later eruption evaluation in the same
+    process would fit its null on the wrong rocks.
+    """
+    eruption_split = real_rock.SPLIT_PATH
+    with plutonic_benchmark():
+        assert real_rock.SPLIT_PATH == PLUTONIC_SPLIT_PATH
+    assert real_rock.SPLIT_PATH == eruption_split
+    with pytest.raises(RuntimeError):
+        with plutonic_benchmark():
+            raise RuntimeError("inside the block")
+    assert real_rock.SPLIT_PATH == eruption_split
+
+
+def test_plutonic_benchmark_refuses_a_split_missing_rocks(tmp_path, monkeypatch):
+    """A split that does not know a rock fails before anything is evaluated."""
+    roster = pd.read_csv(PLUTONIC_SPLIT_PATH)
+    stale = tmp_path / "plutonic_split.csv"
+    roster.iloc[1:].to_csv(stale, index=False)
+    monkeypatch.setattr(plutonic_module, "PLUTONIC_SPLIT_PATH", stale)
+    eruption_split = real_rock.SPLIT_PATH
+    with pytest.raises(ValueError, match="not in"):
+        with plutonic_benchmark():
+            pass
+    assert real_rock.SPLIT_PATH == eruption_split
+
+
+def test_zero_shot_scoring_runs_on_the_plutonic_benchmark():
+    """The tripwire: the production scoring path reaches a finite number here.
+
+    A random head stands in for the checkpoint.  The failure this guards is
+    the null fitting on no rock at all, which `score_real_rock` reaches
+    whenever the plutonic rocks are evaluated against a split that does not
+    know them.
+    """
+    torch.manual_seed(0)
+    head = ModeHead(d_model=16).eval()
+    with plutonic_benchmark() as benchmark:
+        fit = split_mask(benchmark, "train") | split_mask(benchmark, "val")
+        latents = torch.randn(len(benchmark), 16)
+        with torch.no_grad():
+            scored = score_real_rock(head, benchmark, latents)
+        metrics = real_rock_metrics(scored, benchmark, tag="smoke",
+                                    encoder_checkpoint="none")
+    assert metrics["climatology"]["n_fit"] == int(fit.sum()) > 0
+    assert np.isfinite(metrics["headline"]["joint_nll"])
+    assert np.isfinite(metrics["climatology"]["joint_nll"])
