@@ -691,7 +691,7 @@ Tests for archived explorations (moved to `explorations/archive/`,
 2. `test_basis_preference_selects_one_ruler_per_rock` -- a rock measured twice is read once and the two readings differ on exactly the 70 doubly-measured rocks; singly-measured rocks are untouched and both arms still renormalize to 1.
 3. `test_pointcount_cell_grammar` -- Appendix 10's four cell forms: a bare count, `TR`/`TR?`/`TR(?)` as present-but-uncounted, `1(?)` as a count with an uncertain identification, and `87 (total feldspar)` as a composite that must not be read as a plagioclase count.
 4. `test_derived_percent_reproduces_the_published_block` -- percentages are derived from raw counts and checked against the workbook's own percent block, so a revised download fails loudly instead of shifting truth under a frozen benchmark.
-5. `test_composition_tables_partition_the_scored_set` -- every appendix table sums back to the scored total and counts a doubly-measured rock once, since these tables ship in the paper.
+5. `test_composition_tables_partition_the_scored_set` -- on every benchmark in the script's registry, every appendix table sums back to the evaluated total and counts a doubly-measured rock once, since these tables ship in the paper.
 6. `test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one` -- groundmass still drops under the point-count ruler, and the groups Appendix 10 never looks for (px, ol) carry no counted presence, so silence is not read as a measured zero.
 7. `test_undoing_the_recalculation_lands_on_the_raw_analytical_total` -- the scale-convention undo puts the published majors back on the pre-recalculation total the workbooks record, and moves chemistry only, so the contrast measures the translation it claims to and not some other rescale.
 8. `test_eruption_merge_rule_splits_prefixes_it_must_not_join` -- the leak rule merges sub-facies and `?` qualifiers but keeps the nineteen `Plio-Pleistocene, ...` units and a bare `Rhyolite` apart, the two over-merges that would flag most of val and make the contrast vacuous.
@@ -703,9 +703,10 @@ Tests for archived explorations (moved to `explorations/archive/`,
 14. `test_plutonic_rocks_stay_out_of_the_volcanic_benchmark` -- the eruption-v2 tables on disk hold no plutonic rock and the plutonic tables are written elsewhere, since every eruption-v2 verdict evaluates all the rocks in its tables.
 15. `test_plutonic_split_covers_every_rock_by_whole_intrusion` -- the committed plutonic split knows every rock, no intrusion straddles two subsets, and each subset holds at least `MIN_UNITS_PER_SUBSET` intrusions.
 16. `test_unmeasured_rocks_leave_the_evaluated_set` -- the accessories-with-oxides lump marks the oxides unmeasured only when it stands alone, a mafic total alone marks every mafic category unmeasured, and the 71 such rocks are outside what `plutonic_benchmark` yields.
-17. `test_plutonic_benchmark_restores_the_eruption_split` -- `real_rock.SPLIT_PATH` points at the plutonic split inside the block and is back on the eruption split after it, including when the block raises.
-18. `test_plutonic_benchmark_refuses_a_split_missing_rocks` -- a split that does not know a rock fails before anything is evaluated, and leaves the eruption split in place.
-19. `test_zero_shot_scoring_runs_on_the_plutonic_benchmark` -- the tripwire: a random head through `score_real_rock` and `real_rock_metrics` on the plutonic benchmark reaches a finite headline and a climatology null fit on the train and val rocks, not on none.
+17. `test_plutonic_composition_tables_describe_the_evaluated_rocks` -- the plutonic composition tables break down exactly the rocks `load_plutonic` marks clean, each with a unit and a subset from the split, since the tables cut the unmeasured rocks themselves and read units from the split rather than through the loader.
+18. `test_plutonic_benchmark_restores_the_eruption_split` -- `real_rock.SPLIT_PATH` points at the plutonic split inside the block and is back on the eruption split after it, including when the block raises.
+19. `test_plutonic_benchmark_refuses_a_split_missing_rocks` -- a split that does not know a rock fails before anything is evaluated, and leaves the eruption split in place.
+20. `test_zero_shot_scoring_runs_on_the_plutonic_benchmark` -- the tripwire: a random head through `score_real_rock` and `real_rock_metrics` on the plutonic benchmark reaches a finite headline and a climatology null fit on the train and val rocks, not on none.
 
 ### test_real_rock_fewshot.py
 

@@ -1,0 +1,198 @@
+{
+  "off_vocabulary": {
+    "basis": "volume percent as published",
+    "as_evaluated": {
+      "rocks": 507,
+      "rocks_fully_in_vocabulary": 144,
+      "rocks_affected": 363,
+      "share_among_affected_p50": 0.019019019019018923,
+      "categories": {
+        "accessory": 300,
+        "secondary": 134,
+        "mu": 98,
+        "accessory_opq": 12
+      }
+    }
+  },
+  "funnel": {
+    "in_tables": 1555,
+    "point_counted": 579,
+    "with_chemistry": 578,
+    "evaluated": 507,
+    "never_point_counted": 976
+  },
+  "by_survey": [
+    {
+      "survey": "DS 942, 1.4 Ga A-type granitoids",
+      "rocks": 325
+    },
+    {
+      "survey": "PP 1793, Boulder batholith MT",
+      "rocks": 182
+    }
+  ],
+  "by_method": {
+    "point_count_whole_rock": 507
+  },
+  "unit_structure": [
+    {
+      "size": "1 rock only",
+      "units": 32,
+      "rocks": 32
+    },
+    {
+      "size": "2-5",
+      "units": 27,
+      "rocks": 81
+    },
+    {
+      "size": "6-20",
+      "units": 12,
+      "rocks": 150
+    },
+    {
+      "size": "21+",
+      "units": 6,
+      "rocks": 244
+    }
+  ],
+  "units_total": 77,
+  "by_split": [
+    {
+      "subset": "test",
+      "rocks": 155,
+      "units": 19,
+      "point_counted": 155
+    },
+    {
+      "subset": "train",
+      "rocks": 291,
+      "units": 39,
+      "point_counted": 291
+    },
+    {
+      "subset": "val",
+      "rocks": 61,
+      "units": 19,
+      "point_counted": 61
+    }
+  ],
+  "by_silica": [
+    {
+      "band": "<52",
+      "rocks": 1
+    },
+    {
+      "band": "52-57",
+      "rocks": 6
+    },
+    {
+      "band": "57-63",
+      "rocks": 84
+    },
+    {
+      "band": "63-70",
+      "rocks": 215
+    },
+    {
+      "band": ">70",
+      "rocks": 201
+    }
+  ],
+  "minerals": [
+    {
+      "mineral": "quartz",
+      "rocks": 506,
+      "with_a_number": 506,
+      "trace_only": 0
+    },
+    {
+      "mineral": "alkali feldspar",
+      "rocks": 505,
+      "with_a_number": 505,
+      "trace_only": 0
+    },
+    {
+      "mineral": "plagioclase",
+      "rocks": 502,
+      "with_a_number": 502,
+      "trace_only": 0
+    },
+    {
+      "mineral": "biotite",
+      "rocks": 485,
+      "with_a_number": 483,
+      "trace_only": 2
+    },
+    {
+      "mineral": "Fe-Ti oxides",
+      "rocks": 481,
+      "with_a_number": 452,
+      "trace_only": 29
+    },
+    {
+      "mineral": "accessory minerals",
+      "rocks": 302,
+      "with_a_number": 300,
+      "trace_only": 2
+    },
+    {
+      "mineral": "hornblende",
+      "rocks": 287,
+      "with_a_number": 281,
+      "trace_only": 6
+    },
+    {
+      "mineral": "secondary minerals",
+      "rocks": 140,
+      "with_a_number": 134,
+      "trace_only": 6
+    },
+    {
+      "mineral": "muscovite",
+      "rocks": 108,
+      "with_a_number": 98,
+      "trace_only": 10
+    },
+    {
+      "mineral": "pyroxene",
+      "rocks": 25,
+      "with_a_number": 25,
+      "trace_only": 0
+    },
+    {
+      "mineral": "accessory minerals and Fe-Ti oxides",
+      "rocks": 12,
+      "with_a_number": 12,
+      "trace_only": 0
+    },
+    {
+      "mineral": "clinopyroxene",
+      "rocks": 11,
+      "with_a_number": 11,
+      "trace_only": 0
+    },
+    {
+      "mineral": "orthopyroxene",
+      "rocks": 6,
+      "with_a_number": 6,
+      "trace_only": 0
+    },
+    {
+      "mineral": "olivine",
+      "rocks": 3,
+      "with_a_number": 3,
+      "trace_only": 0
+    }
+  ],
+  "published_by_survey": {
+    "dubray_ds942": {
+      "in_table": 1162,
+      "point_counted": 332
+    },
+    "dubray_pp1793": {
+      "in_table": 393,
+      "point_counted": 247
+    }
+  }
+}

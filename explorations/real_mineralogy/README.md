@@ -172,6 +172,13 @@ requires at least 15 intrusions per subset. Train 291 evaluated rocks / 43
 intrusions, val 61 / 19, test 155 / 23; every category within 0.07 of its
 population rate, silica quantiles within 4% of the span. Test is sealed.
 
+**Composition** (`results/plutonic_composition.md`, from
+`run_composition_tables.py`): the funnel from the sources' tables to the 507
+evaluated rocks and their breakdown by source, intrusion size, split, silica
+and mineral, plus the measured mass outside the seven categories. Its split
+table counts the intrusions holding an evaluated rock (39 / 19 / 19); the
+counts above also include the 8 whose rocks all have a category unmeasured.
+
 **First number** (`run_plutonic_zero_shot.py` ->
 `results/joint_heads_allrock_tuned_seed0/plutonic_zero_shot.json`): the
 production head zero-shot on the train and val rocks of each benchmark, test
@@ -259,6 +266,8 @@ Four data facts that surface only here, all encoded in the loader:
   funnel from what USGS published down to the scored set, plus the survey /
   ruler / unit-structure / split / silica / mineral breakdowns. The paper's
   benchmark appendix reads from these rather than from hand-copied numbers.
+  Each benchmark is an entry in its `BENCHMARKS` registry; the plutonic one
+  writes `results/plutonic_composition.{md,json}`.
 - `run_pointcount_contrast.py` -> `results/<tag>/pointcount_contrast.{json,png}`:
   the frozen stack scored against both rulers on the 64 rocks that carry both.
 - `run_unit_leakage.py` -> `results/<tag>/unit_leakage.json`: whether the

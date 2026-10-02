@@ -51,6 +51,13 @@ def plutonic():
 
 
 @pytest.fixture(scope="module")
+def composed():
+    """Every benchmark's composition tables, built once as (data, markdown, frame)."""
+    return {name: tables_script.compose(benchmark)
+            for name, benchmark in tables_script.BENCHMARKS.items()}
+
+
+@pytest.fixture(scope="module")
 def visual_only(tmp_path_factory):
     """The benchmark on disk with every point-count row removed.
 
@@ -150,21 +157,20 @@ def test_derived_percent_reproduces_the_published_block(monkeypatch):
         parse_dubray_pointcounts(known)
 
 
-def test_composition_tables_partition_the_scored_set():
+@pytest.mark.parametrize("name", sorted(tables_script.BENCHMARKS))
+def test_composition_tables_partition_the_scored_set(composed, name):
     """Every appendix table counts the same rocks, exactly once.
 
     These tables go into the paper, so a row that double-counts a rock measured
     two ways -- or a cut computed on the wrong stage of the funnel -- is a
     published error. Each breakdown has to sum back to the scored total.
+    Checked on every benchmark the script describes.
     """
-    samples = pd.read_csv(BENCHMARK_DIR / "samples.csv")
-    modes = pd.read_csv(BENCHMARK_DIR / "modes.csv")
-    counts = tables_script.funnel(samples, modes, tables_script.published_counts())
-    frame = tables_script.scored_frame(samples, counts["scored_keys"])
-    data = tables_script.tables(frame, modes, counts)
+    data, _, frame = composed[name]
 
-    scored = data["funnel"]["scored"]
-    assert scored == len(counts["scored_keys"])
+    scored = len(frame)
+    assert frame["key"].is_unique
+    assert scored in data["funnel"].values()
     assert sum(r["rocks"] for r in data["by_survey"]) == scored
     assert sum(r["rocks"] for r in data["by_silica"]) == scored
     assert sum(r["rocks"] for r in data["unit_structure"]) == scored
@@ -408,6 +414,20 @@ def test_unmeasured_rocks_leave_the_evaluated_set():
     with plutonic_benchmark() as evaluated:
         assert len(evaluated) == len(benchmark) - 71
         assert not set(evaluated.bulk_ids) & left_out
+
+
+def test_plutonic_composition_tables_describe_the_evaluated_rocks(composed):
+    """The plutonic tables break down exactly the rocks the instrument evaluates.
+
+    The tables take their last cut from `unmeasured_keys` directly rather than
+    through `load_plutonic`, so a drift between the two would describe one set
+    of rocks and evaluate another.  Units come from the split, so a rock the
+    split does not know would fall out of every unit and split count silently.
+    """
+    _, _, frame = composed["plutonic"]
+    benchmark = load_plutonic()
+    assert set(frame["key"]) == set(benchmark.bulk_ids[benchmark.clean])
+    assert frame["unit"].notna().all() and frame["subset"].notna().all()
 
 
 def test_plutonic_benchmark_restores_the_eruption_split():

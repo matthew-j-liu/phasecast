@@ -12,14 +12,26 @@ The MSH and Pinatubo rocks are counted in one row and otherwise left out --
 they are 11 hand-transcribed rocks from other arcs and belong in a separate
 out-of-population line, not averaged into a table about this one.
 
+Each benchmark is one entry in `BENCHMARKS`. The breakdowns by survey, unit,
+split, silica and mineral are shared; each entry brings its own funnel,
+measurement-method count and prose, since what a source published and how it
+measured differ from source to source. The plutonic benchmark (`plutonic.py`)
+is the second entry.
+
     conda run -n mineral python explorations/real_mineralogy/run_composition_tables.py
 """
 
 import json
+import sys
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
 
 from cnmineral.eval.real_rock import (
     BENCHMARK_DIR,
@@ -31,6 +43,13 @@ from cnmineral.eval.real_rock import (
     parse_alteration_grade,
     preferred_basis,
 )
+from explorations.real_mineralogy.harvest import (
+    DS942_PHASES,
+    PLUTONIC_BASIS,
+    PLUTONIC_DIR,
+    PP1793_PHASES,
+)
+from explorations.real_mineralogy.plutonic import PLUTONIC_SPLIT_PATH, unmeasured_keys
 
 RESULTS = Path(__file__).resolve().parent / "results"
 DUBRAY = ("dubray_ds764", "dubray_ds1099")
@@ -44,15 +63,45 @@ APPENDICES = {
     "dubray_ds764": ("dubray_ds764/Appendix2.xls", "dubray_ds764/Appendix3.xls"),
     "dubray_ds1099": ("dubray_ds1099/Appendix02.xlsx", "dubray_ds1099/Appendix03.xlsx"),
 }
+PLUTONIC_SURVEY_LABEL = {
+    "dubray_ds942": "DS 942, 1.4 Ga A-type granitoids",
+    "dubray_pp1793": "PP 1793, Boulder batholith MT",
+}
 SILICA_EDGES = (0, 52, 57, 63, 70, 100)
 SILICA_LABELS = ("basalt (<52)", "basaltic andesite (52-57)", "andesite (57-63)",
                  "dacite (63-70)", "rhyolite (>70)")
+# plutonic rock names follow the mode, not silica
+PLUTONIC_SILICA_LABELS = ("<52", "52-57", "57-63", "63-70", ">70")
 UNIT_SIZE_BINS = ((1, 1, "1 rock only"), (2, 5, "2-5"), (6, 20, "6-20"),
                   (21, 10**6, "21+"))
+KEY_ORDER = ("off_vocabulary", "funnel", "by_survey", "by_method", "unit_structure",
+             "units_total", "by_split", "by_silica", "minerals", "published_by_survey")
+
+
+@dataclass(frozen=True, slots=True)
+class Benchmark:
+    """One benchmark's tables: where its rocks live and what is its own.
+
+    `describe` returns the benchmark's own keys of `KEY_ORDER` (funnel,
+    measurement method, off-vocabulary mass, published counts) and the
+    evaluated rocks with `key`, `unit`, `subset` and `point_counted` set.
+    """
+
+    data_dir: Path
+    stem: str
+    survey_label: tuple[tuple[str, str], ...]
+    silica_labels: tuple[str, ...]
+    describe: Callable[[pd.DataFrame, pd.DataFrame], tuple[dict, pd.DataFrame]]
+    render: Callable[[dict, pd.DataFrame, pd.DataFrame], str]
 
 
 def _keys(frame: pd.DataFrame) -> pd.Series:
     return frame["source"] + "|" + frame["sample_id"].astype(str)
+
+
+def _scoped(modes: pd.DataFrame, frame: pd.DataFrame) -> pd.DataFrame:
+    scoped = modes.assign(key=_keys(modes))
+    return scoped[scoped["key"].isin(set(frame["key"]))]
 
 
 def published_counts() -> dict:
@@ -113,11 +162,82 @@ def scored_frame(samples: pd.DataFrame, scored_keys: list[str]) -> pd.DataFrame:
     return frame
 
 
-def tables(frame: pd.DataFrame, modes: pd.DataFrame, funnel_counts: dict) -> dict:
+def describe_eruption(samples: pd.DataFrame, modes: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
+    published = published_counts()
+    counts = funnel(samples, modes, published)
+    frame = scored_frame(samples, counts.pop("scored_keys"))
     counted = set(_keys(modes[modes["basis"] == POINTCOUNT_BASIS]))
-    frame = frame.assign(point_counted=frame["key"].isin(counted))
-    sizes = frame["unit"].value_counts()
+    frame["point_counted"] = frame["key"].isin(counted)
+    return {
+        "off_vocabulary": off_vocabulary(_scoped(modes, frame)),
+        "funnel": counts,
+        "by_method": {
+            "visual_estimate_only": int((~frame["point_counted"]).sum()),
+            "point_count_available": int(frame["point_counted"].sum()),
+        },
+        "published_by_survey": published,
+    }, frame
 
+
+def plutonic_published_counts() -> dict:
+    """Rows in each source's primary table, and how many carry a point count.
+
+    Read from the workbooks, as `published_counts` is, with the harvest's own
+    table cuts: DS 942's `Data` tab alone, PP 1793 less its pluton averages.
+    """
+    ds942 = pd.read_excel(BENCHMARK_DIR / "dubray_ds942" / "1.4GaIntrsChemModData.xlsx",
+                          sheet_name="Data")
+    ds942.columns = [c.strip() for c in ds942.columns]
+    pp1793 = pd.read_excel(BENCHMARK_DIR / "dubray_pp1793" / "Appendix_1.xls", header=2)
+    pp1793.columns = [c.strip() for c in pp1793.columns]
+    ids = pp1793["sample _number"].astype(str).str.strip()
+    pp1793 = pp1793[pp1793["sample _number"].notna() & (ids != "AVERAGE")]
+    return {
+        source: {
+            "in_table": len(frame),
+            "point_counted": int(frame[list(phases)].notna().any(axis=1).sum()),
+        }
+        for source, frame, phases in (("dubray_ds942", ds942, DS942_PHASES),
+                                      ("dubray_pp1793", pp1793, PP1793_PHASES))
+    }
+
+
+def describe_plutonic(samples: pd.DataFrame, modes: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
+    published = plutonic_published_counts()
+    chemistry = samples[samples["sio2"].notna()]
+    unmeasured = unmeasured_keys(modes)
+    frame = chemistry.assign(key=_keys(chemistry))
+    frame = frame[~frame["key"].isin(unmeasured)].copy()
+
+    split = pd.read_csv(PLUTONIC_SPLIT_PATH)
+    split_keys = _keys(split)
+    # the split's units are canonical, the ones its dealer and the bootstrap group by
+    frame["unit"] = frame["key"].map(dict(zip(split_keys, split["unit"])))
+    frame["subset"] = frame["key"].map(dict(zip(split_keys, split["subset"])))
+    counted = set(_keys(modes[modes["basis"] == PLUTONIC_BASIS]))
+    frame["point_counted"] = frame["key"].isin(counted)
+
+    in_tables = sum(v["in_table"] for v in published.values())
+    point_counted = sum(v["point_counted"] for v in published.values())
+    return {
+        "off_vocabulary": {
+            "basis": "volume percent as published",
+            "as_evaluated": _off_vocab_shares(_scoped(modes, frame)),
+        },
+        "funnel": {
+            "in_tables": in_tables,
+            "point_counted": point_counted,
+            "with_chemistry": len(chemistry),
+            "evaluated": len(frame),
+            "never_point_counted": in_tables - point_counted,
+        },
+        "by_method": {"point_count_whole_rock": int(frame["point_counted"].sum())},
+        "published_by_survey": published,
+    }, frame
+
+
+def breakdowns(frame: pd.DataFrame, modes: pd.DataFrame, benchmark: Benchmark) -> dict:
+    sizes = frame["unit"].value_counts()
     unit_structure = []
     for lo, hi, label in UNIT_SIZE_BINS:
         picked = sizes[(sizes >= lo) & (sizes <= hi)]
@@ -134,13 +254,11 @@ def tables(frame: pd.DataFrame, modes: pd.DataFrame, funnel_counts: dict) -> dic
         })
 
     silica = pd.cut(frame["sio2"], bins=list(SILICA_EDGES),
-                    labels=list(SILICA_LABELS)).value_counts()
+                    labels=list(benchmark.silica_labels)).value_counts()
 
     # one ruler per rock, the same one the scored numbers were measured against;
     # counting both would report a doubly-measured rock twice
-    scoped_modes = modes.assign(key=_keys(modes))
-    scoped_modes = scoped_modes[scoped_modes["key"].isin(set(frame["key"]))]
-    scored_modes = preferred_basis(scoped_modes, VISUAL_BASIS)
+    scored_modes = preferred_basis(_scoped(modes, frame), VISUAL_BASIS)
     minerals = []
     for phase, group in scored_modes[scored_modes["phase"] != "groundmass"].groupby("phase"):
         rocks = int(group["key"].nunique())
@@ -148,20 +266,15 @@ def tables(frame: pd.DataFrame, modes: pd.DataFrame, funnel_counts: dict) -> dic
         minerals.append({"mineral": phase, "rocks": rocks, "with_a_number": numeric,
                          "trace_only": rocks - numeric})
 
+    survey_label = dict(benchmark.survey_label)
     return {
-        "off_vocabulary": off_vocabulary(scoped_modes),
-        "funnel": {k: v for k, v in funnel_counts.items() if k != "scored_keys"},
-        "by_survey": [{"survey": SURVEY_LABEL[s], "rocks": int(n)}
+        "by_survey": [{"survey": survey_label[s], "rocks": int(n)}
                       for s, n in frame["source"].value_counts().items()],
-        "by_method": {
-            "visual_estimate_only": int((~frame["point_counted"]).sum()),
-            "point_count_available": int(frame["point_counted"].sum()),
-        },
         "unit_structure": unit_structure,
         "units_total": int(frame["unit"].nunique()),
         "by_split": sorted(split_rows, key=lambda r: r["subset"]),
         "by_silica": [{"band": label, "rocks": int(silica.get(label, 0))}
-                      for label in SILICA_LABELS],
+                      for label in benchmark.silica_labels],
         "minerals": sorted(minerals, key=lambda r: -r["rocks"]),
     }
 
@@ -219,7 +332,12 @@ def _markdown_table(rows: list[dict], columns: list[str], total: str | None) -> 
     return head + body + (total or "")
 
 
-def render(data: dict, n_other: int) -> str:
+def render_eruption(data: dict, samples: pd.DataFrame, modes: pd.DataFrame) -> str:
+    # counted the same way every other number here is: rocks that carry both
+    # chemistry and mode rows, not raw table rows
+    other = samples[~samples["source"].isin(DUBRAY)]
+    n_other = int((other["sio2"].notna()
+                   & _keys(other).isin(set(_keys(modes)))).sum())
     f = data["funnel"]
     ov = data["off_vocabulary"]
     scored, pc = ov["as_scored"], ov["point_count_basis"]
@@ -292,25 +410,107 @@ def render(data: dict, n_other: int) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main() -> None:
-    samples = pd.read_csv(BENCHMARK_DIR / "samples.csv")
-    modes = pd.read_csv(BENCHMARK_DIR / "modes.csv")
-    published = published_counts()
-    counts = funnel(samples, modes, published)
-    frame = scored_frame(samples, counts["scored_keys"])
-    data = tables(frame, modes, counts)
-    data["published_by_survey"] = published
-    # counted the same way every other number here is: rocks that carry both
-    # chemistry and mode rows, not raw table rows
-    other = samples[~samples["source"].isin(DUBRAY)]
-    n_other = int((other["sio2"].notna()
-                   & _keys(other).isin(set(_keys(modes)))).sum())
+def render_plutonic(data: dict, samples: pd.DataFrame, modes: pd.DataFrame) -> str:
+    f = data["funnel"]
+    ov = data["off_vocabulary"]["as_evaluated"]
+    categories = ", ".join(f"`{k}` {v}" for k, v in ov["categories"].items())
+    lines = [
+        "# Benchmark composition (plutonic)",
+        "",
+        "Generated by `explorations/real_mineralogy/run_composition_tables.py`.",
+        "Whole-rock point counts from du Bray DS 942 and PP 1793, over the rocks",
+        "`plutonic.py` evaluates.",
+        "",
+        "## Funnel: from the sources' tables to the evaluated set",
+        "",
+        "| Step | Rocks |",
+        "|---|---|",
+        f"| Rows in the sources' primary tables | {f['in_tables']:,} |",
+        f"| ...with a point count | {f['point_counted']} |",
+        f"| ...that also have whole-rock chemistry | {f['with_chemistry']} |",
+        f"| ...with every category measured | **{f['evaluated']}** |",
+        "",
+        f"The other {f['never_point_counted']:,} rows carry no point count, so they",
+        "can never enter. A category goes unmeasured where a source counts the",
+        "Fe-Ti oxides with the accessories or reports only a mafic total; those",
+        "rocks stay in the split but outside the evaluated set.",
+        "",
+        "## The evaluated set, by source",
+        "",
+        _markdown_table(data["by_survey"], ["survey", "rocks"], None),
+        "## Modal measurement method",
+        "",
+        "| Method | Rocks |",
+        "|---|---|",
+        f"| Whole-rock point count | {data['by_method']['point_count_whole_rock']} |",
+        "",
+        "## Unit structure",
+        "",
+        "A unit is the intrusion a rock came from (DS 942 `Shorthand`, PP 1793",
+        "`intrs_name`). Rocks of one intrusion are related, so the split and",
+        "bootstrap intervals cluster by intrusion rather than by rock.",
+        "",
+        _markdown_table(data["unit_structure"], ["size", "units", "rocks"], None),
+        "## Split, in intrusions as well as rocks",
+        "",
+        _markdown_table(data["by_split"], ["subset", "rocks", "units"], None),
+        "## Composition of the evaluated set",
+        "",
+        "SiO2, wt%.",
+        "",
+        _markdown_table(data["by_silica"], ["band", "rocks"], None),
+        "## Reported minerals, over the evaluated set",
+        "",
+        _markdown_table(data["minerals"], ["mineral", "rocks", "with_a_number", "trace_only"], None),
+        "## Measured mass the seven groups cannot represent",
+        "",
+        f"{ov['rocks_affected']} of the {ov['rocks']} evaluated rocks report mass outside the",
+        f"seven groups, at a median {ov['share_among_affected_p50']:.1%} of the rock. Rocks",
+        f"reporting each category: {categories}. The evaluation drops that",
+        "mass and renormalizes what remains, so a measured share is a share of the",
+        "seven groups. Shares are volume percent as published.",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
 
+
+BENCHMARKS = {
+    "eruption_v2": Benchmark(
+        data_dir=BENCHMARK_DIR,
+        stem="benchmark_composition",
+        survey_label=tuple(SURVEY_LABEL.items()),
+        silica_labels=SILICA_LABELS,
+        describe=describe_eruption,
+        render=render_eruption,
+    ),
+    "plutonic": Benchmark(
+        data_dir=PLUTONIC_DIR,
+        stem="plutonic_composition",
+        survey_label=tuple(PLUTONIC_SURVEY_LABEL.items()),
+        silica_labels=PLUTONIC_SILICA_LABELS,
+        describe=describe_plutonic,
+        render=render_plutonic,
+    ),
+}
+
+
+def compose(benchmark: Benchmark) -> tuple[dict, str, pd.DataFrame]:
+    samples = pd.read_csv(benchmark.data_dir / "samples.csv")
+    modes = pd.read_csv(benchmark.data_dir / "modes.csv")
+    own, frame = benchmark.describe(samples, modes)
+    merged = {**own, **breakdowns(frame, modes, benchmark)}
+    data = {k: merged[k] for k in KEY_ORDER}
+    return data, benchmark.render(data, samples, modes), frame
+
+
+def main() -> None:
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / "benchmark_composition.json").write_text(json.dumps(data, indent=2))
-    (RESULTS / "benchmark_composition.md").write_text(render(data, n_other))
-    print(f"scored {data['funnel']['scored']} du Bray rocks across "
-          f"{data['units_total']} units; wrote {RESULTS}")
+    for name, benchmark in BENCHMARKS.items():
+        data, markdown, frame = compose(benchmark)
+        (RESULTS / f"{benchmark.stem}.json").write_text(json.dumps(data, indent=2))
+        (RESULTS / f"{benchmark.stem}.md").write_text(markdown)
+        print(f"{name}: {len(frame)} rocks across {data['units_total']} units; "
+              f"wrote {RESULTS / benchmark.stem}.{{json,md}}")
 
 
 if __name__ == "__main__":
