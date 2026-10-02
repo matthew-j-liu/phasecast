@@ -7561,3 +7561,76 @@ workstream-2 shortlist), then the model-free solidus-rung reach on each
 plutonic rock's own bulk and the ladder on the two review figures (#83);
 fractional crystallization of the rock's own bulk against the phenocryst
 ruler (#84) opens after #83 reads.
+
+## 2026-09-29 -- #85: most of #79's silicate error is offset, not missing information; feldspar and quartz carry signal past a constant, amphibole and biotite none
+
+**Q.** Does the evidence support #79's verdict that no way of running the
+generator makes the volcanic pair scale? #79 read only the level of the
+simulator's label (its average absolute error against the measured share),
+never whether the label tracks differences between rocks once that offset
+is removed, and it carried no constant baseline and no intervals.
+
+**Context.** Re-audit in discussion with the owner. The flat real-rock line
+under the production prior is measured with trained heads (#60, #69, #76,
+the depth grid); #79's inference past it is simulator-only and involved no
+recalibration. A scratch check put a constant forecast, the train-mean
+share renormalized over each rock's mineral list, at 0.106 on the four val
+silicates: level with #79's per-rock oracle window (0.107), below every
+head (0.112 to 0.123) and below the generator average (0.136). The owner
+filed three follow-ups as #85 with no gate: the gate is written after every
+metric is read.
+
+**Instruments.** `explorations/generator_reach/run_signal.py`, seconds and
+model-free on the #78 rows: #79's rows rebuilt rock by rock (reproducing
+the committed numbers to 1e-16), the constant, and the 5,000-composition
+head at 224 steps zero-shot, matrix-recalibrated and given no chemistry.
+Per category on the val split: absolute error, Pearson r across rocks, and
+the error after a per-category least-squares line from the source's share
+to the measured share, fit on train, clipped and renormalized over the
+mineral list. Unit-bootstrap bands over the 39 val units. A second read on
+the 63 rocks outside test that carry both a visual estimate and a DS 1099
+point count of the same thin section. `run_depth_grid.py` gained val-only
+per-category share error and r for every cell and per-doubling slopes with
+bands for every fixed-depth line, for the third follow-up.
+
+**Result.**
+- On the four silicates the line takes the simulator from 0.136 to 0.102
+  [0.087, 0.120], the constant's level: -0.004 [-0.011, +0.002] against it.
+  The zero-shot head after the line reads 0.100, the recalibrated head
+  0.101, the head given no chemistry 0.106.
+- Per category after the line, against the constant: feldspar -0.015
+  [-0.030, -0.003], quartz -0.043 [-0.064, -0.023], pyroxene -0.006
+  [-0.016, +0.003], opaques 0.000, amphibole +0.005 [-0.014, +0.022].
+  Biotite's simulated share runs against the measured one (r -0.27, fit
+  slope -0.44), and even the oracle hit rows leave biotite at the constant.
+- The constant correlates with the measured silicate share at 0.48, the
+  simulator at 0.27: the mineral list carries more of the rank information
+  than the simulator's variation on top of it.
+- Visual estimate and point count of the same thin sections differ by
+  0.127 in feldspar share (visual lower by 0.120, counting floor 0.015),
+  0.021 amphibole, 0.046 biotite, 0.067 opaques, 0.072 quartz. Against the
+  point count the simulator's error is about half its error against the
+  visual estimate for amphibole, biotite and opaques, and unchanged for
+  feldspar and quartz. Two tuff eruptions, 61 of the 63 rocks in train: a
+  hint at the measurement's own error, not a floor.
+
+**Considered.** The line stands in for a recalibration layer acting on the
+simulator itself, chosen so the error sits in share units beside the
+constant; the real recalibrator on the head is the second view and agrees.
+The constant varies only through the mineral list, so its r is what the
+list alone carries; a joint fit of simulator and constant, the signal past
+the mineral list, was not run. The 224-step line's -0.046 nats per doubling
+(journal 2026-09-04) is an observation, not an example of a scaling pair
+(owner).
+
+**Reading.** #79's narrow claim stands: no condition prior inside the box
+moves the silicate labels. Its broad claim, that no generator setting can
+produce a scaling pair on this benchmark, does not: the label's signal is
+per category, present for feldspar and quartz and absent for amphibole and
+biotite, and part of the gap may be the measurement convention.
+
+**Next (owner, 2026-10-02).** (1) The 224-step line with every point a
+last-epoch head on three seeds (13 new heads, `final224_allrock_n{N}` with
+`_seed{K}`), read per category on recalibrated share error, feldspar,
+quartz and pyroxene first. (2) The same signal read as the first step of
+#83, on the plutonic point-count benchmark, before any ladder.

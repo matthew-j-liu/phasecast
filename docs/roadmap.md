@@ -46,6 +46,15 @@ the rulings that sequence them. Status stamped 2026-09-18.
   prior. For the pair (single-condition equilibrium, du Bray phenocryst
   counts) the generator's conditions are not the lever. The condition
   prior is a settled decision (CLAUDE.md).
+- **The label's signal, re-read** (#85, 2026-09-29;
+  `explorations/generator_reach/`, journal that date). #79 measured how
+  far the label sits from the measured share, not whether it tracks
+  rocks. After a per-category line fit on train, the simulator reaches a
+  constant forecast over each rock's mineral list on the four silicates
+  (0.102 against 0.106); feldspar and quartz beat it, amphibole and
+  biotite carry nothing. #79's narrow claim stands, its broad one does
+  not. Open: the 224-step line with last-epoch heads on three seeds, read
+  per category.
 
 ## Three thrusts, in order
 
@@ -69,7 +78,8 @@ the third.
   on the current generator at a solidus rung. Order: the harvest (#82,
   the same parser shape as the volcanic sources; the intrusion is the
   unit key; cumulates flagged), then the model-free reach on each
-  plutonic rock's own bulk as #78 did and the ladder on the two review
+  plutonic rock's own bulk as #78 did, opening with the #85 signal read
+  per category before any training, and the ladder on the two review
   figures (#83) with the `explorations/prior_search/rosters/` sizes and
   training seeds on the endpoints. FC-of-parents (#22) serves cumulates
   only. Its outcome sorts path 1: whole-rock equilibrium scaling on
