@@ -66,19 +66,19 @@
   "by_split": [
     {
       "subset": "test",
-      "rocks": 160,
-      "units": 44,
+      "rocks": 161,
+      "units": 43,
       "point_counted": 1
     },
     {
       "subset": "train",
-      "rocks": 367,
-      "units": 50,
+      "rocks": 372,
+      "units": 51,
       "point_counted": 61
     },
     {
       "subset": "val",
-      "rocks": 102,
+      "rocks": 96,
       "units": 37,
       "point_counted": 2
     }

@@ -50,9 +50,9 @@ bootstrap intervals cluster by unit rather than by rock.
 
 | subset | rocks | units | point_counted |
 |---|---|---|---|
-| test | 160 | 44 | 1 |
-| train | 367 | 50 | 61 |
-| val | 102 | 37 | 2 |
+| test | 161 | 43 | 1 |
+| train | 372 | 51 | 61 |
+| val | 96 | 37 | 2 |
 
 ## Composition of the scored set
 
