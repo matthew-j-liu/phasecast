@@ -1,6 +1,8 @@
 """Tripwire for `explorations/generator_reach`: the benchmark composition
 table and its TAS iron classes, the broad-box expansion, the whole-ladder
-parser, the chunked runner against a fake Julia, and the three-distance read.
+parser, the chunked runner against a fake Julia, the three-distance read,
+and the signal read's pure pieces (renormalization, the line fit, the
+bootstrap table, the ruler disagreement).
 The real generator needs Julia and MAGEMin, so it is exercised by the smoke
 run, not here."""
 
@@ -332,3 +334,77 @@ def test_read_end_to_end_on_a_fake_run(tmp_path, monkeypatch, short_ladder):
     run_read.draw_figures(table, summary, tmp_path / "read")
     for name in ("reach_cdf.png", "reach_bins.png", "reach_melt.png"):
         assert (tmp_path / "read" / name).stat().st_size > 0
+
+
+from cnmineral.data.phase_vocab import GROUP_INDEX
+from explorations.generator_reach import run_signal
+
+
+def test_renormalize_clips_keeps_the_mineral_list_and_a_missing_row():
+    share = np.zeros((3, 7))
+    share[0, :3] = [1.4, -0.2, 0.3]
+    share[1] = 0.2
+    share[2] = np.nan
+    numeric = np.zeros((3, 7), dtype=bool)
+    numeric[0, :3] = True
+    numeric[2, 0] = True
+    out = run_signal.renormalize(share, numeric)
+    assert np.allclose(out[0], [1 / 1.3, 0.0, 0.3 / 1.3, 0, 0, 0, 0])
+    assert (out[1] == 0).all()
+    assert np.isnan(out[2]).all()
+
+
+def test_linear_fit_is_the_constant_for_a_flat_source_and_exact_for_a_linear_one():
+    rng = np.random.default_rng(0)
+    n = 40
+    x = rng.uniform(0.1, 0.9, n)
+    magnitude = np.zeros((n, 7))
+    magnitude[:, 0], magnitude[:, 1] = x, 1 - x
+    numeric = np.zeros((n, 7), dtype=bool)
+    numeric[:, :2] = True
+    train = np.arange(n) < 30
+
+    fitted, coef = run_signal.linear_fit(np.full((n, 7), 0.3), magnitude, numeric, train)
+    const = run_signal.constant_vector(magnitude, numeric, train)
+    assert np.allclose(fitted, run_signal.renormalize(np.tile(const, (n, 1)), numeric))
+    assert coef["fsp"][1] == 0.0
+
+    source = np.zeros((n, 7))
+    source[:, 0], source[:, 1] = 0.5 * x + 0.1, 0.5 * (1 - x) + 0.1
+    fitted, coef = run_signal.linear_fit(source, magnitude, numeric, train)
+    assert np.allclose(fitted, magnitude)
+    assert np.allclose(coef["fsp"], (-0.2, 2.0)) and np.allclose(coef["px"], (-0.2, 2.0))
+
+
+def test_bootstrap_table_bands_contain_the_estimate():
+    rng = np.random.default_rng(2)
+    n = 60
+    units = np.repeat(np.arange(15), 4)
+    truth = rng.dirichlet(np.ones(7), n)
+    numeric = np.ones((n, 7), dtype=bool)
+    noisy = np.clip(truth + rng.normal(0, 0.05, truth.shape), 0, 1)
+    shares = {"simulator": noisy, "constant": np.tile(truth.mean(0), (n, 1))}
+    table = run_signal.bootstrap_table(shares, {"simulator": noisy}, truth, numeric, units, n_boot=200)
+    assert len(table) == 2 * len(run_signal.LABELS)
+    for metric in ("mae", "pearson_r", "mae_linear_fit", "mae_minus_constant"):
+        rows = table[table[metric].notna()]
+        assert len(rows) > 0
+        assert (rows[f"{metric}_lo"] <= rows[metric] + 1e-12).all()
+        assert (rows[metric] <= rows[f"{metric}_hi"] + 1e-12).all()
+    sim = table[(table.source == "simulator") & (table.category == "fsp")].iloc[0]
+    assert sim["n_rocks"] == n and sim["pearson_r"] > 0.8
+
+
+def test_ruler_disagreement_on_a_synthetic_pair():
+    fsp, bi = GROUP_INDEX["fsp"], GROUP_INDEX["bi"]
+    visual, counted = np.zeros((3, 7)), np.zeros((3, 7))
+    visual[:, fsp], counted[:, fsp] = [0.5, 0.6, 0.7], [0.7, 0.6, 0.8]
+    visual[:, bi], counted[:, bi] = 1 - visual[:, fsp], 1 - counted[:, fsp]
+    visual_num, counted_num = visual > 0, counted > 0
+    counted_num[2, bi] = False
+    out = run_signal.ruler_disagreement(visual, visual_num, counted, counted_num)
+    assert out["fsp"]["n_rocks"] == 3
+    assert np.isclose(out["fsp"]["ruler_disagreement"], 0.1)
+    assert np.isclose(out["fsp"]["signed_mean"], -0.1)
+    assert out["bi"]["n_rocks"] == 2 and np.isclose(out["bi"]["signed_mean"], 0.1)
+    assert out["amp"]["n_rocks"] == 0 and out["amp"]["ruler_disagreement"] is None

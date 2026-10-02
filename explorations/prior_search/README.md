@@ -166,6 +166,13 @@ the train rocks puts it, read on val:
   sits between the best global rectangle (0.130) and the oracle per-rock
   window (0.107), so the most a perfectly conditioned prior could open is
   about 0.01, and majors predict none of it.
+- **Re-read 2026-09-29 (#85, `generator_reach/README.md`).** This read
+  carried no constant baseline. A constant forecast over each rock's
+  mineral list reaches 0.106 on the four val silicates, level with the
+  oracle window, so "the heads already beat every marginal" holds against
+  the simulator's average, not against a constant. A per-category line
+  takes the simulator's average to that constant, with feldspar and
+  quartz below it and amphibole and biotite carrying nothing.
 
 ## Decision
 

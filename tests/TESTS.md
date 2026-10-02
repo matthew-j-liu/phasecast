@@ -635,6 +635,10 @@ Tests for archived explorations (moved to `explorations/archive/`,
 10. `test_marginal_best_draw_and_best_step_on_a_synthetic_ladder` -- with one draw missing rung 30, the marginal pools the three rung rows present, the per-category best draw is the argmin over (draw, rung), the best step is found at a near-liquidus non-rung point of that draw with its melt fraction recorded, `d_best_step` never exceeds `d_best_draw`, and the 10th-percentile column never falls below the minimum.
 11. `test_bins_partition_at_tau_and_a_missing_marginal_is_a_miss` -- four synthetic rows land one per bin at tau 0.05, the split moves as expected at 0.02, a row with no distances is `wrong_recipe`, and the fractions sum to one.
 12. `test_read_end_to_end_on_a_fake_run` -- the tripwire: a fake-runner chunk on a fixture benchmark flows through `build_points`, the distance table (one row per rock and quantified category), `summarize` (every category present, empty ones as None, run facts from the manifest, JSON-serializable) and the three figures.
+13. `test_renormalize_clips_keeps_the_mineral_list_and_a_missing_row` -- the signal read's shares clip to [0, 1] and renormalize over the mineral list, a rock with nothing on it reads zero, and a missing (NaN) row stays missing rather than turning into zeros.
+14. `test_linear_fit_is_the_constant_for_a_flat_source_and_exact_for_a_linear_one` -- a source that does not vary fits to the renormalized train-mean constant with slope 0, and a source linear in the truth fits back to the truth exactly with the right intercept and slope.
+15. `test_bootstrap_table_bands_contain_the_estimate` -- every metric the signal table reports (`mae`, `pearson_r`, `mae_linear_fit`, the difference from the constant) sits inside its unit-bootstrap band, which fails if the bootstrap's positions index the wrong rocks.
+16. `test_ruler_disagreement_on_a_synthetic_pair` -- visual against point count per covered category over the rocks both quantify: mean absolute and signed difference, the count, and None for a category neither quantifies.
 
 ### test_input_probe_ceiling.py
 

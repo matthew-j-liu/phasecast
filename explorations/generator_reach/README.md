@@ -176,3 +176,109 @@ and the predictability read, both on this run's draws, found no condition
 prior that moves the silicate labels, and no single condition that
 reaches all four silicates for 38% of rocks. The scaling pair changes
 ruler first (journal 2026-09-18).
+
+## Does the equilibrium label track rocks? (2026-09-29, #85)
+
+#79 read how far the simulator's average share sits from the measured share
+(its level), never whether its rock-to-rock variation follows the measured
+share (its signal), which is what a recalibration layer can use and what
+scaling depends on. `run_signal.py` reads the signal on this run's rows,
+model-free, beside the 5,000-composition head at 224 steps. Seconds; no
+MAGEMin, no training. No gate: the owner writes it after the read.
+
+- **Sources.** Per-rock shares over the rock's measured mineral list:
+  - the simulator's average over the pooled rung rows (the broad box);
+  - the #79 rows rebuilt per rock with the prior_search functions: the
+    best rectangle, the forest window, and the two oracles, own hit
+    window and hit rows. They reproduce `prior_search/results` and
+    `results/distances.csv` to 1e-16;
+  - a constant, the train-mean measured share renormalized over the
+    mineral list;
+  - the head (`depth224_allrock_n5000`) zero-shot, recalibrated (matrix,
+    weight decay 1.0, fit on train), and the head given no chemistry.
+- **Metrics,** per category over the val rocks quantifying it:
+  - `mae`;
+  - `pearson_r` across rocks;
+  - `mae_linear_fit`, the error after a per-category least-squares line
+    from the source's share to the measured share, fit on the train
+    rocks, then clipped and renormalized over the mineral list. Sources
+    already fit to train labels get none.
+
+  Bands are a unit bootstrap (95%, 2,000 resamples) over the 39 val
+  units, with the fits held fixed, and every source's difference from the
+  constant is computed on the same resample.
+- **Ruler hint.** The 63 paired DS 1099 rocks outside test (61 train, 2
+  val, two tuff eruptions) are read under both bases with pyroxene and
+  olivine dropped. Two numbers come out:
+  - `ruler_disagreement`, the mean absolute difference between the visual
+    and point-count share over the rocks both rulers quantify;
+  - the simulator's and a constant's error against each ruler (the
+    constant is fit on the other train rocks' visual estimates).
+
+  This is a hint at the ruler's own error, not a floor.
+
+```
+python explorations/generator_reach/run_signal.py
+```
+
+Committed under `results/`:
+- `signal.csv`: one row per source and category or mean, every metric
+  with its band.
+- `signal.json`: settings, the reproduction check, the constant, the fit
+  coefficients and the ruler read.
+- `signal.png`: measured against simulated and head share per category,
+  plus the four-silicate errors per source.
+
+### Result
+
+Four silicates on the val split (106 rocks, 39 units), with 95% bands:
+
+| source | `mae` | `pearson_r` | `mae_linear_fit` | linear fit minus constant |
+|---|---|---|---|---|
+| simulator | 0.136 [0.113, 0.166] | 0.27 [0.04, 0.43] | 0.102 [0.087, 0.120] | -0.004 [-0.011, +0.002] |
+| best rectangle | 0.130 [0.107, 0.159] | 0.32 [0.10, 0.47] | 0.102 [0.087, 0.121] | -0.004 [-0.010, +0.001] |
+| forest window | 0.131 [0.108, 0.159] | 0.28 [0.08, 0.42] | 0.104 [0.089, 0.123] | -0.002 [-0.011, +0.007] |
+| own hit window (oracle) | 0.107 [0.087, 0.132] | 0.51 [0.31, 0.64] | 0.091 [0.077, 0.108] | -0.015 [-0.024, -0.008] |
+| hit rows (oracle) | 0.088 [0.070, 0.110] | 0.66 [0.49, 0.78] | 0.077 [0.063, 0.094] | -0.029 [-0.039, -0.022] |
+| constant | 0.106 [0.091, 0.126] | 0.48 [0.20, 0.56] | | |
+| head zero-shot | 0.123 [0.103, 0.148] | 0.35 [0.13, 0.50] | 0.100 [0.085, 0.119] | -0.006 [-0.013, -0.000] |
+| head recalibrated | 0.101 [0.086, 0.121] | 0.45 [0.22, 0.60] | | (`mae` minus constant -0.005 [-0.013, +0.002]) |
+| head given no chemistry | 0.106 [0.091, 0.126] | 0.48 [0.21, 0.55] | | |
+
+- **Most of #79's error is level.** A straight line fit on train takes the
+  simulator from 0.136 to 0.102 on the four silicates. That is the
+  constant's level (0.106), not reliably below it.
+- **The signal is per category.** After the line, the simulator beats the
+  constant on:
+  - feldspar, -0.015 [-0.030, -0.003];
+  - quartz, -0.043 [-0.064, -0.023].
+
+  It ties on pyroxene (-0.006 [-0.016, +0.003]) and opaques (0.000) and
+  carries nothing on amphibole (+0.005 [-0.014, +0.022]). The simulator's
+  biotite share runs against the measured one (r -0.27, fit slope -0.44).
+  Even the oracle hit rows leave biotite at the constant.
+- **The mineral list carries more of the rank information than the
+  simulator.** The constant, which varies only through which categories a
+  rock reports, correlates 0.48 with the measured share on the four
+  silicates, against 0.27 for the simulator.
+- **The heads carry about the simulator's signal.** The zero-shot head
+  after the line reads 0.100 and the recalibrated head 0.101, both within
+  0.006 of the constant. The head given no chemistry equals the constant.
+  #79's "the heads already beat every marginal" held against the
+  simulator's average, not against a constant.
+- **Ruler hint.** The visual estimate and the point count of the same thin
+  sections differ in share by:
+
+  | category | disagreement | notes |
+  |---|---|---|
+  | feldspar | 0.127 | visual lower by 0.120; counting floor about 0.015 |
+  | amphibole | 0.021 | 10 rocks |
+  | biotite | 0.046 | |
+  | opaques | 0.067 | |
+  | quartz | 0.072 | |
+
+  Against the point count, the simulator's error is about half its error
+  against the visual estimate for amphibole (0.038 against 0.061),
+  biotite (0.042 against 0.083) and opaques (0.041 against 0.110). It is
+  unchanged for feldspar (0.142 against 0.138) and quartz (0.257 against
+  0.237). Two eruptions, 10 to 63 rocks per category.
