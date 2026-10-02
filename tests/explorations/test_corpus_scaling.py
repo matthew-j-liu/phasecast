@@ -2,7 +2,8 @@
 
 Locks the pure pieces: the md5 roster order (deterministic, input-order
 independent, prefixes nest), the per-point config overrides, tag parsing into
-axis coordinates, and the last-doubling delta table. The ladder orchestrator
+axis coordinates, the last-doubling delta table, and the depth grid's cell
+rules, share metrics and share-error slopes. The ladder orchestrator
 needs real checkpoints, so it is exercised by the CLI run, not here.
 """
 
@@ -78,14 +79,19 @@ def test_last_doubling_deltas() -> None:
 
 
 from torch.utils.data import TensorDataset
+import numpy as np
 import pandas as pd
 import torch
 
 from explorations.corpus_scaling.run_depth_grid import (
+    METRICS,
     aggregate,
     batches_per_epoch,
     line,
     selected_steps,
+    share_metrics,
+    share_slopes,
+    with_means,
 )
 from explorations.corpus_scaling.run_variant import truncated_loader
 
@@ -145,3 +151,47 @@ def test_truncated_loader_cuts_only_shuffled_epochs() -> None:
     loader_cls = truncated_loader(3)
     assert len(list(loader_cls(data, batch_size=4, shuffle=True))) == 3
     assert len(list(loader_cls(data, batch_size=4))) == 10
+
+
+def test_share_metrics_match_numpy_on_the_quantified_rows() -> None:
+    rng = np.random.default_rng(1)
+    share, truth = rng.uniform(size=(50, 7)), rng.uniform(size=(50, 7))
+    numeric = rng.uniform(size=(50, 7)) > 0.3
+    share[3, 2] = np.nan
+    mae, r, n = share_metrics(share, truth, numeric)
+    for j in range(7):
+        m = numeric[:, j] & np.isfinite(share[:, j])
+        assert n[j] == m.sum()
+        assert np.isclose(mae[j], np.abs(share[m, j] - truth[m, j]).mean())
+        assert np.isclose(r[j], np.corrcoef(share[m, j], truth[m, j])[0, 1])
+    means = with_means(mae)
+    assert len(means) == 10
+    assert np.isclose(means[7], mae[:4].mean()) and np.isclose(means[8], mae[4:].mean())
+    assert np.isclose(means[9], mae.mean())
+
+
+def test_share_slopes_recover_a_known_slope_per_doubling() -> None:
+    magnitude = np.zeros((20, 7))
+    magnitude[:, :2] = 0.5
+    numeric = magnitude > 0
+    units = np.repeat(np.arange(5), 4)
+    rows, per_rock_share = [], {}
+    for n in (78, 312, 1250):
+        e = 0.2 - 0.01 * np.log2(n)
+        # the two seeds err by e in opposite directions, so an ensemble of
+        # their shares would read zero error and hide the slope
+        for seed, sign in ((0, 1.0), (1, -1.0)):
+            share = np.zeros((20, 7))
+            share[:, 0], share[:, 1] = 0.5 + sign * e, 0.5 - sign * e
+            tag = f"final224_allrock_n{n}" + (f"_seed{seed}" if seed else "")
+            per_rock_share[tag] = {"zero": share, "recal": share}
+            rows.append(dict(series="final", n_bulks=n, depth=224, seed=seed, tag=tag, rule="final",
+                             steps=224, **{m: 0.0 for m in METRICS}))
+    df = pd.DataFrame(rows)
+    slopes = share_slopes(df, aggregate(df), per_rock_share, magnitude, numeric, units, n_boot=50)
+    for name in ("zero_shot_val", "recal"):
+        s = slopes["grid 224"][f"{name}_share_mae_per_doubling"]
+        for label in ("fsp", "px", "silicate"):
+            assert np.isclose(s[label]["mean"], -0.01)
+            assert np.isclose(s[label]["lo"], -0.01) and np.isclose(s[label]["hi"], -0.01)
+        assert np.isnan(s["amp"]["mean"])

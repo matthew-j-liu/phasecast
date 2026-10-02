@@ -196,7 +196,8 @@ experiment is reviewed on.
   `stopnll_allrock_n{N}` / `stopmae_allrock_n{N}` (selected on the train
   split's hurdle NLL or share error); `depth{D}_traced_n10000` (the
   traced-regen corpus at D steps); each with an optional `_seed{K}`
-  suffix. D is 24 / 56 / 112 / 224 / 448, N is 78 / 312 / 1250 / 5000.
+  suffix (K 1 or 2; seed 0 carries none). D is 24 / 56 / 112 / 224 / 448,
+  N is 78 / 312 / 1250 / 5000, and 10000 for `final` (no `--roster`).
   Rosters are `checkpoints/corpus_scaling_allrock_n{N}/train_bulk_ids.csv`;
   the traced cells pass `--roster data/corpus/train_bulks.csv --set
   corpus_dir=data/corpus/train_traced --set
@@ -210,7 +211,14 @@ experiment is reviewed on.
   with per-doubling slopes (least squares on log2 compositions; the
   recalibrated slope is a unit bootstrap over per-rock slopes) and the
   production-minus-cell contrasts. Test stays sealed. The corpus-val ladder
-  above is read alongside as its own row. Writes
+  above is read alongside as its own row. Each cell also carries its
+  val-only share error and Pearson r per category, zero-shot
+  (`val_mae_{g}`, `val_r_{g}`) and recalibrated (`recal_mae_{g}`,
+  `recal_r_{g}`); the zero-shot `mae_{g}` columns the figures draw are
+  read over all 640 rocks from `metrics.json`. Each fixed-depth line
+  carries per-doubling slopes of those, per category and on the
+  four-silicate, other-three and seven-category means, with a unit
+  bootstrap over the val rocks (#85). Writes
   `results/depth_ladder.{csv,json}`; `--figures-only` redraws.
 
 ```

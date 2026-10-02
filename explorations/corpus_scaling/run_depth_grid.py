@@ -15,7 +15,10 @@ share error), all with seed repeats where present. The traced-regen corpus
 at 10,000 compositions is a second row. A cell is read when its checkpoint
 and zero-shot run both exist, so a new corpus joins the figure by training
 its cells under the tag grammar in the README. The recalibrator is fit on
-the real-rock train split and read on val; test stays sealed. Writes
+the real-rock train split and read on val; test stays sealed. Beside the
+figures' columns, every cell carries its val-only share error and Pearson r
+per category, zero-shot and recalibrated, and every fixed-depth line their
+per-doubling slopes with unit-bootstrap intervals (#85). Writes
 `results/depth_ladder.{csv,json,png}` and `depth_ladder_groups.png`;
 `--figures-only` redraws from the saved csv and json.
 """
@@ -28,6 +31,7 @@ os.environ.setdefault("KMP_WARNINGS", "off")
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -35,17 +39,22 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
 
-from cnmineral.data.phase_vocab import GROUPS
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+
+from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.real_rock import load_benchmark, split_mask
+from cnmineral.eval.mode_head import conditional_mean
+from cnmineral.eval.real_rock import load_benchmark, split_mask, unit_bootstrap
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint, selection_series
 from cnmineral.training.real_rock_recalibrator import (
     build_group_predictions, fit_recalibrator, paired_bootstrap, score_recalibrator,
 )
+from explorations.prior_search.run_prior_screen import OTHERS, SILICATES
 
-REPO = Path(__file__).resolve().parents[2]
 RESULTS = Path(__file__).resolve().parent / "results"
 SIZES = (78, 312, 1250, 5000, 10000)
 DEPTHS = (24, 56, 112, 224, 448)
@@ -59,6 +68,7 @@ SHOW_DEPTHS = (56, 224, 448)
 SHOW_RULE = ("stop mae", "stopped on real-rock train")
 METRICS = ("mae_mean", "headline_nll", "auroc_mean", "recal_val_joint", "recal_share_mae",
            *(f"mae_{g}" for g in GROUPS))
+MEANS = {"silicate": SILICATES, "other": OTHERS, "mean7": GROUPS}
 
 
 def batches_per_epoch(n):
@@ -116,35 +126,81 @@ def zero_shot(tag):
     return out
 
 
+def head_shares(ckpt, benchmark, latents, train_mask, device):
+    """A head's zero-shot and matrix-recalibrated share on every benchmark
+    rock, over the rock's measured mineral list, with the recalibrator fit on
+    `train_mask`; returns the group predictions and the fit alongside."""
+    gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
+    fit = fit_recalibrator(gp.subset(train_mask), tier="matrix", weight_decay=1.0)
+    with torch.no_grad():
+        _, alpha, _ = fit(gp.logits7, gp.alpha7, log_w=gp.log_w)
+    numeric = benchmark.numeric.astype(np.float64)
+    return gp, fit, conditional_mean(gp.alpha7.numpy(), numeric), conditional_mean(alpha.numpy(), numeric)
+
+
+def share_metrics(share, magnitude, numeric):
+    """Per category over the rows quantifying it: absolute error, Pearson r
+    and rock count; a row whose share is NaN is skipped."""
+    m = numeric & np.isfinite(share)
+    w = m.astype(float)
+    n = w.sum(0)
+    p, t = np.where(m, share, 0.0), np.where(m, magnitude, 0.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        mae = (np.abs(p - t) * w).sum(0) / n
+        dp = (p - (p * w).sum(0) / n) * w
+        dt = (t - (t * w).sum(0) / n) * w
+        r = (dp * dt).sum(0) / np.sqrt((dp ** 2).sum(0) * (dt ** 2).sum(0))
+    return mae, r, n.astype(int)
+
+
+def _nanmean(values):
+    return np.nan if np.isnan(values).all() else float(np.nanmean(values))
+
+
+def with_means(values):
+    """The seven per-category values followed by the four-silicate,
+    other-three and seven-category means (`MEANS`)."""
+    return np.r_[values, [_nanmean(values[[GROUP_INDEX[g] for g in groups]])
+                          for groups in MEANS.values()]]
+
+
 def score_all():
     device = pick_device()
     benchmark = load_benchmark()
     scored = benchmark.clean & benchmark.has_magnitude
     masks = {s: split_mask(benchmark, s) & scored for s in ("train", "val")}
     val_unit = benchmark.unit[masks["val"]]
+    val_truth = benchmark.magnitude[masks["val"]], benchmark.numeric[masks["val"]]
     prod = JointHeadCheckpoint.load(REPO / "checkpoints" / PRODUCTION / "heads_best.pt")
     encoder, _ = load_encoder_from_checkpoint(prod.encoder_checkpoint)
     latents = bulk_latents(encoder.to(device), benchmark, device)
 
-    per_rock, rows = {}, []
+    per_rock, per_rock_share, rows = {}, {}, []
     for cell in cells():
         ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / cell["tag"] / "heads_best.pt")
-        gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
-        fit = fit_recalibrator(gp.subset(masks["train"]), tier="matrix", weight_decay=1.0)
+        gp, fit, zero_share, recal_share = head_shares(ckpt, benchmark, latents, masks["train"], device)
         val = gp.subset(masks["val"])
         zero, got = score_recalibrator(None, val), score_recalibrator(fit, val)
         per_rock[cell["tag"]] = got["joint"]
+        shares = {"zero": zero_share[masks["val"]], "recal": recal_share[masks["val"]]}
+        per_rock_share[cell["tag"]] = shares
+        per_category = {}
+        for kind, prefix in (("zero", "val"), ("recal", "recal")):
+            mae, r, _ = share_metrics(shares[kind], *val_truth)
+            per_category.update({f"{prefix}_mae_{g}": mae[j] for j, g in enumerate(GROUPS)})
+            per_category.update({f"{prefix}_r_{g}": r[j] for j, g in enumerate(GROUPS)})
+        assert np.allclose(mae, got["share_mae"], equal_nan=True), "share_metrics drifted from score_recalibrator"
         rows.append(dict(**cell, steps=selected_steps(cell, ckpt.monitor), **zero_shot(cell["tag"]),
                          zero_shot_val_joint=float(zero["joint"].mean()),
                          recal_val_joint=float(got["joint"].mean()),
-                         recal_share_mae=got["share_mae_mean"]))
+                         recal_share_mae=got["share_mae_mean"], **per_category))
         r = rows[-1]
         print(f"{r['tag']:32s} steps {r['steps']:5d}  zero-shot mae {r['mae_mean']:.4f} "
               f"nll {r['headline_nll']:6.2f}  recal val {r['recal_val_joint']:.3f} "
               f"share {r['recal_share_mae']:.4f}")
     df = pd.DataFrame(rows)
     df.to_csv(RESULTS / "depth_ladder.csv", index=False)
-    return df, per_rock, masks, val_unit, benchmark, latents, device, prod
+    return df, per_rock, per_rock_share, val_truth, masks, val_unit, benchmark, latents, device, prod
 
 
 def aggregate(df):
@@ -190,6 +246,53 @@ def slopes_and_contrasts(df, agg, per_rock, val_unit):
     contrasts = {t: paired_bootstrap(per_rock[PRODUCTION], per_rock[t], val_unit)
                  for t in per_rock if t != PRODUCTION}
     return slopes, contrasts
+
+
+def share_slopes(df, agg, per_rock_share, magnitude, numeric, val_unit, n_boot=2000):
+    """Per-doubling slopes of val share error and Pearson r, zero-shot and
+    recalibrated, on every fixed-depth line: per category and `MEANS`, each
+    with a unit-bootstrap interval over the val rocks. Seed repeats average
+    per metric, as the figures' seed means do, never as an ensemble of their
+    shares. The arrays are the val subset's own, so the positions the
+    bootstrap hands out index them directly."""
+    labels = (*GROUPS, *MEANS)
+    out = {}
+    for d in DEPTHS:
+        sub = line(agg, "grid", d)
+        sub = sub[sub.n_bulks.isin(SIZES)]
+        if len(sub) < 3:
+            continue
+        xc = np.log2(sub.n_bulks.values.astype(float))
+        xc = xc - xc.mean()
+        tags = [df[(df.series == s) & (df.n_bulks == n) & (df.depth.astype(str) == dd)].tag
+                for s, n, dd in zip(sub.series, sub.n_bulks, sub.depth)]
+        entry = {}
+        for kind, name in (("zero", "zero_shot_val"), ("recal", "recal")):
+            shares = [[per_rock_share[t][kind] for t in ts] for ts in tags]
+
+            def stat(idx, shares=shares):
+                mae, r = [], []
+                for seeds in shares:
+                    rows = [share_metrics(s[idx], magnitude[idx], numeric[idx]) for s in seeds]
+                    mae.append(np.mean([with_means(m) for m, _, _ in rows], axis=0))
+                    r.append(np.mean([with_means(c) for _, c, _ in rows], axis=0))
+                mae, r = np.stack(mae), np.stack(r)
+                return np.r_[xc @ (mae - mae.mean(0)), xc @ (r - r.mean(0))] / (xc ** 2).sum()
+
+            est = stat(np.arange(len(val_unit)))
+            lo, hi = unit_bootstrap(stat, val_unit, n_boot=n_boot)
+            k = len(labels)
+            for i, metric in enumerate(("share_mae", "pearson_r")):
+                part = slice(i * k, (i + 1) * k)
+                entry[f"{name}_{metric}_per_doubling"] = {
+                    label: {"mean": float(e), "lo": float(a), "hi": float(b)}
+                    for label, e, a, b in zip(labels, est[part], lo[part], hi[part])}
+        out[f"grid {d}"] = entry
+        for name in ("zero_shot_val", "recal"):
+            s = entry[f"{name}_share_mae_per_doubling"]["silicate"]
+            print(f"grid {d} {name} silicate share error {s['mean']:+.4f} "
+                  f"[{s['lo']:+.4f}, {s['hi']:+.4f}]/doubling")
+    return out
 
 
 def constant_forecast(benchmark, train_mask):
@@ -289,8 +392,10 @@ def main():
         saved = json.loads((RESULTS / "depth_ladder.json").read_text())
         reference = {k: tuple(v) for k, v in saved["references"].items()}
     else:
-        df, per_rock, masks, val_unit, benchmark, latents, device, prod = score_all()
+        df, per_rock, per_rock_share, val_truth, masks, val_unit, benchmark, latents, device, prod = score_all()
         slopes, contrasts = slopes_and_contrasts(df, aggregate(df), per_rock, val_unit)
+        for key, entry in share_slopes(df, aggregate(df), per_rock_share, *val_truth, val_unit).items():
+            slopes[key].update(entry)
         reference = references(masks, benchmark, latents, device, prod)
         print("references:", {k: round(v[0], 4) for k, v in reference.items()})
         (RESULTS / "depth_ladder.json").write_text(json.dumps(

@@ -618,6 +618,8 @@ Tests for archived explorations (moved to `explorations/archive/`,
 6. `test_selected_steps_follows_the_cell_rule` -- a depth-grid cell's gradient-step count follows its rule (corpus-val argmin, last epoch, or a real-rock probe series) at 8 batches per epoch, and the corpus-val ladder rows use the full-epoch batch count.
 7. `test_aggregate_spans_seeds_and_line_prefers_final_cells` -- seed repeats collapse to mean / min / max with a seed count, and a depth line takes the last-epoch `final` cell over the corpus-val-stopped `grid` cell at the same corpus size.
 8. `test_truncated_loader_cuts_only_shuffled_epochs` -- the variant trainer's loader override truncates the shuffled training epoch to N batches and leaves the unshuffled val loader whole.
+9. `test_share_metrics_match_numpy_on_the_quantified_rows` -- per category over the quantified rows with a finite share, the absolute error, Pearson r and rock count equal numpy's, and `with_means` appends the four-silicate, other-three and seven-category means.
+10. `test_share_slopes_recover_a_known_slope_per_doubling` -- on a synthetic line whose share error falls 0.01 per doubling, the zero-shot and recalibrated slopes read -0.01 per category and on the silicate mean with a band that collapses onto it, seed repeats that err in opposite directions average per metric rather than cancelling as an ensemble, and a category no rock quantifies reads NaN.
 
 ### test_generator_reach.py
 
