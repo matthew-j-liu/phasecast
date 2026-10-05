@@ -2,7 +2,9 @@
 table and its TAS iron classes, the broad-box expansion, the whole-ladder
 parser, the chunked runner against a fake Julia, the three-distance read,
 and the signal read's pure pieces (renormalization, the line fit, the
-bootstrap table, the ruler disagreement).
+bootstrap table, the ruler disagreement, and for the plutonic read the rank
+metrics, the CIPW norm and the packaging of a share source for the
+recalibrator).
 The real generator needs Julia and MAGEMin, so it is exercised by the smoke
 run, not here."""
 
@@ -408,3 +410,75 @@ def test_ruler_disagreement_on_a_synthetic_pair():
     assert np.isclose(out["fsp"]["signed_mean"], -0.1)
     assert out["bi"]["n_rocks"] == 2 and np.isclose(out["bi"]["signed_mean"], 0.1)
     assert out["amp"]["n_rocks"] == 0 and out["amp"]["ruler_disagreement"] is None
+
+
+def test_rank_metrics_match_scipy_and_sklearn_over_the_quantified_rows():
+    from scipy.stats import spearmanr
+    from sklearn.metrics import roc_auc_score
+
+    rng = np.random.default_rng(3)
+    n = 50
+    share, magnitude = rng.uniform(size=(n, 7)), rng.uniform(size=(n, 7))
+    magnitude[:, 0] = share[:, 0] + rng.normal(0, 0.1, n)
+    numeric = rng.uniform(size=(n, 7)) > 0.2
+    numeric[:, GROUP_INDEX["ol"]] = False
+    rho = run_signal.spearman(share, magnitude, numeric)
+    for j in range(7):
+        m = numeric[:, j]
+        expected = spearmanr(share[m, j], magnitude[m, j]).statistic if m.sum() >= 3 else np.nan
+        assert np.allclose(rho[j], expected, equal_nan=True)
+    assert np.isnan(rho[GROUP_INDEX["ol"]])
+
+    presence = (rng.uniform(size=(n, 7)) > 0.4).astype(float)
+    presence[:, GROUP_INDEX["q"]] = 1.0
+    auroc = run_signal.presence_auroc(share, presence)
+    for j in range(7):
+        if j != GROUP_INDEX["q"]:
+            assert np.isclose(auroc[j], roc_auc_score(presence[:, j], share[:, j]))
+    assert np.isnan(auroc[GROUP_INDEX["q"]])
+
+
+def test_cipw_shares_close_on_the_seven_groups_with_no_hydrous_minerals():
+    samples = pd.read_csv(Path(__file__).resolve().parents[2] / "data" / "real_mineralogy"
+                          / "plutonic" / "samples.csv").dropna(subset=["sio2"])
+    rows = pd.concat([samples.nlargest(3, "sio2"), samples.nsmallest(2, "sio2")])
+    shares = run_signal.cipw_shares(rows)
+    assert np.allclose(shares.sum(1), 1.0)
+    assert (shares[:, GROUP_INDEX["amp"]] == 0).all() and (shares[:, GROUP_INDEX["bi"]] == 0).all()
+    granite = shares[:3]
+    assert (granite[:, GROUP_INDEX["q"]] + granite[:, GROUP_INDEX["fsp"]] > 0.9).all()
+    assert (granite[:, GROUP_INDEX["q"]] > 0.2).all()
+    mafic = shares[3:]
+    assert (mafic[:, GROUP_INDEX["px"]] + mafic[:, GROUP_INDEX["ol"]]
+            > granite[:, GROUP_INDEX["px"]].max()).all()
+
+
+def test_packaged_source_reproduces_its_floored_shares_at_the_identity_correction():
+    import torch
+
+    from cnmineral.eval.mode_head import conditional_mean
+    from cnmineral.models.real_rock_recalibrator import RealRockRecalibrator
+    from cnmineral.training.real_rock_recalibrator import GroupPredictions
+
+    rng = np.random.default_rng(4)
+    n = 6
+    share = rng.dirichlet(np.ones(7), n)
+    share[:, GROUP_INDEX["amp"]] = 0.0
+    numeric = rng.uniform(size=(n, 7)) > 0.3
+    numeric[:, GROUP_INDEX["amp"]] = True
+    t = lambda a: torch.as_tensor(a, dtype=torch.float64)
+    gp = GroupPredictions(logits7=t(np.zeros((n, 7))), alpha7=t(np.ones((n, 7))), sio2=t(np.zeros(n)),
+                          presence=t(numeric), magnitude=t(share), numeric=t(numeric),
+                          unit=np.arange(n))
+    out = run_signal.packaged(gp, share, (share > 0).astype(float), kappa=40.0)
+    floored = np.maximum(share, run_signal.PACKAGE_FLOOR)
+    expected = conditional_mean(floored, numeric.astype(float))
+    assert np.allclose(conditional_mean(out.alpha7.numpy(), numeric.astype(float)), expected)
+    assert np.isclose(out.alpha7.numpy().sum(1), 40.0).all()
+    assert (out.alpha7.numpy()[:, GROUP_INDEX["amp"]] > 0).all()
+    p = torch.sigmoid(out.logits7).numpy()
+    assert np.allclose(p, np.where(share > 0, 1 - run_signal.PACKAGE_FLOOR, run_signal.PACKAGE_FLOOR))
+    assert out.magnitude is gp.magnitude and out.log_w is None
+    with torch.no_grad():
+        _, alpha, _ = RealRockRecalibrator("matrix").to(torch.float64)(out.logits7, out.alpha7)
+    assert torch.allclose(alpha, out.alpha7)

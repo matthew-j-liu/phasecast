@@ -17,6 +17,7 @@ dependencies:
   - tqdm
   - pytorch=2.10
   - pymatgen=2024.5
+  - pyrolite=0.3.6  # 0.3.7+ needs python 3.11
   - jupyterlab
   - pytest
   - pip

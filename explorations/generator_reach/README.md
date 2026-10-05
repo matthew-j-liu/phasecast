@@ -282,3 +282,77 @@ Four silicates on the val split (106 rocks, 39 units), with 95% bands:
   biotite (0.042 against 0.083) and opaques (0.041 against 0.110). It is
   unchanged for feldspar (0.142 against 0.138) and quartz (0.257 against
   0.237). Two eruptions, 10 to 63 rocks per category.
+
+## Plutonic signal read (2026-10-05, #83 step 0)
+
+The first read of #83, on the plutonic whole-rock benchmark (#82), before any
+generator run: does the production head track the plutonic rocks better than
+baselines that use no simulator? Owner rulings 2026-10-02 set the readout;
+the volcanic read above is re-run under them in a later change.
+
+**Settings.** Every source is read the two ways the scaling review figures
+read a head: with no correction, and under the matrix recalibrator (weight
+decay 1.0) fit on the plutonic train rocks. Metrics on the val rocks, with
+95% unit-bootstrap bands over the val intrusions:
+- share absolute error over each rock's measured mineral list;
+- Spearman rank correlation across rocks, with its sign;
+- presence AUROC where a source has probabilities;
+- joint NLL where a source has a probability model;
+- each source minus each baseline on the same resample.
+
+No straight line.
+
+**Sources.**
+- the production head (`joint_heads_allrock_tuned_seed0`), zero-shot and
+  recalibrated;
+- four baselines that use no simulator:
+  - the constant over the measured mineral list (train mean);
+  - the head given no chemistry (`fit_measured_head` on `ablate_latent`,
+    weight decay 10);
+  - the CIPW norm, read like any source;
+  - the head given raw geochemistry (`use_raw_chemistry`, weight decay 1.0).
+
+  The two weight decays are `run_curve.WEIGHT_DECAY`'s, not re-selected on
+  the split being read.
+
+**The norm.** pyrolite's `CIPW_norm` on the majors. Iron is all FeO in the
+sources, so pyrolite applies its Le Maitre split. Its summary minerals map to
+the groups as `CIPW_TO_GROUP`, and it has no amphibole or biotite. For the
+recalibrator, `packaged` gives a share source a forecast:
+- presence 1 − 1e-3 where its share is above 0;
+- concentrations kappa times its shares, floored at 1e-3 so that the
+  multiplicative correction can still build a group the norm lacks;
+- kappa is the production head's median train concentration, 50.7.
+
+A packaged source gets no zero-shot NLL, since its concentration is assumed
+rather than forecast.
+
+```
+python explorations/generator_reach/run_signal.py --benchmark plutonic
+```
+
+Written under the `plutonic` key of `results/signal.json`: settings, the NLL
+terms with bands, and the table (one record per source and category or
+mean). About 20 s.
+
+**Result.** Four silicates on the val split (61 rocks, 19 intrusions; 8 of
+them carry pyroxene and 1 olivine):
+
+| source | share error | Spearman | joint NLL |
+|---|---|---|---|
+| head zero-shot | 0.080 [0.067, 0.122] | 0.36 [-0.08, 0.51] | 0.60 [-2.21, 5.93] |
+| head recalibrated | 0.046 [0.032, 0.094] | 0.38 [-0.11, 0.55] | -3.69 [-6.16, -1.31] |
+| CIPW norm | 0.069 [0.040, 0.084] | 0.06 [-0.29, 0.34] | |
+| CIPW norm recalibrated | 0.038 [0.026, 0.062] | 0.35 [-0.07, 0.57] | -4.22 [-6.57, -1.81] |
+| constant | 0.050 [0.033, 0.096] | 0.09 [-0.23, 0.20] | |
+| head given no chemistry | 0.047 [0.030, 0.098] | 0.08 [-0.24, 0.17] | -3.89 [-5.98, -1.66] |
+| head given raw geochemistry | 0.051 [0.035, 0.092] | 0.23 [-0.15, 0.38] | -3.94 [-6.06, -1.71] |
+
+Differences on the four silicates, on the same resamples:
+- **Recalibrated head.** Its share error is within 0.005 of every
+  chemistry-free baseline, with every band crossing zero. Its NLL sits
+  +0.20 [-0.69, +1.68] above the head given no chemistry.
+- **Recalibrated norm.** It is below the constant (-0.011 [-0.037,
+  -0.005]), the head given no chemistry (-0.008 [-0.039, -0.002]) and the
+  head given raw geochemistry (-0.012 [-0.033, -0.007]). Against the
+  recalibrated head it is -0.007 [-0.036, +0.002], crossing zero.

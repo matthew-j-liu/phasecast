@@ -15,6 +15,14 @@ fixed. The ruler read compares du Bray's visual estimate with the DS 1099
 point count of the same thin sections (train and val only): two tuff
 eruptions, so a hint at the ruler's error, not a floor. Writes
 `signal.csv`, `signal.json` and `signal.png` under `--results`.
+
+`--benchmark plutonic` is #83's step 0: the production head on the plutonic
+benchmark, zero-shot and under the matrix recalibrator, against a ladder of
+baselines that use no simulator (the constant, the head given no chemistry,
+the CIPW norm read like any source, the head given raw geochemistry), scored
+by share error, Spearman, presence AUROC and joint NLL on the val rocks with
+unit-bootstrap bands over the val intrusions. No straight line. It writes
+only the `plutonic` key of `signal.json`, which the eruption read keeps.
 """
 
 import os
@@ -24,8 +32,11 @@ os.environ.setdefault("KMP_WARNINGS", "off")
 
 import argparse
 import json
+import logging
 import sys
 import tempfile
+import warnings
+from dataclasses import replace
 from pathlib import Path
 
 import matplotlib
@@ -35,24 +46,30 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+from pyrolite.mineral.normative import CIPW_norm
+from scipy.stats import rankdata
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
-from cnmineral.eval.mode_head import mixture_conditional_mean
+from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
 from cnmineral.eval.real_rock import (
     BENCHMARK_DIR, POINTCOUNT_BASIS, VISUAL_BASIS, load_benchmark, split_mask, unit_bootstrap)
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
-from cnmineral.training.measured_mode_head import ablate_latent, fit_measured_head
+from cnmineral.training.measured_mode_head import (
+    ablate_latent, fit_measured_head, score_measured_head, use_raw_chemistry)
+from cnmineral.training.real_rock_recalibrator import fit_recalibrator, score_recalibrator
 from explorations.corpus_scaling.run_depth_grid import MEANS, head_shares, share_metrics, with_means
 from explorations.generator_reach import run_read
 from explorations.generator_reach.compositions import load_compositions
 from explorations.prior_search import run_predictability as predict
 from explorations.prior_search.run_prior_screen import NAVY, ORANGE, reweighted_marginals
 from explorations.prior_search.schemes import GRID, WIDTHS, density
+from explorations.real_mineralogy.harvest import PLUTONIC_DIR
+from explorations.real_mineralogy.plutonic import plutonic_benchmark
 from explorations.real_mineralogy.run_pointcount_contrast import (
     COVERED_GROUPS, counting_noise, paired_keys, parent_unit, restricted_benchmark_dir,
     section_totals)
@@ -69,6 +86,23 @@ SOURCES = ("simulator", "prior_best_rectangle", "prior_forest_window", "prior_ow
 ORACLE = ("prior_own_hit_window", "prior_hit_rows")
 FIT_ON_TRAIN_LABELS = ("constant", "head_recalibrated", "head_no_chemistry")
 LABELS = (*GROUPS, *MEANS)
+
+PRODUCTION = "joint_heads_allrock_tuned_seed0"
+PLUTONIC_SPLIT_COUNTS = {"train": 291, "val": 61, "test": 155}
+PLUTONIC_SOURCES = ("head_zero_shot", "head_recalibrated", "cipw_zero_shot", "cipw_recalibrated",
+                    "constant", "head_no_chemistry", "head_raw_chemistry")
+BASELINES = ("constant", "head_no_chemistry", "cipw_recalibrated", "head_raw_chemistry")
+# `explorations/real_rock_fewshot/run_curve.py`'s WEIGHT_DECAY, selected on the eruption val
+# split; not re-selected here, where val is the split being read
+MEASURED_WEIGHT_DECAY = {"head_no_chemistry": 10.0, "head_raw_chemistry": 1.0}
+PACKAGE_FLOOR = 1e-3
+# CIPW summary minerals (not their end-member components, which would count twice) -> group;
+# apatite, corundum, titanite, zircon and the feldspathoids fall outside the seven groups
+CIPW_TO_GROUP = {"quartz": "q", "albite": "fsp", "anorthite": "fsp", "orthoclase": "fsp",
+                 "diopside": "px", "hypersthene": "px", "olivine": "ol",
+                 "magnetite": "opq", "ilmenite": "opq", "hematite": "opq"}
+CIPW_OXIDES = {"sio2": "SiO2", "tio2": "TiO2", "al2o3": "Al2O3", "feo_tot": "FeO", "mno": "MnO",
+               "mgo": "MgO", "cao": "CaO", "na2o": "Na2O", "k2o": "K2O", "p2o5": "P2O5"}
 
 
 def renormalize(share, numeric):
@@ -287,6 +321,206 @@ def ruler_read(benchmark, mask, comps, raw_points, draws):
             **error}
 
 
+def spearman(share, magnitude, numeric):
+    """Per category over the rows quantifying it, as `share_metrics` counts
+    them: Pearson on average ranks; NaN where either side does not vary."""
+    out = np.full(len(GROUPS), np.nan)
+    for j in range(len(GROUPS)):
+        m = numeric[:, j] & np.isfinite(share[:, j])
+        if m.sum() < 3:
+            continue
+        x, y = rankdata(share[m, j]), rankdata(magnitude[m, j])
+        if np.ptp(x) > 0 and np.ptp(y) > 0:
+            out[j] = np.corrcoef(x, y)[0, 1]
+    return out
+
+
+def presence_auroc(p, presence):
+    """Per category, the rank (Mann-Whitney) AUROC of `p` against measured
+    presence; NaN where every rock or none carries the category."""
+    out = np.full(len(GROUPS), np.nan)
+    for j in range(len(GROUPS)):
+        y = presence[:, j] > 0.5
+        n_pos, n_neg = int(y.sum()), int((~y).sum())
+        if n_pos and n_neg:
+            out[j] = (rankdata(p[:, j])[y].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+    return out
+
+
+def cipw_shares(samples):
+    """The CIPW norm of each row's majors as group mass fractions over the
+    seven groups; weight percent in, so on the benchmark's mass basis. Iron is
+    all FeO in these sources, so pyrolite splits it with its default Le Maitre
+    correction, and an unreported minor oxide counts as zero."""
+    chem = samples[list(CIPW_OXIDES)].rename(columns=CIPW_OXIDES).reset_index(drop=True)
+    chem[["TiO2", "MnO", "P2O5"]] = chem[["TiO2", "MnO", "P2O5"]].fillna(0.0)
+    # pyrolite warns on every call that Fe2O3 is absent, which is this input by construction
+    logging.getLogger("pyrolite").setLevel(logging.ERROR)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        norm = CIPW_norm(chem)
+    out = np.zeros((len(chem), len(GROUPS)))
+    for mineral, group in CIPW_TO_GROUP.items():
+        out[:, GROUP_INDEX[group]] += norm[mineral].fillna(0.0).to_numpy()
+    total = out.sum(1, keepdims=True)
+    return np.divide(out, total, out=np.full_like(out, np.nan), where=total > 0)
+
+
+def packaged(gp, share, presence_p, kappa, floor=PACKAGE_FLOOR):
+    """`gp` with its forecast swapped for a source that has shares but no
+    probability model: presence `presence_p` and concentrations `kappa` times
+    the floored shares. Truth, units and inputs stay `gp`'s, so the
+    recalibrator fits and scores it on the same rocks. The floor keeps every
+    group revivable, since the recalibrator corrects multiplicatively and a
+    zero concentration stays zero."""
+    p = np.clip(presence_p, floor, 1 - floor)
+    s = np.maximum(np.nan_to_num(share), floor)
+    s = s / s.sum(1, keepdims=True)
+    return replace(gp, logits7=torch.as_tensor(np.log(p / (1 - p)), dtype=torch.float64),
+                   alpha7=torch.as_tensor(kappa * s, dtype=torch.float64), log_w=None)
+
+
+def plutonic_sources(benchmark, train_mask, val_mask, device):
+    """Every source of the plutonic read, on the benchmark's rocks: shares over
+    each rock's measured mineral list, presence probabilities where the source
+    has them, and per-rock joint NLL on the val rocks where it has one."""
+    ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / PRODUCTION / "heads_best.pt")
+    encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
+    latents = bulk_latents(encoder.to(device), benchmark, device)
+    gp, fit, zero, recal = head_shares(ckpt, benchmark, latents, train_mask, device)
+    numeric = benchmark.numeric.astype(np.float64)
+    val = gp.subset(val_mask)
+    shares = {"head_zero_shot": zero, "head_recalibrated": recal}
+    with torch.no_grad():
+        presence = {"head_zero_shot": torch.sigmoid(gp.logits7).numpy(),
+                    "head_recalibrated": torch.sigmoid(fit(gp.logits7, gp.alpha7, log_w=gp.log_w)[0]).numpy()}
+    nll = {"head_zero_shot": score_recalibrator(None, val)["joint"],
+           "head_recalibrated": score_recalibrator(fit, val)["joint"]}
+
+    samples = pd.read_csv(PLUTONIC_DIR / "samples.csv")
+    samples.index = samples["source"] + "|" + samples["sample_id"].astype(str)
+    norm = cipw_shares(samples.loc[benchmark.bulk_ids])
+    shares["cipw_zero_shot"] = renormalize(norm, benchmark.numeric)
+    kappa = float(np.median(gp.alpha7[torch.as_tensor(train_mask)].sum(1).numpy()))
+    norm_gp = packaged(gp, norm, (norm > 0).astype(float), kappa)
+    norm_fit = fit_recalibrator(norm_gp.subset(train_mask), tier="matrix", weight_decay=1.0)
+    with torch.no_grad():
+        logits, alpha, _ = norm_fit(norm_gp.logits7, norm_gp.alpha7)
+    shares["cipw_recalibrated"] = conditional_mean(alpha.numpy(), numeric)
+    presence["cipw_recalibrated"] = torch.sigmoid(logits).numpy()
+    nll["cipw_recalibrated"] = score_recalibrator(norm_fit, norm_gp.subset(val_mask))["joint"]
+
+    const = constant_vector(benchmark.magnitude, benchmark.numeric, train_mask)
+    shares["constant"] = renormalize(np.tile(const, (len(benchmark), 1)), benchmark.numeric)
+
+    for name, swap in (("head_no_chemistry", ablate_latent), ("head_raw_chemistry", use_raw_chemistry)):
+        head = fit_measured_head(swap(gp.subset(train_mask)), weight_decay=MEASURED_WEIGHT_DECAY[name])
+        every = swap(gp)
+        with torch.no_grad():
+            logits, alpha, log_w = head(every.latent, every.presence)
+        shares[name] = mixture_conditional_mean(alpha.numpy(), log_w.numpy(), numeric)
+        presence[name] = torch.sigmoid(logits).numpy()
+        nll[name] = score_measured_head(head, swap(val))["joint"]
+    return {name: shares[name] for name in PLUTONIC_SOURCES}, presence, nll, kappa
+
+
+def plutonic_stats(shares, presence_p, nll, magnitude, numeric, presence, idx):
+    """{(source, metric): values} on the rows `idx`: share error, Spearman and
+    presence AUROC over `LABELS`, mean joint NLL as a single value, and every
+    source's share error and NLL minus each baseline's on the same rows."""
+    out = {}
+    for name, share in shares.items():
+        out[name, "share_mae"] = with_means(share_metrics(share[idx], magnitude[idx], numeric[idx])[0])
+        out[name, "spearman"] = with_means(spearman(share[idx], magnitude[idx], numeric[idx]))
+        if name in presence_p:
+            out[name, "auroc"] = with_means(presence_auroc(presence_p[name][idx], presence[idx]))
+        if name in nll:
+            out[name, "joint_nll"] = np.array([nll[name][idx].mean()])
+    for name in shares:
+        for base in BASELINES:
+            out[name, f"share_mae_minus_{base}"] = out[name, "share_mae"] - out[base, "share_mae"]
+            if name in nll and base in nll:
+                out[name, f"joint_nll_minus_{base}"] = out[name, "joint_nll"] - out[base, "joint_nll"]
+    return out
+
+
+def plutonic_table(shares, presence_p, nll, magnitude, numeric, presence, units, n_boot=N_BOOT):
+    """One row per (source, label) with each per-label metric and its
+    unit-bootstrap band, and per source the NLL terms with theirs. The arrays
+    are the val rocks' own, so the bootstrap's positions index them."""
+    args = (shares, presence_p, nll, magnitude, numeric, presence)
+    est = plutonic_stats(*args, np.arange(len(units)))
+    keys = list(est)
+    lo, hi = unit_bootstrap(lambda idx: np.concatenate(
+        [v for v in plutonic_stats(*args, idx).values()]), units, n_boot=n_boot)
+    bounds = np.cumsum([0, *(len(est[k]) for k in keys)])
+    band = {k: (est[k], lo[a:b], hi[a:b]) for k, a, b in zip(keys, bounds[:-1], bounds[1:])}
+    quantifies = {label: int(numeric[:, [GROUP_INDEX[g] for g in groups]].any(1).sum())
+                  for label, groups in MEANS.items()}
+    rows, nll_terms = [], {}
+    for name, share in shares.items():
+        n = share_metrics(share, magnitude, numeric)[2]
+        for i, label in enumerate(LABELS):
+            row = dict(source=name, category=label,
+                       n_rocks=int(n[i]) if i < len(GROUPS) else quantifies[label])
+            for (source, metric), (e, a, b) in band.items():
+                if source == name and len(e) == len(LABELS):
+                    row.update({metric: e[i], f"{metric}_lo": a[i], f"{metric}_hi": b[i]})
+            rows.append(row)
+        nll_terms[name] = {metric: [float(e[0]), float(a[0]), float(b[0])]
+                           for (source, metric), (e, a, b) in band.items() if source == name and len(e) == 1}
+    return pd.DataFrame(rows), nll_terms
+
+
+def print_plutonic(table, nll_terms):
+    by = table.set_index(["source", "category"])
+    print("plutonic val: four-silicate share error [interval], all seven, silicate spearman, joint nll")
+    for name in PLUTONIC_SOURCES:
+        sil, every = by.loc[(name, "silicate")], by.loc[(name, "mean7")]
+        j = nll_terms[name].get("joint_nll")
+        print(f"{name}: {sil['share_mae']:.3f} [{sil['share_mae_lo']:.3f}, {sil['share_mae_hi']:.3f}], "
+              f"all {every['share_mae']:.3f}, spearman {sil['spearman']:.2f}"
+              + (f", nll {j[0]:.2f} [{j[1]:.2f}, {j[2]:.2f}]" if j else ""))
+    print("per category share error (spearman):")
+    for g in GROUPS:
+        print(f"{g}: " + ", ".join(f"{name} {by.loc[(name, g), 'share_mae']:.3f} "
+                                   f"({by.loc[(name, g), 'spearman']:.2f})" for name in PLUTONIC_SOURCES))
+
+
+def read_plutonic(args):
+    with plutonic_benchmark() as evaluated:
+        benchmark = evaluated.subset(evaluated.has_magnitude)
+        masks = {s: split_mask(benchmark, s) for s in PLUTONIC_SPLIT_COUNTS}
+    counts = {s: int(m.sum()) for s, m in masks.items()}
+    if counts != PLUTONIC_SPLIT_COUNTS:
+        raise SystemExit(f"split counts {counts} are not the plutonic benchmark's {PLUTONIC_SPLIT_COUNTS}")
+    train, val = masks["train"], masks["val"]
+
+    shares, presence_p, nll, kappa = plutonic_sources(benchmark, train, val, pick_device())
+    units = benchmark.unit[val]
+    table, nll_terms = plutonic_table({k: v[val] for k, v in shares.items()},
+                                      {k: v[val] for k, v in presence_p.items()}, nll,
+                                      benchmark.magnitude[val], benchmark.numeric[val],
+                                      benchmark.presence[val], units)
+    print_plutonic(table, nll_terms)
+
+    path = args.results / "signal.json"
+    payload = json.loads(path.read_text()) if path.exists() else {}
+    payload["plutonic"] = {
+        "settings": {"head": PRODUCTION, "recalibrator": "matrix, weight decay 1.0, fit on train",
+                     "measured_head_weight_decay": MEASURED_WEIGHT_DECAY, "kappa": kappa,
+                     "package_floor": PACKAGE_FLOOR, "cipw_to_group": CIPW_TO_GROUP,
+                     "baselines": list(BASELINES), "n_boot": N_BOOT, "bootstrap_seed": 0,
+                     "val_rocks": int(val.sum()), "val_units": int(len(np.unique(units))),
+                     "split_counts": counts, "fits_on": "train rocks", "reads_on": "val rocks",
+                     "test": "sealed"},
+        "nll": nll_terms,
+        "table": table.to_dict(orient="records"),
+    }
+    path.write_text(json.dumps(payload, indent=1, default=float))
+    print(f"wrote the plutonic read into {path}")
+
+
 def print_table(table):
     sil = table[table["category"] == "silicate"].set_index("source")
     print("four silicates on val: mae [interval], pearson_r, mae_linear_fit, mae minus constant")
@@ -365,14 +599,7 @@ def draw_figure(shares, coef, magnitude, numeric, subset, table, out):
     plt.close(fig)
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--work", type=Path, default=WORK)
-    ap.add_argument("--results", type=Path, default=RESULTS)
-    args = ap.parse_args()
-    args.results.mkdir(parents=True, exist_ok=True)
-
+def read_eruption(args):
     benchmark = load_benchmark(BENCHMARK_DIR)
     mask = benchmark.clean & benchmark.has_magnitude
     comps = load_compositions(HERE / "results" / "compositions.csv")
@@ -415,7 +642,9 @@ def main():
     print_ruler(ruler)
 
     table.to_csv(args.results / "signal.csv", index=False)
-    (args.results / "signal.json").write_text(json.dumps({
+    path = args.results / "signal.json"
+    plutonic = json.loads(path.read_text()).get("plutonic") if path.exists() else None
+    payload = {
         "settings": {"head": HEAD, "best_rectangle": best, "n_boot": N_BOOT, "bootstrap_seed": 0,
                      "val_rocks": int(val.sum()), "val_units": int(len(np.unique(units))),
                      "split_counts": counts, "hit_rows": {"tau": 0.05, "fallback": 8},
@@ -425,9 +654,23 @@ def main():
         "linear_fit_coefficients": {name: {g: {"a": a, "b": b} for g, (a, b) in c.items()}
                                     for name, c in coef.items()},
         "ruler": ruler,
-    }, indent=1, default=float))
+    }
+    if plutonic is not None:
+        payload["plutonic"] = plutonic
+    path.write_text(json.dumps(payload, indent=1, default=float))
     draw_figure(shares, coef, magnitude, numeric, subset, table, args.results)
     print(f"wrote {args.results / 'signal.csv'}, signal.json, signal.png")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--benchmark", choices=("eruption", "plutonic"), default="eruption")
+    ap.add_argument("--work", type=Path, default=WORK)
+    ap.add_argument("--results", type=Path, default=RESULTS)
+    args = ap.parse_args()
+    args.results.mkdir(parents=True, exist_ok=True)
+    (read_plutonic if args.benchmark == "plutonic" else read_eruption)(args)
 
 
 if __name__ == "__main__":

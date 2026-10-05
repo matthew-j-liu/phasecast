@@ -639,6 +639,9 @@ Tests for archived explorations (moved to `explorations/archive/`,
 14. `test_linear_fit_is_the_constant_for_a_flat_source_and_exact_for_a_linear_one` -- a source that does not vary fits to the renormalized train-mean constant with slope 0, and a source linear in the truth fits back to the truth exactly with the right intercept and slope.
 15. `test_bootstrap_table_bands_contain_the_estimate` -- every metric the signal table reports (`mae`, `pearson_r`, `mae_linear_fit`, the difference from the constant) sits inside its unit-bootstrap band, which fails if the bootstrap's positions index the wrong rocks.
 16. `test_ruler_disagreement_on_a_synthetic_pair` -- visual against point count per covered category over the rocks both quantify: mean absolute and signed difference, the count, and None for a category neither quantifies.
+17. `test_rank_metrics_match_scipy_and_sklearn_over_the_quantified_rows` -- the plutonic read's Spearman equals scipy's per category over the rows quantifying it (NaN for a category no rock quantifies), and its rank AUROC equals sklearn's (NaN where every rock carries the category), so the bootstrap's hand-rolled metrics are the standard ones.
+18. `test_cipw_shares_close_on_the_seven_groups_with_no_hydrous_minerals` -- on real plutonic rows the CIPW norm's group shares close to 1 with amphibole and biotite at zero, quartz plus feldspar dominate the high-silica granites, and the low-silica rocks carry more pyroxene and olivine, which fails if a summary mineral and its components are both counted.
+19. `test_packaged_source_reproduces_its_floored_shares_at_the_identity_correction` -- a share source packaged for the recalibrator keeps its floored shares through the conditional mean, sums to `kappa`, revives a zero group to the floor, carries the clipped presence as its logit, shares the truth tensors, and passes an unfit matrix recalibrator unchanged.
 
 ### test_input_probe_ceiling.py
 
