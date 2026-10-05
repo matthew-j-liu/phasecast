@@ -43,26 +43,26 @@
   "unit_structure": [
     {
       "size": "1 rock only",
-      "units": 63,
-      "rocks": 63
+      "units": 58,
+      "rocks": 58
     },
     {
       "size": "2-5",
-      "units": 38,
-      "rocks": 121
+      "units": 39,
+      "rocks": 123
     },
     {
       "size": "6-20",
-      "units": 23,
-      "rocks": 214
+      "units": 22,
+      "rocks": 208
     },
     {
       "size": "21+",
       "units": 7,
-      "rocks": 231
+      "rocks": 240
     }
   ],
-  "units_total": 131,
+  "units_total": 126,
   "by_split": [
     {
       "subset": "test",
@@ -73,13 +73,13 @@
     {
       "subset": "train",
       "rocks": 372,
-      "units": 51,
+      "units": 47,
       "point_counted": 61
     },
     {
       "subset": "val",
       "rocks": 96,
-      "units": 37,
+      "units": 36,
       "point_counted": 2
     }
   ],

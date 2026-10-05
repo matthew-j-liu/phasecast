@@ -41,18 +41,18 @@ bootstrap intervals cluster by unit rather than by rock.
 
 | size | units | rocks |
 |---|---|---|
-| 1 rock only | 63 | 63 |
-| 2-5 | 38 | 121 |
-| 6-20 | 23 | 214 |
-| 21+ | 7 | 231 |
+| 1 rock only | 58 | 58 |
+| 2-5 | 39 | 123 |
+| 6-20 | 22 | 208 |
+| 21+ | 7 | 240 |
 
 ## Split, in units as well as rocks
 
 | subset | rocks | units | point_counted |
 |---|---|---|---|
 | test | 161 | 43 | 1 |
-| train | 372 | 51 | 61 |
-| val | 96 | 37 | 2 |
+| train | 372 | 47 | 61 |
+| val | 96 | 36 | 2 |
 
 ## Composition of the scored set
 

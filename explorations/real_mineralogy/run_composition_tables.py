@@ -158,7 +158,10 @@ def scored_frame(samples: pd.DataFrame, scored_keys: list[str]) -> pd.DataFrame:
     frame["key"] = _keys(frame)
     frame = frame[frame["key"].isin(set(scored_keys))].copy()
     split = pd.read_csv(SPLIT_PATH)
-    frame["subset"] = frame["key"].map(dict(zip(_keys(split), split["subset"])))
+    split_keys = _keys(split)
+    # the split's units are canonical, the ones its dealer and the bootstrap group by
+    frame["unit"] = frame["key"].map(dict(zip(split_keys, split["unit"])))
+    frame["subset"] = frame["key"].map(dict(zip(split_keys, split["subset"])))
     return frame
 
 
