@@ -53,8 +53,10 @@ the rulings that sequence them. Status stamped 2026-09-18.
   constant forecast over each rock's mineral list on the four silicates
   (0.102 against 0.106); feldspar and quartz beat it, amphibole and
   biotite carry nothing. #79's narrow claim stands, its broad one does
-  not. Open: the 224-step line with last-epoch heads on three seeds, read
-  per category.
+  not. The 224-step line with last-epoch heads on three seeds (journal
+  2026-10-05): recalibrated share error does not fall with corpus size
+  on the silicates; only quartz falls, and it stops by 1,250
+  compositions. Open: #86, which part of the falling joint NLL carries it.
 
 ## Three thrusts, in order
 

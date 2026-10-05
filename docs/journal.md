@@ -7802,3 +7802,39 @@ remains Stage B, after Stage A is read.
 the joint fit). Then Stage A's code through plan mode, the owner's 6-hour
 run, and the read. #85's volcanic re-run under the new settings is the
 next code change in `run_signal.py`.
+
+## 2026-10-05 -- #85: on the uniform 224-step line, corpus size does not reduce recalibrated share error; only quartz falls, and it stops by 1,250 compositions
+
+**Q.** With every point a last-epoch head at 224 steps on three seeds, does
+recalibrated share error fall with corpus size per category, feldspar,
+quartz and pyroxene first?
+
+**Context.** The earlier 224-step line mixed last-epoch heads (78, 312)
+with heads selected on corpus val (1,250 and up) and had seeds only at
+10,000, so its -0.046 nats per doubling was an observation (journal
+2026-09-29). Run 2026-10-02: 13 new `final224_allrock_n{N}[_seed{K}]`
+heads, about 44 s each, then `run_depth_grid.py`. Every earlier row of
+`depth_ladder.csv` is unchanged, and the three heads that repeat an
+earlier one (n5000 seed 0, n10000 seeds 1 and 2) reproduce it exactly.
+
+**Result.** Recalibrated share error on val, seed means from 78 to 10,000
+compositions, with the constant over each rock's mineral list beside it
+(same rocks as `generator_reach/results/signal.csv`); slopes per doubling
+with 95% unit-bootstrap bands:
+- feldspar 0.145 to 0.143 (constant 0.158), -0.0005 [-0.0014, +0.0005];
+- quartz, 27 rocks, 0.133 to 0.111 (constant 0.165), -0.0031 [-0.0055,
+  -0.0010], all of it between 78 and 1,250 (then 0.112, 0.112, 0.111);
+- pyroxene 0.065 to 0.062 (constant 0.068) and amphibole 0.105 to 0.098
+  (constant 0.105), bands crossing zero;
+- biotite 0.095 to 0.100, above the constant (0.094) at every size;
+- four silicates -0.0004 [-0.0009, +0.0003];
+- recalibrated joint NLL 0.894 to 0.682 nats, -0.032 [-0.069, +0.0005].
+
+**Reading.** For equilibrium labels against du Bray's phenocryst estimates,
+corpus size does not reduce the recalibrated shares: feldspar's signal
+past the constant is already there at 78 compositions, and amphibole and
+biotite never pass it. The joint NLL still falls, but not through the
+shares; #86 asks whether presence or magnitude spread carries it.
+
+**Next.** #86. The 63 tuffs with both a visual estimate and a point count
+are deprioritized (owner).

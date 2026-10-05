@@ -269,6 +269,10 @@ full read).
   excludes zero is the 224-step line, -0.046 [-0.087, -0.010] nats per
   doubling, once the small corpora are held at true fixed depth (a
   78-composition head pushed to 224 steps overfits its own compositions).
+  Rebuilt 2026-10-02 from last-epoch heads on three seeds
+  (`final224_allrock_n{N}[_seed{K}]`), it reads -0.032 [-0.069, +0.0005],
+  and recalibrated share error is flat on the four silicates (journal
+  2026-10-05).
 - Selection on the real-rock train split picks 16 to 24 steps at every
   corpus size and is flat zero-shot (0.098 to 0.103); those heads
   recalibrate among the worst (0.82 to 0.95). The zero-shot optimum and the
