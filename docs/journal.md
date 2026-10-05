@@ -7713,3 +7713,45 @@ every metric is read, #84's pre-written gate is withdrawn, and #85's
 volcanic read is re-run once under the new settings.
 #82's body overstates PP 1793 (259 rocks and 35 intrusions where the
 harvest finds 246 and 30); the owner closes the issue.
+
+## 2026-10-05 -- #83: the plutonic benchmark shows almost no cumulate chemistry; no cumulate rule is built
+
+**Q.** Is a cumulate rule worth building for #83? The plan was to flag rocks
+that are crystal piles rather than frozen melts and report them separately.
+
+**Context.** The generator treats a rock's chemistry as a melt that cooled in
+place. That fails for a cumulate, so a misfit there says little about the
+generator. The europium anomaly, the usual marker, exists for few of these
+rocks. The handoff cited PP 1793 as suggesting plagioclase accumulation in
+three plutons covering 126 rocks.
+
+**Result.** A scratch read; no repo files were written. Each of the 507
+evaluated rocks was placed against 47,105 gard2019 volcanic rocks (named by
+known origin) within ±1.5 wt% SiO2. Volcanic rocks are mostly frozen melts,
+so they mark out the melt range.
+- Major elements: 1 rock has Al2O3 above the 95th percentile and CaO above
+  the 90th; at the 80th and 75th, 16 rocks (3%). No rock has a MgO and FeO
+  excess.
+- Sr: 21 rocks (4%) sit above the 97.5th percentile, 20 of them in PP 1793
+  and 13 in Donald. All 21 are also high in Rb, where a plagioclase pile
+  would be low. The whole Boulder batholith sits high in both against
+  volcanic rocks worldwide (medians at the 92nd and 95th percentiles).
+- The source's claim rests on one sample per pluton with a small positive
+  Eu anomaly (Eu/Eu* 1.09, 1.18, 1.28), against a batholith average of 0.87.
+  Rader Creek, 78 of the 107 evaluated rocks in those plutons, shows nothing
+  here. DS 942 never discusses accumulation.
+
+**Considered.** The check catches only strong cumulates: the volcanic
+reference carries crystals, and a feldspar-and-quartz pile is chemically
+close to a granite melt. That limit cuts both ways. Where chemistry stays
+inside the melt range, mineral proportions are still largely fixed by the
+chemistry, so the own-bulk read gains little error. Cumulates matter where
+chemistry sits far from any melt, and almost none does here.
+
+**Decision (owner, 2026-10-05).** No cumulate rule, no flag, no separate
+reporting. Every #83 read covers all evaluated rocks together. Recorded on
+#83 (body and comment) and on #22, whose plutonic case has no rocks to
+serve here.
+
+**Next.** #83's head-side read (step 0), then the remaining open decisions:
+the recipe and box, redox, muscovite, and the joint fit.

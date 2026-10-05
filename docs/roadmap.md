@@ -85,7 +85,8 @@ the third.
   any training, and the ladder on the two review
   figures (#83) with the `explorations/prior_search/rosters/` sizes and
   training seeds on the endpoints. FC-of-parents (#22) serves cumulates
-  only. Its outcome sorts path 1: whole-rock equilibrium scaling on
+  only, and the plutonic benchmark shows almost none, so #83 builds no
+  cumulate rule (journal 2026-10-05). Its outcome sorts path 1: whole-rock equilibrium scaling on
   whole-rock modes says the volcanic failure was the phenocryst ruler;
   failing there too says the problem is deeper than the recipe.
 - **Path 1 after it, the recipe.** Fractional crystallization of the
