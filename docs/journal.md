@@ -7755,3 +7755,50 @@ serve here.
 
 **Next.** #83's head-side read (step 0), then the remaining open decisions:
 the recipe and box, redox, muscovite, and the joint fit.
+
+## 2026-10-05 -- #83 step 0: after correction the production head ties the simple baselines on plutonic rocks, and the CIPW norm under the same correction beats them
+
+**Q.** Before any generator run, does the production head track the plutonic
+whole-rock modes better than baselines that use no simulator?
+
+**Context.** These are the owner's 2026-10-02 rulings, read for the first
+time. Every source is read with no correction and under the production
+matrix recalibrator fit on train. Spearman, with its sign, is the
+fitting-free check. Signal is judged against a ladder of baselines: the
+constant over the measured mineral list, the head given no chemistry, the
+CIPW norm, and the head given raw geochemistry. The code is
+`run_signal.py --benchmark plutonic`. pyrolite 0.3.6 supplies the norm.
+The norm enters the recalibrator packaged as a head-style forecast: the
+head's median concentration and a 1e-3 floor.
+
+**Result.** On the four silicates, 61 val rocks from 19 intrusions, with 95%
+bands over intrusions:
+- The recalibrated head reads 0.046 share error. The constant reads 0.050,
+  the head given no chemistry 0.047 and the head given raw geochemistry
+  0.051. Every difference band crosses zero.
+- The head ranks rocks better than those baselines (Spearman 0.38 against
+  0.08 and 0.09), but the ranking does not lower the error.
+- The recalibrated norm reads 0.038, below the constant (-0.011 [-0.037,
+  -0.005]), the head given no chemistry and the head given raw
+  geochemistry.
+- Against the recalibrated head the norm is -0.007 [-0.036, +0.002].
+- Joint NLL: head -3.69, norm -4.22, head given no chemistry -3.89.
+- Uncorrected, the norm (0.069) already sits below the zero-shot head
+  (0.080).
+
+**Considered.** The production head learned labels read at 50% and 30%
+melt, so its tie does not test the generator near the solidus; Stage A
+does. A head fit on 291 real rocks' chemistry does not beat the constant,
+while the norm's mass balance gives the felsic minerals almost for free.
+Val is small: 8 rocks carry pyroxene and 1 olivine.
+
+**Reading (owner, 2026-10-05).** Step 0 does not answer #83. It sets the
+bar: Stage A's labels must beat the CIPW norm under the same correction,
+not only the constant. That puts the joint-fit question (does the
+generator add anything beyond the norm?) at the centre. The scaling test
+remains Stage B, after Stage A is read.
+
+**Next.** Settle #83's open decisions (the recipe and box, redox, muscovite,
+the joint fit). Then Stage A's code through plan mode, the owner's 6-hour
+run, and the read. #85's volcanic re-run under the new settings is the
+next code change in `run_signal.py`.

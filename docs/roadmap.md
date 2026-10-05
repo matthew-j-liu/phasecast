@@ -74,21 +74,24 @@ the third.
   change, on the ruler side or the recipe side.
 - **Path 2 first, the ruler.** du Bray's plutonic whole-rock modes read
   on the current generator at a solidus rung. The benchmark is built
-  (#82, journal 2026-10-02; `explorations/real_mineralogy/README.md`, "The
-  plutonic benchmark"): 507 evaluated rocks from DS 942 and PP 1793, split
-  by whole intrusion. Next the model-free reach on each
+  (#82, journal 2026-10-02; `explorations/real_mineralogy/README.md`,
+  "The plutonic benchmark"): 507 evaluated rocks from DS 942 and PP
+  1793, split by whole intrusion. Next the model-free reach on each
   plutonic rock's own bulk as #78 did, opening with the #85 signal read
   per category under the two settings the review figures use (no
   correction, the production recalibrator) against a ladder of baselines
   (the constant over the mineral list, the head given no chemistry, the
   CIPW norm, the head given raw geochemistry), heads first and before
-  any training, and the ladder on the two review
-  figures (#83) with the `explorations/prior_search/rosters/` sizes and
-  training seeds on the endpoints. FC-of-parents (#22) serves cumulates
-  only, and the plutonic benchmark shows almost none, so #83 builds no
-  cumulate rule (journal 2026-10-05). Its outcome sorts path 1: whole-rock equilibrium scaling on
-  whole-rock modes says the volcanic failure was the phenocryst ruler;
-  failing there too says the problem is deeper than the recipe.
+  any training (the heads' read is done, journal 2026-10-05: the
+  production head ties the simple baselines and the recalibrated CIPW
+  norm beats them, so the norm is the bar the generator must clear), and
+  the ladder on the two review figures (#83) with the
+  `explorations/prior_search/rosters/` sizes and training seeds on the
+  endpoints. FC-of-parents (#22) serves cumulates only, and the plutonic
+  benchmark shows almost none, so #83 builds no cumulate rule (journal
+  2026-10-05). Its outcome sorts path 1: whole-rock equilibrium scaling
+  on whole-rock modes says the volcanic failure was the phenocryst
+  ruler; failing there too says the problem is deeper than the recipe.
 - **Path 1 after it, the recipe.** Fractional crystallization of the
   rock's own bulk with the accumulated crystals as the label, the
   phenocryst cargo as it forms, against the du Bray ruler (#84).
