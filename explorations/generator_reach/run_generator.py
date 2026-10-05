@@ -1,9 +1,10 @@
-"""Run the MAGEMin generator on the evaluated benchmark rocks' own chemistry:
-128 (P, H2O) draws per rock from the broad box, the whole cooling ladder kept.
+"""Run the MAGEMin generator on the benchmark rocks' own chemistry: 128
+(P, H2O) draws per rock from the broad box, the whole cooling ladder kept.
 
   python explorations/generator_reach/run_generator.py --smoke
   python explorations/generator_reach/run_generator.py --max-chunks 1
   python explorations/generator_reach/run_generator.py
+  python explorations/generator_reach/run_generator.py --benchmark plutonic
 
 Run from the repo root with Julia and MAGEMin installed (magemin/Project.toml).
 The composition table (`results/compositions.csv`) is built on the first run
@@ -13,11 +14,18 @@ draws from `draw_conditions` (P 0.5 to 12 kbar, H2O 0 to min(8, S(P)) wt%)
 and the 31-point ladder (1200 to 600 C), run through a fresh Julia process per
 `--bulks-per-call` rocks with the production script's timeout and crash
 bisection, parsed into two tables (every converged ladder point with its melt
-fraction, modes only; one row per draw with its rung-50 and rung-30 read-outs
-and failure counts) and flushed atomically under `--out` with a manifest line.
-Rerun the same command to resume: manifested chunks are skipped and at most
-the one in-flight chunk is redone. `--smoke` runs the first rock at two draws
-into `work/smoke` and prints the assemblage at both rungs.
+fraction, modes only; one row per draw with its rung read-outs, its last
+converged step and failure counts) and flushed atomically under `--out` with
+a manifest line. Rerun the same command to resume: manifested chunks are
+skipped and at most the one in-flight chunk is redone. `--smoke` runs the first rock at two draws
+into `work/smoke` (`work/smoke_plutonic`) and prints the assemblage at each
+rung and the last step.
+
+`--benchmark eruption` (#78) runs the evaluated eruption rocks read at 50 and
+30% melt into `work/broad128`. `--benchmark plutonic` (#83 Stage A) runs every
+plutonic rock with chemistry, the evaluated ones and the rest, read near the
+solidus at 10 and 5% melt into `work/plutonic128`; its iron split keys on each
+rock's reported class rather than the TAS field.
 """
 
 import os
@@ -45,7 +53,10 @@ from cnmineral.data.magemin_corpus import INPUT_COLS, OXIDE_KEYS, T_LADDER
 from cnmineral.data.magemin_oxides import bulk_to_magemin
 from cnmineral.data.phase_vocab import NON_SOLID_PHASES
 from cnmineral.eval.real_rock import BENCHMARK_DIR, load_benchmark
-from explorations.generator_reach.compositions import composition_table, load_compositions
+from explorations.generator_reach.compositions import (
+    composition_table, load_compositions, plutonic_composition_table)
+from explorations.real_mineralogy.harvest import PLUTONIC_DIR
+from explorations.real_mineralogy.plutonic import PLUTONIC_SPLIT_PATH, load_plutonic
 
 RESULTS = Path(__file__).resolve().parent / "results"
 WORK = Path(__file__).resolve().parent / "work"
@@ -57,7 +68,7 @@ _spec = importlib.util.spec_from_file_location(
 gmc = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gmc)
 
-RUNGS = (0.50, 0.30)
+RUNGS = {"eruption": (0.50, 0.30), "plutonic": (0.10, 0.05)}
 DEFAULT_SEED = 20260714
 LADDER_COLS = ["bulk", "draw", "T_celsius", "liq_frac", "phase", "instance", "mode_wt"]
 
@@ -88,10 +99,11 @@ def build_inputs(comps, n_draws, seed):
     return pd.DataFrame(inputs)[INPUT_COLS], pd.DataFrame(meta), pd.DataFrame(draws)
 
 
-def parse_chunk(jsonl_path, meta):
+def parse_chunk(jsonl_path, meta, rungs):
     """Parse one chunk's JSONL into (ladder_df, stats_df): every converged
     point with its melt fraction, and per draw the rung read-outs (highest-T
-    converged point below the rung's melt fraction, NaN when never reached)."""
+    converged point below the rung's melt fraction, NaN when never reached)
+    and the last converged point with its melt fraction."""
     recs = {}
     with open(jsonl_path) as fh:
         for line in fh:
@@ -117,13 +129,35 @@ def parse_chunk(jsonl_path, meta):
             for inst, p in enumerate(r["phases"]):
                 ladder.append(dict(bulk=bulk, draw=draw, T_celsius=T, liq_frac=liq,
                                    phase=p["name"], instance=inst, mode_wt=float(p["mode_wt"])))
-        for m in RUNGS:
+        st["T_last"] = pts[-1][0] if pts else np.nan
+        st["liq_last"] = pts[-1][1] if pts else np.nan
+        for m in rungs:
             hit = next((T for T, liq, _ in pts if liq < m), np.nan)
             st[f"T_end_{int(m * 100)}"] = hit
             st[f"attrition_{int(m * 100)}"] = bool(np.isnan(hit))
         stats.append(st)
 
     return pd.DataFrame(ladder, columns=LADDER_COLS), pd.DataFrame(stats)
+
+
+def plutonic_compositions(results=RESULTS):
+    """`compositions` for the plutonic benchmark: every rock with chemistry."""
+    benchmark = load_plutonic()
+    path = results / "plutonic_compositions.csv"
+    if path.exists():
+        comps = load_compositions(path)
+        if list(comps.key) != list(benchmark.bulk_ids):
+            raise SystemExit(f"{path} does not list the plutonic benchmark's rocks in "
+                             "order; delete it to rebuild")
+        return comps
+    comps = plutonic_composition_table(
+        benchmark, pd.read_csv(PLUTONIC_DIR / "samples.csv", dtype={"sample_id": str}),
+        pd.read_csv(PLUTONIC_SPLIT_PATH, dtype={"sample_id": str}))
+    results.mkdir(parents=True, exist_ok=True)
+    comps.to_csv(path, index=False)
+    print(f"wrote {path}: {len(comps)} rocks, {int(comps.evaluated.sum())} evaluated")
+    print("iron classes: " + ", ".join(f"{k} {v}" for k, v in comps.rock_class.value_counts().items()))
+    return comps
 
 
 def compositions(results=RESULTS, benchmark_dir=BENCHMARK_DIR):
@@ -168,7 +202,7 @@ def run_chunk(idx, comps, args, out):
             m = meta.set_index("sid").loc[[s for d in crashed for s in d]]
             crash_recs += [dict(bulk=int(b), draw=int(d), n_points=len(g))
                            for (b, d), g in m.groupby(["bulk", "draw"])]
-        ladder, stats = parse_chunk(jsonl, meta)
+        ladder, stats = parse_chunk(jsonl, meta, RUNGS[args.benchmark])
         parts["draws"].append(draws)
         parts["ladder"].append(ladder)
         parts["stats"].append(stats)
@@ -197,28 +231,31 @@ def run_chunk(idx, comps, args, out):
     return rec
 
 
-def print_smoke(out):
+def print_smoke(out, rungs):
     draws = pd.read_parquet(out / "chunk_0000_draws.parquet")
     ladder = pd.read_parquet(out / "chunk_0000_ladder.parquet")
     for d in draws.itertuples():
         print(f"draw {d.draw}: P {d.P_kbar:.2f} kbar, H2O {d.H2O:.2f} wt%, "
               f"{d.n_points} points converged, {d.n_failed} failed")
-        for rung in (50, 30):
-            T = getattr(d, f"T_end_{rung}")
+        reads = [(f"rung {int(m * 100)}", getattr(d, f"T_end_{int(m * 100)}")) for m in rungs]
+        for name, T in reads + [("last step", d.T_last)]:
             if np.isnan(T):
-                print(f"  rung {rung}: never reached")
+                print(f"  {name}: never reached")
                 continue
             pt = ladder[(ladder.draw == d.draw) & (ladder.T_celsius == T)]
             solids = pt[~pt.phase.isin(NON_SOLID_PHASES)].groupby("phase").mode_wt.sum()
             assemblage = " ".join(f"{p} {m:.3f}" for p, m in
                                   solids.sort_values(ascending=False).items())
-            print(f"  rung {rung} at {T:.0f} C, melt {pt.liq_frac.iloc[0]:.2f}: {assemblage}")
+            print(f"  {name} at {T:.0f} C, melt {pt.liq_frac.iloc[0]:.2f}: {assemblage}")
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--out", type=Path, help="default work/broad128 (work/smoke with --smoke)")
+    ap.add_argument("--benchmark", choices=tuple(RUNGS), default="eruption")
+    ap.add_argument("--out", type=Path,
+                    help="default work/broad128 or work/plutonic128 (work/smoke or "
+                         "work/smoke_plutonic with --smoke)")
     ap.add_argument("--draws", type=int, default=128, help="(P, H2O) draws per rock")
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED)
     ap.add_argument("--chunk-size", type=int, default=100, help="rocks per chunk")
@@ -231,10 +268,13 @@ def main():
     ap.add_argument("--smoke", action="store_true", help="first rock, two draws")
     args = ap.parse_args()
 
-    comps = compositions()
+    plutonic = args.benchmark == "plutonic"
+    comps = plutonic_compositions() if plutonic else compositions()
     if args.smoke:
         comps, args.draws, args.chunk_size = comps.iloc[:1], 2, 1
-    out = args.out or WORK / ("smoke" if args.smoke else "broad128")
+    default = {(False, False): "broad128", (False, True): "smoke",
+               (True, False): "plutonic128", (True, True): "smoke_plutonic"}
+    out = args.out or WORK / default[plutonic, args.smoke]
     out.mkdir(parents=True, exist_ok=True)
 
     chunks = [comps.iloc[i:i + args.chunk_size] for i in range(0, len(comps), args.chunk_size)]
@@ -270,7 +310,7 @@ def main():
     if len(gmc.read_manifest(out)) == len(chunks):
         print(f"all {len(chunks)} chunks complete -> {out}")
     if args.smoke:
-        print_smoke(out)
+        print_smoke(out, RUNGS[args.benchmark])
 
 
 if __name__ == "__main__":

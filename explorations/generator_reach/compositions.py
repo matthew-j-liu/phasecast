@@ -1,6 +1,7 @@
 """The evaluated benchmark rocks as a MAGEMin bulk table: the grade 1 and 2
 rocks with a quantified mode, in benchmark order, with a rock class for the
-class-conditional iron split.
+class-conditional iron split. `plutonic_composition_table` is the same for
+the plutonic benchmark, whose rocks carry their own class.
 
 Benchmark ids are strings and many collide numerically with gard2019 ids, so
 the table carries its own integer `bulk` index beside the benchmark key. The
@@ -43,6 +44,10 @@ TAS_FIELDS = {
                 (41, 7), (41, 3), (37, 3)],
 }
 TAS_TO_CLASS = {"picrobasalt": "picrite", "basaltic trachyandesite": "basaltic andesite"}
+# the plutonic sources' class names that are not iron ratio keys as spelled;
+# aplite and alaskite are leucogranites
+PLUTONIC_TO_CLASS = {"aplite": "granite", "alaskite": "granite",
+                     "alkali feldspar quartz syenite": "quartz syenite"}
 
 ANHYDROUS = ("sio2", "tio2", "al2o3", "mno", "mgo", "cao", "na2o", "k2o", "p2o5")
 PASSTHROUGH = ("source", "sample_id", "unit", "total_crystals_pct", "alteration_extent",
@@ -130,3 +135,38 @@ def composition_table(benchmark: RealRockBenchmark, samples: pd.DataFrame) -> pd
 
 def load_compositions(path) -> pd.DataFrame:
     return pd.read_csv(path, dtype={"sample_id": str})
+
+
+def plutonic_class(name):
+    cls = name.strip().lower().replace("-", " ")
+    cls = PLUTONIC_TO_CLASS.get(cls, cls)
+    if cls not in MIDDLEMOST_1989:
+        raise KeyError(f"plutonic class {name!r} has no iron ratio; extend PLUTONIC_TO_CLASS")
+    return cls
+
+
+def plutonic_composition_table(benchmark: RealRockBenchmark, samples: pd.DataFrame,
+                               split: pd.DataFrame) -> pd.DataFrame:
+    """Every plutonic rock with chemistry, in benchmark order: its reported
+    chemistry, iron class, split subset and whether it is evaluated
+    (`benchmark.clean`); the rocks outside the evaluated set are run too."""
+    samples = samples.copy()
+    samples["key"] = samples["source"] + "|" + samples["sample_id"].astype(str)
+    rows = samples.set_index("key").loc[benchmark.bulk_ids].reset_index()
+    subset = (split["source"] + "|" + split["sample_id"].astype(str)).to_frame("key") \
+        .assign(subset=split["subset"].to_numpy()).set_index("key")["subset"]
+
+    classes = [plutonic_class(c) for c in rows["rock_class"]]
+    fe3 = ClassRatioStrategy()
+    provenance = [split_fe(r, c, fe3).provenance for (_, r), c in zip(rows.iterrows(), classes)]
+
+    out = pd.DataFrame({"bulk": np.arange(len(rows)), "key": rows["key"]})
+    for col in PASSTHROUGH:
+        out[col] = rows[col].to_numpy() if col in rows else np.nan
+    out.insert(6, "subset", subset.reindex(rows["key"]).to_numpy())
+    out.insert(7, "evaluated", benchmark.clean)
+    out["source_class"] = rows["rock_class"].to_numpy()
+    out["rock_class"] = classes
+    out["fe3_ratio"] = [fe3(c) for c in classes]
+    out["fe_provenance"] = provenance
+    return out
