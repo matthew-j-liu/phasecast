@@ -72,14 +72,17 @@ the third.
   ruling 2026-09-18: for the current (generator, ruler) pair there is no
   way to change how the generator runs to attain scaling. The pair has to
   change, on the ruler side or the recipe side.
-- **Path 2 first, the ruler.** du Bray's plutonic whole-rock modes (DS 942,
-  332 rocks with modes and chemistry, 67 intrusions; PP 1793, 259 rocks,
-  35 intrusions; DS 875 is a duplicate of eruption-v2 and stays out) read
-  on the current generator at a solidus rung. Order: the harvest (#82,
-  the same parser shape as the volcanic sources; the intrusion is the
-  unit key; cumulates flagged), then the model-free reach on each
+- **Path 2 first, the ruler.** du Bray's plutonic whole-rock modes read
+  on the current generator at a solidus rung. The benchmark is built
+  (#82, journal 2026-10-02; `explorations/real_mineralogy/README.md`, "The
+  plutonic benchmark"): 507 evaluated rocks from DS 942 and PP 1793, split
+  by whole intrusion. Next the model-free reach on each
   plutonic rock's own bulk as #78 did, opening with the #85 signal read
-  per category before any training, and the ladder on the two review
+  per category under the two settings the review figures use (no
+  correction, the production recalibrator) against a ladder of baselines
+  (the constant over the mineral list, the head given no chemistry, the
+  CIPW norm, the head given raw geochemistry), heads first and before
+  any training, and the ladder on the two review
   figures (#83) with the `explorations/prior_search/rosters/` sizes and
   training seeds on the endpoints. FC-of-parents (#22) serves cumulates
   only. Its outcome sorts path 1: whole-rock equilibrium scaling on

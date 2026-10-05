@@ -7634,3 +7634,82 @@ last-epoch head on three seeds (13 new heads, `final224_allrock_n{N}` with
 `_seed{K}`), read per category on recalibrated share error, feldspar,
 quartz and pyroxene first. (2) The same signal read as the first step of
 #83, on the plutonic point-count benchmark, before any ladder.
+
+## 2026-10-02 -- #82: the plutonic benchmark is built; zero-shot, the head sits 2.8 nats over its null there against 10.6 on eruption-v2, the gap closing mostly in the amounts
+
+**Q.** Is a whole-rock benchmark built, and how does the production head
+read on it before anything is fit to it?
+
+**Context.** #79 sent the scaling pair to a new measurement convention
+first: whole-rock point counts of plutonic rocks, which a solidus read of
+the current generator might match where phenocryst counts could not
+(journal 2026-09-18). #82 harvests du Bray DS 942 (1.4 Ga A-type
+granitoids) and PP 1793 (Boulder batholith) into
+`data/real_mineralogy/plutonic/`, apart from eruption-v2, whose tables stay
+byte-identical. DS 454 is pinned as the authority on PP 1793's columns.
+Owner rulings during the build: DS 942's unit is `Shorthand` (55 units,
+keeping an intrusion's facies together) and PP 1793's is `intrs_name` (30
+after canonicalization); every rock the sources kept counts as fresh,
+since neither grades alteration per rock; the 71 rocks with a category
+unmeasured (the oxides counted with the accessories, or only a mafic total)
+stay in the split and out of the evaluated set; numbers are read on train
+and val only. The split deals whole intrusions in random order with at
+least 15 per subset, because the eruption split's largest-first dealer left
+val with amphibole in 21% of rocks against 57% overall.
+
+**Result.**
+- The funnel (`results/plutonic_composition.md`): 1,555 rows in the two
+  sources' tables, 579 point-counted, 578 with chemistry, 507 evaluated.
+  Train 291 rocks, val 61, test 155 (sealed). 363 of the 507 carry measured
+  mass outside the seven categories, a median 1.9% of the rock:
+  accessories on 300 rocks, secondary minerals on 134, muscovite on 98.
+- Zero-shot on the 352 train and val rocks, each benchmark read against
+  its own climatology null: joint NLL -1.46 against the null's -4.26, so
+  +2.80 nats; eruption-v2 +10.63. The presence term is +1.74 against
+  eruption-v2's +2.11. The amounts term is +1.06 against +8.52.
+- Presence AUROC holds where a category varies: amphibole 0.76 (eruption-v2
+  0.58), pyroxene 0.78. Biotite (0.48) and the oxides (0.46) sit at chance,
+  but 97% and 93% of rocks carry them, so the AUROC rests on a few rocks.
+- Amounts rank rocks moderately: Spearman 0.55 amphibole, 0.52 biotite,
+  0.59 quartz, 0.44 pyroxene, 0.40 oxides, 0.30 feldspar. Share absolute
+  error is lower than eruption-v2's in every category.
+- The matrix recalibrator fit on 25 train rocks from 6 intrusions takes the
+  val joint NLL from 0.60 to -2.86 over 61 rocks. The paper's two cards are
+  redrawn on these rocks (`run_plutonic_figures.py`).
+
+**Considered.** Raw NLL does not compare across the benchmarks: a plutonic
+rock spans 4.4 categories against 3.6 and the null is sharper (Dirichlet
+concentration 31.6 against 12.5), so each is read against its own null.
+Lower share error is not yet evidence of signal: plutonic shares may simply
+vary less from rock to rock, and #85 showed a constant over each rock's
+mineral list can match the heads. That comparison has not been run here.
+
+**Reading.** The head transfers to whole-rock modes better than to
+phenocryst counts, and most of the improvement is in the amounts, which is
+where the two conventions count different things. Whether the head's
+rock-to-rock variation beats a constant on this benchmark is open.
+
+**Next (owner, 2026-10-02).** Two rulings shape #83's readout.
+
+Every source is read under the two settings the scaling review figures
+use: no correction, and the production matrix recalibrator fit on train.
+With unlimited data a head converges to the generator's draw
+distribution, so the generator read that way is the ceiling of each
+scaling line. Spearman rank correlation, with its sign, is the
+fitting-free check. #85's per-category straight line is retired: it
+matched neither panel, added where production multiplies, ignored
+trade-offs between categories and credited backwards relations.
+
+Signal is judged against a ladder of baselines, not the constant alone.
+Two floors use no chemistry: the constant over the measured mineral list
+(amounts only, and plutonic lists barely vary) and the head given no
+chemistry. Two chemistry baselines use no simulator: the CIPW norm read
+like any source (no amphibole or biotite; a comparator, not a training
+target) and the head given raw geochemistry fit on train.
+
+The head side runs first and needs no MAGEMin. Then comes #83's generator
+run on these rocks. #83 is rewritten to this readout with no gate until
+every metric is read, #84's pre-written gate is withdrawn, and #85's
+volcanic read is re-run once under the new settings.
+#82's body overstates PP 1793 (259 rocks and 35 intrusions where the
+harvest finds 246 and 30); the owner closes the issue.
