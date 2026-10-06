@@ -88,7 +88,14 @@ the third.
   cross-validation with the 68 oxide-lumped rocks, journal 2026-10-05: the
   recalibrated production head and the recalibrated CIPW norm tie at 0.042
   and both beat the simple baselines, so 0.042 is the bar the generator
-  must clear; Stage B waits for #87's global-policy read), and
+  must clear; Stage A is read, journal 2026-10-06: the simulator near the
+  solidus ties the bar after recalibration at 0.044, beats the norm only
+  on joint NLL, -0.18 with the band clear of zero, and tracks amphibole
+  and biotite where the volcanic read did not, so the pair is worth
+  scaling; before Stage B, the simulator at 50 and 30% melt on the same
+  run to split the rung from emulation error, then #87, then one
+  regeneration that keeps the whole cooling path so the rung is a
+  training-time choice), and
   the ladder on the two review figures (#83) with the
   `explorations/prior_search/rosters/` sizes and training seeds on the
   endpoints. FC-of-parents (#22) serves cumulates only, and the plutonic
