@@ -91,11 +91,16 @@ the third.
   must clear; Stage A is read, journal 2026-10-06: the simulator near the
   solidus ties the bar after recalibration at 0.044, beats the norm only
   on joint NLL, -0.18 with the band clear of zero, and tracks amphibole
-  and biotite where the volcanic read did not, so the pair is worth
-  scaling; before Stage B, the simulator at 50 and 30% melt on the same
-  run to split the rung from emulation error, then #87, then one
-  regeneration that keeps the whole cooling path so the rung is a
-  training-time choice), and
+  and biotite where the volcanic read did not; at the head's own rungs
+  the simulator still reads 0.056 to 0.059 against the head's 0.080, so
+  the head's gap is copying error, 0.065 against the simulator, not the
+  rung, and that gap is what a corpus could close. Before Stage B, in
+  order: where the copying error comes from (the head against MAGEMin on
+  simulated val with traces as reported and blanked to the plutonic
+  pattern); whether the line falls at all (the depth-ladder heads on
+  disk read on the 404 rocks, a screen); #87; one regeneration under its
+  policy with the whole cooling path kept; then the ladder as the full
+  test), and
   the ladder on the two review figures (#83) with the
   `explorations/prior_search/rosters/` sizes and training seeds on the
   endpoints. FC-of-parents (#22) serves cumulates only, and the plutonic
