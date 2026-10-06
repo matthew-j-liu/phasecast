@@ -8163,3 +8163,74 @@ raise the ceiling and the ladder to show a head reaching it.
   against the 404 rocks out of fold; a winner becomes the regeneration's
   policy, a null strikes the prior on this benchmark as #79 did on the
   eruption one.
+
+## 2026-10-06 -- Summary of the day: Stage A read, the estimator reversal, the per-mineral rung, the two goals, and the plan before Stage B
+
+The day's entries above, in order: Stage A's read (the simulator near the
+solidus ties the 0.042 bar after correction and tracks amphibole and
+biotite); the 50/30 read (the simulator at the head's own rungs scores the
+same, read as "copying error"); the correction (the head read as a
+marginal scores what the simulator scores, 0.058 against 0.059, and sits
+0.026 from its draw mean, so the production head has converged to the
+simulator and the zero-shot gap was the estimator); the per-mineral rung
+(the four-silicate error is flat across rungs while every mineral in it
+moves, quartz and amphibole unbiased at 50% melt and not at 10%); the two
+standing goals; and the rulings on fractional crystallization. #89 tracks
+the teacher-forced-against-marginal considerations. The step 0 reversal
+was traced to cross-validation, not the 68 rocks.
+
+**What was struck off, what survives, what is next.**
+- Struck off: the rung as an aggregate lever on this benchmark; copying
+  error at 10,000 bulks as something a corpus could close; the sparse
+  trace tokens as a shift the head feels; the simulator failing to track
+  plutonic rocks.
+- Survives: the plutonic benchmark as a pair the simulator tracks; the
+  bar at 0.042 held by the norm, the simulator and the head alike; the
+  simulator's NLL edge over the norm, about 0.2 nats; the per-mineral
+  rung finding, with the hypothesis that real plutons keep the amphibole
+  the equilibrium model consumes.
+- Three readings reversed under a closer look today (step 0, the copying
+  error, the rung insensitivity). The common cause was reading an
+  aggregate or a mismatched estimator as a mechanism. Rule carried
+  forward: before a number becomes a claim, say what each side of it
+  conditions on and read it per mineral.
+
+**The plan before Stage B** (owner, 2026-10-06; revised as results come
+in, not fixed):
+1. The seven-mineral ladder read on the kept equilibrium rows of both
+   benchmarks: per draw, where each mineral's mass peaks, how much of the
+   peak remains at 10% melt, what grows as it declines, by wet against dry
+   and shallow against deep. Decides per mineral between conditions and
+   reaction, and writes the prediction for the fractional read.
+2. Fractional crystallization, Stage A protocol, both benchmarks (#83,
+   #84): the rock's own chemistry as the starting liquid, the same broad
+   box with the same per-rock seeds so every (rock, draw) is paired with
+   its equilibrium twin, the same cooling ladder, crystals removed every
+   step, the label the accumulated pile (plutonic) or the cargo as it
+   forms (eruption), read at the same melt-fraction rungs with melt
+   fraction defined on the starting mass, the whole path kept, the same
+   cross-fitted read and baselines, no gate before the read. Tooling: the
+   FC pipeline of earlier iterations (git history, `scripts/production/`
+   at cab99fb; ADR 005) with PetThermoTools, installed in the env from
+   the owner's clone. Prerequisites: PetThermoTools' Julia environment
+   carries MAGEMin_C 2.0.5 against the production Manifest's 2.1.9, so the
+   two recipes are aligned on one MAGEMin version before anything is
+   generated; the OpenMP guard; ADR 005's worker-recycling workaround for
+   the in-process memory leak; iron speciation along the path checked; a
+   smoke run on one rock printed step by step. Cost on ADR 005's rate:
+   about a day at 8 workers for both benchmarks at 128 draws.
+3. #87 on both recipes' draws, scored by tracking and by whether a window
+   makes each mineral form in the right fraction of draws at the right
+   amount; the winning recipe's screen sets the regeneration's policy.
+4. One regeneration under the winning recipe and policy at the nested
+   sizes, the whole cooling path kept.
+5. The ladder as the full test: heads on the nested sizes, fixed steps,
+   seeds at the endpoints, the broad-box equilibrium corpus as the
+   reference line, both estimators, share error with NLL and Spearman
+   together, then one read on test.
+
+Beside the plan, at any time: the on-disk head ladder (78 to 10,000
+bulks, 56 and 224 steps, seeds) read on the 404 plutonic rocks under the
+Stage A protocol with both estimators, the control line that shows what
+scaling to the equilibrium ceiling looks like and that the fractional
+ladder has to beat.
