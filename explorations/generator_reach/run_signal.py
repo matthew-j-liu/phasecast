@@ -21,14 +21,16 @@ the plutonic benchmark, zero-shot and under the matrix recalibrator, against
 a ladder of baselines that use no simulator (the constant, the head given no
 chemistry, the CIPW norm read like any source, the head given raw
 geochemistry), scored by share error, Spearman, presence AUROC and joint NLL
-on the val rocks with unit-bootstrap bands over the val intrusions. No
-straight line. Stage A adds the generator run under `--work` (default
+with unit-bootstrap bands over the intrusions. No straight line. Every
+fitted source is cross-fit: grouped 5-fold over the train and val rocks,
+intrusions kept whole, each rock read once out of fold; test stays sealed.
+Rocks whose Fe-Ti oxides were lumped with the accessories are read with the
+oxides unmeasured. Stage A adds the generator run under `--work` (default
 `work/plutonic128`) read at 10% melt, 5% melt and the last converged step,
 each zero-shot and recalibrated, and two joint fits asking whether the
 generator adds information beyond the CIPW norm: a two-source matrix
 recalibrator on the norm whose generator terms start and shrink at zero, and
-the measured head given the norm, the generator, and both. Step 0's sources
-must reproduce the committed read before it is overwritten. It writes only
+the measured head given the norm, the generator, and both. It writes only
 the `plutonic` key of `signal.json`, which the eruption read keeps, and
 `plutonic_stage_a.png`.
 """
@@ -56,6 +58,7 @@ import pandas as pd
 import torch
 from pyrolite.mineral.normative import CIPW_norm
 from scipy.stats import rankdata
+from sklearn.model_selection import GroupKFold
 from torch import nn
 
 REPO = Path(__file__).resolve().parents[2]
@@ -72,7 +75,8 @@ from cnmineral.training.measured_mode_head import (
     ablate_latent, fit_measured_head, score_measured_head, use_raw_chemistry)
 from cnmineral.models.real_rock_recalibrator import RealRockRecalibrator
 from cnmineral.training.real_rock_recalibrator import (
-    fit_recalibrator, recalibrator_nll, score_predictions, score_recalibrator)
+    build_group_predictions, fit_recalibrator, recalibrator_nll, score_predictions,
+    score_recalibrator)
 from explorations.corpus_scaling.run_depth_grid import MEANS, head_shares, share_metrics, with_means
 from explorations.generator_reach import run_read
 from explorations.generator_reach.compositions import load_compositions
@@ -99,7 +103,8 @@ FIT_ON_TRAIN_LABELS = ("constant", "head_recalibrated", "head_no_chemistry")
 LABELS = (*GROUPS, *MEANS)
 
 PRODUCTION = "joint_heads_allrock_tuned_seed0"
-PLUTONIC_SPLIT_COUNTS = {"train": 291, "val": 61, "test": 155}
+PLUTONIC_SPLIT_COUNTS = {"train": 320, "val": 84, "test": 171}
+N_FOLDS = 5
 STEP0_SOURCES = ("head_zero_shot", "head_recalibrated", "cipw_zero_shot", "cipw_recalibrated",
                  "constant", "head_no_chemistry", "head_raw_chemistry")
 PLUTONIC_WORK = HERE / "work" / "plutonic128"
@@ -354,15 +359,17 @@ def spearman(share, magnitude, numeric):
     return out
 
 
-def presence_auroc(p, presence):
+def presence_auroc(p, presence, measured):
     """Per category, the rank (Mann-Whitney) AUROC of `p` against measured
-    presence; NaN where every rock or none carries the category."""
+    presence over the rocks that looked for it; NaN where every such rock or
+    none carries the category."""
     out = np.full(len(GROUPS), np.nan)
     for j in range(len(GROUPS)):
-        y = presence[:, j] > 0.5
+        m = measured[:, j]
+        y = presence[m, j] > 0.5
         n_pos, n_neg = int(y.sum()), int((~y).sum())
         if n_pos and n_neg:
-            out[j] = (rankdata(p[:, j])[y].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+            out[j] = (rankdata(p[m, j])[y].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
     return out
 
 
@@ -488,9 +495,9 @@ def reach(rung_rows, benchmark, comps, tau=0.05):
     (draw, rung) row comes within `tau` of the measured share; and the
     fraction where one row's mean error over the quantified silicates does
     (#79's joint reach, 62% on the eruption benchmark), on every evaluated
-    rock and on val."""
+    rock and on the train and val rocks the cross-fitted read covers."""
     bulk = comps.set_index("key").loc[benchmark.bulk_ids, "bulk"].to_numpy()
-    val = np.isin(bulk, comps.loc[comps["subset"] == "val", "bulk"])
+    read = np.isin(bulk, comps.loc[comps["subset"].isin(["train", "val"]), "bulk"])
     best = rung_rows.groupby("bulk")[[f"d_{g}" for g in GROUPS]].min().reindex(bulk)
     out = {"tau": tau, "per_category": {}}
     for g in GROUPS:
@@ -502,95 +509,125 @@ def reach(rung_rows, benchmark, comps, tau=0.05):
            .reindex(bulk).to_numpy())
     has, hit = np.isfinite(sil), sil <= tau
     out["joint_silicate"] = {"n_rocks": int(has.sum()), "reached": float(hit[has].mean()),
-                             "n_val": int((has & val).sum()),
-                             "reached_val": float(hit[has & val].mean())}
+                             "n_read": int((has & read).sum()),
+                             "reached_read": float(hit[has & read].mean())}
     return out
 
 
-def plutonic_sources(benchmark, train_mask, val_mask, device, reads):
-    """Every source of the plutonic read, on the benchmark's rocks: shares over
-    each rock's measured mineral list, presence probabilities where the source
-    has them, and per-rock joint NLL on the val rocks where it has one. Step
-    0's sources come first, then per rung of `reads` the generator and the
-    joint fits."""
+def plutonic_inputs(benchmark, device, reads):
+    """What every plutonic source is built from, computed once: the
+    production head's group predictions, the CIPW norm and the generator
+    reads per rung."""
     ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / PRODUCTION / "heads_best.pt")
     encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
     latents = bulk_latents(encoder.to(device), benchmark, device)
-    gp, fit, zero, recal = head_shares(ckpt, benchmark, latents, train_mask, device)
-    numeric = benchmark.numeric.astype(np.float64)
-    val = gp.subset(val_mask)
-    shares = {"head_zero_shot": zero, "head_recalibrated": recal}
-    with torch.no_grad():
-        presence = {"head_zero_shot": torch.sigmoid(gp.logits7).numpy(),
-                    "head_recalibrated": torch.sigmoid(fit(gp.logits7, gp.alpha7, log_w=gp.log_w)[0]).numpy()}
-    nll = {"head_zero_shot": score_recalibrator(None, val)["joint"],
-           "head_recalibrated": score_recalibrator(fit, val)["joint"]}
-
+    gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
     samples = pd.read_csv(PLUTONIC_DIR / "samples.csv")
     samples.index = samples["source"] + "|" + samples["sample_id"].astype(str)
-    norm = cipw_shares(samples.loc[benchmark.bulk_ids])
-    shares["cipw_zero_shot"] = renormalize(norm, benchmark.numeric)
-    kappa = float(np.median(gp.alpha7[torch.as_tensor(train_mask)].sum(1).numpy()))
+    return {"gp": gp, "norm": cipw_shares(samples.loc[benchmark.bulk_ids]), "reads": reads}
+
+
+def fit_sources(inputs, fit_rows):
+    """Every source of the plutonic read with its fits on `fit_rows`, on
+    every rock: shares over each rock's measured mineral list, presence
+    probabilities where the source has them, and per-rock joint NLL where it
+    has one. Step 0's sources come first, then per rung the generator and the
+    joint fits."""
+    gp, norm, reads = inputs["gp"], inputs["norm"], inputs["reads"]
+    numeric = gp.numeric.numpy()
+    fit_gp = gp.subset(fit_rows)
+    fit = fit_recalibrator(fit_gp, tier="matrix", weight_decay=1.0)
+    with torch.no_grad():
+        logits, alpha, _ = fit(gp.logits7, gp.alpha7, log_w=gp.log_w)
+    shares = {"head_zero_shot": conditional_mean(gp.alpha7.numpy(), numeric),
+              "head_recalibrated": conditional_mean(alpha.numpy(), numeric)}
+    presence = {"head_zero_shot": torch.sigmoid(gp.logits7).numpy(),
+                "head_recalibrated": torch.sigmoid(logits).numpy()}
+    nll = {"head_zero_shot": score_recalibrator(None, gp)["joint"],
+           "head_recalibrated": score_recalibrator(fit, gp)["joint"]}
+
+    shares["cipw_zero_shot"] = renormalize(norm, numeric > 0)
+    kappa = float(np.median(fit_gp.alpha7.sum(1).numpy()))
     norm_gp = packaged(gp, norm, (norm > 0).astype(float), kappa)
-    norm_fit = fit_recalibrator(norm_gp.subset(train_mask), tier="matrix", weight_decay=1.0)
+    norm_fit = fit_recalibrator(norm_gp.subset(fit_rows), tier="matrix", weight_decay=1.0)
     with torch.no_grad():
         logits, alpha, _ = norm_fit(norm_gp.logits7, norm_gp.alpha7)
     shares["cipw_recalibrated"] = conditional_mean(alpha.numpy(), numeric)
     presence["cipw_recalibrated"] = torch.sigmoid(logits).numpy()
-    nll["cipw_recalibrated"] = score_recalibrator(norm_fit, norm_gp.subset(val_mask))["joint"]
+    nll["cipw_recalibrated"] = score_recalibrator(norm_fit, norm_gp)["joint"]
 
-    const = constant_vector(benchmark.magnitude, benchmark.numeric, train_mask)
-    shares["constant"] = renormalize(np.tile(const, (len(benchmark), 1)), benchmark.numeric)
+    magnitude = gp.magnitude.numpy()
+    const = constant_vector(magnitude, numeric > 0, fit_rows)
+    shares["constant"] = renormalize(np.tile(const, (len(gp), 1)), numeric > 0)
 
     for name, swap in (("head_no_chemistry", ablate_latent), ("head_raw_chemistry", use_raw_chemistry)):
-        head = fit_measured_head(swap(gp.subset(train_mask)), weight_decay=MEASURED_WEIGHT_DECAY[name])
+        head = fit_measured_head(swap(fit_gp), weight_decay=MEASURED_WEIGHT_DECAY[name])
         every = swap(gp)
         with torch.no_grad():
             logits, alpha, log_w = head(every.latent, every.presence)
         shares[name] = mixture_conditional_mean(alpha.numpy(), log_w.numpy(), numeric)
         presence[name] = torch.sigmoid(logits).numpy()
-        nll[name] = score_measured_head(head, swap(val))["joint"]
+        nll[name] = score_measured_head(head, every)["joint"]
     order = list(STEP0_SOURCES)
 
     for rung, read in reads.items():
         name = f"generator_{rung}"
         shares[f"{name}_zero_shot"], presence[f"{name}_zero_shot"] = read["zero_shot"], read["presence"]
         gen_gp = packaged(gp, read["share"], read["presence"], kappa)
-        gen_fit = fit_recalibrator(gen_gp.subset(train_mask), tier="matrix", weight_decay=1.0)
+        gen_fit = fit_recalibrator(gen_gp.subset(fit_rows), tier="matrix", weight_decay=1.0)
         with torch.no_grad():
             logits, alpha, _ = gen_fit(gen_gp.logits7, gen_gp.alpha7)
         shares[f"{name}_recalibrated"] = conditional_mean(alpha.numpy(), numeric)
         presence[f"{name}_recalibrated"] = torch.sigmoid(logits).numpy()
-        nll[f"{name}_recalibrated"] = score_recalibrator(gen_fit, gen_gp.subset(val_mask))["joint"]
+        nll[f"{name}_recalibrated"] = score_recalibrator(gen_fit, gen_gp)["joint"]
 
-        joint = fit_two_source(norm_gp.subset(train_mask), gen_gp.subset(train_mask))
+        joint = fit_two_source(norm_gp.subset(fit_rows), gen_gp.subset(fit_rows))
         with torch.no_grad():
             logits, alpha = joint(norm_gp.logits7, norm_gp.alpha7, gen_gp.logits7, gen_gp.alpha7)
-        val_t = torch.as_tensor(val_mask)
         key = f"joint_recal_norm_generator_{rung}"
         shares[key] = conditional_mean(alpha.numpy(), numeric)
         presence[key] = torch.sigmoid(logits).numpy()
-        nll[key] = score_predictions(logits[val_t], alpha[val_t], None, norm_gp.subset(val_mask))["joint"]
+        nll[key] = score_predictions(logits, alpha, None, norm_gp)["joint"]
         order += [f"{name}_zero_shot", f"{name}_recalibrated", key]
 
     norm7 = np.nan_to_num(norm)
-    inputs = {"head_given_norm": norm7}
+    features = {"head_given_norm": norm7}
     for rung, read in reads.items():
-        inputs[f"head_given_generator_{rung}"] = np.hstack([read["presence"], read["share"]])
-        inputs[f"head_given_norm_generator_{rung}"] = np.hstack([norm7, read["presence"], read["share"]])
-    for name, x in inputs.items():
+        features[f"head_given_generator_{rung}"] = np.hstack([read["presence"], read["share"]])
+        features[f"head_given_norm_generator_{rung}"] = np.hstack([norm7, read["presence"], read["share"]])
+    for name, x in features.items():
         data = replace(gp, latent=torch.as_tensor(x, dtype=torch.float64))
-        head = fit_measured_head(data.subset(train_mask), weight_decay=1.0)
+        head = fit_measured_head(data.subset(fit_rows), weight_decay=1.0)
         with torch.no_grad():
             logits, alpha, log_w = head(data.latent, data.presence)
         shares[name] = mixture_conditional_mean(alpha.numpy(), log_w.numpy(), numeric)
         presence[name] = torch.sigmoid(logits).numpy()
-        nll[name] = score_measured_head(head, data.subset(val_mask))["joint"]
+        nll[name] = score_measured_head(head, data)["joint"]
         order.append(name)
     return {name: shares[name] for name in order}, presence, nll, kappa
 
 
-def plutonic_stats(shares, presence_p, nll, magnitude, numeric, presence, idx):
+def cross_fit(inputs, rows, units, k=N_FOLDS):
+    """Grouped k-fold over the rocks `rows` selects: each fold's sources are
+    fit on the other folds and its rocks keep their held-out predictions, so
+    every rock is read once out of fold and no intrusion straddles a fit and
+    its read. Returns the held-out shares, presence and NLL on those rocks in
+    order, and per fold its rock and intrusion counts and kappa."""
+    idx = np.flatnonzero(rows)
+    shares, presence, nll, folds = {}, {}, {}, []
+    for fit_pos, read_pos in GroupKFold(n_splits=k).split(idx, groups=units[idx]):
+        fit_rows = np.zeros(len(rows), dtype=bool)
+        fit_rows[idx[fit_pos]] = True
+        s, p, n, kappa = fit_sources(inputs, fit_rows)
+        for out, part in ((shares, s), (presence, p), (nll, n)):
+            for name, v in part.items():
+                out.setdefault(name, np.full((len(idx),) + v.shape[1:], np.nan))[read_pos] = v[idx[read_pos]]
+        folds.append({"rocks": int(len(read_pos)), "intrusions": int(len(np.unique(units[idx[read_pos]]))),
+                      "kappa": kappa})
+    return shares, presence, nll, folds
+
+
+def plutonic_stats(shares, presence_p, nll, magnitude, numeric, presence, measured, idx):
     """{(source, metric): values} on the rows `idx`: share error, Spearman and
     presence AUROC over `LABELS`, mean joint NLL as a single value, and every
     source's share error and NLL minus each baseline's on the same rows."""
@@ -599,7 +636,8 @@ def plutonic_stats(shares, presence_p, nll, magnitude, numeric, presence, idx):
         out[name, "share_mae"] = with_means(share_metrics(share[idx], magnitude[idx], numeric[idx])[0])
         out[name, "spearman"] = with_means(spearman(share[idx], magnitude[idx], numeric[idx]))
         if name in presence_p:
-            out[name, "auroc"] = with_means(presence_auroc(presence_p[name][idx], presence[idx]))
+            out[name, "auroc"] = with_means(presence_auroc(presence_p[name][idx], presence[idx],
+                                                           measured[idx]))
         if name in nll:
             out[name, "joint_nll"] = np.array([nll[name][idx].mean()])
     for name in shares:
@@ -616,11 +654,12 @@ def plutonic_stats(shares, presence_p, nll, magnitude, numeric, presence, idx):
     return out
 
 
-def plutonic_table(shares, presence_p, nll, magnitude, numeric, presence, units, n_boot=N_BOOT):
+def plutonic_table(shares, presence_p, nll, magnitude, numeric, presence, measured, units,
+                   n_boot=N_BOOT):
     """One row per (source, label) with each per-label metric and its
     unit-bootstrap band, and per source the NLL terms with theirs. The arrays
-    are the val rocks' own, so the bootstrap's positions index them."""
-    args = (shares, presence_p, nll, magnitude, numeric, presence)
+    are the read rocks' own, so the bootstrap's positions index them."""
+    args = (shares, presence_p, nll, magnitude, numeric, presence, measured)
     est = plutonic_stats(*args, np.arange(len(units)))
     keys = list(est)
     lo, hi = unit_bootstrap(lambda idx: np.concatenate(
@@ -646,7 +685,8 @@ def plutonic_table(shares, presence_p, nll, magnitude, numeric, presence, units,
 
 def print_plutonic(table, nll_terms):
     by = table.set_index(["source", "category"])
-    print("plutonic val: four-silicate share error [interval], all seven, silicate spearman, joint nll")
+    print("plutonic train and val, read out of fold: four-silicate share error [interval], all seven, "
+          "silicate spearman, joint nll")
     for name in table["source"].unique():
         sil, every = by.loc[(name, "silicate")], by.loc[(name, "mean7")]
         j = nll_terms[name].get("joint_nll")
@@ -678,18 +718,6 @@ def run_facts(work):
                 wall_h=round(sum(r["wall_s"] for r in recs.values()) / 3600, 2))
 
 
-def step0_drift(table, nll_terms, committed):
-    """The largest absolute difference between step 0's sources here and the
-    committed read, over share error, Spearman and joint NLL."""
-    old = pd.DataFrame(committed["table"]).set_index(["source", "category"])
-    new = table.set_index(["source", "category"]).loc[old.index]
-    diffs = [np.nanmax(np.abs(new[m].to_numpy(dtype=float) - old[m].to_numpy(dtype=float)))
-             for m in ("share_mae", "spearman")]
-    diffs += [abs(nll_terms[name]["joint_nll"][0] - committed["nll"][name]["joint_nll"][0])
-              for name in STEP0_SOURCES if "joint_nll" in committed["nll"].get(name, {})]
-    return float(max(diffs))
-
-
 def draw_stage_a(table, nll_terms, out):
     sil = table[table["category"] == "silicate"].set_index("source")
     names = list(sil.index)
@@ -701,7 +729,7 @@ def draw_stage_a(table, nll_terms, out):
                 fmt="o", color=NAVY, capsize=2)
     ax.axvline(sil.loc["cipw_recalibrated", "share_mae"], color=ORANGE, ls="--", lw=1,
                label="CIPW norm, recalibrated")
-    ax.set_xlabel("four-silicate share absolute error, val", fontsize=9)
+    ax.set_xlabel("four-silicate share absolute error, train and val out of fold", fontsize=9)
     ax.legend(fontsize=7)
     ax = axes[1]
     has = [n for n in names if "joint_nll" in nll_terms[n]]
@@ -709,13 +737,14 @@ def draw_stage_a(table, nll_terms, out):
     ax.errorbar(e[:, 0], [names.index(n) for n in has], xerr=[e[:, 0] - e[:, 1], e[:, 2] - e[:, 0]],
                 fmt="o", color=NAVY, capsize=2)
     ax.axvline(nll_terms["cipw_recalibrated"]["joint_nll"][0], color=ORANGE, ls="--", lw=1)
-    ax.set_xlabel("joint NLL per rock, val", fontsize=9)
+    ax.set_xlabel("joint NLL per rock, train and val out of fold", fontsize=9)
     axes[0].set_yticks(y, names, fontsize=7)
     axes[0].invert_yaxis()
     for ax in axes:
         ax.grid(alpha=0.3)
-    fig.suptitle("plutonic val rocks: the simulator near the solidus against the baselines and "
-                 "the joint fits; bars = unit-bootstrap 95% over the val intrusions", fontsize=10)
+    fig.suptitle("plutonic train and val rocks, grouped 5-fold: the simulator near the solidus against "
+                 "the baselines and the joint fits; bars = unit-bootstrap 95% over the intrusions",
+                 fontsize=10)
     fig.tight_layout()
     fig.savefig(out / "plutonic_stage_a.png", dpi=150)
     plt.close(fig)
@@ -728,17 +757,18 @@ def read_plutonic(args):
     counts = {s: int(m.sum()) for s, m in masks.items()}
     if counts != PLUTONIC_SPLIT_COUNTS:
         raise SystemExit(f"split counts {counts} are not the plutonic benchmark's {PLUTONIC_SPLIT_COUNTS}")
-    train, val = masks["train"], masks["val"]
+    rows = masks["train"] | masks["val"]
 
     work = args.work or PLUTONIC_WORK
     comps = load_compositions(RESULTS / "plutonic_compositions.csv")
     reads, rung_rows, attrition = generator_reads(work, comps, benchmark)
-    shares, presence_p, nll, kappa = plutonic_sources(benchmark, train, val, pick_device(), reads)
-    units = benchmark.unit[val]
-    table, nll_terms = plutonic_table({k: v[val] for k, v in shares.items()},
-                                      {k: v[val] for k, v in presence_p.items()}, nll,
-                                      benchmark.magnitude[val], benchmark.numeric[val],
-                                      benchmark.presence[val], units)
+    inputs = plutonic_inputs(benchmark, pick_device(), reads)
+    shares, presence_p, nll, folds = cross_fit(inputs, rows, benchmark.unit)
+    units = benchmark.unit[rows]
+    print("folds: " + ", ".join(f"{f['rocks']} rocks / {f['intrusions']} intrusions" for f in folds))
+    table, nll_terms = plutonic_table(shares, presence_p, nll, benchmark.magnitude[rows],
+                                      benchmark.numeric[rows], benchmark.presence[rows],
+                                      benchmark.measured[rows], units)
     print_plutonic(table, nll_terms)
     reached = reach(rung_rows, benchmark, comps)
     print("attrition: " + "; ".join(
@@ -746,23 +776,22 @@ def read_plutonic(args):
         f"step {a['rocks_on_last_step']}" for r, a in attrition.items() if r != "last"))
     j = reached["joint_silicate"]
     print(f"reach at tau 0.05: joint four-silicate {j['reached']:.2f} of {j['n_rocks']} rocks "
-          f"({j['reached_val']:.2f} of {j['n_val']} val); per category "
+          f"({j['reached_read']:.2f} of {j['n_read']} train and val); per category "
           + ", ".join(f"{g} {v['reached']:.2f}" for g, v in reached["per_category"].items()))
 
     path = args.results / "signal.json"
     payload = json.loads(path.read_text()) if path.exists() else {}
-    if "plutonic" in payload:
-        drift = step0_drift(table, nll_terms, payload["plutonic"])
-        print(f"step 0 against the committed read, max abs diff {drift:.1e}")
-        if drift > 1e-6:
-            raise SystemExit("step 0's sources no longer reproduce the committed plutonic read")
     payload["plutonic"] = {
-        "settings": {"head": PRODUCTION, "recalibrator": "matrix, weight decay 1.0, fit on train",
-                     "measured_head_weight_decay": MEASURED_WEIGHT_DECAY, "kappa": kappa,
+        "settings": {"head": PRODUCTION, "recalibrator": "matrix, weight decay 1.0",
+                     "measured_head_weight_decay": MEASURED_WEIGHT_DECAY,
                      "package_floor": PACKAGE_FLOOR, "cipw_to_group": CIPW_TO_GROUP,
                      "baselines": list(BASELINES), "n_boot": N_BOOT, "bootstrap_seed": 0,
-                     "val_rocks": int(val.sum()), "val_units": int(len(np.unique(units))),
-                     "split_counts": counts, "fits_on": "train rocks", "reads_on": "val rocks",
+                     "protocol": f"grouped {N_FOLDS}-fold cross-validation over the train and val "
+                                 "rocks, intrusions kept whole (sklearn GroupKFold); every rock read "
+                                 "once out of fold",
+                     "folds": folds, "read_rocks": int(rows.sum()),
+                     "read_units": int(len(np.unique(units))), "split_counts": counts,
+                     "oxides_unmeasured_rocks": int((~benchmark.measured[:, GROUP_INDEX["opq"]]).sum()),
                      "test": "sealed"},
         "stage_a": {"run": run_facts(work), "rungs": list(STAGE_A_RUNGS),
                     "presence_cutoff": PRESENCE_CUTOFF, "attrition": attrition,

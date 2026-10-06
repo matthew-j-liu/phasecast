@@ -26,6 +26,7 @@ from explorations.generator_reach.compositions import (
     TAS_FIELDS,
     TAS_TO_CLASS,
     composition_table,
+    plutonic_class,
     rock_class,
     tas_field,
 )
@@ -116,7 +117,8 @@ def short_ladder(monkeypatch):
 
 
 def _args(**kw):
-    base = dict(draws=2, seed=0, bulks_per_call=25, database="ig", keep_raw=False)
+    base = dict(draws=2, seed=0, bulks_per_call=25, database="ig", keep_raw=False,
+                benchmark="eruption")
     base.update(kw)
     return SimpleNamespace(**base)
 
@@ -180,25 +182,45 @@ def test_build_inputs_draws_the_broad_box_without_routing_columns(tmp_path):
 def test_parse_chunk_keeps_the_whole_ladder_with_liq_frac(tmp_path):
     liqs = [0.8, 0.5, 0.25, 0.1]
     path = _write(tmp_path, [_rec(i + 1, l) for i, l in enumerate(liqs)])
-    ladder, stats = run_generator.parse_chunk(path, _meta(4))
+    ladder, stats = run_generator.parse_chunk(path, _meta(4), run_generator.RUNGS["eruption"])
     assert sorted(ladder["T_celsius"].unique(), reverse=True) == [1100.0, 1080.0, 1060.0, 1040.0]
     assert ladder.groupby("T_celsius")["liq_frac"].first().sort_index(ascending=False).tolist() == liqs
     st = stats.iloc[0]
     assert st["T_end_50"] == 1060.0 and st["T_end_30"] == 1060.0
     assert not st["attrition_50"] and not st["attrition_30"]
     assert st["n_points"] == 4 and st["n_failed"] == 0
+    assert st["T_last"] == 1040.0 and st["liq_last"] == 0.1
 
 
 def test_parse_chunk_counts_failures_attrition_and_oversaturation(tmp_path):
     recs = [_rec(1, 0.9, extra=[dict(name="fl", mode_wt=0.02), dict(name="fsp", mode_wt=0.08)]),
             _rec(2, 0.7, status=-1), _rec(3, 0.6)]
-    ladder, stats = run_generator.parse_chunk(_write(tmp_path, recs), _meta(3))
+    ladder, stats = run_generator.parse_chunk(_write(tmp_path, recs), _meta(3),
+                                              run_generator.RUNGS["eruption"])
     st = stats.iloc[0]
     assert st["n_failed"] == 1 and st["n_points"] == 2
     assert 1080.0 not in set(ladder["T_celsius"])
     assert st["oversaturated"]
     assert st["attrition_50"] and st["attrition_30"]
     assert np.isnan(st["T_end_50"]) and np.isnan(st["T_end_30"])
+    assert st["T_last"] == 1060.0 and st["liq_last"] == 0.6
+
+
+def test_parse_chunk_reads_the_plutonic_rungs_near_the_solidus(tmp_path):
+    path = _write(tmp_path, [_rec(i + 1, l) for i, l in enumerate([0.5, 0.08, 0.0])])
+    _, stats = run_generator.parse_chunk(path, _meta(3), run_generator.RUNGS["plutonic"])
+    st = stats.iloc[0]
+    assert st["T_end_10"] == 1080.0 and st["T_end_5"] == 1060.0 and st["T_last"] == 1060.0
+    assert "T_end_50" not in stats.columns
+
+
+def test_plutonic_class_maps_reported_names_onto_iron_ratio_keys():
+    assert plutonic_class("Monzogranite") == "monzogranite"
+    assert plutonic_class("Alkali-feldspar granite") == "alkali feldspar granite"
+    assert plutonic_class("aplite") == plutonic_class("Alaskite") == "granite"
+    assert plutonic_class("alkali-feldspar quartz syenite") == "quartz syenite"
+    with pytest.raises(KeyError):
+        plutonic_class("charnockite")
 
 
 def test_run_chunk_writes_both_tables_and_the_manifest(tmp_path, monkeypatch, short_ladder):
@@ -431,10 +453,13 @@ def test_rank_metrics_match_scipy_and_sklearn_over_the_quantified_rows():
 
     presence = (rng.uniform(size=(n, 7)) > 0.4).astype(float)
     presence[:, GROUP_INDEX["q"]] = 1.0
-    auroc = run_signal.presence_auroc(share, presence)
+    measured = np.ones((n, 7), dtype=bool)
+    measured[:10, GROUP_INDEX["opq"]] = False
+    auroc = run_signal.presence_auroc(share, presence, measured)
     for j in range(7):
         if j != GROUP_INDEX["q"]:
-            assert np.isclose(auroc[j], roc_auc_score(presence[:, j], share[:, j]))
+            m = measured[:, j]
+            assert np.isclose(auroc[j], roc_auc_score(presence[m, j], share[m, j]))
     assert np.isnan(auroc[GROUP_INDEX["q"]])
 
 
@@ -482,3 +507,95 @@ def test_packaged_source_reproduces_its_floored_shares_at_the_identity_correctio
     with torch.no_grad():
         _, alpha, _ = RealRockRecalibrator("matrix").to(torch.float64)(out.logits7, out.alpha7)
     assert torch.allclose(alpha, out.alpha7)
+
+
+def _two_source_data(n=24, seed=5):
+    import torch
+
+    from cnmineral.training.real_rock_recalibrator import GroupPredictions
+
+    rng = np.random.default_rng(seed)
+    t = lambda a: torch.as_tensor(a, dtype=torch.float64)
+    numeric = rng.uniform(size=(n, 7)) > 0.3
+    numeric[:, GROUP_INDEX["fsp"]] = True
+    magnitude = np.where(numeric, rng.uniform(0.1, 1.0, (n, 7)), 0.0)
+    magnitude /= magnitude.sum(1, keepdims=True)
+    gp = GroupPredictions(logits7=t(rng.normal(size=(n, 7))), alpha7=t(rng.uniform(0.5, 5, (n, 7))),
+                          sio2=t(np.zeros(n)), presence=t(numeric), magnitude=t(magnitude),
+                          numeric=t(numeric), unit=np.arange(n) // 3)
+    other = run_signal.packaged(gp, rng.dirichlet(np.ones(7), n), rng.uniform(size=(n, 7)), 30.0)
+    return gp, other
+
+
+def test_two_source_recalibrator_with_zero_b_terms_is_its_matrix_base():
+    import torch
+
+    gp, other = _two_source_data()
+    model = run_signal.TwoSourceRecalibrator().double()
+    with torch.no_grad():
+        for p in model.base.parameters():
+            p.add_(0.1 * torch.randn_like(p))
+        logits, alpha = model(gp.logits7, gp.alpha7, other.logits7, other.alpha7)
+        base_logits, base_alpha, _ = model.base(gp.logits7, gp.alpha7)
+    assert torch.equal(logits, base_logits) and torch.equal(alpha, base_alpha)
+
+
+def test_fit_two_source_moves_the_b_terms_and_stays_finite():
+    import torch
+
+    from cnmineral.training.real_rock_recalibrator import recalibrator_nll
+
+    gp, other = _two_source_data()
+    model = run_signal.fit_two_source(gp, other, epochs=50)
+    with torch.no_grad():
+        logits, alpha = model(gp.logits7, gp.alpha7, other.logits7, other.alpha7)
+        nll = recalibrator_nll(logits, alpha, gp.presence, gp.magnitude, gp.numeric)["joint"]
+    assert torch.isfinite(nll).all()
+    assert model.magnitude_mix_b.abs().sum() > 0
+
+
+def test_generator_reads_package_draw_fractions_and_fall_back_to_the_last_step(
+        tmp_path, monkeypatch, short_ladder):
+    comps, benchmark = _comps(tmp_path)
+    monkeypatch.setattr(run_generator.gmc, "run_julia", _fake_julia([]))
+    work = tmp_path / "work"
+    work.mkdir()
+    # the fake ladder's melt never falls below 40%, so no draw reaches 10 or 5%
+    run_generator.run_chunk(0, comps, _args(benchmark="plutonic"), work)
+    evaluated = benchmark.subset(benchmark.clean & benchmark.has_magnitude)
+    reads, rows, attrition = run_signal.generator_reads(work, comps, evaluated)
+    assert set(reads) == set(run_signal.STAGE_A_RUNGS)
+    for rung in ("10", "5"):
+        assert attrition[rung]["draws_unreached"] == attrition[rung]["draws"] == 4
+    # every draw ends at 1080 C with fsp 0.6, cpx 0.2, q 0.15, spl 0.05 of the crystals
+    expected = np.zeros(7)
+    expected[[GROUP_INDEX["fsp"], GROUP_INDEX["px"], GROUP_INDEX["q"], GROUP_INDEX["opq"]]] = \
+        [0.6, 0.2, 0.15, 0.05]
+    for read in reads.values():
+        assert np.allclose(read["share"], expected)
+        assert np.array_equal(read["presence"], np.tile(expected > 0, (len(evaluated), 1)).astype(float))
+        quantified = evaluated.numeric
+        assert np.allclose(read["zero_shot"].sum(1), 1.0) and (read["zero_shot"][~quantified] == 0).all()
+    assert set(rows["T_celsius"]) == {1080.0}
+
+
+def test_cross_fit_reads_every_rock_once_out_of_fold_with_intrusions_whole(monkeypatch):
+    n = 40
+    units = np.array([f"u{i // 4}" for i in range(n)])
+    rows = np.ones(n, dtype=bool)
+    rows[-4:] = False
+    calls = []
+
+    def fake_fit(inputs, fit_rows):
+        calls.append(fit_rows.copy())
+        mark = np.tile(fit_rows[:, None].astype(float), (1, 7))
+        return {"x": mark}, {"x": mark}, {"x": fit_rows.astype(float)}, 1.0
+
+    monkeypatch.setattr(run_signal, "fit_sources", fake_fit)
+    shares, presence, nll, folds = run_signal.cross_fit(None, rows, units, k=3)
+    assert len(calls) == 3 and sum(f["rocks"] for f in folds) == rows.sum()
+    assert (shares["x"] == 0).all() and (nll["x"] == 0).all()
+    for fit_rows in calls:
+        assert not fit_rows[~rows].any()
+        read = rows & ~fit_rows
+        assert not set(units[read]) & set(units[fit_rows])
