@@ -292,8 +292,12 @@ the volcanic read above is re-run under them in a later change.
 
 **Settings.** Every source is read the two ways the scaling review figures
 read a head: with no correction, and under the matrix recalibrator (weight
-decay 1.0) fit on the plutonic train rocks. Metrics on the val rocks, with
-95% unit-bootstrap bands over the val intrusions:
+decay 1.0). Since 2026-10-05 every fitted source is cross-fit: grouped
+5-fold over the train and val rocks, intrusions kept whole, each rock read
+once out of fold (`cross_fit`), and the 68 rocks with oxides lumped into the
+accessories are read with the oxides unmeasured (`RealRockBenchmark.measured`).
+Test stays sealed. Metrics, with 95% unit-bootstrap bands over the
+intrusions read:
 - share absolute error over each rock's measured mineral list;
 - Spearman rank correlation across rocks, with its sign;
 - presence AUROC where a source has probabilities;
@@ -335,8 +339,9 @@ Written under the `plutonic` key of `results/signal.json`: settings, the NLL
 terms with bands, and the table (one record per source and category or
 mean). About 20 s.
 
-**Result.** Four silicates on the val split (61 rocks, 19 intrusions; 8 of
-them carry pyroxene and 1 olivine):
+**First result (superseded).** Fit on train, read on the val split (61
+rocks, 19 intrusions; 8 of them carry pyroxene and 1 olivine), the 68
+oxide-lumped rocks left out:
 
 | source | share error | Spearman | joint NLL |
 |---|---|---|---|
@@ -356,3 +361,30 @@ Differences on the four silicates, on the same resamples:
   -0.005]), the head given no chemistry (-0.008 [-0.039, -0.002]) and the
   head given raw geochemistry (-0.012 [-0.033, -0.007]). Against the
   recalibrated head it is -0.007 [-0.036, +0.002], crossing zero.
+
+**Result under cross-fitting (2026-10-05).** Four silicates, 404 train and
+val rocks from 61 intrusions read out of fold (Rader Creek carries 89 of
+them and forms a fold of its own):
+
+| source | share error | Spearman | joint NLL |
+|---|---|---|---|
+| head zero-shot | 0.080 [0.067, 0.092] | 0.45 [0.33, 0.60] | -0.69 [-1.62, 0.61] |
+| head recalibrated | 0.042 [0.038, 0.048] | 0.42 [0.30, 0.61] | -4.79 [-5.37, -3.87] |
+| CIPW norm | 0.082 [0.065, 0.094] | 0.35 [0.19, 0.56] | |
+| CIPW norm recalibrated | 0.042 [0.035, 0.053] | 0.32 [0.19, 0.58] | -4.69 [-5.25, -3.81] |
+| constant | 0.054 [0.045, 0.079] | -0.32 [-0.37, -0.05] | |
+| head given no chemistry | 0.053 [0.042, 0.075] | -0.12 [-0.21, 0.06] | -4.18 [-4.76, -3.18] |
+| head given raw geochemistry | 0.052 [0.045, 0.077] | -0.14 [-0.27, 0.05] | -4.17 [-4.78, -3.11] |
+
+- **Recalibrated head.** It ties the recalibrated norm (-0.0003 [-0.0095,
+  +0.0072]; NLL -0.10 [-0.37, +0.23]) and is below the constant (-0.012
+  [-0.033, -0.005]), the head given no chemistry (-0.012 [-0.029, -0.002])
+  and the head given raw geochemistry (-0.010 [-0.032, -0.004]).
+- **Recalibrated norm.** It is below the same three (-0.012 [-0.028,
+  -0.007], -0.011 [-0.024, -0.005], -0.010 [-0.027, -0.005]).
+
+The first result's reading, that the head ties the simple baselines, does
+not survive: the 19 val intrusions were unfavourable to the head. The bar
+for Stage A is 0.042, held jointly by the recalibrated head and the
+recalibrated norm. The two changes (the 68 rocks, cross-fitting) were made
+together, so which one moved the head is not yet separated.

@@ -84,9 +84,11 @@ the third.
   correction, the production recalibrator) against a ladder of baselines
   (the constant over the mineral list, the head given no chemistry, the
   CIPW norm, the head given raw geochemistry), heads first and before
-  any training (the heads' read is done, journal 2026-10-05: the
-  production head ties the simple baselines and the recalibrated CIPW
-  norm beats them, so the norm is the bar the generator must clear), and
+  any training (the heads' read is done and re-read under grouped 5-fold
+  cross-validation with the 68 oxide-lumped rocks, journal 2026-10-05: the
+  recalibrated production head and the recalibrated CIPW norm tie at 0.042
+  and both beat the simple baselines, so 0.042 is the bar the generator
+  must clear; Stage B waits for #87's global-policy read), and
   the ladder on the two review figures (#83) with the
   `explorations/prior_search/rosters/` sizes and training seeds on the
   endpoints. FC-of-parents (#22) serves cumulates only, and the plutonic
