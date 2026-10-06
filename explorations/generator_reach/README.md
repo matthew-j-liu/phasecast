@@ -416,6 +416,8 @@ out of fold, bands over 61 intrusions:
 
 | source | share error | Spearman | joint NLL |
 |---|---|---|---|
+| head zero-shot, teacher-forced on the measured list (step 0) | 0.080 [0.067, 0.092] | 0.45 | -0.69 |
+| head zero-shot, marginal over sampled assemblages | 0.058 [0.051, 0.077] | 0.48 | |
 | simulator at 50% melt, zero-shot | 0.059 [0.049, 0.083] | 0.48 | |
 | simulator at 50% melt, recalibrated | 0.042 [0.034, 0.067] | 0.46 | -4.89 [-5.62, -3.78] |
 | simulator at 30% melt, zero-shot | 0.056 [0.047, 0.064] | 0.49 | |
@@ -482,10 +484,12 @@ probabilities match the simulator's presence fractions (amphibole 0.14
 against 0.18, biotite 0.73 against 0.67). On its own simulated val bulks
 the same marginal read differs by 0.030, and blanking the trace tokens
 moves nothing (0.061 to 0.063 under the teacher-forced construction), so
-the plutonic rocks' sparse traces are not a shift the head feels.
-`head_copying_error` in `signal.json` is the teacher-forced construction
-(0.065 at 50% melt) and carries that conditioning mismatch; the marginal
-reads are scratch, journal 2026-10-06. So the production head has
+the plutonic rocks' sparse traces are not a shift the head feels. The
+read now carries the head's marginal as a source (`head_marginal`,
+`marginal_shares`, 32 support samples) and `head_copying_error` in
+`signal.json` is that marginal against the generator's draw mean over the
+measured list: 0.026 at 50% melt, 0.028 at 30%, 0.036 at 10%; the
+simulated-val reads are scratch, journal 2026-10-06. So the production head has
 converged to the simulator on these rocks, and the only zero-shot
 difference between them is which estimator is read. The rung barely moves
 the simulator on granitoids: the median read temperature is 720 C at 50%
