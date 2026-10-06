@@ -92,15 +92,17 @@ the third.
   solidus ties the bar after recalibration at 0.044, beats the norm only
   on joint NLL, -0.18 with the band clear of zero, and tracks amphibole
   and biotite where the volcanic read did not; at the head's own rungs
-  the simulator still reads 0.056 to 0.059 against the head's 0.080, so
-  the head's gap is copying error, 0.065 against the simulator, not the
-  rung, and that gap is what a corpus could close. Before Stage B, in
-  order: where the copying error comes from (the head against MAGEMin on
-  simulated val with traces as reported and blanked to the plutonic
-  pattern); whether the line falls at all (the depth-ladder heads on
-  disk read on the 404 rocks, a screen); #87; one regeneration under its
-  policy with the whole cooling path kept; then the ladder as the full
-  test), and
+  the simulator still reads 0.056 to 0.059 against the head's 0.080, and
+  read as a marginal the way the simulator is read the head scores 0.058,
+  so the production head has converged to the simulator on these rocks
+  and the zero-shot gap was the estimator, not the rung, not copying
+  error and not the sparse trace tokens (journal 2026-10-06). What a
+  corpus-size ladder can show here is smaller heads approaching that
+  ceiling, which is the simulator's own score, the norm's after
+  recalibration on share error with a small NLL edge. Next, owner's call:
+  the on-disk head ladder read on the 404 rocks with both estimators as a
+  screen; #87; one regeneration under its policy with the whole cooling
+  path kept; then the ladder as the full test), and
   the ladder on the two review figures (#83) with the
   `explorations/prior_search/rosters/` sizes and training seeds on the
   endpoints. FC-of-parents (#22) serves cumulates only, and the plutonic

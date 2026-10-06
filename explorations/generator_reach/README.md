@@ -459,21 +459,36 @@ correction, so share error is saturated by what major-element chemistry
 plus a 7x7 correction fit on about 320 rocks can say; the simulator's edge
 over the norm is in NLL and ranking.
 
-**The head's gap is copying error, not the rung (2026-10-06).** The head
-emulates MAGEMin at 50 and 30% melt, so its zero-shot 0.080 against the
-simulator's 0.060 near the solidus could have been the rung. It is not: at
-the head's own rungs the simulator reads 0.059 and 0.056 zero-shot, and
-recalibrated it ties the bar there too with the best NLL of any single
-source. Read directly, the head's zero-shot share differs from the
-simulator's at 50% melt by 0.065 on the four silicates
-(`head_copying_error` in `signal.json`; 0.074 at 30%, 0.077 at 10%), as
-large as the simulator's own distance from the rocks. Per category at 50%
-melt the head misses feldspar (0.122 against the simulator's 0.074) and
-amphibole (0.113 against 0.051), copies biotite (0.034 both) and beats the
-simulator on pyroxene (0.049 against 0.076, 40 rocks). The rung barely
-moves the simulator on granitoids: the median read temperature is 720 C at
-50% melt and 640 C at 10%, a narrow crystallization window. Why the head
-copies badly here is open: too little granitoid chemistry in the corpus,
-or an input shift (the plutonic rocks report trace elements on 11 to 61%
-of rows, so most trace tokens are blank). The reach read keeps the
-near-solidus rows (`SOLIDUS_RUNGS`), so its numbers above are unchanged.
+**The head's zero-shot gap is the estimator, not the rung and not copying
+error (2026-10-06; a first version of this paragraph read it as copying
+error and is superseded).** The head emulates MAGEMin at 50 and 30% melt,
+so its zero-shot 0.080 against the simulator's 0.060 near the solidus
+could have been the rung. It is not: at the head's own rungs the simulator
+reads 0.059 and 0.056 zero-shot, and recalibrated it ties the bar there
+too with the best NLL of any single source. Nor has the head failed to
+copy the simulator. The read scores the head teacher-forced on the rock's
+measured mineral list, the conditional mean given every listed mineral
+present, and the simulator as its draw mean, which includes the draws that
+lack a mineral. For a mineral the simulator produces in only some draws
+(amphibole on 18% of the typical granitoid's draws) the two estimators
+differ by construction. Read the way the simulator is read, its support
+sampled from its own presence probabilities (32 samples), the head scores
+0.058 zero-shot with Spearman 0.47 against the simulator's 0.059 and 0.48
+at 50% melt, and matches per category: feldspar 0.076 against 0.074,
+amphibole 0.052 against 0.051, biotite 0.034 both, pyroxene 0.070 against
+0.076. Its marginal share differs from the simulator's draw mean by 0.019
+on the four silicates over the seven groups, and its presence
+probabilities match the simulator's presence fractions (amphibole 0.14
+against 0.18, biotite 0.73 against 0.67). On its own simulated val bulks
+the same marginal read differs by 0.030, and blanking the trace tokens
+moves nothing (0.061 to 0.063 under the teacher-forced construction), so
+the plutonic rocks' sparse traces are not a shift the head feels.
+`head_copying_error` in `signal.json` is the teacher-forced construction
+(0.065 at 50% melt) and carries that conditioning mismatch; the marginal
+reads are scratch, journal 2026-10-06. So the production head has
+converged to the simulator on these rocks, and the only zero-shot
+difference between them is which estimator is read. The rung barely moves
+the simulator on granitoids: the median read temperature is 720 C at 50%
+melt and 640 C at 10%, a narrow crystallization window. The reach read
+keeps the near-solidus rows (`SOLIDUS_RUNGS`), so its numbers above are
+unchanged.

@@ -8005,3 +8005,64 @@ Third, #87's tracking read of the prior on the plutonic draws. Fourth, one
 regeneration under #87's policy with the broad box as reference and the
 whole path kept, its shape taking the first step's answer. Fifth, the
 ladder as the full test, then one read on test.
+
+## 2026-10-06 -- #83: the head's zero-shot gap is the estimator, not copying error; the production head has converged to the simulator on the plutonic rocks
+
+**Q.** The previous entry read the head's 0.080 against the simulator's
+0.059 as a failure to reproduce the simulator. Where does that gap come
+from: the corpus, an input shift, or the read itself?
+
+**Context.** The first step of the plan above, scratch, no training. The
+head's copying error against MAGEMin was split by what is conditioned on,
+on its own simulated val bulks (218 bulks of the old corpus's val roster,
+128 draws x rungs 50 and 30) and on the 404 plutonic rocks against the
+Stage A run at 50% melt: presence probability against the fraction of draws
+carrying the group; magnitude teacher-forced on each draw's own support
+against that draw's share; the marginal with the support sampled from the
+head's own presence probabilities (32 samples) against the draw mean, the
+head run as the simulator is read; and the union-support construction the
+Stage A read uses, the head teacher-forced on every group the draw mean
+carries. Then the head's marginal share over the measured mineral list
+against the measured rocks, beside the teacher-forced read. The trace
+tokens were also blanked to the plutonic coverage (11 to 61% per element
+against 33 to 70% on gard2019) and entirely.
+
+**Result.** Four silicates:
+- plutonic rocks, head against the simulator at 50% melt: presence 0.062,
+  magnitude given the draw's support 0.055, marginal with sampled support
+  0.019, union support 0.033 over the seven groups (0.065 over the measured
+  list, the committed `head_copying_error`). Presence probability against
+  presence fraction, mean over rocks: amphibole 0.14 against 0.18, biotite
+  0.73 against 0.67, pyroxene 0.52 against 0.56.
+- simulated val, the same four: 0.042, 0.076, 0.030, 0.061. Blanking the
+  traces: 0.061 to 0.063 (union support).
+- plutonic rocks, head against the measured rocks: teacher-forced on the
+  measured list 0.080, Spearman 0.45 (feldspar 0.122, amphibole 0.113);
+  marginal with sampled support 0.058, Spearman 0.47 (feldspar 0.076,
+  amphibole 0.052, biotite 0.034, pyroxene 0.070); the simulator's draw
+  mean 0.059, Spearman 0.48 (0.074, 0.051, 0.034, 0.076).
+
+**Reading.** The previous entry's reading is withdrawn. The head has
+converged to the simulator on these rocks: run as a generator it
+reproduces the simulator's draw mean to 0.019 and its presence fractions,
+and against the measured rocks it scores what the simulator scores,
+category by category. The 0.080 is the teacher-forced estimator, which
+conditions the head on every listed mineral being present while the
+simulator's draw mean includes the draws that lack it; for amphibole,
+which the simulator produces in a fifth of a granitoid's draws, the two
+differ by construction, and the simulator conditioned the same way would
+overshoot the same way. The two estimators are both legitimate reads of a
+rock whose list says amphibole is present; the comparison between head and
+simulator has to use the same one. Neither corpus size nor the sparse
+trace tokens explain anything here. What a corpus-size ladder can show on
+this benchmark is smaller heads approaching this ceiling, and the ceiling
+is the simulator's own score: 0.059 zero-shot, 0.042 recalibrated, which
+is the norm's, with a small NLL edge over the norm. The Stage B zero-shot
+panel needs the marginal read beside the teacher-forced one, or a head
+against the simulator is apples to oranges.
+
+**Next.** Owner's call. The on-disk head ladder (78 to 10,000 bulks, 56
+and 224 steps, seeds) read on the 404 rocks with both estimators would
+show whether and where the approach to the ceiling happens, at no
+generation cost; #87, the regeneration and the full test follow as planned
+if the ceiling is worth scaling to.
