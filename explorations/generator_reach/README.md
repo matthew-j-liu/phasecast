@@ -386,5 +386,73 @@ them and forms a fold of its own):
 The first result's reading, that the head ties the simple baselines, does
 not survive: the 19 val intrusions were unfavourable to the head. The bar
 for Stage A is 0.042, held jointly by the recalibrated head and the
-recalibrated norm. The two changes (the 68 rocks, cross-fitting) were made
-together, so which one moved the head is not yet separated.
+recalibrated norm.
+
+**Which change moved the head (2026-10-06).** Step 0's sources were re-run
+in all four corners (scratch, no generator sources). Recalibrated head /
+recalibrated norm, four silicates:
+
+| | fit on train, read on val | grouped 5-fold |
+|---|---|---|
+| 68 rocks excluded | 0.046 / 0.038 | 0.042 / 0.044 |
+| 68 rocks included | 0.049 / 0.035 | 0.042 / 0.042 |
+
+The protocol moved the head, not the rocks. Under cross-validation the head
+reads 0.042 with or without the 68 rocks, and head minus norm crosses zero
+in both corners. Under train/val the 68 rocks push the head up and the norm
+down (head minus norm +0.014 [+0.002, +0.052]). A plutonic comparison read
+on val alone is suspect until it is read out of fold.
+
+## Stage A: the simulator near the solidus (2026-10-06, #83)
+
+Run 2026-10-05: 578 rocks x 128 draws x 31 steps, 5.5 h wall, no solver
+crashes, 0.09 failed points per draw. 130 and 222 of 73,600 draws never
+reach 10% and 5% melt, and no train or val rock falls back to its last
+step. The three rungs read within 0.001 of each other: on wet draws the 10%
+and 5% reads often land on the same fully solid step. Four silicates, 404
+train and val rocks out of fold, bands over 61 intrusions:
+
+| source | share error | Spearman | joint NLL |
+|---|---|---|---|
+| simulator at 10% melt, zero-shot | 0.060 [0.049, 0.068] | 0.49 | |
+| simulator at 10% melt, recalibrated | 0.044 [0.036, 0.067] | 0.41 | -4.71 [-5.33, -3.63] |
+| joint fit B, norm plus simulator | 0.042 [0.036, 0.056] | 0.36 | -4.87 [-5.43, -3.95] |
+| joint fit A, head given norm and simulator | 0.049 [0.041, 0.074] | -0.12 | -4.29 [-4.87, -3.30] |
+| head recalibrated (step 0) | 0.042 [0.038, 0.048] | 0.42 | -4.79 [-5.37, -3.87] |
+| CIPW norm recalibrated (step 0) | 0.042 [0.035, 0.053] | 0.32 | -4.69 [-5.25, -3.81] |
+
+- **The simulator ties the bar after recalibration.** Zero-shot it is the
+  best source at 0.060, against 0.080 for the head and 0.082 for the norm,
+  with the highest Spearman of any source. Recalibrated it reads 0.044
+  against the bar's 0.042, bands overlapping.
+- **Joint fit B: no share-error gain, a small NLL gain.** Against the
+  recalibrated norm, share error +0.0002 [-0.0015, +0.0045]; joint NLL
+  -0.18 [-0.30, -0.02] at 10% melt, -0.15 [-0.25, -0.01] at 5% and -0.19
+  [-0.27, -0.08] at the last step. What the simulator adds beyond the norm
+  is probabilistic, mostly presence of the minerals the norm lacks.
+- **Joint fit A ranks nothing.** The head given the norm, the simulator or
+  both reads 0.049 to 0.051, above the bar, as the head given raw
+  geochemistry did at step 0: the small measured head is a weaker fitter
+  than the recalibrator on 320 rocks.
+- **Amphibole and biotite track.** Spearman, simulator zero-shot /
+  recalibrated, then the recalibrated norm and head: amphibole (226 rocks)
+  0.58 / 0.52, norm 0.29, head 0.44; biotite (391 rocks) 0.52 / 0.52, norm
+  0.42, head 0.58. On the eruption benchmark amphibole carried nothing and
+  biotite ran backwards, so #85's hypothesis holds: whole-rock point counts
+  track the simulator on these two, and the recipe and database are not
+  the cause there. Pyroxene tracks at 0.57 on 40 rocks. Feldspar is weak
+  for every source (0.19 to 0.31).
+- **Reach.** One (draw, rung) row lands within 0.05 on all four silicates
+  for 90% of the read rocks (92% of the 574 with them quantified), against
+  62% on the eruption rocks; per category 0.88 (quartz) to 0.98, olivine
+  0.67 on few rocks.
+
+No gate (owner). The reading: three unrelated sources, thermodynamics, the
+norm's arithmetic and the head, meet at 0.042 share error after a linear
+correction, so share error is saturated by what major-element chemistry
+plus a 7x7 correction fit on about 320 rocks can say; the simulator's edge
+over the norm is in NLL and ranking. The head's zero-shot gap to the
+simulator (0.080 against 0.060) is confounded by the rung, since the head
+emulates 50 and 30% melt. The next read takes the simulator at 50 and 30%
+melt on the same rocks from this run, to split the rung from emulation
+error before a solidus corpus is generated.
