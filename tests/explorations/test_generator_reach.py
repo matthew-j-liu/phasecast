@@ -560,12 +560,14 @@ def test_generator_reads_package_draw_fractions_and_fall_back_to_the_last_step(
     monkeypatch.setattr(run_generator.gmc, "run_julia", _fake_julia([]))
     work = tmp_path / "work"
     work.mkdir()
-    # the fake ladder's melt never falls below 40%, so no draw reaches 10 or 5%
+    # the fake ladder's melt is 0.9 then 0.4, so every draw reaches 50% at its
+    # last step and none reaches 30, 10 or 5%
     run_generator.run_chunk(0, comps, _args(benchmark="plutonic"), work)
     evaluated = benchmark.subset(benchmark.clean & benchmark.has_magnitude)
     reads, rows, attrition = run_signal.generator_reads(work, comps, evaluated)
     assert set(reads) == set(run_signal.STAGE_A_RUNGS)
-    for rung in ("10", "5"):
+    assert attrition["50"]["draws_unreached"] == 0
+    for rung in ("30", "10", "5"):
         assert attrition[rung]["draws_unreached"] == attrition[rung]["draws"] == 4
     # every draw ends at 1080 C with fsp 0.6, cpx 0.2, q 0.15, spl 0.05 of the crystals
     expected = np.zeros(7)

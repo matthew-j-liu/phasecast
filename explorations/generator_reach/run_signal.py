@@ -26,13 +26,16 @@ fitted source is cross-fit: grouped 5-fold over the train and val rocks,
 intrusions kept whole, each rock read once out of fold; test stays sealed.
 Rocks whose Fe-Ti oxides were lumped with the accessories are read with the
 oxides unmeasured. Stage A adds the generator run under `--work` (default
-`work/plutonic128`) read at 10% melt, 5% melt and the last converged step,
-each zero-shot and recalibrated, and two joint fits asking whether the
-generator adds information beyond the CIPW norm: a two-source matrix
+`work/plutonic128`) read at 50, 30, 10 and 5% melt and the last converged
+step (the rung ends re-derived from the kept ladder and checked against the
+run's own), each zero-shot and recalibrated, two joint fits asking whether
+the generator adds information beyond the CIPW norm (a two-source matrix
 recalibrator on the norm whose generator terms start and shrink at zero, and
-the measured head given the norm, the generator, and both. It writes only
-the `plutonic` key of `signal.json`, which the eruption read keeps, and
-`plutonic_stage_a.png`.
+the measured head given the norm, the generator, and both), and the
+production head's copying error: its zero-shot share against the
+generator's at each rung on the same rocks, the head's error against what
+it was trained to reproduce. It writes only the `plutonic` key of
+`signal.json`, which the eruption read keeps, and `plutonic_stage_a.png`.
 """
 
 import os
@@ -108,7 +111,10 @@ N_FOLDS = 5
 STEP0_SOURCES = ("head_zero_shot", "head_recalibrated", "cipw_zero_shot", "cipw_recalibrated",
                  "constant", "head_no_chemistry", "head_raw_chemistry")
 PLUTONIC_WORK = HERE / "work" / "plutonic128"
-STAGE_A_RUNGS = ("10", "5", "last")
+STAGE_A_RUNGS = ("50", "30", "10", "5", "last")
+# the reach read keeps #83's near-solidus rows, so its number is comparable
+# across reads that add rungs
+SOLIDUS_RUNGS = ("10", "5", "last")
 # each joint source against the single-source arms it nests
 JOINT_PAIRS = {
     **{f"joint_recal_norm_generator_{r}": ("cipw_recalibrated", f"generator_{r}_recalibrated")
@@ -447,10 +453,12 @@ def generator_reads(work, comps, benchmark):
     zero-shot share (the mean, over the draws reaching the rung, of each
     draw's share over the measured mineral list), the fraction of those draws
     carrying each category above the label presence cutoff, and their mean
-    share of the seven-category crystal mass. A draw that never reaches a
-    rung drops out; a rock no draw brings to it is read at its draws' last
-    converged steps. Returns the reads, the rung rows for the reach read and
-    the attrition counts."""
+    share of the seven-category crystal mass. A rung's end is the highest-T
+    converged point of each draw with melt below it, read from the kept
+    ladder and checked against the run's own read-outs where it recorded
+    them. A draw that never reaches a rung drops out; a rock no draw brings
+    to it is read at its draws' last converged steps. Returns the reads, the
+    rung rows for the reach read and the attrition counts."""
     bulk = comps.set_index("key").loc[benchmark.bulk_ids, "bulk"].to_numpy()
     magnitude = np.zeros((len(comps), len(GROUPS)))
     numeric = np.zeros((len(comps), len(GROUPS)), dtype=bool)
@@ -469,33 +477,51 @@ def generator_reads(work, comps, benchmark):
         points[f"p_{g}"] = (seven[:, i] > PRESENCE_CUTOFF).astype(float)
 
     subset = comps.set_index("bulk")["subset"]
+    last = draws[["bulk", "draw", "T_last"]].rename(columns={"T_last": "T_celsius"}).dropna()
     reads, rung_rows, attrition = {}, [], {}
     for rung in STAGE_A_RUNGS:
-        col = "T_last" if rung == "last" else f"T_end_{rung}"
-        ends = draws[["bulk", "draw", col]].rename(columns={col: "T_celsius"})
-        unreached = sorted(set(bulk) - set(ends.dropna()["bulk"]))
-        fallback = (draws[draws["bulk"].isin(unreached)][["bulk", "draw", "T_last"]]
-                    .rename(columns={"T_last": "T_celsius"}))
-        ends = pd.concat([ends[~ends["bulk"].isin(unreached)], fallback]).dropna()
-        rows = points.merge(ends, on=run_read.KEYS)
+        if rung == "last":
+            ends = last
+        else:
+            ends = (points[points["liq_frac"] < int(rung) / 100]
+                    .groupby(["bulk", "draw"])["T_celsius"].max().reset_index())
+            col = f"T_end_{rung}"
+            if col in draws:
+                run = draws[["bulk", "draw", col]].merge(ends, on=["bulk", "draw"], how="left")
+                if not np.allclose(run[col].fillna(-1.0), run["T_celsius"].fillna(-1.0)):
+                    raise SystemExit(f"rung {rung} read from the ladder differs from the run's {col}")
+        unreached = sorted(set(bulk) - set(ends["bulk"]))
+        rows = points.merge(pd.concat([ends, last[last["bulk"].isin(unreached)]]), on=run_read.KEYS)
         rung_rows.append(rows.assign(rung=rung))
         by = rows.groupby("bulk")
         mean = {prefix: by[[f"{prefix}_{g}" for g in GROUPS]].mean().reindex(bulk).to_numpy()
                 for prefix in ("s", "p", "t")}
         reads[rung] = {"zero_shot": mean["s"], "presence": mean["p"], "share": mean["t"]}
         attrition[rung] = {
-            "draws_unreached": int(draws[col].isna().sum()), "draws": int(len(draws)),
+            "draws_unreached": int(len(draws) - len(ends)), "draws": int(len(draws)),
             "rocks_on_last_step": {s: int((subset.loc[unreached] == s).sum())
                                    for s in PLUTONIC_SPLIT_COUNTS}}
     return reads, pd.concat(rung_rows, ignore_index=True), attrition
 
 
+def copying_error(head_share, generator_shares, numeric):
+    """Per rung, the production head's zero-shot share against the generator's
+    on the same rocks, over each rock's quantified categories, as
+    `share_metrics` scores a source against the measured share: the head's
+    error against what it was trained to reproduce, on the benchmark's
+    chemistry. Values over `LABELS`."""
+    return {rung: dict(zip(LABELS, with_means(share_metrics(head_share, share, numeric)[0])))
+            for rung, share in generator_shares.items()}
+
+
 def reach(rung_rows, benchmark, comps, tau=0.05):
-    """Fitting-free: per category, the fraction of evaluated rocks where some
-    (draw, rung) row comes within `tau` of the measured share; and the
-    fraction where one row's mean error over the quantified silicates does
-    (#79's joint reach, 62% on the eruption benchmark), on every evaluated
-    rock and on the train and val rocks the cross-fitted read covers."""
+    """Fitting-free, over the near-solidus rows (`SOLIDUS_RUNGS`): per
+    category, the fraction of evaluated rocks where some (draw, rung) row
+    comes within `tau` of the measured share; and the fraction where one
+    row's mean error over the quantified silicates does (#79's joint reach,
+    62% on the eruption benchmark), on every evaluated rock and on the train
+    and val rocks the cross-fitted read covers."""
+    rung_rows = rung_rows[rung_rows["rung"].isin(SOLIDUS_RUNGS)]
     bulk = comps.set_index("key").loc[benchmark.bulk_ids, "bulk"].to_numpy()
     read = np.isin(bulk, comps.loc[comps["subset"].isin(["train", "val"]), "bulk"])
     best = rung_rows.groupby("bulk")[[f"d_{g}" for g in GROUPS]].min().reindex(bulk)
@@ -770,6 +796,10 @@ def read_plutonic(args):
                                       benchmark.numeric[rows], benchmark.presence[rows],
                                       benchmark.measured[rows], units)
     print_plutonic(table, nll_terms)
+    copying = copying_error(shares["head_zero_shot"], {r: v["zero_shot"][rows] for r, v in reads.items()},
+                            benchmark.numeric[rows])
+    print("head copying error against the generator, four silicates: " + ", ".join(
+        f"rung {r} {c['silicate']:.3f}" for r, c in copying.items()))
     reached = reach(rung_rows, benchmark, comps)
     print("attrition: " + "; ".join(
         f"rung {r}: {a['draws_unreached']} of {a['draws']} draws unreached, rocks on the last "
@@ -798,7 +828,8 @@ def read_plutonic(args):
                     "joint_pairs": {k: list(v) for k, v in JOINT_PAIRS.items()},
                     "joint_recalibrator": "matrix on the CIPW norm plus zero-initialized 7x7 "
                                           "generator terms, weight decay 1.0, 400 epochs",
-                    "joint_head_weight_decay": 1.0, "reach": reached},
+                    "joint_head_weight_decay": 1.0, "reach": reached,
+                    "reach_rungs": list(SOLIDUS_RUNGS), "head_copying_error": copying},
         "nll": nll_terms,
         "table": table.to_dict(orient="records"),
     }
