@@ -408,15 +408,21 @@ on val alone is suspect until it is read out of fold.
 Run 2026-10-05: 578 rocks x 128 draws x 31 steps, 5.5 h wall, no solver
 crashes, 0.09 failed points per draw. 130 and 222 of 73,600 draws never
 reach 10% and 5% melt, and no train or val rock falls back to its last
-step. The three rungs read within 0.001 of each other: on wet draws the 10%
-and 5% reads often land on the same fully solid step. Four silicates, 404
-train and val rocks out of fold, bands over 61 intrusions:
+step. The three near-solidus rungs read within 0.001 of each other: on wet
+draws the 10% and 5% reads often land on the same fully solid step. The
+read at 50 and 30% melt, the production head's own rungs, was added
+2026-10-06 from the same ladder. Four silicates, 404 train and val rocks
+out of fold, bands over 61 intrusions:
 
 | source | share error | Spearman | joint NLL |
 |---|---|---|---|
+| simulator at 50% melt, zero-shot | 0.059 [0.049, 0.083] | 0.48 | |
+| simulator at 50% melt, recalibrated | 0.042 [0.034, 0.067] | 0.46 | -4.89 [-5.62, -3.78] |
+| simulator at 30% melt, zero-shot | 0.056 [0.047, 0.064] | 0.49 | |
+| simulator at 30% melt, recalibrated | 0.041 [0.035, 0.060] | 0.44 | -4.84 [-5.51, -3.76] |
 | simulator at 10% melt, zero-shot | 0.060 [0.049, 0.068] | 0.49 | |
 | simulator at 10% melt, recalibrated | 0.044 [0.036, 0.067] | 0.41 | -4.71 [-5.33, -3.63] |
-| joint fit B, norm plus simulator | 0.042 [0.036, 0.056] | 0.36 | -4.87 [-5.43, -3.95] |
+| joint fit B, norm plus simulator at 10% | 0.042 [0.036, 0.056] | 0.36 | -4.87 [-5.43, -3.95] |
 | joint fit A, head given norm and simulator | 0.049 [0.041, 0.074] | -0.12 | -4.29 [-4.87, -3.30] |
 | head recalibrated (step 0) | 0.042 [0.038, 0.048] | 0.42 | -4.79 [-5.37, -3.87] |
 | CIPW norm recalibrated (step 0) | 0.042 [0.035, 0.053] | 0.32 | -4.69 [-5.25, -3.81] |
@@ -451,8 +457,23 @@ No gate (owner). The reading: three unrelated sources, thermodynamics, the
 norm's arithmetic and the head, meet at 0.042 share error after a linear
 correction, so share error is saturated by what major-element chemistry
 plus a 7x7 correction fit on about 320 rocks can say; the simulator's edge
-over the norm is in NLL and ranking. The head's zero-shot gap to the
-simulator (0.080 against 0.060) is confounded by the rung, since the head
-emulates 50 and 30% melt. The next read takes the simulator at 50 and 30%
-melt on the same rocks from this run, to split the rung from emulation
-error before a solidus corpus is generated.
+over the norm is in NLL and ranking.
+
+**The head's gap is copying error, not the rung (2026-10-06).** The head
+emulates MAGEMin at 50 and 30% melt, so its zero-shot 0.080 against the
+simulator's 0.060 near the solidus could have been the rung. It is not: at
+the head's own rungs the simulator reads 0.059 and 0.056 zero-shot, and
+recalibrated it ties the bar there too with the best NLL of any single
+source. Read directly, the head's zero-shot share differs from the
+simulator's at 50% melt by 0.065 on the four silicates
+(`head_copying_error` in `signal.json`; 0.074 at 30%, 0.077 at 10%), as
+large as the simulator's own distance from the rocks. Per category at 50%
+melt the head misses feldspar (0.122 against the simulator's 0.074) and
+amphibole (0.113 against 0.051), copies biotite (0.034 both) and beats the
+simulator on pyroxene (0.049 against 0.076, 40 rocks). The rung barely
+moves the simulator on granitoids: the median read temperature is 720 C at
+50% melt and 640 C at 10%, a narrow crystallization window. Why the head
+copies badly here is open: too little granitoid chemistry in the corpus,
+or an input shift (the plutonic rocks report trace elements on 11 to 61%
+of rows, so most trace tokens are blank). The reach read keeps the
+near-solidus rows (`SOLIDUS_RUNGS`), so its numbers above are unchanged.
