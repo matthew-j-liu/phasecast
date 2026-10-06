@@ -7881,3 +7881,76 @@ of its own.
 **Next.** Stage A's read runs on this protocol once the MAGEMin run
 finishes. The new `run_signal.py --benchmark plutonic` is first exercised
 end to end on that run.
+
+## 2026-10-06 -- #83 Stage A: the simulator near the solidus ties the 0.042 bar after recalibration, adds a small NLL gain beyond the CIPW norm, and tracks amphibole and biotite on whole-rock modes
+
+**Q.** Read near the solidus on each plutonic rock's own chemistry, does
+the equilibrium label track the whole-rock modes better than the baselines
+that use no simulator, and does it carry anything the CIPW norm lacks?
+
+**Context.** The run (2026-10-05, owner's machine): 578 rocks x 128 draws
+over the #78 box x 31 steps to 600 C, 5.5 h, no solver crashes, read at
+10% melt, 5% melt and the last converged step. 130 and 222 of 73,600
+draws never reach 10% and 5%; no train or val rock falls back to its last
+step. The read is the step 0 protocol: grouped 5-fold over the 404 train
+and val rocks from 61 intrusions, the 68 oxide-lumped rocks with oxides
+unmeasured, bands over intrusions, test sealed. Two joint fits ask whether
+the simulator adds information beyond the norm: B, the norm's matrix
+recalibrator plus 7x7 terms reading the simulator that start and shrink at
+zero, so its no-gain case is the recalibrated norm exactly; A, the small
+measured head given the norm, the simulator, or both, a nonlinear check.
+First, step 0 was re-run in all four corners (the 68 rocks in or out,
+cross-validation or train/val; scratch) to separate the two changes behind
+its reversal.
+
+**Result.** Which change moved the head: the protocol. Under
+cross-validation the recalibrated head reads 0.042 with or without the 68
+rocks (the norm 0.044 and 0.042), head minus norm crossing zero in both.
+Under train/val the 68 rocks push the head up and the norm down (0.049
+against 0.035, +0.014 [+0.002, +0.052]). The 19 val intrusions were a bad
+draw for the head.
+
+Stage A, four silicates, 404 rocks out of fold:
+- simulator at 10% melt, zero-shot 0.060 [0.049, 0.068], Spearman 0.49,
+  the best zero-shot source (head 0.080, norm 0.082) and the best ranking;
+  recalibrated 0.044 [0.036, 0.067], NLL -4.71, against the bar's 0.042
+  (head -4.79, norm -4.69). The 5% and last-step reads sit within 0.001.
+- joint fit B minus the recalibrated norm: share error +0.0002 [-0.0015,
+  +0.0045]; joint NLL -0.18 [-0.30, -0.02] at 10% melt, -0.15 [-0.25,
+  -0.01] at 5%, -0.19 [-0.27, -0.08] at the last step.
+- joint fit A: 0.049 to 0.051 for every input set, above the bar, as the
+  head given raw geochemistry at step 0.
+- Spearman per category, simulator zero-shot / recalibrated, then the
+  recalibrated norm and head: amphibole (226 rocks) 0.58 / 0.52, 0.29,
+  0.44; biotite (391) 0.52 / 0.52, 0.42, 0.58; pyroxene (40) 0.57 / 0.30,
+  0.39, 0.44; feldspar (404) 0.31 / 0.28, 0.19, 0.23; quartz (403) 0.48 /
+  0.66, 0.65, 0.65.
+- reach: one (draw, rung) row within 0.05 on all four silicates for 90% of
+  the read rocks, against 62% on the eruption rocks.
+
+**Reading.** The simulator tracks these rocks. Amphibole and biotite,
+which carried nothing and ran backwards on the eruption benchmark, track
+at 0.5 to 0.6 here, so #85's hypothesis holds: whole-rock point counts
+follow the simulator where visual phenocryst estimates did not, and the
+recipe and the database are not the cause on those two. Three unrelated
+sources, thermodynamics, the norm's arithmetic and the head, meet at 0.042
+share error after a linear correction; share error is saturated by what
+major-element chemistry plus a 7x7 correction fit on about 320 rocks can
+say, and the nonlinear fit cannot beat it with 404 rocks. The simulator's
+edge over the norm is probabilistic, a small NLL gain carried mostly by
+the presence of minerals the norm cannot produce. The head's zero-shot gap
+to the simulator, 0.080 against 0.060, is confounded by the rung: the
+head emulates 50 and 30% melt. No gate (owner).
+
+**Next** (owner, 2026-10-06; the shape may change as results come in).
+First the simulator at 50 and 30% melt on the same rocks from the same
+run, no MAGEMin and no training, to split the rung from emulation error:
+if the simulator at 50/30 reads near the head's 0.080 the head copied the
+simulator faithfully and the gap is the rung, so a solidus head starts near
+the oracle and the ladder would show little on share error; if it stays
+near 0.060 the gap is copying error a corpus can close. Then #87's
+tracking read of the prior on these draws. Then one regeneration that
+keeps the whole cooling path, so the rung is a training-time choice, under
+#87's policy with the broad box as the reference line. Then the ladder,
+with the simulator's own read as the oracle line and share error, NLL and
+Spearman tracked together.
