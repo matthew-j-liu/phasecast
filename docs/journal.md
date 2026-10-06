@@ -7954,3 +7954,54 @@ keeps the whole cooling path, so the rung is a training-time choice, under
 #87's policy with the broad box as the reference line. Then the ladder,
 with the simulator's own read as the oracle line and share error, NLL and
 Spearman tracked together.
+
+## 2026-10-06 -- #83: at the head's own rungs the simulator still reads 0.056 to 0.059, so the head's zero-shot gap is copying error, not the rung
+
+**Q.** The production head emulates MAGEMin at 50 and 30% melt and reads
+0.080 zero-shot on the plutonic rocks; the simulator near the solidus
+reads 0.060. Is the gap the rung, or does the head fail to reproduce the
+simulator on these rocks?
+
+**Context.** The Stage A run kept every draw's whole cooling path, so the
+simulator at 50 and 30% melt is read from the same rows with no MAGEMin
+and no training (`run_signal.py` now reads five rungs, the ends re-derived
+from the ladder and checked against the run's own). Beside it, the head's
+copying error: its zero-shot share against the simulator's at each rung on
+the same rocks, scored as a source is scored against the measured share.
+
+**Result.** Four silicates, 404 rocks out of fold:
+- simulator zero-shot: 0.059 [0.049, 0.083] at 50% melt, 0.056 [0.047,
+  0.064] at 30%, 0.060 at 10%, 0.061 at 5%; Spearman 0.48 to 0.49 at
+  every rung; the head 0.080, Spearman 0.45;
+- recalibrated: 0.042 at 50%, 0.041 at 30%, tying the bar, with joint NLL
+  -4.89 and -4.84, the best of any single source (head -4.79, norm -4.69);
+- the head's copying error against the simulator: 0.065 at 50% melt,
+  0.074 at 30%, 0.077 at 10%; per category at 50%, feldspar 0.122 against
+  the simulator's 0.074 from the rocks, amphibole 0.113 against 0.051,
+  biotite 0.034 both, pyroxene 0.049 against 0.076 on 40 rocks;
+- median read temperature 720 C at 50% melt, 660 at 30%, 640 at 10%.
+
+**Reading.** The rung is not the gap. The simulator at the head's own
+rungs sits where it sits near the solidus, because a granitoid's
+crystallization window is narrow and the assemblage changes little across
+it. The head's 0.080 is its own failure to reproduce the simulator on
+these rocks' chemistry: the copying error is as large as the simulator's
+distance from the rocks, concentrated in feldspar and amphibole. That is
+the gap a corpus could close, which gives the ladder something to show
+that the volcanic ladder never had. Two causes remain open: too little
+granitoid chemistry in the corpus, or an input shift, since the plutonic
+rocks report trace elements on 11 to 61% of rows and the head sees mostly
+blank trace tokens. The rung is no longer a corpus-shape decision for this
+benchmark; keeping the whole path in a regeneration stays free.
+
+**Next** (owner, 2026-10-06). Five steps, one decision each. First, where
+the copying error comes from: the head against MAGEMin on its own
+simulated val bulks, with traces as reported and blanked to the plutonic
+pattern. Second, whether the line falls at all: the depth-ladder heads on
+disk (78 to 5,000 bulks at 56 and 224 steps, seeds at the endpoints) read
+on the 404 rocks under the Stage A protocol, with each head's copying
+error against the simulator; a screen, so it ranks and never closes.
+Third, #87's tracking read of the prior on the plutonic draws. Fourth, one
+regeneration under #87's policy with the broad box as reference and the
+whole path kept, its shape taking the first step's answer. Fifth, the
+ladder as the full test, then one read on test.
