@@ -650,7 +650,8 @@ Tests for archived explorations (moved to `explorations/archive/`,
 22. `test_two_source_recalibrator_with_zero_b_terms_is_its_matrix_base` -- with the generator terms at zero the joint correction equals its matrix base exactly for any base parameters, so the joint fit's nested null is the norm recalibrated alone.
 23. `test_fit_two_source_moves_the_b_terms_and_stays_finite` -- fitting moves the generator terms off zero and keeps the NLL finite.
 24. `test_generator_reads_package_draw_fractions_and_fall_back_to_the_last_step` -- on a fake run whose melt drops to 40% at its last step, every draw reaches the 50% rung there and counts as unreached at 30, 10 and 5% (the rung ends re-derived from the ladder agree with the run's own), each rock is read at its last converged step, presence is the fraction of draws above the cutoff, magnitude is the mean seven-category share (spinel as oxides), and the zero-shot share closes over the measured mineral list.
-25. `test_cross_fit_reads_every_rock_once_out_of_fold_with_intrusions_whole` -- each rock is read by the one fit that excluded it, no intrusion sits on both sides of a fit, and rocks outside the read set never enter a fit.
+25. `test_marginal_shares_equal_the_conditional_mean_on_a_deterministic_support` -- the head's marginal read (its share averaged over assemblages sampled from its own presence probabilities) collapses to the conditional mean on that support when presence is certain, closes over the measured mineral list, and is zero off it.
+26. `test_cross_fit_reads_every_rock_once_out_of_fold_with_intrusions_whole` -- each rock is read by the one fit that excluded it, no intrusion sits on both sides of a fit, and rocks outside the read set never enter a fit.
 
 ### test_input_probe_ceiling.py
 

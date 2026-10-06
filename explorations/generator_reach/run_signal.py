@@ -31,10 +31,12 @@ step (the rung ends re-derived from the kept ladder and checked against the
 run's own), each zero-shot and recalibrated, two joint fits asking whether
 the generator adds information beyond the CIPW norm (a two-source matrix
 recalibrator on the norm whose generator terms start and shrink at zero, and
-the measured head given the norm, the generator, and both), and the
-production head's copying error: its zero-shot share against the
-generator's at each rung on the same rocks, the head's error against what
-it was trained to reproduce. It writes only the `plutonic` key of
+the measured head given the norm, the generator, and both), the head's
+marginal read (its share averaged over assemblages sampled from its own
+presence probabilities, the same question the generator's draw mean
+answers, beside the teacher-forced read the production figures use), and
+the head's copying error: that marginal against the generator's at each
+rung on the same rocks. It writes only the `plutonic` key of
 `signal.json`, which the eruption read keeps, and `plutonic_stage_a.png`.
 """
 
@@ -71,7 +73,8 @@ from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS, PRESENCE_CUTOFF
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.mode_head import conditional_mean, mixture_conditional_mean
 from cnmineral.eval.real_rock import (
-    BENCHMARK_DIR, POINTCOUNT_BASIS, VISUAL_BASIS, load_benchmark, split_mask, unit_bootstrap)
+    BENCHMARK_DIR, POINTCOUNT_BASIS, VISUAL_BASIS, coarsen_alpha, load_benchmark, split_mask,
+    unit_bootstrap)
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.measured_mode_head import (
@@ -108,8 +111,10 @@ LABELS = (*GROUPS, *MEANS)
 PRODUCTION = "joint_heads_allrock_tuned_seed0"
 PLUTONIC_SPLIT_COUNTS = {"train": 320, "val": 84, "test": 171}
 N_FOLDS = 5
-STEP0_SOURCES = ("head_zero_shot", "head_recalibrated", "cipw_zero_shot", "cipw_recalibrated",
-                 "constant", "head_no_chemistry", "head_raw_chemistry")
+STEP0_SOURCES = ("head_zero_shot", "head_marginal", "head_recalibrated", "cipw_zero_shot",
+                 "cipw_recalibrated", "constant", "head_no_chemistry", "head_raw_chemistry")
+# support samples behind the head's marginal share
+N_SUPPORT_SAMPLES = 32
 PLUTONIC_WORK = HERE / "work" / "plutonic128"
 STAGE_A_RUNGS = ("50", "30", "10", "5", "last")
 # the reach read keeps #83's near-solidus rows, so its number is comparable
@@ -504,12 +509,35 @@ def generator_reads(work, comps, benchmark):
     return reads, pd.concat(rung_rows, ignore_index=True), attrition
 
 
+def marginal_shares(head, latents, numeric, n_samples=N_SUPPORT_SAMPLES, seed=0):
+    """The head read the way the generator is read: its share over each
+    rock's measured mineral list averaged over assemblages sampled from its
+    own presence probabilities, rather than conditioned on every listed
+    mineral being present (`predict`'s teacher-forced read, which the
+    production figures use). A rock's sampled support never comes up empty:
+    its most likely phase turns on when every draw says absent."""
+    rng = np.random.default_rng(seed)
+    with torch.no_grad():
+        p21 = torch.sigmoid(head.presence_logits(latents)).cpu().numpy()
+    out = np.zeros((len(p21), len(GROUPS)))
+    for _ in range(n_samples):
+        support = (rng.uniform(size=p21.shape) < p21).astype(np.float64)
+        empty = support.sum(1) == 0
+        support[np.flatnonzero(empty), p21[empty].argmax(1)] = 1.0
+        with torch.no_grad():
+            alpha = head.magnitude_alpha(
+                latents, torch.as_tensor(support, dtype=latents.dtype, device=latents.device)).cpu().numpy()
+        alpha7, _ = coarsen_alpha(alpha, support)
+        out += conditional_mean(alpha7, numeric)
+    return out / n_samples
+
+
 def copying_error(head_share, generator_shares, numeric):
-    """Per rung, the production head's zero-shot share against the generator's
-    on the same rocks, over each rock's quantified categories, as
-    `share_metrics` scores a source against the measured share: the head's
-    error against what it was trained to reproduce, on the benchmark's
-    chemistry. Values over `LABELS`."""
+    """Per rung, the production head's marginal share against the generator's
+    zero-shot share on the same rocks, both over each rock's measured mineral
+    list and both marginals over assemblages, as `share_metrics` scores a
+    source against the measured share: the head's error against what it was
+    trained to reproduce, on the benchmark's chemistry. Values over `LABELS`."""
     return {rung: dict(zip(LABELS, with_means(share_metrics(head_share, share, numeric)[0])))
             for rung, share in generator_shares.items()}
 
@@ -542,15 +570,17 @@ def reach(rung_rows, benchmark, comps, tau=0.05):
 
 def plutonic_inputs(benchmark, device, reads):
     """What every plutonic source is built from, computed once: the
-    production head's group predictions, the CIPW norm and the generator
-    reads per rung."""
+    production head's group predictions and marginal share, the CIPW norm
+    and the generator reads per rung."""
     ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / PRODUCTION / "heads_best.pt")
     encoder, _ = load_encoder_from_checkpoint(ckpt.encoder_checkpoint)
     latents = bulk_latents(encoder.to(device), benchmark, device)
-    gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
+    head = ckpt.build_mode_head().to(device)
+    gp = build_group_predictions(head, benchmark, latents)
     samples = pd.read_csv(PLUTONIC_DIR / "samples.csv")
     samples.index = samples["source"] + "|" + samples["sample_id"].astype(str)
-    return {"gp": gp, "norm": cipw_shares(samples.loc[benchmark.bulk_ids]), "reads": reads}
+    return {"gp": gp, "marginal": marginal_shares(head, latents, benchmark.numeric.astype(np.float64)),
+            "norm": cipw_shares(samples.loc[benchmark.bulk_ids]), "reads": reads}
 
 
 def fit_sources(inputs, fit_rows):
@@ -566,6 +596,7 @@ def fit_sources(inputs, fit_rows):
     with torch.no_grad():
         logits, alpha, _ = fit(gp.logits7, gp.alpha7, log_w=gp.log_w)
     shares = {"head_zero_shot": conditional_mean(gp.alpha7.numpy(), numeric),
+              "head_marginal": inputs["marginal"],
               "head_recalibrated": conditional_mean(alpha.numpy(), numeric)}
     presence = {"head_zero_shot": torch.sigmoid(gp.logits7).numpy(),
                 "head_recalibrated": torch.sigmoid(logits).numpy()}
@@ -796,9 +827,9 @@ def read_plutonic(args):
                                       benchmark.numeric[rows], benchmark.presence[rows],
                                       benchmark.measured[rows], units)
     print_plutonic(table, nll_terms)
-    copying = copying_error(shares["head_zero_shot"], {r: v["zero_shot"][rows] for r, v in reads.items()},
+    copying = copying_error(shares["head_marginal"], {r: v["zero_shot"][rows] for r, v in reads.items()},
                             benchmark.numeric[rows])
-    print("head copying error against the generator, four silicates: " + ", ".join(
+    print("head marginal against the generator, four silicates: " + ", ".join(
         f"rung {r} {c['silicate']:.3f}" for r, c in copying.items()))
     reached = reach(rung_rows, benchmark, comps)
     print("attrition: " + "; ".join(

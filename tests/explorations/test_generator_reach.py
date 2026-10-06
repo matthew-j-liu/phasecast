@@ -581,6 +581,30 @@ def test_generator_reads_package_draw_fractions_and_fall_back_to_the_last_step(
     assert set(rows["T_celsius"]) == {1080.0}
 
 
+def test_marginal_shares_equal_the_conditional_mean_on_a_deterministic_support():
+    import torch
+    from cnmineral.data.phase_vocab import SOLID_PHASES
+    from cnmineral.eval.mode_head import conditional_mean
+    from cnmineral.eval.real_rock import coarsen_alpha
+    from cnmineral.models.mode_head import ModeHead
+
+    torch.manual_seed(0)
+    n, head = 12, ModeHead(d_model=16).eval()
+    latents = torch.randn(n, 16)
+    # presence certain in both directions, so every sampled support is the same one
+    support = (torch.rand(n, len(SOLID_PHASES)) > 0.5).double()
+    support[:, 0] = 1.0
+    head.presence_logits = lambda h: (support * 40.0 - 20.0).to(h.dtype)
+    numeric = np.ones((n, 7), dtype=bool)
+    numeric[:, GROUP_INDEX["ol"]] = False
+    marginal = run_signal.marginal_shares(head, latents, numeric.astype(float), n_samples=4)
+    with torch.no_grad():
+        alpha = head.magnitude_alpha(latents, support.to(latents.dtype)).numpy()
+    expected = conditional_mean(coarsen_alpha(alpha, support.numpy())[0], numeric.astype(float))
+    assert np.allclose(marginal, expected, atol=1e-6)
+    assert np.allclose(marginal.sum(1), 1.0) and (marginal[:, GROUP_INDEX["ol"]] == 0).all()
+
+
 def test_cross_fit_reads_every_rock_once_out_of_fold_with_intrusions_whole(monkeypatch):
     n = 40
     units = np.array([f"u{i // 4}" for i in range(n)])
