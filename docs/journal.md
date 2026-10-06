@@ -8066,3 +8066,100 @@ and 224 steps, seeds) read on the 404 rocks with both estimators would
 show whether and where the approach to the ceiling happens, at no
 generation cost; #87, the regeneration and the full test follow as planned
 if the ceiling is worth scaling to.
+
+## 2026-10-06 -- #83: the rung is a per-mineral lever that cancels in the four-silicate mean; at 50% melt the simulator's quartz and amphibole are almost unbiased on granitoids and at 10% they are not
+
+**Q.** The Stage A read found the simulator's four-silicate error the same
+at every rung (0.056 to 0.061), and the entries above read that as "the
+rung barely moves the simulator on granitoids". Does the assemblage
+really not change between 50% melt and the solidus?
+
+**Context.** Scratch, on the Stage A rows: per rock, the simulator's
+draw-mean share at 10% melt minus at 50%, the signed error against the
+measured share at each, and the fraction of draws carrying each mineral.
+404 train and val rocks, over the rocks listing each mineral.
+
+**Result.** Mean absolute change in share per rock, 50% to 10% melt:
+quartz 0.065, amphibole 0.063, pyroxene 0.055, feldspar 0.030, biotite
+0.022, oxides 0.017. Signed, with the error at each rung:
+- quartz: +0.058; error +0.005 at 50%, +0.063 at 10%;
+- amphibole: -0.063; +0.006 at 50%, -0.056 at 10%; carried by 18% of
+  draws at 50% and 6% at 10%;
+- pyroxene: -0.042; +0.074 at 50%, +0.033 at 10%;
+- feldspar: -0.014; -0.022 at 50%, -0.035 at 10%;
+- biotite: +0.009; 0.000 at 50%, +0.008 at 10%; carried by 67% of draws
+  at 50% and 85% at 10%;
+- oxides carried by 91% of draws at 50% and 74% at 10%.
+
+**Reading.** The sentence "the rung barely moves the simulator on
+granitoids" is withdrawn; it was true of the four-silicate mean and false
+of every mineral in it. Between 50% melt and the solidus the model grows
+quartz late, consumes most of its amphibole, loses pyroxene and oxides,
+and gains biotite. The shifts push the error in opposite directions,
+quartz and amphibole away from the rock and pyroxene toward it, and
+cancel in the mean, 0.059 against 0.060. At 50% melt the simulator's
+quartz and amphibole are almost unbiased against the measured rock; at
+10% quartz is too high and amphibole too low. So the measured granitoid
+keeps its amphibole and carries less quartz than the model's near-solidus
+assemblage. One reading, held as a hypothesis and not a finding: the real
+pluton did not stay in equilibrium to the end, and early amphibole was
+shielded from the late reactions the model runs, which is a recipe signal
+(#22, #84) rather than a rung signal. Two consequences for how reads are
+built: any aggregate read of "does the rung matter" is blind to this, so
+the rung has to be read per mineral; and the right read point differs by
+mineral on the same rock, 50% for quartz and amphibole, 10% for
+pyroxene, which no single rung serves. The owner marks this as an
+extremely important observation (2026-10-06).
+
+**Next.** Discussion continues (owner); nothing scheduled from this
+entry. Candidates named, not adopted: the per-mineral rung as a dimension
+of #88's per-composition policy; the amphibole consumption path in the
+model between 720 and 640 C as a thing to look at directly in the kept
+ladder; the same per-mineral read on the eruption benchmark's rows.
+
+## 2026-10-06 -- The two standing goals: a scaling pair, and breaking past the ceilings
+
+**Owner, 2026-10-06.** Two goals govern the generator work from here, and
+every read is judged by what it does for them. A summary of the day's
+discussion follows in a later entry.
+
+1. **A scaling pair.** Simulated labels plus real measurements where more
+   simulated data gives better real-rock results (#74). A head trained
+   only on the simulator climbs, at best, to the simulator's own
+   real-rock score under the policy that generated its labels; so a pair
+   is shown by a ladder of corpus sizes whose real-rock line rises toward
+   that score, on seeds, read on the Stage B metrics, and closed by one
+   read on test.
+2. **Breaking past the ceilings.** The references on the plutonic
+   benchmark, four-silicate share error after the matrix correction and
+   joint NLL: the no-chemistry floor 0.053; the CIPW norm 0.042 and
+   -4.69; the simulator under the current policy 0.042 and -4.89. A head
+   cannot exceed its simulator, so the only way past the norm is to raise
+   the simulator's own score with the simulation policy: the condition
+   prior (#87, #88), the read point per mineral (journal 2026-10-06), or
+   the recipe (fractional crystallization, #22, #84).
+
+The two depend on each other. Scaling under the current policy climbs to
+the norm's level and shows that the head learns the simulator, a methods
+result. A policy that beats the norm with no ladder behind it is a better
+simulator read with no model in it. The headline needs the policy to
+raise the ceiling and the ladder to show a head reaching it.
+
+**Rulings during the discussion (owner, 2026-10-06).**
+- Fractional crystallization is explored on both benchmarks (#83 for the
+  plutonic modes, #84 for the eruption rocks), done properly: the Stage A
+  protocol with the recipe changed and nothing else, no subset, no
+  preliminary check of whether it should run, and no gate written before
+  the read. The owner considers it increasingly important to the scaling
+  problem as a whole and wants it soon.
+- Before it, the seven-mineral ladder read on the kept Stage A rows is
+  worth doing: per draw, where each mineral's mass peaks along the path,
+  how much of the peak is left at 10% melt, and what grows as it declines,
+  split by wet against dry and shallow against deep draws. It decides per
+  mineral whether the late-stage error is a conditions problem (the prior
+  can fix it) or a reaction problem (only the recipe can), and it writes
+  down in advance what the fractional read should show.
+- #87 stays as formulated: subsets of the broad box ranked by tracking
+  against the 404 rocks out of fold; a winner becomes the regeneration's
+  policy, a null strikes the prior on this benchmark as #79 did on the
+  eruption one.

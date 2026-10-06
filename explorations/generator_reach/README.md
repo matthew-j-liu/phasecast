@@ -491,8 +491,20 @@ read now carries the head's marginal as a source (`head_marginal`,
 measured list: 0.026 at 50% melt, 0.028 at 30%, 0.036 at 10%; the
 simulated-val reads are scratch, journal 2026-10-06. So the production head has
 converged to the simulator on these rocks, and the only zero-shot
-difference between them is which estimator is read. The rung barely moves
-the simulator on granitoids: the median read temperature is 720 C at 50%
-melt and 640 C at 10%, a narrow crystallization window. The reach read
+difference between them is which estimator is read.
+
+**The rung is a per-mineral lever that cancels in the mean (2026-10-06).**
+The four-silicate error is the same at every rung, but the assemblage is
+not: between 50% melt (median 720 C) and 10% (640 C) the model grows
+quartz late (+0.058 share), consumes most of its amphibole (-0.063; carried
+by 18% of draws at 50% and 6% at 10%), loses pyroxene (-0.042) and gains
+biotite (67% to 85% of draws). The shifts push the error in opposite
+directions and cancel: at 50% melt quartz and amphibole are almost
+unbiased against the measured rock (+0.005, +0.006) and at 10% they are
+not (+0.063, -0.056), while pyroxene improves (+0.074 to +0.033). So the
+measured granitoid keeps its amphibole and carries less quartz than the
+model's near-solidus assemblage; whether that is a recipe signal is a
+hypothesis, journal 2026-10-06. The rung has to be read per mineral, and
+no single rung serves every mineral on the same rock. The reach read
 keeps the near-solidus rows (`SOLIDUS_RUNGS`), so its numbers above are
 unchanged.
