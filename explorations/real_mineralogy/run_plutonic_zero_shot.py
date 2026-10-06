@@ -81,7 +81,10 @@ def main() -> None:
 
     eruption = evaluate(head, encoder, load_benchmark(), device, ckpt, tag)
     with plutonic_benchmark() as benchmark:
-        plutonic = evaluate(head, encoder, benchmark, device, ckpt, tag)
+        # the numpy scoring path has no presence mask, so it reads the rocks
+        # with every category measured: the 507 its committed results describe
+        plutonic = evaluate(head, encoder, benchmark.subset(benchmark.measured.all(1)),
+                            device, ckpt, tag)
 
     roster = pd.read_csv(PLUTONIC_SPLIT_PATH)
     in_subsets = int(roster["subset"].isin(SUBSETS).sum())

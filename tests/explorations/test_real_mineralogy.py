@@ -34,8 +34,9 @@ from explorations.real_mineralogy.harvest import (
 from explorations.real_mineralogy.plutonic import (
     PLUTONIC_SPLIT_PATH,
     load_plutonic,
+    mafic_total_keys,
+    oxides_lumped_keys,
     plutonic_benchmark,
-    unmeasured_keys,
 )
 from explorations.real_mineralogy.run_plutonic_split import MIN_UNITS_PER_SUBSET
 
@@ -391,13 +392,14 @@ def test_plutonic_split_covers_every_rock_by_whole_intrusion():
     assert (units_per_subset >= MIN_UNITS_PER_SUBSET).all()
 
 
-def test_unmeasured_rocks_leave_the_evaluated_set():
+def test_unmeasured_categories_are_masked_or_leave_the_evaluated_set():
     """A category nobody measured is not scored as absent.
 
     The oxides are unmeasured only where the accessories-with-oxides lump
     stands alone; beside an oxide row the lump holds accessories and the rock
-    is fully measured.  A mafic total alone leaves every mafic category
-    unmeasured.
+    is fully measured.  Such a rock is evaluated with its oxides masked.  A
+    mafic total alone leaves every mafic category unmeasured, and the rock
+    out of the evaluated set.
     """
     modes = pd.DataFrame({
         "source": ["s"] * 5,
@@ -406,20 +408,25 @@ def test_unmeasured_rocks_leave_the_evaluated_set():
         "magemin_phase": ["accessory_opq", "accessory_opq", "opq_unsplit",
                           "mafic_unsplit", "q"],
     })
-    assert unmeasured_keys(modes) == {"s|lump_only", "s|mafic_total"}
+    assert oxides_lumped_keys(modes) == {"s|lump_only"}
+    assert mafic_total_keys(modes) == {"s|mafic_total"}
 
     benchmark = load_plutonic()
     left_out = set(benchmark.bulk_ids[~benchmark.clean])
-    assert len(left_out) == 71
+    assert len(left_out) == 3
+    masked = ~benchmark.measured
+    assert masked.sum() == 68 and masked[:, GROUP_INDEX["opq"]].sum() == 68
+    assert benchmark.clean[masked.any(1)].all()
+    assert not benchmark.presence[masked].any()
     with plutonic_benchmark() as evaluated:
-        assert len(evaluated) == len(benchmark) - 71
+        assert len(evaluated) == len(benchmark) - 3
         assert not set(evaluated.bulk_ids) & left_out
 
 
 def test_plutonic_composition_tables_describe_the_evaluated_rocks(composed):
     """The plutonic tables break down exactly the rocks the instrument evaluates.
 
-    The tables take their last cut from `unmeasured_keys` directly rather than
+    The tables take their last cut from `mafic_total_keys` directly rather than
     through `load_plutonic`, so a drift between the two would describe one set
     of rocks and evaluate another.  Units come from the split, so a rock the
     split does not know would fall out of every unit and split count silently.
@@ -470,7 +477,8 @@ def test_zero_shot_scoring_runs_on_the_plutonic_benchmark():
     """
     torch.manual_seed(0)
     head = ModeHead(d_model=16).eval()
-    with plutonic_benchmark() as benchmark:
+    with plutonic_benchmark() as evaluated:
+        benchmark = evaluated.subset(evaluated.measured.all(1))
         fit = split_mask(benchmark, "train") | split_mask(benchmark, "val")
         latents = torch.randn(len(benchmark), 16)
         with torch.no_grad():

@@ -158,10 +158,15 @@ loads the tables with densities for the new mineral names, and
 `plutonic_benchmark()` yields the evaluated rocks with
 `cnmineral.eval.real_rock` reading the plutonic split, restoring the eruption
 split when the block exits. Every rock counts as fresh (neither source grades
-alteration per rock). The 71 rocks on which a category was not measured
-(`unmeasured_keys`: 64 PP 1793 and 4 DS 942 rocks with the oxides lumped into
-the accessories, 3 DS 942 rocks with only a mafic total) stay in the split but
-outside the evaluated set, so 507 rocks are evaluated.
+alteration per rock). The 3 DS 942 rocks with only a mafic total
+(`mafic_total_keys`) stay in the split but outside the evaluated set. The 68
+rocks with the oxides lumped into the accessories (`oxides_lumped_keys`: 64 PP
+1793, 4 DS 942) are evaluated with the oxides marked unmeasured
+(`RealRockBenchmark.measured`), so 575 rocks are evaluated (#83, 2026-10-05;
+until then they were left out and 507 were evaluated, which is what #82's
+committed results describe). The numpy scoring path (`score_real_rock`) has no
+presence mask, so `run_plutonic_zero_shot.py` reads the 507 fully measured
+rocks.
 
 **Split** (`plutonic_split.csv`, built once by `run_plutonic_split.py`): whole
 intrusions, balanced on the evaluated rocks by `split_balance`. The eruption

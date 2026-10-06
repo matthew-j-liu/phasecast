@@ -11,25 +11,26 @@ Whole-rock point counts from du Bray DS 942 and PP 1793, over the rocks
 | Rows in the sources' primary tables | 1,555 |
 | ...with a point count | 579 |
 | ...that also have whole-rock chemistry | 578 |
-| ...with every category measured | **507** |
+| ...with the mafic categories counted apart | **575** |
 
 The other 976 rows carry no point count, so they
-can never enter. A category goes unmeasured where a source counts the
-Fe-Ti oxides with the accessories or reports only a mafic total; those
-rocks stay in the split but outside the evaluated set.
+can never enter. A rock reporting only a mafic total stays in the split
+but outside the evaluated set. Where a source counts the Fe-Ti oxides
+with the accessories, the rock is evaluated with the oxides marked
+unmeasured (#83, 2026-10-05).
 
 ## The evaluated set, by source
 
 | survey | rocks |
 |---|---|
-| DS 942, 1.4 Ga A-type granitoids | 325 |
-| PP 1793, Boulder batholith MT | 182 |
+| DS 942, 1.4 Ga A-type granitoids | 329 |
+| PP 1793, Boulder batholith MT | 246 |
 
 ## Modal measurement method
 
 | Method | Rocks |
 |---|---|
-| Whole-rock point count | 507 |
+| Whole-rock point count | 575 |
 
 ## Unit structure
 
@@ -39,18 +40,18 @@ bootstrap intervals cluster by intrusion rather than by rock.
 
 | size | units | rocks |
 |---|---|---|
-| 1 rock only | 32 | 32 |
-| 2-5 | 27 | 81 |
-| 6-20 | 12 | 150 |
-| 21+ | 6 | 244 |
+| 1 rock only | 31 | 31 |
+| 2-5 | 33 | 99 |
+| 6-20 | 13 | 154 |
+| 21+ | 7 | 291 |
 
 ## Split, in intrusions as well as rocks
 
 | subset | rocks | units |
 |---|---|---|
-| test | 155 | 19 |
-| train | 291 | 39 |
-| val | 61 | 19 |
+| test | 171 | 23 |
+| train | 320 | 42 |
+| val | 84 | 19 |
 
 ## Composition of the evaluated set
 
@@ -58,36 +59,36 @@ SiO2, wt%.
 
 | band | rocks |
 |---|---|
-| <52 | 1 |
-| 52-57 | 6 |
-| 57-63 | 84 |
-| 63-70 | 215 |
-| >70 | 201 |
+| <52 | 2 |
+| 52-57 | 11 |
+| 57-63 | 89 |
+| 63-70 | 254 |
+| >70 | 219 |
 
 ## Reported minerals, over the evaluated set
 
 | mineral | rocks | with_a_number | trace_only |
 |---|---|---|---|
-| quartz | 506 | 506 | 0 |
-| alkali feldspar | 505 | 505 | 0 |
-| plagioclase | 502 | 502 | 0 |
-| biotite | 485 | 483 | 2 |
+| quartz | 574 | 574 | 0 |
+| alkali feldspar | 573 | 573 | 0 |
+| plagioclase | 570 | 570 | 0 |
+| biotite | 550 | 548 | 2 |
 | Fe-Ti oxides | 481 | 452 | 29 |
+| hornblende | 344 | 337 | 7 |
 | accessory minerals | 302 | 300 | 2 |
-| hornblende | 287 | 281 | 6 |
 | secondary minerals | 140 | 134 | 6 |
-| muscovite | 108 | 98 | 10 |
-| pyroxene | 25 | 25 | 0 |
-| accessory minerals and Fe-Ti oxides | 12 | 12 | 0 |
-| clinopyroxene | 11 | 11 | 0 |
-| orthopyroxene | 6 | 6 | 0 |
+| muscovite | 112 | 102 | 10 |
+| accessory minerals and Fe-Ti oxides | 80 | 77 | 3 |
+| pyroxene | 33 | 33 | 0 |
+| clinopyroxene | 17 | 17 | 0 |
+| orthopyroxene | 8 | 8 | 0 |
 | olivine | 3 | 3 | 0 |
 
 ## Measured mass the seven groups cannot represent
 
-363 of the 507 evaluated rocks report mass outside the
+430 of the 575 evaluated rocks report mass outside the
 seven groups, at a median 1.9% of the rock. Rocks
-reporting each category: `accessory` 300, `secondary` 134, `mu` 98, `accessory_opq` 12. The evaluation drops that
+reporting each category: `accessory` 300, `secondary` 134, `mu` 102, `accessory_opq` 77. The evaluation drops that
 mass and renormalizes what remains, so a measured share is a share of the
 seven groups. Shares are volume percent as published.
 

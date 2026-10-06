@@ -49,7 +49,7 @@ from explorations.real_mineralogy.harvest import (
     PLUTONIC_DIR,
     PP1793_PHASES,
 )
-from explorations.real_mineralogy.plutonic import PLUTONIC_SPLIT_PATH, unmeasured_keys
+from explorations.real_mineralogy.plutonic import PLUTONIC_SPLIT_PATH, mafic_total_keys
 
 RESULTS = Path(__file__).resolve().parent / "results"
 DUBRAY = ("dubray_ds764", "dubray_ds1099")
@@ -208,9 +208,8 @@ def plutonic_published_counts() -> dict:
 def describe_plutonic(samples: pd.DataFrame, modes: pd.DataFrame) -> tuple[dict, pd.DataFrame]:
     published = plutonic_published_counts()
     chemistry = samples[samples["sio2"].notna()]
-    unmeasured = unmeasured_keys(modes)
     frame = chemistry.assign(key=_keys(chemistry))
-    frame = frame[~frame["key"].isin(unmeasured)].copy()
+    frame = frame[~frame["key"].isin(mafic_total_keys(modes))].copy()
 
     split = pd.read_csv(PLUTONIC_SPLIT_PATH)
     split_keys = _keys(split)
@@ -431,12 +430,13 @@ def render_plutonic(data: dict, samples: pd.DataFrame, modes: pd.DataFrame) -> s
         f"| Rows in the sources' primary tables | {f['in_tables']:,} |",
         f"| ...with a point count | {f['point_counted']} |",
         f"| ...that also have whole-rock chemistry | {f['with_chemistry']} |",
-        f"| ...with every category measured | **{f['evaluated']}** |",
+        f"| ...with the mafic categories counted apart | **{f['evaluated']}** |",
         "",
         f"The other {f['never_point_counted']:,} rows carry no point count, so they",
-        "can never enter. A category goes unmeasured where a source counts the",
-        "Fe-Ti oxides with the accessories or reports only a mafic total; those",
-        "rocks stay in the split but outside the evaluated set.",
+        "can never enter. A rock reporting only a mafic total stays in the split",
+        "but outside the evaluated set. Where a source counts the Fe-Ti oxides",
+        "with the accessories, the rock is evaluated with the oxides marked",
+        "unmeasured (#83, 2026-10-05).",
         "",
         "## The evaluated set, by source",
         "",

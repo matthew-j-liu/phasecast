@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from cnmineral.data.phase_vocab import GROUP_INDEX
 from cnmineral.eval import real_rock
 from cnmineral.eval.real_rock import MINERAL_DENSITY, RealRockBenchmark, load_benchmark
 from explorations.real_mineralogy.harvest import PLUTONIC_DIR
@@ -36,20 +37,24 @@ PLUTONIC_DENSITY = {
 }
 
 
-def unmeasured_keys(modes: pd.DataFrame) -> set[str]:
-    """Rocks on which one of the seven categories was not measured.
-
-    The Fe-Ti oxides went uncounted where a rock carries the
-    accessories-with-oxides lump and no oxide row of its own, and every mafic
-    mineral did where only a mafic total is reported.  The loader would read
-    those categories as absent, so these rocks are left out of the evaluated
-    set rather than scored against an absence nobody measured.
-    """
+def _phases_by_rock(modes: pd.DataFrame) -> pd.Series:
     key = modes["source"] + "|" + modes["sample_id"].astype(str)
-    phases = modes.groupby(key)["magemin_phase"].agg(set)
-    lumped = phases.map(lambda p: "accessory_opq" in p and "opq_unsplit" not in p)
-    mafic_total = phases.map(lambda p: "mafic_unsplit" in p)
-    return set(phases.index[lumped | mafic_total])
+    return modes.groupby(key)["magemin_phase"].agg(set)
+
+
+def oxides_lumped_keys(modes: pd.DataFrame) -> set[str]:
+    """Rocks whose Fe-Ti oxides went uncounted: they carry the
+    accessories-with-oxides lump and no oxide row of their own.  Every other
+    category was counted, so they are scored with the oxides unmeasured."""
+    phases = _phases_by_rock(modes)
+    return set(phases.index[phases.map(lambda p: "accessory_opq" in p and "opq_unsplit" not in p)])
+
+
+def mafic_total_keys(modes: pd.DataFrame) -> set[str]:
+    """Rocks reporting only a mafic total, so no mafic category was counted
+    on its own; these stay outside the evaluated set."""
+    phases = _phases_by_rock(modes)
+    return set(phases.index[phases.map(lambda p: "mafic_unsplit" in p)])
 
 
 def load_plutonic() -> RealRockBenchmark:
@@ -57,12 +62,18 @@ def load_plutonic() -> RealRockBenchmark:
 
     Neither source grades alteration per rock, and each already removed the
     rocks its own chemical screens flag, so every rock counts as fresh.  The
-    rocks `unmeasured_keys` names stay in the benchmark, and so in the split,
-    but outside `clean`.
+    rocks `mafic_total_keys` names stay in the benchmark, and so in the split,
+    but outside `clean`.  The rocks `oxides_lumped_keys` names are evaluated
+    with the oxides marked unmeasured, so their presence 0 there is not read
+    as an absence (#83, 2026-10-05; #82's committed results predate this and
+    cover 507 rocks).
     """
     benchmark = load_benchmark(PLUTONIC_DIR, densities=PLUTONIC_DENSITY)
-    unmeasured = unmeasured_keys(pd.read_csv(PLUTONIC_DIR / "modes.csv"))
-    return replace(benchmark, clean=~np.isin(benchmark.bulk_ids, sorted(unmeasured)))
+    modes = pd.read_csv(PLUTONIC_DIR / "modes.csv")
+    measured = benchmark.measured.copy()
+    measured[np.isin(benchmark.bulk_ids, sorted(oxides_lumped_keys(modes))), GROUP_INDEX["opq"]] = False
+    return replace(benchmark, measured=measured,
+                   clean=~np.isin(benchmark.bulk_ids, sorted(mafic_total_keys(modes))))
 
 
 @contextmanager
