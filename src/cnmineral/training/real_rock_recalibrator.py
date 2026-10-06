@@ -44,6 +44,10 @@ class GroupPredictions:
     recalibrator reads neither, but carrying them here is what keeps every arm
     subset by the identical unit draw, which is what makes the arms
     differenceable rather than merely comparable.
+
+    `measured` is the benchmark's mask of groups a source looked for; the
+    presence term of an unmeasured group is left out of the NLL.  `None`
+    scores every group.
     """
 
     logits7: torch.Tensor
@@ -56,6 +60,7 @@ class GroupPredictions:
     log_w: torch.Tensor | None = None
     latent: torch.Tensor | None = None
     raw: torch.Tensor | None = None
+    measured: torch.Tensor | None = None
 
     def __len__(self) -> int:
         return len(self.sio2)
@@ -70,6 +75,7 @@ class GroupPredictions:
             log_w=None if self.log_w is None else self.log_w[t],
             latent=None if self.latent is None else self.latent[t],
             raw=None if self.raw is None else self.raw[t],
+            measured=None if self.measured is None else self.measured[t],
         )
 
 
@@ -101,6 +107,7 @@ def build_group_predictions(
         else torch.as_tensor(log_w, dtype=torch.float64),
         latent=latents.detach().cpu().to(torch.float64),
         raw=raw_chemistry(benchmark),
+        measured=torch.as_tensor(benchmark.measured.astype(np.float64)),
     )
 
 
@@ -111,8 +118,13 @@ def recalibrator_nll(
     magnitude: torch.Tensor,
     numeric: torch.Tensor,
     log_w: torch.Tensor | None = None,
+    measured: torch.Tensor | None = None,
 ) -> dict[str, torch.Tensor]:
     """Per-rock hurdle NLL in group space, differentiable.
+
+    `measured` drops the presence term of a group the source did not look
+    for; `real_rock_nll` has no such mask, so the twins agree only on a fully
+    measured benchmark, the only kind `score_real_rock` accepts.
 
     The torch twin of `eval.real_rock.real_rock_nll`, and it must agree with it
     at the identity correction or a "recovered nats" number means nothing.
@@ -127,7 +139,10 @@ def recalibrator_nll(
     """
     bern = torch.nn.functional.binary_cross_entropy_with_logits(
         logits7, presence, reduction="none",
-    ).sum(-1)
+    )
+    if measured is not None:
+        bern = bern * measured
+    bern = bern.sum(-1)
     mask = numeric if log_w is None else numeric.unsqueeze(1)
     safe_alpha = torch.where(mask > 0, alpha7, torch.ones_like(alpha7))
     if log_w is None:
@@ -172,7 +187,7 @@ def fit_recalibrator(
         )
         loss = recalibrator_nll(
             logits, alpha, train.presence, train.magnitude, train.numeric,
-            log_w=log_w,
+            log_w=log_w, measured=train.measured,
         )["joint"].mean()
         loss.backward()
         opt.step()
@@ -196,7 +211,7 @@ def score_predictions(
     """
     nll = recalibrator_nll(
         logits, alpha, data.presence, data.magnitude, data.numeric,
-        log_w=log_w,
+        log_w=log_w, measured=data.measured,
     )
     numeric = data.numeric.numpy().astype(bool)
     if log_w is None:

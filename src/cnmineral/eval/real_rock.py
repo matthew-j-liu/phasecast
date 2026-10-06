@@ -150,6 +150,12 @@ class RealRockBenchmark:
     sub-composition and sums to 1 over it), and `censored` marks
     present-but-unquantified trace phases, whose share is known only to lie
     below `censor_bound`.
+
+    `measured` marks the groups a source looked for. A group lumped with
+    something outside the seven (a plutonic source's "accessory minerals and
+    Fe-Ti oxides") was not, so its `presence` 0 is not an absence and its
+    presence term is masked out of the hurdle NLL rather than the rock being
+    dropped. Every loader here sets it all True.
     """
 
     bulk_ids: np.ndarray
@@ -158,6 +164,7 @@ class RealRockBenchmark:
     presence: np.ndarray
     magnitude: np.ndarray
     numeric: np.ndarray
+    measured: np.ndarray
     censored: np.ndarray
     censor_bound: np.ndarray
     has_magnitude: np.ndarray
@@ -181,6 +188,7 @@ class RealRockBenchmark:
             presence=self.presence[mask],
             magnitude=self.magnitude[mask],
             numeric=self.numeric[mask],
+            measured=self.measured[mask],
             censored=self.censored[mask],
             censor_bound=self.censor_bound[mask],
             has_magnitude=self.has_magnitude[mask],
@@ -271,6 +279,7 @@ def _truth_arrays(
         "presence": presence,
         "magnitude": magnitude,
         "numeric": numeric,
+        "measured": np.ones((n, p), dtype=bool),
         "censored": censored,
         "censor_bound": censor_bound,
         "has_magnitude": has_magnitude,
@@ -1795,7 +1804,15 @@ def score_real_rock(head, benchmark: RealRockBenchmark, latents: torch.Tensor) -
     as arrays. `real_rock_metrics` reduces them to the JSON summary and
     `plot_real_rock` draws them; neither recomputes anything, so a test can
     exercise the whole scoring path with a random head and no figure.
+
+    This path reads `presence` as truth for every group, so it refuses a
+    benchmark with an unmeasured group rather than score that group as absent.
     """
+    if not benchmark.measured.all():
+        raise ValueError(
+            "score_real_rock cannot score a benchmark with unmeasured groups "
+            "(`measured` False); its presence statistics have no mask"
+        )
     pred = predict(head, latents, benchmark)
     p7, alpha7 = pred["p7"], pred["alpha7"]
     numeric_mask = benchmark.numeric.astype(np.float64)

@@ -415,6 +415,19 @@ def test_load_benchmark_invariants():
     assert len(b.unit) == len(b.bulk_ids)
     keys = {u.replace(" ", "").lower() for u in b.unit}
     assert len(keys) == len(set(b.unit))
+    assert b.measured.shape == b.presence.shape and b.measured.all()
+
+
+def test_numpy_scoring_refuses_an_unmeasured_group():
+    """`score_real_rock` reads presence as truth on every group, so a masked
+    group would score as absent; it must refuse rather than mis-score."""
+    from cnmineral.eval.real_rock import score_real_rock
+
+    b = load_benchmark()
+    measured = b.measured.copy()
+    measured[0, 0] = False
+    with pytest.raises(ValueError, match="unmeasured"):
+        score_real_rock(None, replace(b, measured=measured), None)
 
 
 def test_unit_spellings_that_differ_by_whitespace_or_case_load_as_one_unit(tmp_path):

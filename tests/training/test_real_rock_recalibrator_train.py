@@ -75,6 +75,40 @@ def test_gradients_survive_the_nan_guard():
     assert (alpha.grad[:, GROUP_INDEX["ol"]] == 0).all()
 
 
+def test_an_unmeasured_group_drops_out_of_the_presence_term():
+    """A group the source did not look for carries no presence evidence, so
+    its Bernoulli term must vanish; an all-ones mask must change nothing."""
+    data = _predictions()
+    plain = recalibrator_nll(data.logits7, data.alpha7, data.presence, data.magnitude,
+                             data.numeric)
+    ones = recalibrator_nll(data.logits7, data.alpha7, data.presence, data.magnitude,
+                            data.numeric, measured=torch.ones_like(data.presence))
+    for term in ("bernoulli", "dirichlet", "joint"):
+        assert torch.equal(plain[term], ones[term])
+
+    measured = torch.ones_like(data.presence)
+    measured[:5, GROUP_INDEX["px"]] = 0.0
+    flipped = data.presence.clone()
+    flipped[:5, GROUP_INDEX["px"]] = 1.0 - flipped[:5, GROUP_INDEX["px"]]
+    a = recalibrator_nll(data.logits7, data.alpha7, data.presence, data.magnitude,
+                         data.numeric, measured=measured)
+    b = recalibrator_nll(data.logits7, data.alpha7, flipped, data.magnitude,
+                         data.numeric, measured=measured)
+    assert torch.equal(a["bernoulli"], b["bernoulli"])
+    assert (a["bernoulli"][:5] < plain["bernoulli"][:5]).all()
+
+
+def test_subset_carries_the_measured_mask():
+    from dataclasses import replace
+
+    data = _predictions()
+    measured = torch.ones_like(data.presence)
+    measured[::2, GROUP_INDEX["fsp"]] = 0.0
+    sub = replace(data, measured=measured).subset(np.arange(len(data)) < 10)
+    assert torch.equal(sub.measured, measured[:10])
+    assert data.subset(np.ones(len(data), dtype=bool)).measured is None
+
+
 def test_torch_objective_matches_the_shipped_numpy_eval():
     """The fit's loss and the ledger's metric must be the same number.
 

@@ -84,7 +84,7 @@ def fit_measured_head(
         logits, alpha, log_w = head(train.latent, train.presence)
         loss = recalibrator_nll(
             logits, alpha, train.presence, train.magnitude, train.numeric,
-            log_w=log_w,
+            log_w=log_w, measured=train.measured,
         )["joint"].mean()
         loss.backward()
         opt.step()
