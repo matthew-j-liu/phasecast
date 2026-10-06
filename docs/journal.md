@@ -7838,3 +7838,46 @@ shares; #86 asks whether presence or magnitude spread carries it.
 
 **Next.** #86. The 63 tuffs with both a visual estimate and a point count
 are deprioritized (owner).
+
+## 2026-10-05 -- #83 step 0 re-read: with the 68 oxide-lumped rocks and grouped 5-fold cross-validation, the production head ties the CIPW norm and both beat the simple baselines
+
+**Q.** Does step 0's reading survive the two protocol changes the owner
+ruled for screening reads?
+
+**Context.** Two rulings the same day. First, the 68 rocks whose Fe-Ti
+oxides were lumped with the accessories join every read with the oxides
+marked unmeasured, through an optional presence mask on the hurdle NLL
+(`RealRockBenchmark.measured`, `GroupPredictions.measured`; all True on
+every other benchmark, so published numbers are bit-identical, checked on
+the eruption benchmark). The evaluated set grows from 507 to 575; the
+numpy scoring path has no mask and refuses a masked benchmark. Second,
+screening reads fit and read by grouped 5-fold cross-validation over the
+train and val rocks, intrusions kept whole: 404 rocks from 61 intrusions
+read out of fold, against 61 rocks from 19 intrusions before. The
+reasoning: differences near 0.007 did not clear zero on 19 intrusions.
+Test stays sealed; Stage B's review figures stay train and val. The
+refactored read reproduces the committed train/val step 0 exactly before
+either change is applied.
+
+**Result.** Four-silicate share absolute error, out of fold [95%
+unit-bootstrap band over 61 intrusions]:
+- CIPW norm, recalibrated: 0.042 [0.035, 0.053] (was 0.038 [0.026, 0.062]);
+- production head, recalibrated: 0.042 [0.038, 0.049] (was 0.046);
+  minus the norm -0.0003 [-0.0095, +0.0072];
+- the head minus the constant, the head given no chemistry and the head
+  given raw geochemistry: -0.012 [-0.033, -0.005], -0.012 [-0.029,
+  -0.002], -0.010 [-0.032, -0.004];
+- the norm sits about 0.011 below the same three, bands clear of zero;
+- joint NLL, head minus norm: -0.10 [-0.37, +0.23] nats.
+
+**Reading.** Step 0's first reading does not survive. The head no longer
+ties the simple baselines: once the read covers 61 intrusions, it beats
+them by about 0.01 and ties the norm. The old val split of 19 intrusions
+was unfavourable to the head. The bar for Stage A becomes 0.042, held
+jointly by the corrected norm and the corrected head. One intrusion,
+Rader Creek, has 89 of the 404 rocks read; grouped folds put it in a fold
+of its own.
+
+**Next.** Stage A's read runs on this protocol once the MAGEMin run
+finishes. The new `run_signal.py --benchmark plutonic` is first exercised
+end to end on that run.
