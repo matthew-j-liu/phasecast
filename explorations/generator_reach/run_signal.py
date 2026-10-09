@@ -453,7 +453,7 @@ def fit_two_source(a, b, weight_decay=1.0, epochs=400, lr=0.05, seed=0):
     return model.eval()
 
 
-def generator_reads(work, comps, benchmark):
+def generator_reads(work, comps, benchmark, table="ladder"):
     """Per Stage A rung, on the evaluated rocks in benchmark order: the
     zero-shot share (the mean, over the draws reaching the rung, of each
     draw's share over the measured mineral list), the fraction of those draws
@@ -472,7 +472,7 @@ def generator_reads(work, comps, benchmark):
     draws = draws[draws["bulk"].isin(bulk)]
     if set(draws["bulk"]) != set(bulk):
         raise SystemExit(f"{work} lacks {len(set(bulk) - set(draws['bulk']))} evaluated rocks")
-    raw = run_read.build_points(work)
+    raw = run_read.build_points(work, table)
     points = run_read.shares_and_distances(raw[raw["bulk"].isin(bulk)], magnitude, numeric)
     mass = points[[f"m_{g}" for g in GROUPS]].to_numpy()
     total = mass.sum(1, keepdims=True)
@@ -775,7 +775,7 @@ def run_facts(work):
                 wall_h=round(sum(r["wall_s"] for r in recs.values()) / 3600, 2))
 
 
-def draw_stage_a(table, nll_terms, out):
+def draw_stage_a(table, nll_terms, out, name="plutonic_stage_a"):
     sil = table[table["category"] == "silicate"].set_index("source")
     names = list(sil.index)
     y = np.arange(len(names))
@@ -803,7 +803,7 @@ def draw_stage_a(table, nll_terms, out):
                  "the baselines and the joint fits; bars = unit-bootstrap 95% over the intrusions",
                  fontsize=10)
     fig.tight_layout()
-    fig.savefig(out / "plutonic_stage_a.png", dpi=150)
+    fig.savefig(out / f"{name}.png", dpi=150)
     plt.close(fig)
 
 
@@ -818,7 +818,7 @@ def read_plutonic(args):
 
     work = args.work or PLUTONIC_WORK
     comps = load_compositions(RESULTS / "plutonic_compositions.csv")
-    reads, rung_rows, attrition = generator_reads(work, comps, benchmark)
+    reads, rung_rows, attrition = generator_reads(work, comps, benchmark, args.table)
     inputs = plutonic_inputs(benchmark, pick_device(), reads)
     shares, presence_p, nll, folds = cross_fit(inputs, rows, benchmark.unit)
     units = benchmark.unit[rows]
@@ -840,9 +840,10 @@ def read_plutonic(args):
           f"({j['reached_read']:.2f} of {j['n_read']} train and val); per category "
           + ", ".join(f"{g} {v['reached']:.2f}" for g, v in reached["per_category"].items()))
 
+    key = "plutonic" if args.recipe == "equilibrium" else f"plutonic_{args.recipe}"
     path = args.results / "signal.json"
     payload = json.loads(path.read_text()) if path.exists() else {}
-    payload["plutonic"] = {
+    payload[key] = {
         "settings": {"head": PRODUCTION, "recalibrator": "matrix, weight decay 1.0",
                      "measured_head_weight_decay": MEASURED_WEIGHT_DECAY,
                      "package_floor": PACKAGE_FLOOR, "cipw_to_group": CIPW_TO_GROUP,
@@ -854,7 +855,8 @@ def read_plutonic(args):
                      "read_units": int(len(np.unique(units))), "split_counts": counts,
                      "oxides_unmeasured_rocks": int((~benchmark.measured[:, GROUP_INDEX["opq"]]).sum()),
                      "test": "sealed"},
-        "stage_a": {"run": run_facts(work), "rungs": list(STAGE_A_RUNGS),
+        "stage_a": {"run": run_facts(work), "recipe": args.recipe, "table": args.table,
+                    "rungs": list(STAGE_A_RUNGS),
                     "presence_cutoff": PRESENCE_CUTOFF, "attrition": attrition,
                     "joint_pairs": {k: list(v) for k, v in JOINT_PAIRS.items()},
                     "joint_recalibrator": "matrix on the CIPW norm plus zero-initialized 7x7 "
@@ -865,8 +867,9 @@ def read_plutonic(args):
         "table": table.to_dict(orient="records"),
     }
     path.write_text(json.dumps(payload, indent=1, default=float))
-    draw_stage_a(table, nll_terms, args.results)
-    print(f"wrote the plutonic read into {path} and plutonic_stage_a.png")
+    name = "plutonic_stage_a" if args.recipe == "equilibrium" else f"plutonic_stage_a_{args.recipe}"
+    draw_stage_a(table, nll_terms, args.results, name)
+    print(f"wrote the plutonic read into {path} under {key!r} and {name}.png")
 
 
 def print_table(table):
@@ -1017,6 +1020,11 @@ def main():
     ap.add_argument("--benchmark", choices=("eruption", "plutonic"), default="eruption")
     ap.add_argument("--work", type=Path, help="default work/broad128, or work/plutonic128 "
                                               "with --benchmark plutonic")
+    ap.add_argument("--table", default="ladder",
+                    help="the run's ladder table to read: ladder (equilibrium), or a fractional "
+                         "run's step (the cargo as it forms) or pile (the accumulated crystals)")
+    ap.add_argument("--recipe", choices=("equilibrium", "fractional"), default="equilibrium",
+                    help="names the plutonic read's key in signal.json and its figure")
     ap.add_argument("--results", type=Path, default=RESULTS)
     args = ap.parse_args()
     args.results.mkdir(parents=True, exist_ok=True)

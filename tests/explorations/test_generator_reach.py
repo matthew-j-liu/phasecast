@@ -734,3 +734,17 @@ def test_fractional_run_chunk_writes_four_tables_and_the_manifest(tmp_path, monk
     assert rec["recipe"] == "fractional" and rec["draws_by_end"] == {"melt_out": 4}
     assert rec["n_points_run"] == 8 and rec["n_points_laddered"] == 8
     assert run_generator.gmc.read_manifest(out)[0]["n_pile_rows"] == len(tables["pile"])
+
+
+def test_build_points_reads_a_named_table_into_its_own_cache(tmp_path):
+    work = tmp_path / "work"
+    work.mkdir()
+    rows = pd.DataFrame([[0, 0, 1000.0, 0.4, "fsp", 0, 0.5], [0, 0, 1000.0, 0.4, "liq", 1, 0.4]],
+                        columns=run_generator.LADDER_COLS)
+    rows.to_parquet(work / "chunk_0000_pile.parquet", index=False)
+    (work / "manifest.jsonl").write_text(json.dumps(dict(chunk=0)) + "\n")
+    points = run_read.build_points(work, "pile")
+    assert (work / "points_pile.parquet").exists() and not (work / "points.parquet").exists()
+    assert points.loc[0, ["liq_frac", "m_fsp"]].tolist() == [0.4, 0.5]
+    with pytest.raises(SystemExit):
+        run_read.build_points(work)

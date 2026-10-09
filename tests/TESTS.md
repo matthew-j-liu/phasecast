@@ -657,6 +657,7 @@ Tests for archived explorations (moved to `explorations/archive/`,
 29. `test_fractional_melt_chemistry_reads_ferric_iron_from_the_excess_oxygen` -- the melt's Fe3+/sum Fe is two moles of the excess oxygen per mole of iron, its H2O the oxide fraction in wt%, and a step with no melt reads NaN.
 30. `test_fractional_complete_output_requires_every_path_ended` -- a chunk's JSONL counts as complete only when every path has a record carrying an end; a missing file is incomplete.
 31. `test_fractional_run_chunk_writes_four_tables_and_the_manifest` -- through a fake Julia runner, one chunk writes the draws table (rung read-outs, the end and the melt-out T per draw), the step, pile and melt tables with the ladder schema, and a manifest line naming the recipe, the points run against those laddered and the ends.
+32. `test_build_points_reads_a_named_table_into_its_own_cache` -- `build_points(work, "pile")` reads a run's pile chunks into `points_pile.parquet` without touching the ladder cache, and a run with no ladder table raises SystemExit on the default.
 
 ### test_input_probe_ceiling.py
 

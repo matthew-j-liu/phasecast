@@ -98,13 +98,15 @@ def point_masses(ladder):
     return out
 
 
-def build_points(work, rebuild=False):
-    """Every converged point of every manifested chunk, cached as
-    `points.parquet` beside the chunks."""
-    cache = work / "points.parquet"
-    ladders = chunk_files(work, "ladder")
+def build_points(work, table="ladder", rebuild=False):
+    """Every converged point of every manifested chunk's `table` (the
+    equilibrium ladder, or a fractional run's `step` or `pile`), cached as
+    `points.parquet` (`points_<table>.parquet` off the ladder) beside the
+    chunks."""
+    cache = work / ("points.parquet" if table == "ladder" else f"points_{table}.parquet")
+    ladders = chunk_files(work, table)
     if not ladders:
-        raise SystemExit(f"no manifested chunks under {work}")
+        raise SystemExit(f"no manifested chunks with a {table} table under {work}")
     if cache.exists() and not rebuild and \
             cache.stat().st_mtime >= max(p.stat().st_mtime for p in ladders):
         return pd.read_parquet(cache)
