@@ -8234,3 +8234,87 @@ bulks, 56 and 224 steps, seeds) read on the 404 plutonic rocks under the
 Stage A protocol with both estimators, the control line that shows what
 scaling to the equilibrium ceiling looks like and that the fractional
 ladder has to beat.
+
+## 2026-10-09 -- Steps 1 and 2 before Stage B: the ladder read, and fractional crystallization on a loop checked against PetThermoTools
+
+Three days on the first two steps of the plan of 2026-10-06, worked in
+parallel. The ladder read is done and committed; the fractional generator
+is built, smoked on both benchmarks and handed to the owner to launch.
+
+**Environment (2026-10-06).** PetThermoTools' Julia environment
+(`~/.petthermotools_julia_env`) carried MAGEMin_C 2.0.5 on MAGEMin_jll
+1.8.5 against production's 2.1.9 on 1.9.3. Updated to 2.1.9 (MAGEMinCalc
+0.6.1 puts no bound on it); MAGEMin_C became a direct dependency, and
+juliapkg and CondaPkg left `pyjuliapkg/` and `.CondaPkg/` beside the
+project files. Backup of the old Project and Manifest in the session's
+scratchpad. Starting Julia from Python on that project
+(`PYTHON_JULIAPKG_PROJECT`) rather than activating it after juliacall's own
+base project is what makes it load: the base project's Parsers 3.0 is
+incompatible with CSV's WeakRefStrings, and a package already loaded cannot
+be swapped.
+
+**Probes (2026-10-06).** Plutonic rock 0 through
+`ptt.isobaric_crystallisation(Model="Green2025", Frac_solid=True)` on the
+shared ladder: a draw that runs out of melt feeds a zero bulk into the next
+steps and records zero mass without crashing; the melt's Fe3+/sum Fe falls
+from 0.44 to 0.21 while magnetite is removed and climbs to 0.8 in the last
+few percent of melt, oxygen mass balance with no buffer; 65 MB of resident
+memory per path leak through juliacall with the Julia collector forced; no
+timeout reaches the Julia call in this version; enthalpy and entropy are
+in the output, so G can be rebuilt and the equilibrium parser's failure
+rule applied. Reading MAGEMinCalc's `path_main`: the fractionation is a
+fixed-step loop, minimize, record, next bulk the melt's composition, mass
+times the melt fraction, everything else removed including exsolved fluid.
+
+**Decision (owner, 2026-10-08): the driver is a loop of our own, checked
+against PetThermoTools.** "It essentially is like PetThermoTools with more
+capabilities at little cost." ADR 004 amended, CLAUDE.md's settled
+decision reworded. `explorations/generator_reach/run_fractional.jl` runs
+the production runner's per-thread minimization step by step with the
+scheme above, status and G per step, a stop at melt-out, raw phase names,
+FeO and Fe2O3 passed as the equilibrium run passes them; the orchestrator
+`run_fractional.py` reuses `run_generator.py`'s draws, chunking, manifest,
+timeout and bisection and writes step, pile and melt tables beside the
+draws. On rock 0's first 12 draws the loop agrees with PetThermoTools
+within 0.002 of the starting mass on the melt and 0.004 on any phase at
+every step but one, the 600 C ladder end of a wet deep draw where the two
+found different minima. Smoke on both benchmarks: the dry draw runs out of
+melt at 640 C, the wet at 620 C; 14 ms a step, none failed. A Stage A read
+of a fractional run is `run_signal.py --recipe fractional --table pile`,
+written under its own key so the equilibrium record stands; the eruption
+read waits on #85's re-run under the cross-fitted protocol.
+
+**Step 1, the ladder read (`run_ladder.py`, `results/ladder.*`).** On the
+kept equilibrium rows (404 plutonic rocks, 478 eruption rocks, test
+sealed), per mineral:
+- Amphibole is a reaction problem. It peaks at 760 C on 46% of draws and
+  is gone by the 10% rung on 98% of them, median zero already at 50%
+  melt, in every half of the box (wet, dry, deep, shallow all 0.00
+  remaining). Per unit lost the path grows 0.75 biotite and 1.4 quartz
+  beside feldspar. No prior keeps it; only the recipe can.
+- Pyroxene is half and half: 69% of draws lose it to 0.61 of its peak,
+  wet draws keep 0.86 and dry 0.47, the loss going to biotite and quartz.
+- Biotite, quartz and feldspar grow to the end. The oxides are lost only
+  at depth (deep draws keep 0.06 at 10%, shallow 0.94).
+- The eruption rows read the same per mineral: the shape is the recipe's.
+- The prediction, the no-resorption proxy against the equilibrium rung at
+  10% melt on the plutonic rocks: amphibole 0.066 to 0.042 and quartz
+  0.080 to 0.059 better, pyroxene 0.063 to 0.075 and feldspar 0.070 to
+  0.088 worse, four silicates 0.056 to 0.055. On the eruption rocks every
+  category improves, the four silicates 0.167 to 0.130 at 10% and 0.139
+  to 0.129 at 50%.
+
+**What is struck off, what survives, what is next.**
+- Struck off: the (P, H2O) prior as the lever for amphibole on either
+  benchmark; PetThermoTools as the driver of a 156,000-path run.
+- Survives: the per-mineral rung finding, now with its mechanism (the
+  amphibole-to-biotite-plus-quartz reaction down the equilibrium path);
+  the hypothesis that real plutons keep the amphibole, now with a number
+  it predicts (0.042 against 0.066).
+- Named, not on the ledger: perfect removal is predicted to overshoot on
+  pyroxene where partial removal would not; the coarse 600 C ladder end
+  leaves a fifth of the melt on wet deep draws.
+- Next: the owner launches the fractional run on both benchmarks (about
+  11 h); then #87 on both recipes' draws, scored by tracking and by
+  whether a window makes each mineral form in the right fraction of
+  draws at the right amount.
