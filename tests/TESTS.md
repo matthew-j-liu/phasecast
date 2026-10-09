@@ -658,6 +658,7 @@ Tests for archived explorations (moved to `explorations/archive/`,
 30. `test_fractional_complete_output_requires_every_path_ended` -- a chunk's JSONL counts as complete only when every path has a record carrying an end; a missing file is incomplete.
 31. `test_fractional_run_chunk_writes_four_tables_and_the_manifest` -- through a fake Julia runner, one chunk writes the draws table (rung read-outs, the end and the melt-out T per draw), the step, pile and melt tables with the ladder schema, and a manifest line naming the recipe, the points run against those laddered and the ends.
 32. `test_build_points_reads_a_named_table_into_its_own_cache` -- `build_points(work, "pile")` reads a run's pile chunks into `points_pile.parquet` without touching the ladder cache, and a run with no ladder table raises SystemExit on the default.
+33. `test_ladder_peaks_remaining_gain_budget_and_proxy_on_a_synthetic_path` -- on a two-draw path where amphibole peaks mid-way and is gone by the 10% rung while biotite grows: the rung ends, the peak and its T, the remaining fraction at each rung, the decline with its loss and every other category's gain, a draw that never carries the category (NaN, not declined), a monotonic category (no loss), the no-resorption pile never below the equilibrium mass, the median splits, and the per-split summary with the gain budget per unit lost.
 
 ### test_input_probe_ceiling.py
 

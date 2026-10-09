@@ -23,7 +23,7 @@ from cnmineral.data.condition_proposal import q_density, w_max
 from cnmineral.data.fe_redox import MIDDLEMOST_1989
 from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval.real_rock import load_benchmark
-from explorations.generator_reach import run_fractional, run_generator, run_read
+from explorations.generator_reach import run_fractional, run_generator, run_ladder, run_read
 from explorations.generator_reach.compositions import (
     TAS_FIELDS,
     TAS_TO_CLASS,
@@ -748,3 +748,46 @@ def test_build_points_reads_a_named_table_into_its_own_cache(tmp_path):
     assert points.loc[0, ["liq_frac", "m_fsp"]].tolist() == [0.4, 0.5]
     with pytest.raises(SystemExit):
         run_read.build_points(work)
+
+
+def _ladder_points():
+    # draw 0: amphibole peaks at the third step and is gone by the last while
+    # biotite grows; draw 1 never carries amphibole
+    rows = []
+    for draw, amp, h2o in ((0, [0.0, 0.1, 0.2, 0.1, 0.0], 1.0), (1, [0.0] * 5, 5.0)):
+        for k, (T, liq, bi) in enumerate(zip([1100.0, 1000.0, 900.0, 800.0, 700.0],
+                                             [0.9, 0.7, 0.5, 0.2, 0.05], [0, 0, 0, 0.1, 0.2])):
+            rows.append(dict(bulk=0, draw=draw, T_celsius=T, liq_frac=liq, fl_frac=0.0,
+                             m_fsp=0.1 * (k + 1), m_px=0.0, m_amp=amp[k], m_bi=bi, m_ol=0.0,
+                             m_opq=0.0, m_q=0.0, m_other=0.0, P_kbar=2.0 + 8.0 * draw, H2O=h2o))
+    return pd.DataFrame(rows)
+
+
+def test_ladder_peaks_remaining_gain_budget_and_proxy_on_a_synthetic_path():
+    points = _ladder_points()
+    ends = run_ladder.rung_ends(points)
+    assert ends[50].loc[(0, 0)] == 800.0 and ends[10].loc[(0, 0)] == 700.0
+    table = run_ladder.per_draw_table(points, ends).set_index(["category", "draw"])
+    amp0, amp1 = table.loc[("amp", 0)], table.loc[("amp", 1)]
+    assert amp0.carries and amp0.T_peak == 900.0 and amp0.peak == pytest.approx(0.2)
+    assert amp0.remaining_50 == pytest.approx(0.5) and amp0.remaining_10 == pytest.approx(0.0)
+    assert amp0.declined and amp0.loss == pytest.approx(0.2)
+    assert amp0.gain_bi == pytest.approx(0.2) and amp0.gain_fsp == pytest.approx(0.2) and amp0.gain_q == 0.0
+    assert not amp1.carries and np.isnan(amp1.remaining_10) and not amp1.declined
+    fsp0 = table.loc[("fsp", 0)]
+    assert fsp0.T_peak == 700.0 and not fsp0.declined and np.isnan(fsp0.loss)
+    proxy = run_ladder.no_resorption_pile(points)
+    at_end = proxy[(proxy.draw == 0) & (proxy.T_celsius == 700.0)].iloc[0]
+    assert at_end.m_amp == pytest.approx(0.2) and at_end.m_fsp == pytest.approx(0.5)
+    merged = proxy.merge(points, on=["bulk", "draw", "T_celsius"], suffixes=("_proxy", ""))
+    assert (merged[[f"m_{g}_proxy" for g in GROUPS]].to_numpy()
+            >= merged[[f"m_{g}" for g in GROUPS]].to_numpy() - 1e-12).all()
+    medians = {"H2O": 3.0, "P_kbar": 6.0}
+    masks = run_ladder.split_masks(table.reset_index(), medians)
+    assert masks["wet"].sum() == masks["deep"].sum() == len(GROUPS)
+    summary = run_ladder.summarize(table.reset_index(), medians, "synthetic").set_index(["category", "split"])
+    amp_all, amp_dry = summary.loc[("amp", "all")], summary.loc[("amp", "dry")]
+    assert amp_all.n_draws == 2 and amp_all.n_carrying == 1 and amp_all.frac_declining == 1.0
+    assert amp_all.median_remaining_10 == 0.0 and amp_all.gain_bi == pytest.approx(1.0)
+    assert amp_dry.n_carrying == 1 and summary.loc[("amp", "wet")].n_carrying == 0
+    assert np.isnan(summary.loc[("px", "all")].median_T_peak)

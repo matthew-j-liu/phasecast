@@ -509,6 +509,100 @@ no single rung serves every mineral on the same rock. The reach read
 keeps the near-solidus rows (`SOLIDUS_RUNGS`), so its numbers above are
 unchanged.
 
+## Seven-mineral ladder read (2026-10-09, step 1 before Stage B)
+
+The rung finding above says the four-silicate error is flat across rungs
+while every mineral in it moves. Before the recipe is changed, the kept
+equilibrium rows say per mineral whether the late-stage error is a
+conditions problem (some corner of the (P, H2O) box keeps the mineral,
+so a prior could) or a reaction problem (every draw consumes it, so only
+the recipe can), and what the fractional run should then show.
+`run_ladder.py`, model-free, nine seconds, both benchmarks.
+
+**Method.** The evaluated train and val rocks of each run (404 plutonic
+rocks, 51,712 draws; 478 eruption rocks, 61,184 draws; test sealed), every
+converged step with each category's crystal mass on the whole-system basis.
+Per (draw, category): the peak mass and its T down the ladder, whether the
+draw carries the category (seven-category crystal share at the peak above
+`PRESENCE_CUTOFF`), the mass at the 50, 30, 10 and 5% rungs (highest-T step
+with melt below, as the Stage A read) as a fraction of the peak, and, when
+less than 0.9 of the peak is left at 10%, the gain budget: per unit of the
+category's mass lost between its peak and the 10% step, the mass every other
+category gained over the same steps (the sum exceeds one because the melt
+keeps crystallizing). Splits at the kept draws' medians, 3.57 wt% H2O and
+6.25 kbar. The prediction for the fractional run is the no-resorption pile:
+per draw the running sum of each category's positive mass increments down
+the path, what the equilibrium path grew had nothing it grew been consumed;
+read at each rung as a draw-mean share over the measured mineral list beside
+the equilibrium share, both scored against the measured share. It keeps
+each step's growth but not fractionation's changed liquid line of descent,
+so it is a proxy, not the run's result.
+
+```
+python explorations/generator_reach/run_ladder.py
+```
+
+Committed under `results/`: `ladder.csv` (one row per benchmark, category
+and split), `ladder.json` (settings, medians, counts, the prediction) and
+`ladder.png` (mean category mass against T by split).
+
+**Result.** Carrying draws, both benchmarks read the same way:
+
+| category | plutonic: carrying, declining, median T at peak, remaining at 50 / 30 / 10% | gain per unit lost (plutonic, 10% step) |
+|---|---|---|
+| fsp | 51,654 draws, 6%, 620 C, 0.64 / 0.99 / 1.00 | grows to the end |
+| px | 43,147, 69%, 700 C, 0.38 / 0.58 / 0.61 | fsp +5.6, q +3.5, bi +2.0, amp +0.2 |
+| amp | 23,697, 98%, 760 C, 0.00 / 0.00 / 0.00 | fsp +2.4, q +1.4, bi +0.75, other +0.7, px +0.4 |
+| bi | 50,843, 44%, 600 C, 0.61 / 0.86 / 0.93 | px +1.1, other +1.0, fsp +0.85 |
+| ol | 518, 98%, 960 C, 0.00 / 0.00 / 0.00 | fsp +7.5, q +3.9, bi +3.6, amp +3.0 |
+| opq | 51,294, 61%, 800 C, 0.87 / 0.88 / 0.82 | small losses; fsp +20, q +14 |
+| q | 51,701, 12%, 600 C, 0.53 / 0.94 / 1.00 | grows to the end |
+
+- **Amphibole is a reaction problem.** It peaks at 760 C on 46% of the
+  draws and is gone by the 10% rung on 98% of them, with the median draw
+  already at zero by 50% melt; wet, dry, deep and shallow halves all read
+  0.00 remaining (declining 1.00 / 0.93 / 0.97 / 0.99). No corner of the
+  box keeps it, so a prior cannot; per unit lost the path grows 0.75
+  biotite and 1.4 quartz beside feldspar, the amphibole-to-biotite-plus-
+  quartz reaction. Olivine, on 1% of draws, is consumed the same way.
+- **Pyroxene is half and half.** It declines on 69% of draws to 0.61 of
+  its peak, wet draws keeping 0.86 and dry ones 0.47; its loss grows
+  biotite (+2.0) and quartz (+3.5). A conditions lever (water) exists but
+  the reaction runs on both halves.
+- **Biotite, quartz and feldspar grow to the end** (remaining 0.93 to
+  1.00 at 10%). Biotite declines on 44% of draws by a tenth at most, into
+  pyroxene and other phases. The oxides lose little except at depth
+  (deep draws keep 0.06 at 10%, shallow 0.94), a conditions signal.
+- The eruption rows read the same per mineral (amphibole 97% declining
+  to 0.00, pyroxene 68% to 0.68, biotite 94% kept, quartz 99%), so the
+  ladder's shape is the recipe's, not the benchmark's.
+
+**Prediction for the fractional run** (absolute error against the measured
+share, equilibrium rung / no-resorption proxy):
+
+| rung | plutonic fsp | px | amp | bi | q | four silicates | eruption four silicates |
+|---|---|---|---|---|---|---|---|
+| 50% | 0.074 / 0.081 | 0.076 / 0.113 | 0.051 / 0.068 | 0.034 / 0.032 | 0.069 / 0.069 | 0.053 / 0.058 | 0.139 / 0.129 |
+| 30% | 0.068 / 0.082 | 0.059 / 0.085 | 0.058 / 0.045 | 0.039 / 0.033 | 0.069 / 0.057 | 0.053 / 0.053 | 0.158 / 0.130 |
+| 10% | 0.070 / 0.088 | 0.063 / 0.075 | 0.066 / 0.042 | 0.041 / 0.036 | 0.080 / 0.059 | 0.056 / 0.055 | 0.167 / 0.130 |
+
+- On the plutonic rocks, keeping what the path grew improves amphibole
+  (0.066 to 0.042 at 10%), quartz (0.080 to 0.059) and biotite, and
+  worsens pyroxene (0.063 to 0.075) and feldspar (0.070 to 0.088): the
+  pile keeps the pyroxene the rock does not have and shifts the feldspar
+  share. The four-silicate mean moves by 0.001, the cancellation again.
+  So the fractional run should be read per mineral: amphibole and quartz
+  are the minerals it is predicted to fix, pyroxene and feldspar the
+  ones it is predicted to break, and a recipe that fractionates perfectly
+  may overshoot on pyroxene where partial removal would not.
+- On the eruption rocks the proxy helps every category and the four
+  silicates by 0.01 at 50% and 0.04 at 10%, mostly feldspar and
+  amphibole. The phenocryst counts sit closer to what the path grew than
+  to what it keeps at any rung.
+
+The fractional run tests these numbers directly; the proxy is retired once
+it has run.
+
 ## Fractional crystallization generator (2026-10-09, #83 and #84 step 2)
 
 `run_fractional.py` and `run_fractional.jl` run fractional crystallization
