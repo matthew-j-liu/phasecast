@@ -250,7 +250,12 @@ don't re-open the question.
 - **Don't pitch a centroid (deterministic) head as the model.**  That's amortized
   MAGEMin marginalized over T, P, H2O — rejected at inception.  The model must
   include CondHead for the inverse-inference contribution.
-- **PetThermoTools (not a custom Julia loop) for FC** (ADR 004).  Production
+- **Fractional crystallization drives MAGEMin_C directly through
+  `explorations/generator_reach/run_fractional.jl`** (ADR 004, amended
+  2026-10-09): MAGEMinCalc's scheme reimplemented in the production Julia
+  environment with status per step, a stop at melt-out and the equilibrium
+  runner's timeout and bisection; PetThermoTools stays installed as the
+  reference the loop is checked against, never as the driver.  Production
   labels: FC at per-bulk T_FC_end (ADR 005), ~16 (P, H2O) paths per bulk, single
   endpoint each; fO2 stays class-conditional via `fe_redox.py`.  Pick T per bulk
   from its own liq trajectory, not a per-class T_FC_end_class (that caused ~11%

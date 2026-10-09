@@ -1,7 +1,7 @@
 # Decision 004: Use PetThermoTools for fractional-crystallization experiments and (potential) production label generation
 
 **Date:** 2026-05-13
-**Status:** Resolved → Phase B, **amended 2026-06-30 (production scoped to volcanic; equilibrium, not FC)**; the volcanic generation record folded in 2026-09-03
+**Status:** Resolved → Phase B, **amended 2026-06-30 (production scoped to volcanic; equilibrium, not FC)**; the volcanic generation record folded in 2026-09-03; **amended 2026-10-09 (the benchmark fractional runs drive MAGEMin_C directly; PetThermoTools kept as the reference check)**
 
 ## Amendment 2026-06-30 -- v1 production is volcanic + equilibrium; FC deferred to the plutonic branch
 
@@ -45,6 +45,37 @@ Consequences:
   unchanged) moves to the deferred **plutonic/cumulate branch**, where it
   models FC of parent magmas (issue #22). ADR 005's FC production recipe
   applies there, not to the volcanic v1 corpus.
+
+## Amendment 2026-10-09 -- the benchmark fractional runs drive MAGEMin_C directly
+
+The fractional crystallization of the benchmark rocks' own chemistry (#83
+Stage B's recipe arm, #84) runs through
+`explorations/generator_reach/run_fractional.jl`, a loop in the production
+Julia environment, not through PetThermoTools. PetThermoTools stays installed
+(0.4.5 from the owner's clone, its Julia environment aligned to MAGEMin_C
+2.1.9 on 2026-10-06) as the reference the loop is checked against, never as
+the driver. The choice below was made on what PetThermoTools' fractionation
+was expected to handle: liquidus bracketing, adaptive step sizing near the
+solidus and terminal-solid edge cases. Reading MAGEMinCalc 0.6.1, its Julia
+half, on 2026-10-06: the fractionation is a fixed-step loop (minimize at each
+T, record every phase, set the next bulk to the melt's composition, scale the
+mass by the melt fraction) with none of the three; the liquidus search exists
+but cannot be used, since pairing with the equilibrium run needs the shared
+1200 to 600 C ladder. Driving that loop from Python costs what the May run
+paid: the juliacall memory leak (65 MB per path measured, so workers recycled
+every 32 draws), no timeout reaching the Julia call in this version,
+convergence status not exposed (G rebuilt from H and S), a two-layer phase
+renaming to undo, and iron passed as a ratio. The loop is the same scheme with
+status and G per step, a stop at melt-out, raw MAGEMin phase names, FeO and
+Fe2O3 passed as the equilibrium run passes them, and the equilibrium runner's
+subprocess, timeout and crash bisection; on plutonic rock 0's first 12 draws
+it agrees with PetThermoTools within 0.002 of the starting mass on the melt
+and 0.004 on any phase at every step but one (`explorations/generator_reach/
+README.md`). The defensibility argument below ("labels generated using
+PetThermoTools") is replaced by "MAGEMinCalc's fractionation scheme, verified
+against PetThermoTools path for path". ADR 005's production recipe for the
+plutonic branch (#22) is untouched by this; if that branch is built, the same
+loop serves it.
 
 ### Generation record (landed 2026-07-27; the planning spec is retired)
 
