@@ -508,3 +508,73 @@ hypothesis, journal 2026-10-06. The rung has to be read per mineral, and
 no single rung serves every mineral on the same rock. The reach read
 keeps the near-solidus rows (`SOLIDUS_RUNGS`), so its numbers above are
 unchanged.
+
+## Fractional crystallization generator (2026-10-09, #83 and #84 step 2)
+
+`run_fractional.py` and `run_fractional.jl` run fractional crystallization
+of each benchmark rock's own chemistry, paired draw for draw with the
+equilibrium run: the same composition tables, the same 128 (P, H2O) draws
+from `draw_conditions` with `seed + bulk`, the same 1200 to 600 C ladder in
+20 C steps, the same production Julia environment (Julia 1.12.6, MAGEMin_C
+2.1.9, database `ig`), the same subprocess, timeout and crash bisection as
+`run_generator.py`, here at path boundaries.
+
+**Recipe.** A path starts from the rock's 11-oxide bulk (FeO and Fe2O3
+separate, as the equilibrium run) with the system mass at 1. After each
+converged step the melt's own composition, its oxides including the excess
+oxygen `O`, becomes the next step's bulk and the system mass is scaled by
+the melt's weight fraction: everything else is removed, exsolved fluid
+included, and iron speciation follows the oxygen mass balance of the melt
+with no buffer. A failed step (status not 0, G non-finite or not negative)
+is written and skipped with the bulk kept; a path ends when no melt is
+stable, when the melt falls below `--melt-floor` (1e-4 of the starting
+mass) or at the ladder's end, and its rows below the end are not run. This
+is MAGEMinCalc's fractionation scheme (PetThermoTools' Julia half, read
+2026-10-06: minimize, record, next bulk the melt, mass times the melt
+fraction, no liquidus bracketing, no adaptive step, no stop at melt-out)
+driven directly, with the status and G of every step kept and raw MAGEMin
+phase names; ADR 004's amendment of 2026-10-09 records why.
+
+**Check against PetThermoTools.** Its environment was aligned to the same
+MAGEMin_C 2.1.9 (from 2.0.5) and plutonic rock 0's first 12 draws run
+through `ptt.isobaric_crystallisation(Model="Green2025", Frac_solid=True)`
+on the same ladder. On 11 of the 12 draws every step agrees within 0.002 of
+the starting mass on the melt and 0.004 on any phase (PetThermoTools passes
+iron as a ratio with 159.59 for Fe2O3's molar mass). The twelfth, wet and
+deep (5.0 wt%, 11.6 kbar), agrees to the same tolerance down to its last
+ladder step at 600 C with a fifth of the melt left, where the two found
+different minima (nepheline plus quartz against feldspar, 0.13 of the
+starting mass). PetThermoTools stays installed as that reference, never as
+the driver.
+
+**Smoke.** Plutonic rock 0 (a granite): the dry draw (0.56 wt% H2O, 6.05
+kbar) crystallizes from 1040 C, feldspar then quartz, pyroxene and oxides,
+biotite late, and runs out of melt at 640 C; the wet draw (6.45 wt%, 7.47
+kbar) carries 98% melt to 800 C, then quartz, biotite and feldspar, and
+runs out at 620 C with 5% fluid exsolved at the end. The melt's Fe3+/sum Fe
+falls from 0.45 to 0.2 while magnetite is removed and climbs to 0.8 in the
+last few percent of melt. Twelve paths: 350 steps in 4.9 s, 14 ms a step,
+none failed; a path that runs out of melt stops there.
+
+```
+python explorations/generator_reach/run_fractional.py --smoke                      # rock 0, two draws, prints every step
+python explorations/generator_reach/run_fractional.py --smoke --benchmark plutonic
+python explorations/generator_reach/run_fractional.py --benchmark plutonic         # 578 x 128, work/plutonic128_fc
+python explorations/generator_reach/run_fractional.py                              # 640 x 128, work/broad128_fc
+python explorations/generator_reach/run_signal.py --benchmark plutonic --work explorations/generator_reach/work/plutonic128_fc --table pile --recipe fractional
+```
+
+Per chunk, under the gitignored work dir: `chunk_XXXX_draws.parquet` (the
+equilibrium columns plus `end`, `T_liquid_out`, `n_steps_run`, and rung
+read-outs at 50, 30, 10 and 5% melt on the starting mass),
+`chunk_XXXX_step.parquet` (each step's phases as they form, the cargo),
+`chunk_XXXX_pile.parquet` (the solids and fluid accumulated down the path,
+the residual melt as its `liq` rows: the plutonic label) and
+`chunk_XXXX_melt.parquet` (per converged step the melt's Fe3+/sum Fe and
+H2O, the status and G). Both ladder tables are in `LADDER_COLS` with
+`mode_wt` and `liq_frac` on the starting mass, so `run_read.build_points
+(work, table)` and the Stage A read work on either; `run_signal.py
+--recipe fractional` writes the plutonic read under `plutonic_fractional`
+in `signal.json` and `plutonic_stage_a_fractional.png`, leaving the
+equilibrium record in place. The eruption read of a fractional run waits on
+the eruption benchmark's re-run under the cross-fitted protocol (#85).

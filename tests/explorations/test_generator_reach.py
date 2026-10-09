@@ -4,9 +4,11 @@ parser, the chunked runner against a fake Julia, the three-distance read,
 and the signal read's pure pieces (renormalization, the line fit, the
 bootstrap table, the ruler disagreement, and for the plutonic read the rank
 metrics, the CIPW norm and the packaging of a share source for the
-recalibrator).
-The real generator needs Julia and MAGEMin, so it is exercised by the smoke
-run, not here."""
+recalibrator); the fractional runner's inputs, parser and chunk writer
+against a fake Julia, the table-aware points builder, and the ladder read's
+pure pieces on a synthetic path.
+The real generators need Julia and MAGEMin, so they are exercised by the smoke
+runs, not here."""
 
 import json
 import sys
@@ -21,7 +23,7 @@ from cnmineral.data.condition_proposal import q_density, w_max
 from cnmineral.data.fe_redox import MIDDLEMOST_1989
 from cnmineral.data.phase_vocab import GROUPS
 from cnmineral.eval.real_rock import load_benchmark
-from explorations.generator_reach import run_generator, run_read
+from explorations.generator_reach import run_fractional, run_generator, run_read
 from explorations.generator_reach.compositions import (
     TAS_FIELDS,
     TAS_TO_CLASS,
@@ -625,3 +627,110 @@ def test_cross_fit_reads_every_rock_once_out_of_fold_with_intrusions_whole(monke
         assert not fit_rows[~rows].any()
         read = rows & ~fit_rows
         assert not set(units[read]) & set(units[fit_rows])
+
+
+def _fc_rec(sid, path_id, mass, phases, status=0, G=-900.0, end=None):
+    for p in phases:
+        p.setdefault("comp_wt", {"SiO2": 0.7, "FeO": 0.03, "O": 0.002, "H2O": 0.04})
+    return dict(sid=sid, P=5.0, T=1000.0, path_id=path_id, mass=mass, status=status, G=G,
+                end=end, phases=phases, ss=[])
+
+
+def _fake_fc_julia(calls):
+    # melt falls with temperature; the second step holds the melt below rung
+    # 50 and the path ends there by melt-out, so the third ladder row is never
+    # run
+    liq_of_T = {1100.0: 0.6, 1080.0: 0.0}
+
+    def run(input_csv, output_jsonl, database, melt_floor, timeout=None):
+        calls.append(Path(input_csv).name)
+        df = pd.read_csv(input_csv)
+        with open(output_jsonl, "w") as fh:
+            for path_id, g in df.groupby("path_id"):
+                mass = 1.0
+                for sid, T in zip(g.sample_id, g.T_celsius):
+                    liq = liq_of_T[T]
+                    solid = 1.0 - liq
+                    phases = ([dict(name="liq", mode_wt=liq)] if liq else []) + [
+                        dict(name="fsp", mode_wt=0.6 * solid), dict(name="q", mode_wt=0.4 * solid)]
+                    fh.write(json.dumps(_fc_rec(int(sid), int(path_id), mass, phases,
+                                                end=None if liq else "melt_out")) + "\n")
+                    mass *= liq
+                    if not liq:
+                        break
+        return SimpleNamespace(returncode=0, stderr="")
+    return run
+
+
+def test_fractional_inputs_carry_a_path_id_per_draw(tmp_path, short_ladder):
+    comps, _ = _comps(tmp_path)
+    inp, meta, draws = run_fractional.build_inputs(comps, n_draws=3, seed=0)
+    base, _, _ = run_generator.build_inputs(comps, n_draws=3, seed=0)
+    pd.testing.assert_frame_equal(inp.drop(columns="path_id"), base)
+    assert (inp["path_id"] == meta["bulk"] * 3 + meta["draw"]).all()
+    assert inp.groupby("path_id")["sample_id"].count().eq(len(LADDER)).all()
+    assert inp["path_id"].nunique() == len(draws) == 3 * len(comps)
+
+
+def test_fractional_parse_chunk_masses_on_the_starting_basis_and_the_melt_out_end(tmp_path):
+    # step 1: half crystallizes; step 2 fails; step 3 runs on the remaining
+    # half and freezes it; step 4 is never run
+    recs = [
+        _fc_rec(1, 7, 1.0, [dict(name="liq", mode_wt=0.5), dict(name="fsp", mode_wt=0.5)]),
+        _fc_rec(2, 7, 0.5, [], status=-1, G=None),
+        _fc_rec(3, 7, 0.5, [dict(name="fsp", mode_wt=0.6), dict(name="q", mode_wt=0.4)], end="melt_out"),
+    ]
+    step, pile, melt, stats = run_fractional.parse_chunk(_write(tmp_path, recs), _meta(4), run_fractional.RUNGS)
+    assert list(step.columns) == run_generator.LADDER_COLS and list(pile.columns) == run_generator.LADDER_COLS
+    s1, s3 = step[step.T_celsius == 1100.0], step[step.T_celsius == 1060.0]
+    assert dict(zip(s1.phase, s1.mode_wt)) == {"liq": 0.5, "fsp": 0.5} and s1.liq_frac.eq(0.5).all()
+    assert dict(zip(s3.phase, s3.mode_wt)) == pytest.approx({"fsp": 0.3, "q": 0.2}) and s3.liq_frac.eq(0.0).all()
+    p3 = pile[pile.T_celsius == 1060.0]
+    assert dict(zip(p3.phase, p3.mode_wt)) == pytest.approx({"fsp": 0.8, "q": 0.2, "liq": 0.0})
+    assert 1080.0 not in set(step.T_celsius) and 1040.0 not in set(step.T_celsius)
+    assert list(melt.columns) == run_fractional.MELT_COLS and list(melt.T_celsius) == [1100.0, 1060.0]
+    assert list(melt["end"]) == [None, "melt_out"] and list(melt["mass"]) == [1.0, 0.5]
+    st = stats.iloc[0]
+    assert st.n_failed == 1 and st.n_steps_run == 3 and st.n_points == 2
+    assert st["end"] == "melt_out" and st.T_liquid_out == 1060.0 and st.T_last == 1060.0
+    assert st.T_end_50 == 1060.0 and st.T_end_5 == 1060.0 and not st.attrition_5
+
+
+def test_fractional_melt_chemistry_reads_ferric_iron_from_the_excess_oxygen():
+    liq = dict(name="liq", mode_wt=1.0, comp_wt={"FeO": 0.071844, "O": 0.0079995, "H2O": 0.05})
+    fe3, h2o = run_fractional._melt_chemistry(_fc_rec(1, 0, 1.0, [liq]))
+    assert fe3 == pytest.approx(1.0) and h2o == pytest.approx(5.0)
+    assert np.isnan(run_fractional._melt_chemistry(_fc_rec(1, 0, 1.0, []))[0])
+
+
+def test_fractional_complete_output_requires_every_path_ended(tmp_path):
+    path = _write(tmp_path, [_fc_rec(1, 0, 1.0, [], end="ladder"), _fc_rec(2, 1, 1.0, [])])
+    assert run_fractional._complete_output(path, [0])
+    assert not run_fractional._complete_output(path, [0, 1])
+    assert not run_fractional._complete_output(tmp_path / "missing.jsonl", [0])
+
+
+def test_fractional_run_chunk_writes_four_tables_and_the_manifest(tmp_path, monkeypatch, short_ladder):
+    comps, _ = _comps(tmp_path)
+    calls = []
+    monkeypatch.setattr(run_fractional, "run_julia", _fake_fc_julia(calls))
+    out = tmp_path / "out"
+    out.mkdir()
+    args = _args(melt_floor=1e-4)
+    rec = run_fractional.run_chunk(0, comps, args, out)
+    tables = {t: pd.read_parquet(out / f"chunk_0000_{t}.parquet") for t in run_fractional.TABLES}
+    assert calls == ["in_0.csv"]
+    draws = tables["draws"]
+    assert len(draws) == 4 and {"T_end_50", "T_end_5", "attrition_10", "end", "T_liquid_out",
+                                "n_steps_run", "n_failed"} <= set(draws.columns)
+    assert (draws["end"] == "melt_out").all() and (draws["T_liquid_out"] == 1080.0).all()
+    assert (draws["T_end_50"] == 1080.0).all() and not draws["attrition_5"].any()
+    # 4 draws x (3 phases at the first step + 2 at the melt-out step)
+    assert len(tables["step"]) == 4 * 5 and len(tables["pile"]) == 4 * (3 + 3)
+    assert list(tables["step"].columns) == run_generator.LADDER_COLS
+    last = tables["pile"][(tables["pile"].draw == 0) & (tables["pile"].bulk == 0)]
+    last = last[last.T_celsius == 1080.0].set_index("phase")["mode_wt"]
+    assert last[["fsp", "q", "liq"]].tolist() == pytest.approx([0.6, 0.4, 0.0])
+    assert rec["recipe"] == "fractional" and rec["draws_by_end"] == {"melt_out": 4}
+    assert rec["n_points_run"] == 8 and rec["n_points_laddered"] == 8
+    assert run_generator.gmc.read_manifest(out)[0]["n_pile_rows"] == len(tables["pile"])
