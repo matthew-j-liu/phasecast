@@ -672,3 +672,87 @@ H2O, the status and G). Both ladder tables are in `LADDER_COLS` with
 in `signal.json` and `plutonic_stage_a_fractional.png`, leaving the
 equilibrium record in place. The eruption read of a fractional run waits on
 the eruption benchmark's re-run under the cross-fitted protocol (#85).
+
+## Stage A on the fractional run (2026-10-13, #83 and #84)
+
+Run 2026-10-09 to 10-13 under the recipe above: plutonic 578 rocks x 128
+draws, 5.6 h, no solver crashes, 2.16 M of 2.29 M laddered steps run (the
+rest below melt-out); eruption 640 x 128, 6.1 h, 2.39 M of 2.54 M. The melt
+runs out at 640 C on the median draw (620 to 680 C from the 10th to the 90th
+percentile) and 16% of draws reach the ladder's 600 C end with melt left
+(median a fifth of the starting mass; wet and deep, median 11 kbar). Failed
+steps, 0.3 per draw, sit at the top of the ladder above the liquidus, where
+they are skipped with the bulk kept, and at the 600 C step on the draws
+whose melt persists; 0.2% of draws lose their tail above 700 C. So 12% of
+draws never reach 10% melt (4% never reach 30%, 0.4% 50%), against 0.2%
+under equilibrium, and the near-solidus rungs read the other 88%, the
+drier and shallower draws. The melt's Fe3+/sum Fe climbs from 0.4 to a
+median 0.64 below 10% melt, oxygen mass balance with no buffer.
+
+The same cross-fitted read as the equilibrium Stage A (404 train and val
+rocks, 61 intrusions, `--table pile --recipe fractional`), four silicates:
+
+| source | equilibrium | fractional |
+|---|---|---|
+| simulator at 50% melt, zero-shot | 0.059 [0.049, 0.083] | 0.073 [0.060, 0.107] |
+| simulator at 30% melt, zero-shot | 0.056 [0.047, 0.064] | 0.062 [0.051, 0.077] |
+| simulator at 10% melt, zero-shot | 0.060 [0.049, 0.068] | 0.056 [0.046, 0.067] |
+| simulator at 30% melt, recalibrated | 0.041 [0.035, 0.060], NLL -4.84 | 0.038 [0.034, 0.046], NLL -4.84 |
+| simulator at 10% melt, recalibrated | 0.044 [0.036, 0.067], NLL -4.71 | 0.039 [0.034, 0.053], NLL -4.88 |
+| joint fit B, norm plus simulator at 30% | 0.041 [0.035, 0.055] | 0.039 [0.033, 0.050], NLL -4.98 |
+| recalibrated norm (step 0) | 0.042 [0.035, 0.053], NLL -4.69 | same |
+| recalibrated head (step 0) | 0.042 [0.038, 0.048], NLL -4.79 | same |
+
+- **Under the bar, by a hair.** Recalibrated at 30% melt the fractional
+  simulator reads 0.038 against the norm's 0.042 on the same resamples,
+  -0.0044 [-0.0092, +0.0005]; at 10% -0.0030 [-0.0060, +0.0030]. The joint
+  fit with the norm at 30% clears zero, -0.0036 [-0.0054, -0.0006] in share
+  and -0.29 [-0.44, -0.08] nats, the first source to do so on share error.
+  The equilibrium simulator's best was -0.0011 [-0.0049, +0.0088].
+- **Zero-shot the near-solidus rungs improve and the 50% rung worsens**
+  (0.060 to 0.056 at 10%, 0.059 to 0.073 at 50%): the early pile is
+  pyroxene-heavy (bias +0.125 in share at 50% melt against +0.074 under
+  equilibrium).
+- **Spearman falls** on the four silicates, 0.49 to 0.42 zero-shot, carried
+  by feldspar (0.31 to 0.20) and biotite (0.52 to 0.35); amphibole holds at
+  0.58 and quartz rises 0.48 to 0.62.
+
+Per mineral at 10% melt, zero-shot, the ladder read's prediction beside the
+result (absolute error; the signed bias is simulated minus measured share):
+
+| category | n | equilibrium | predicted | fractional | bias eq -> fc | draws carrying eq -> fc |
+|---|---|---|---|---|---|---|
+| amphibole | 226 | 0.066 | 0.042 | 0.038 | -0.056 -> -0.027 | 0.09 -> 0.46 |
+| quartz | 403 | 0.080 | 0.059 | 0.054 | +0.063 -> +0.018 | 1.00 -> 1.00 |
+| pyroxene | 40 | 0.063 | 0.075 | 0.066 | +0.033 -> +0.062 | 0.86 -> 0.95 |
+| feldspar | 404 | 0.070 | 0.088 | 0.065 | -0.035 -> +0.038 | 1.00 -> 1.00 |
+| biotite | 391 | 0.041 | 0.036 | 0.054 | +0.008 -> -0.053 | 0.85 -> 0.93 |
+
+- **Amphibole and quartz as predicted, better than predicted.** The
+  amphibole the equilibrium path consumed is kept: it is in the pile on 46%
+  of draws against 9% at the equilibrium rung, and its bias halves. The
+  quartz overshoot drops from +0.063 to +0.018.
+- **Pyroxene worse, as predicted.** Perfect removal keeps every early
+  pyroxene; the bias doubles.
+- **Feldspar and biotite go the other way from the prediction.** Feldspar
+  improves slightly while its bias flips sign (the pile is feldspar-rich
+  where the equilibrium assemblage was feldspar-poor); biotite is the
+  casualty, 0.041 to 0.054 with a bias of -0.053, its rank correlation
+  down to 0.35 and its reach from 0.98 to 0.75 of rocks. The two misses
+  are one mechanism: the proxy credited the biotite the equilibrium path
+  grew by reacting amphibole and pyroxene with the melt, and under perfect
+  removal those crystals never react, so the pile is biotite-poor. The
+  measured granitoids keep their amphibole and still carry their biotite,
+  which neither recipe produces: the equilibrium path converts the first
+  into the second, perfect fractionation keeps the first and starves the
+  second. Partial removal sits between them; named as the next recipe
+  question, not run.
+- The production head's marginal sits 0.043 from the fractional draw mean
+  at 10% melt against 0.036 from the equilibrium one, as a head trained on
+  equilibrium labels should.
+- Reach: one (draw, rung) row within 0.05 on all four silicates for 85% of
+  the read rocks against 90% under equilibrium; biotite 0.75 against 0.98,
+  amphibole 0.95 against 0.93.
+
+The eruption run is on disk (`work/broad128_fc`) and unread: its read waits
+on the eruption benchmark's re-run under the cross-fitted protocol (#85).
