@@ -112,9 +112,14 @@ the third.
   ruler; failing there too says the problem is deeper than the recipe.
 - **Path 1 after it, the recipe.** Fractional crystallization of the
   rock's own bulk with the accumulated crystals as the label, the
-  phenocryst cargo as it forms, against the du Bray ruler (#84).
-  PetThermoTools returns to the stack for it (ADR 004, #22's container
-  note).
+  phenocryst cargo as it forms, against the du Bray ruler (#84). Run on
+  both benchmarks 2026-10-09 through the exploration's own loop over the
+  production MAGEMin_C, checked against PetThermoTools (ADR 004 amendment
+  2026-10-09; PetThermoTools stays the reference, not the driver). Read on
+  the plutonic rocks 2026-10-13: recalibrated 0.038 against the bar's
+  0.042 with the paired band on zero, amphibole kept and biotite starved,
+  so partial removal is the recipe question between the two (journal
+  2026-10-13; the eruption read waits on #85).
 - **Held throughout.** The stopping rule stays fixed depth on the review
   figures; no head is promoted; production and the paper's numbers are
   untouched. The condition prior for the volcanic pair is settled

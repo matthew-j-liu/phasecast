@@ -8318,3 +8318,55 @@ sealed), per mineral:
   11 h); then #87 on both recipes' draws, scored by tracking and by
   whether a window makes each mineral form in the right fraction of
   draws at the right amount.
+
+## 2026-10-13 -- Fractional crystallization read on the plutonic rocks: under the bar by a hair, amphibole and quartz as predicted, biotite the casualty
+
+The fractional run of 2026-10-09 (both benchmarks, 11.7 h, no crashes)
+read under the Stage A protocol on the plutonic rocks
+(`explorations/generator_reach/README.md`, "Stage A on the fractional run";
+`results/signal.json` under `plutonic_fractional`,
+`plutonic_stage_a_fractional.png`).
+
+- **Four silicates.** Recalibrated at 30% melt the fractional simulator
+  reads 0.038 against the norm's and the head's 0.042, -0.0044 [-0.0092,
+  +0.0005] against the norm on the same resamples; the joint fit with the
+  norm clears zero, -0.0036 [-0.0054, -0.0006] in share and -0.29 nats.
+  Zero-shot it improves near the solidus (0.060 to 0.056 at 10% melt) and
+  worsens at 50% (0.059 to 0.073, the early pile is pyroxene-heavy).
+  Spearman falls 0.49 to 0.42, on feldspar and biotite.
+- **Per mineral at 10% melt**, the ladder read's prediction scored:
+  amphibole 0.066 to 0.038 (predicted 0.042) and quartz 0.080 to 0.054
+  (predicted 0.059), both as predicted and better; pyroxene 0.063 to 0.066,
+  worse as predicted; feldspar 0.070 to 0.065 against a predicted 0.088,
+  and biotite 0.041 to 0.054 against a predicted 0.036. The amphibole the
+  equilibrium path consumed is kept (in the pile on 46% of draws against
+  9%); biotite is starved, bias -0.053, because the crystals perfect
+  removal takes out never react with the melt to make it. The proxy
+  credited that reaction's biotite; the run does not have it.
+- **Run facts.** The melt runs out at 640 C on the median draw; 16% of
+  draws keep a fifth of their melt at the 600 C ladder end (wet, deep),
+  so 12% of draws never reach 10% melt against 0.2% under equilibrium and
+  the near-solidus read is on the drier, shallower 88%. Failed steps sit
+  above the liquidus (skipped, bulk kept) and at the 600 C step on the
+  persisting melts. The melt's Fe3+/sum Fe rises to 0.64 below 10% melt,
+  unbuffered.
+
+**What is struck off, what survives, what is next.**
+- Struck off: the prediction that fractionation worsens feldspar and
+  improves biotite; the no-resorption proxy as a stand-in for the run
+  (three of five directions, and the two misses are its blind spot, the
+  reactions removal prevents).
+- Survives: the hypothesis that real plutons keep the amphibole the
+  equilibrium model consumes, now measured (bias -0.056 to -0.027); the
+  bar at 0.042, now passed by a source for the first time, by 0.003 to
+  0.004 with the band on zero; the per-mineral reading as the only one
+  that sees any of this (the four-silicate mean moves 0.003).
+- Named, not on the ledger: partial removal as the recipe between the two
+  (the measured rocks keep amphibole and carry biotite; equilibrium
+  converts the first into the second, perfect removal keeps the first and
+  starves the second); the 600 C ladder end for wet deep draws; the
+  unbuffered melt oxidation late in the path.
+- Next: #87 on both recipes' draws, scored by tracking and by whether a
+  window makes each mineral form in the right fraction of draws at the
+  right amount; the eruption fractional run is on disk, read after #85's
+  re-run.
