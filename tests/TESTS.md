@@ -763,4 +763,4 @@ Tests for archived explorations (moved to `explorations/archive/`,
 
 ### test_tutorial_notebook.py
 
-1. `test_inference_notebook_executes` -- `docs/tutorial/inference.ipynb` executes end to end through nbclient from its own directory (it locates the repository root itself), so a renamed library symbol, a moved checkpoint, or a changed tokenizer column breaks the suite before a reader hits it.
+1. `test_inference_notebook_executes` -- `docs/tutorial/inference.ipynb` and the `inference_helpers.py` it imports execute end to end through nbclient from the notebook's directory (it locates the repository root itself), so a renamed library symbol, a moved checkpoint, or a changed tokenizer column breaks the suite before a reader hits it.

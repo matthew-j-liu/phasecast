@@ -6,10 +6,12 @@ compositions in, a posterior over mineralogy and formation conditions out, both
 zero-shot and recalibrated, with the figure an app would draw. This page is the
 contract and the setup facts around it.
 
-## What to read
+## Reference docs (primarily for Claude)
 
 - `inference.ipynb`, here. Executed outputs are committed, so it reads on
-  GitHub without running.
+  GitHub without running. `inference_helpers.py` beside it holds the
+  sampling, recalibration and drawing code it calls, the interim stand-in
+  for the stable API.
 - The paper, `paper/Sim2Sci_NeurIPS_Mineral.pdf` (submitted version; the
   camera-ready pass moves some numbers, not the architecture). Figure 2 is the
   inference card the app generalizes.
@@ -63,8 +65,8 @@ One row per rock, plain CSV with one header row, lowercase column names.
 - `cr2o3` is accepted and ignored. MnO, P2O5, LOI, totals, rock names and any
   temperature, pressure or water estimate are ignored.
 - Validate before tokenizing: every oxide within 0 to 100 wt% and every trace
-  within 0 to 1,000,000 ppm, or the encoder's lookup table overflows. The
-  notebook's `check_input` is the reference.
+  within 0 to 1,000,000 ppm, or the encoder's lookup table overflows.
+  `check_input` in the helper module is the reference.
 
 There is no standard lab export. ALS certificates report majors as oxide wt%
 and traces in ppm under a multi-row header (method code, analyte, unit,
@@ -74,7 +76,8 @@ usually report total iron as Fe2O3, which is the `fe2o3_tot` form.
 
 ## Output contract
 
-Per rock, the notebook's `record` function returns, for each of the two arms:
+Per rock, `predict` in the helper module returns the input chemistry, the
+seven group names, and for each of the two arms:
 
 - `presence`: probability of each of the seven mineral groups (feldspar,
   pyroxene, amphibole, biotite, olivine, Fe-Ti oxides, quartz).
@@ -113,5 +116,5 @@ saved state dict the notebook writes.
 ## Where the app code lives
 
 In its own repository. This repository is the library; the stable inference
-API (issue #70) will collapse notebook sections 1 to 4 into one call that
-returns the record above, and the app imports that.
+API (issue #70) promotes the helper module's `predict` into the package, and
+the app imports that rather than copying the helper.
