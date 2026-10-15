@@ -130,6 +130,26 @@ to end from the public compilation via stage 3) and transient run outputs.
 The full corpus will be released with the de-anonymized repository on
 publication.
 
-## License
+## License and attribution
 
-MIT -- see `LICENSE`.
+The code is MIT (`LICENSE`). Material the repository redistributes or builds
+on:
+
+- Element embeddings (`src/cnmineral/data/element_properties/mat2vec.csv`):
+  the mat2vec embeddings of Tshitoyan et al. (2019), MIT, as packaged by
+  CrabNet (Wang et al. 2021, MIT), whose composition tokenization the encoder
+  follows.
+- Pretraining compilation: Gard, Hasterok and Halpin (2019), CC BY 4.0. The
+  full table is a public download and is not redistributed here;
+  `tests/fixtures/complete_subset.parquet` is a 2,000-row subset of it.
+- Benchmark chemistry and mineralogy (`data/real_mineralogy/`): USGS
+  publications by du Bray et al. (Data Series 764, 942 and 1099,
+  Professional Paper 1793) and Pallister et al. (Pinatubo; Mount St. Helens,
+  Professional Paper 1750), US Government works in the public domain.
+- Simulated labels: generated with MAGEMin (Riel et al. 2022, GPL-3.0), which
+  `magemin/run_magemin.jl` runs as a separate Julia program. MAGEMin is not
+  redistributed and its outputs carry no license obligation.
+- Feldspar naming (`src/cnmineral/data/feldspar_rule.py`): a reimplementation
+  of the Deer, Howie and Zussman two-feldspar boundaries as adapted by
+  Thermobar (Wieser et al. 2022, MIT) and mineralML (Shi et al., GPL-3.0);
+  the boundary values are theirs, the code is not.
