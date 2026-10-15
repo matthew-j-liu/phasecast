@@ -758,3 +758,9 @@ Tests for archived explorations (moved to `explorations/archive/`,
 14. `test_fitting_reduces_the_loss_it_optimizes` -- the same objective the recalibrator and the measured head minimize, so the three arms' levels are differenceable.
 15. `test_the_injected_head_is_not_mutated` -- one frozen head is shared across every draw and every arm, so adapting in place would leak one draw's fit into the next.
 16. `test_a_latentless_slice_is_rejected_rather_than_silently_misfit` -- `GroupPredictions` without a latent raises, since the adapted head reads nothing else.
+
+## docs/
+
+### test_tutorial_notebook.py
+
+1. `test_inference_notebook_executes` -- `docs/tutorial/inference.ipynb` executes end to end through nbclient from its own directory (it locates the repository root itself), so a renamed library symbol, a moved checkpoint, or a changed tokenizer column breaks the suite before a reader hits it.
