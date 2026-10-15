@@ -42,9 +42,9 @@ dependency.
 | full posterior per rock, 512 samples | 15 ms |
 | fit the recalibrator on 372 rocks | under 1 s |
 
-Checkpoints, both tracked in git: the encoder is 44 MB (weights are about a
-third of that, the rest optimizer state) and the heads 7 MB. The whole model
-is about 5 million parameters.
+Checkpoints, both tracked in git: the encoder is 44 MB (18 MB of weights,
+26 MB of optimizer state from pretraining) and the heads 7 MB. The whole
+model is about 5 million parameters.
 
 ## Input contract
 
