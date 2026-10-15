@@ -139,13 +139,17 @@ the third.
 - #71 architecture audit (abstractions, duplication, coupling, config
   brittleness) and #70 stable inference API. #73, the terminology sweep,
   rides this thrust since it touches every identifier.
-- Product definition (settled 2026-09-02, recorded on #70): the user is
-  anyone with elemental data, by spreadsheet upload or API call, dozens of
-  rocks per batch; the output is the full inference card (presence, ranked
-  assemblages, compositions, conditions, plot and numbers); recalibration
-  is optional and only on the caller's own labelled rocks; corpus
-  generation, training and cascades stay offline. Hosting and front end
-  are abstracted away.
+- Product definition (settled 2026-09-02, recorded on #70; amended
+  2026-10-15): the user is anyone with elemental data, by spreadsheet
+  upload or API call, dozens of rocks per batch; the output is the full
+  inference card (presence, ranked assemblages, compositions, conditions,
+  plot and numbers) in both arms, zero-shot and recalibrated by the
+  production fit on the 372-rock fitting split, and a caller may refit on
+  their own labelled rocks; corpus generation, training and cascades stay
+  offline. The web app is built by a front-end collaborator in their own
+  repository against `docs/tutorial/` (the inference notebook and its
+  README are the interim contract) and is usable locally through the same
+  library call; hosting is abstracted away.
 - Deliverable is refactors plus issues, not a document. Natural milestone:
   public release after the 09-29 notification, under a freeze discipline
   so nothing moves stamped numbers before camera-ready.
