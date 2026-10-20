@@ -8370,3 +8370,63 @@ read under the Stage A protocol on the plutonic rocks
   window makes each mineral form in the right fraction of draws at the
   right amount; the eruption fractional run is on disk, read after #85's
   re-run.
+
+## 2026-10-19 -- Benchmark overlap with the pretraining set and the MAGEMin corpus: volcanic 21 of 640, plutonic DS 942 entirely, corpus none
+
+**Q.** A reviewer asked whether the 640 volcanic benchmark rocks were
+excluded from the 787,721-row pretraining set. Are they, and does either
+benchmark overlap the MAGEMin corpus bulks the heads were trained on?
+
+**Context.** Pretraining (`configs/pretrain/pretrain_allrock_redox.yaml`,
+`BulkChemistryDataset`, unchanged since the `sim2sci-neurips` tag) filters
+gard2019 by value range, populated-token count and exact-duplicate
+chemistry; its only holdout is `pretrain_test_roster.csv` (the previous
+encoder's test rows plus the MAGEMin val/test bulks). Nothing on the path
+refers to the real-rock benchmarks, so no rock is excluded by
+construction. Rebuilt from the checkpoint's config the set is exactly
+787,721 rows, splits 504,141 / 126,036 / 157,544, test IDs matching the
+ones stamped in `pretrain_allrock_redox_seed0/epoch_best.pt`.
+
+**Method.** Eight majors (SiO2, TiO2, Al2O3, total Fe as FeO, MgO, CaO,
+Na2O, K2O) renormalized to 100 on both sides, which removes gard2019's raw
+totals against du Bray's volatile-free ones; a match is every oxide within
+0.02 wt% of the nearest row. Traces, where present, confirm. The gap is
+clean: matches sit at or under 0.011 wt% (0.041 for one Pinatubo rock
+confirmed by sample name and 5/5 traces), non-matches at 0.049 wt% or
+more. Only re-reported copies of the same analysis are caught, not a new
+analysis of the same rock.
+
+**Volcanic benchmark (640 evaluated, tag split 368/111/161).**
+- Pretraining: 21 match. DS 764 (Bodie Hills) 0 of 463; DS 1099 16 of
+  166, all legacy analyses du Bray compiled from older USGS work (none of
+  du Bray's own new analyses); Pinatubo 5 of 5; Mount St. Helens 0 of 6.
+  Of the 21, 10 sat in pretraining train, 5 in val, 6 in test; by
+  benchmark split 5 train, 7 val, 9 test (5 of the 9 test rocks in
+  pretraining train or val).
+- MAGEMin corpus (production heads `joint_heads_allrock_tuned_seed0`:
+  train tier `data/corpus/train`, 9,946 bulks; val/test tier
+  `data/corpus/valtest`, 493): 0 match, nearest 0.117 wt%.
+
+**Plutonic benchmark (HEAD, 575 evaluated, split 320/84/171).** The reads
+under `explorations/real_mineralogy/results/joint_heads_allrock_tuned_seed0/`
+and `generator_reach/` use the same encoder and heads, so the same rosters
+apply (`depth224_allrock_n5000`'s train bulks are a subset of the train
+tier).
+- Pretraining: 332 match. DS 942 329 of 329, exact (gard2019 carries du
+  Bray et al. 2015 directly); PP 1793 3 of 246, legacy samples without
+  traces. 211 sat in pretraining train, 61 in val, 60 in test: 272 of 575
+  evaluated rocks (47%) were seen by the encoder in train or val,
+  including 92 of the 110 DS 942 test rocks.
+- MAGEMin corpus: 0 match, nearest 0.107 wt% (DS 942), 0.237 (PP 1793).
+
+**Decision.** Recorded, not acted on. The encoder saw these rocks'
+chemistry and never their mineralogy, and no head saw simulated labels for
+any benchmark composition. The paper keeps its numbers and adds nothing
+about it. Whether the exposure flatters the plutonic reads (a latent that
+represents its own training rocks better than new ones) is unmeasured, and
+it is a caveat on every plutonic result so far, #83 included.
+
+**Next.** In the scaling-pair work, before leaning on a plutonic read: read
+the plutonic metrics on DS 942 split by pretraining membership (58 rocks in
+pretraining test against the 271 in train or val), and compare PP 1793,
+almost untouched by pretraining, against DS 942.
