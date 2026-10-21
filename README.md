@@ -3,8 +3,9 @@
 From one whole-rock chemical analysis, the model predicts a distribution over
 modal mineralogy and the conditions of formation.
 
-This repository accompanies the submission *Simulated petrological labels
-enable probabilistic mineralogy prediction from whole-rock geochemistry*.
+This repository accompanies *Simulated petrological labels enable
+probabilistic mineralogy prediction from whole-rock geochemistry* (NeurIPS
+2026 Workshop: Sim2Science: ML with Imperfect Scientific Models).
 
 ## Overview
 
@@ -17,15 +18,17 @@ mineralogical datasets are too sparse to train on at scale. We address both
 challenges by simulating petrological labels that express multiple formation
 conditions per composition and at a scale unattainable by measurements.
 
-The labels supervise a three-layer model: a transformer encoder
-self-supervised on roughly 788,000 whole-rock compositions, prediction heads
-that turn the encoding into distributions over mineral assemblages, and a
-recalibration layer that aligns the predictions with measured mineralogy.
-Zero-shot on 640 volcanic rocks, the model identifies the minerals present
-and predicts which rocks are richer in each mineral; recalibration fit on as
-few as 25 labeled rocks brings the predicted amounts into agreement with
-measured values, recovering 76 percent of the improvement from fitting on the
-full 368-rock fitting split.
+The labels supervise the middle component of a three-part model: a
+transformer encoder self-supervised on roughly 788,000 whole-rock
+compositions, prediction heads that turn the encoding into distributions over
+mineral assemblages, and a recalibration layer that aligns the predictions
+with measured mineralogy. Zero-shot on 640 volcanic rocks, the model
+discriminates the presence of most mineral categories and predicts which
+rocks are richer in each mineral, but the predicted abundances are
+systematically offset from measured values. Recalibration fit on as few as 25
+labeled rocks recovers 76 percent of the likelihood improvement from fitting
+on the full 368-rock fitting set, while abundance error responds more slowly
+(11.0% zero-shot and 9.5% with the full fitting set).
 
 ## Installation
 
@@ -122,8 +125,8 @@ package (`src/cnmineral/data/`).
 
 Not included: the full simulated corpus (3.5 GB of parquet, regenerable end
 to end from the public compilation via stage 3) and transient run outputs.
-The full corpus will be released with the de-anonymized repository on
-publication.
+The full corpus will be hosted on MPContribs; the link will appear here once
+the upload is live.
 
 ## License
 
