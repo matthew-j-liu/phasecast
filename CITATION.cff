@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper below."
+title: phasecast
+type: software
+repository-code: "https://github.com/matthew-j-liu/phasecast"
+license: MIT
+authors:
+  - family-names: Liu
+    given-names: Matthew J.
+  - family-names: Kaplan
+    given-names: Aaron D.
+  - family-names: Whittaker
+    given-names: Michael L.
+  - family-names: Persson
+    given-names: Kristin A.
+preferred-citation:
+  type: conference-paper
+  title: "Simulated petrological labels enable probabilistic mineralogy prediction from whole-rock geochemistry"
+  authors:
+    - family-names: Liu
+      given-names: Matthew J.
+    - family-names: Kaplan
+      given-names: Aaron D.
+    - family-names: Whittaker
+      given-names: Michael L.
+    - family-names: Persson
+      given-names: Kristin A.
+  collection-title: "NeurIPS 2026 Workshop on Sim2Science: ML with Imperfect Scientific Models"
+  conference:
+    name: "Sim2Science Workshop at NeurIPS 2026"
+  year: 2026
