@@ -1,11 +1,15 @@
-# Probabilistic mineralogy from whole-rock geochemistry
+# phasecast: probabilistic mineralogy from whole-rock geochemistry
 
-From one whole-rock chemical analysis, the model predicts a distribution over
-modal mineralogy and the conditions of formation.
+![phasecast overview](docs/images/phasecast_overview.png)
 
-This repository accompanies *Simulated petrological labels enable
-probabilistic mineralogy prediction from whole-rock geochemistry* (NeurIPS
-2026 Workshop: Sim2Science: ML with Imperfect Scientific Models).
+The model takes the whole-rock chemistry of a rock and predicts which minerals
+it contains, in what amounts, and under what conditions they formed. Each
+prediction is a probability distribution, since one chemistry can produce many
+mineral assemblages. The model reports ranges of mineral proportions, the likely
+assemblages with their probabilities, and the likely formation conditions
+(right panel). This repository holds the code for *Simulated petrological labels
+enable probabilistic mineralogy prediction from whole-rock geochemistry*, a paper
+at the NeurIPS 2026 Sim2Science workshop.
 
 ## Overview
 
@@ -18,17 +22,22 @@ mineralogical datasets are too sparse to train on at scale. We address both
 challenges by simulating petrological labels that express multiple formation
 conditions per composition and at a scale unattainable by measurements.
 
-The labels supervise the middle component of a three-part model: a
-transformer encoder self-supervised on roughly 788,000 whole-rock
-compositions, prediction heads that turn the encoding into distributions over
-mineral assemblages, and a recalibration layer that aligns the predictions
-with measured mineralogy. Zero-shot on 640 volcanic rocks, the model
-discriminates the presence of most mineral categories and predicts which
-rocks are richer in each mineral, but the predicted abundances are
-systematically offset from measured values. Recalibration fit on as few as 25
-labeled rocks recovers 76 percent of the likelihood improvement from fitting
-on the full 368-rock fitting set, while abundance error responds more slowly
-(11.0% zero-shot and 9.5% with the full fitting set).
+The model works in three stages (center panel). Pretraining teaches a
+transformer encoder the structure of rock chemistry by recovering elements
+hidden from roughly 788,000 measured whole-rock compositions. Prediction uses
+three heads on the encoding to predict which minerals are present and in what
+proportions, the oxide composition of each mineral, and the temperature,
+pressure and water content of the melt. The heads learn from labels made by
+the thermodynamic simulator MAGEMin, which crystallizes real rock compositions
+under sampled pressure and water content (top panel). Recalibration fits a
+small correction on measured rocks to align the predictions with real
+mineralogy. Zero-shot on 640 volcanic rocks, the model discriminates the
+presence of most mineral categories and predicts which rocks are richer in
+each mineral, but the predicted abundances are systematically offset from
+measured values. Recalibration fit on as few as 25 labeled rocks recovers 76
+percent of the likelihood improvement from fitting on the full 368-rock
+fitting set, while abundance error responds more slowly (11.0% zero-shot and
+9.5% with the full fitting set).
 
 ## Installation
 
