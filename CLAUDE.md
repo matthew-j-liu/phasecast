@@ -22,12 +22,7 @@ for the supervised posterior.
 ## House Rules
 
 **Use the `mineral` conda env when running any code, tests, or scripts in
-this repo** (`conda run -n mineral ...` or activate first) — unless an
-untracked `CLAUDE.local.md` at repo root overrides the env name.  That override
-exists so sibling clones of this repo can install their own editable copy
-without colliding on `pip install -e .`.  When handing the owner a command to
-run themselves, assume `mineral` is already activated in their terminal —
-plain `python ...`, no `conda run` wrapper.
+this repo** (`conda run -n mineral ...` or activate first).
 
 **Run the unit tests with** `pytest tests/`.  Single-threaded — cleaner stdout /
 tracebacks beats any speed win from parallel workers at this suite size.
@@ -72,22 +67,8 @@ tracebacks beats any speed win from parallel workers at this suite size.
    `slides/overview.py` docstring; param counts pulled from the checkpoint,
    never estimated.
 
-Before declaring a change done, read the diff as a reviewer would — fresh
-skepticism, not the author's confidence.
-
 ## How to work
 
-- **Ask, don't assume.**  When intent, architecture, or requirements are unclear,
-  ask before writing code.  A silent assumption that turns out wrong costs more
-  than the question did.
-- **Flag uncertainty explicitly.**  If you're not confident in an approach or a
-  technical detail, say so before proceeding — confidence without certainty does
-  more damage than naming the gap.
-- **Leave unrelated code alone.**  If a file or function isn't part of the task,
-  don't modify it even if you spot an improvement — note it separately.
-- **Propose better approaches.**  Raise a cleaner or more durable way of doing
-  something (especially one with lasting impact) rather than silently taking the
-  obvious path.
 - **Consult the design docs first** — before proposing an architectural change in
   an area with a `docs/*.md`, and whenever something "smells off."  That reaction
   is often the signal that a decision has hidden load-bearing justification (the
@@ -139,8 +120,8 @@ journal, issues, and conversation — but code, log lines, CLI output, metric ke
 and docstrings must name the actual assumption and conclusion.  Spell out the
 criterion, measured values, and resulting action — not `-> Scenario A` but
 `latent keeps 94% of the input ceiling -> recover traces with a read-out head, no
-re-pretrain`.  Confirm decision terminology (verdict strings, metric keys) with
-the owner before committing it to code.
+re-pretrain`.  Agree decision terminology (verdict strings, metric keys) before
+committing it to code.
 
 **Reference code by symbol, not line number.**  Links like `file.py#L112` rot;
 use the function / class / variable name and let the reader grep.
@@ -190,41 +171,6 @@ a vendored padding heuristic.  Full story in [docs/encoder.md](docs/encoder.md).
 - **assemblage** — a row's mineral content (phases + modes).
 - **scenario** — RESERVED for the model's posterior clusters at inference
   (heads.md View 2); never a corpus row.
-
-### Lexicon (locked 2026-09-03, applies everywhere)
-
-The manuscript's vocabulary is the project's vocabulary.  It governs code
-identifiers, docstrings, comments, docs, READMEs, journal entries, commit
-messages, issues, the deck, and conversation, not only paper prose.  Existing
-code keeps its older identifiers until the terminology sweep lands; anything
-written from here on uses these.
-
-- **evaluate / evaluated**, not score / scored.  A model is evaluated on a
-  split.  The 640-rock headline set is "the evaluated set" or "grade 1 and 2
-  rocks", never "scoreable" or "the least-altered cohort".
-- **split**, not slice: the train, validation and test splits.  "The test
-  split", never "the test slice".
-- **fitting set**, not roster, for the rocks a recalibration or a head is fit
-  on; **fit size** (or fitting-set size), not budget, for how many.
-- **select** rocks or units, not draw; a random resample of labelled rocks is
-  a **replicate**.  "Draw" keeps its locked meaning above, one sampled
-  (P, H2O) path.
-- **recalibration layer / recalibrator**, never adapter; **recalibrated**, not
-  adapted, for its outputs.  (`adapted` names the low-rank head-update fit and
-  nothing else.)
-- **composition** or **whole-rock geochemistry** for the input; never assay,
-  never "analysis" as a record noun.
-- **mineral category** for the seven benchmark groups in prose; **measured
-  mineralogy / measured mineral proportions** for benchmark truth;
-  **simulated labels / simulated assemblages** for MAGEMin outputs;
-  **corpus** reserved for the simulated label corpus, the pretraining side
-  is the **pretraining set**.
-- The heads trained on measured abundances are named by what they are given:
-  "the head given the latent", "the head given raw geochemistry", "the head
-  given no chemistry".  The umbrella noun is **fit(s)**, not arm.
-- **absolute error** for MAE in prose; **recovers / reduces** for metric
-  changes, never buys, bought, moves, moved, coin flip.
-- Never "load-bearing" or "payload".
 
 ## Settled decisions (don't re-litigate)
 
@@ -339,8 +285,7 @@ don't re-open the question.
 (https://github.com/matthew-j-liu/phasecast), not a static doc.  Create
 with `gh issue create`, applying one label from each of `P{1,2,3}-*`, `type: *`,
 `area: *` (plus `status: *` or `epic` where it applies; `gh label list`
-enumerates valid values).  Link commits and PRs via `Fixes #N` / `Closes #N` —
-GitHub auto-closes on merge.
+enumerates valid values).
 
 ## Living docs
 
@@ -386,18 +331,15 @@ GitHub auto-closes on merge.
 
 External sources to consult before re-opening a design question:
 
-- mineralML paper (Methods Section 2): `~/Downloads/mineralml_tex_eartharxiv_withsi.pdf`
-- mineralML stoichiometry source: `~/git_clones/mineralML/src/mineralML/stoichiometry.py`
-- Original CrabNet-Mineral kingcrab (v3 replaces this with own thin transformer,
-  but the mat2vec embeddings and tokenization pattern come from here):
-  `~/git_clones/CrabNet_PyPi/CrabNet-Mineral/kingcrab.py`
-- ALIGNN structure model (for v4+ reference):
-  `~/git_clones/CrabNet_PyPi/CrabNet-Mineral/alignn/src/structure_model.py`
+- mineralML paper (Methods Section 2): https://eartharxiv.org/repository/view/12356/
+- mineralML stoichiometry source: https://github.com/sarahshi/mineralML
+  (`src/mineralML/stoichiometry.py`)
+- CrabNet (v3 replaces its transformer with our own thin one, but the mat2vec
+  embeddings and tokenization pattern come from here):
+  https://github.com/sparks-baird/CrabNet
+- ALIGNN structure model (for v4+ reference): https://github.com/usnistgov/alignn
 - PetThermoTools docs: https://petthermotools.readthedocs.io
-- Optuna HPO reference (port when needed):
-  `~/git_clones/CrabNet_PyPi/CrabNet-Mineral/alignn/src/objective.py` and
-  `.../alignn/scripts/run_scaling.py`.  Storage convention: `JournalStorage`
-  (filesystem), not SQLite.
+- Optuna HPO storage convention: `JournalStorage` (filesystem), not SQLite.
 
 ## macOS Gotcha
 
