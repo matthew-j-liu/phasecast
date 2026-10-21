@@ -1,4 +1,4 @@
-"""CrabNet-Mineral v3.
+"""phasecast (package `cnmineral`).
 
 Importing this package sets ``KMP_DUPLICATE_LIB_OK=TRUE`` if it is not
 already in the environment.  This is the standard workaround for the
