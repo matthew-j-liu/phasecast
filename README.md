@@ -9,7 +9,7 @@ This repository holds the code for *Simulated petrological labels
 enable probabilistic mineralogy prediction from whole-rock geochemistry*, a paper
 at the NeurIPS 2026 Sim2Science workshop. To reproduce the results of the paper,
 use the [`submission`](https://github.com/matthew-j-liu/phasecast/tree/submission)
-branch, which also holds the figure scripts described below. The `main` branch
+branch, which also holds the figure scripts and corpus excerpt described below. The `main` branch
 contains later research, so its results differ from those in the paper. Tags
 mark earlier versions of the code.
 

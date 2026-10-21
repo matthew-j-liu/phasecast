@@ -219,7 +219,7 @@ the abundant measurement to downstream decisions -- including selective
 extraction of critical elements, whose procedures depend on the host
 phase and the surrounding mineralogical environment.
 
-- mineralML paper (PDF: `~/Downloads/mineralml_tex_eartharxiv_withsi.pdf`)
+- mineralML paper (https://eartharxiv.org/repository/view/12356/)
   -- **supports** the fundamental-geology half (phase assemblages as the
   basis of petrological investigation; crystals record magmatic
   evolution) and orients the reader on measurement methods; cite its refs
