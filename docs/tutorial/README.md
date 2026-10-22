@@ -6,15 +6,16 @@ compositions in, a posterior over mineralogy and formation conditions out, both
 zero-shot and recalibrated, with the figure an app would draw. This page is the
 contract and the setup facts around it.
 
-## Reference docs (primarily for Claude)
+## Reference docs
 
 - `inference.ipynb`, here. Executed outputs are committed, so it reads on
   GitHub without running. `inference_helpers.py` beside it holds the
   sampling, recalibration and drawing code it calls, the interim stand-in
   for the stable API.
-- The paper, `paper/Sim2Sci_NeurIPS_Mineral.pdf` (submitted version; the
-  camera-ready pass moves some numbers, not the architecture). Figure 2 is the
-  inference card the app generalizes.
+- The paper, [*Simulated petrological labels enable probabilistic mineralogy
+  prediction from whole-rock geochemistry*](https://openreview.net/forum?id=XH2fnz0Enx)
+  (NeurIPS 2026 Sim2Science workshop). Figure 2 is the inference card the app
+  generalizes.
 - The overview deck, `slides/overview.pptx`: one anatomy slide per head with
   exact parameter counts. The paper has no system schematic.
 - `docs/encoder.md` and `docs/heads.md` for the model in prose.
