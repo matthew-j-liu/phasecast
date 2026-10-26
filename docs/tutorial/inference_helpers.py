@@ -42,14 +42,14 @@ class Heads(NamedTuple):
 def check_input(rocks):
     """Problems with a composition table, all of them, so a form can show them at once."""
     problems = []
-    for c in MAJOR_COLS:
-        if c not in rocks or rocks[c].isna().all():
-            problems.append(f"missing major oxide column {c}")
-    if not any(c in rocks and rocks[c].notna().any() for c in IRON_SOURCE_COLS):
-        problems.append("no iron column (feo + fe2o3, feo_tot, or fe2o3_tot)")
     oxides = rocks.reindex(columns=[*MAJOR_COLS, *IRON_SOURCE_COLS])
     traces = rocks.reindex(columns=TRACE_COLS)
     for rock in rocks.index:
+        blank = [c for c in MAJOR_COLS if not oxides.loc[rock, c] > 0]
+        if blank:
+            problems.append(f"{rock}: no value for {', '.join(blank)}")
+        if not (oxides.loc[rock, list(IRON_SOURCE_COLS)] > 0).any():
+            problems.append(f"{rock}: no iron (feo + fe2o3, feo_tot, or fe2o3_tot)")
         if ((oxides.loc[rock] < 0) | (oxides.loc[rock] > 100)).any():
             problems.append(f"{rock}: an oxide outside 0-100 wt%")
         if ((traces.loc[rock] < 0) | (traces.loc[rock] > 1e6)).any():
