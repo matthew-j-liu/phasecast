@@ -319,7 +319,10 @@ enumerates valid values).
 - [docs/code_style.md](docs/code_style.md) — code conventions and schema
   discipline.
 - [docs/journal.md](docs/journal.md) — append-only chronological research log
-  (Q / Context / Considered / Decision / Next); v0/v1/v2 history.
+  (Q / Context / Considered / Decision / Next); v0/v1/v2 history.  Written
+  impersonally: decisions and the evidence for them, no attribution, schedule
+  or deliberation narrative (the entries before 2026-10-27 were rewritten once
+  to this standard; otherwise the log is append-only).
 - [docs/decisions/](docs/decisions/) — ADRs (001 scope, 002 rejected paths, 003
   H2O strategy, 004 PetThermoTools for FC, 005 production FC labels, 006 v1 model
   architecture, 007 SSL pretrain objective, 008 H2O target leak).

@@ -1,8 +1,9 @@
 # Research journal
 
 Append-only chronological log of design discussions, observations, hypotheses
-tested, and decisions made during the v1 paper development. The lab-notebook
-analog for the research process.
+tested, and decisions made. The lab-notebook analog for the research process.
+Entries are written impersonally: decisions and the evidence for them, with no
+attribution, schedule or deliberation narrative.
 
 **Where to put what:**
 - *Binding architectural decisions* (hard-to-reverse choices, with alternatives
@@ -18,48 +19,48 @@ chronologically. Older context up top, newest at the bottom.
 
 ---
 
-## 2026-05-11 — Differentiation framing established
+## 2026-05-11 -- Differentiation framing established
 
-**Q:** How do we position our project relative to mineralML and other existing
+**Q:** How is the project positioned relative to mineralML and other existing
 mineral-prediction tools?
 
-**Context:** Started the session by deeply reviewing mineralML's codebase, paper,
-and stoichiometric framework. Wanted to understand what they do and don't do
-before claiming a contribution.
+**Context:** A deep review of mineralML's codebase, paper, and stoichiometric
+framework, to establish what it does and doesn't do before claiming a
+contribution.
 
-**Conclusion:** mineralML and our model are **inverse problems on the same input
+**Conclusion:** mineralML and this model are **inverse problems on the same input
 space**. mineralML takes per-grain oxide chemistry from a single spot (EPMA /
-EDS pixel) and classifies that one grain. We take per-rock bulk chemistry (ICP /
+EDS pixel) and classifies that one grain. This model takes per-rock bulk chemistry (ICP /
 XRF) and regress the assemblage of multiple coexisting phases. Same oxide
 vocabulary, semantically opposite tasks. This framing crystallized into the
 4-axis differentiation table (no T/P input, no spot data, multimodal output,
 hydrous + sedimentary phase coverage), which becomes the paper's headline
-contribution claim — no existing tool covers all four axes.
+contribution claim -- no existing tool covers all four axes.
 
-**Next:** Use the table as the litmus test for every architectural decision —
+**Next:** Use the table as the litmus test for every architectural decision --
 does this change widen the table or just strengthen one row?
 
 ---
 
-## 2026-05-11 — Position C crystallized as the design
+## 2026-05-11 -- Position C crystallized as the design
 
-**Q:** Where does our contribution actually live, given that mineralML, MAGEMin,
+**Q:** Where does the contribution actually live, given that mineralML, MAGEMin,
 and CIPW each cover parts of the space?
 
-**Context:** Worked through three candidate framings:
-- *Position A — mineralML wrapper.* Bootstrap our training corpus by running
+**Context:** Three candidate framings:
+- *Position A -- mineralML wrapper.* Bootstrap the training corpus by running
   mineralML on EDS map data and treating its outputs as labels.
-- *Position B — MAGEMin emulator marginalized over T, P.* Train a model that
+- *Position B -- MAGEMin emulator marginalized over T, P.* Train a model that
   amortizes MAGEMin's bulk + (T, P) → assemblage map, with T, P marginalized
   using rock-class-conditional priors.
-- *Position C — MAGEMin × mineralML training-data fusion.* Use MAGEMin to
+- *Position C -- MAGEMin × mineralML training-data fusion.* Use MAGEMin to
   generate equilibrium assemblage labels at sampled (T, P), then replace
   MAGEMin's idealized phase compositions with samples from mineralML's
   empirical per-mineral grain corpus.
 
-**Considered:** A makes us downstream of mineralML — collapses the contribution
-to "mineralML wrapper for non-imaging data," weakens the paper. B is a Bayesian
-amortization of an existing tool — defensible but methodologically thin without
+**Considered:** A makes the project downstream of mineralML -- collapses the contribution
+to "mineralML wrapper for non-imaging data." B is a Bayesian
+amortization of an existing tool -- defensible but methodologically thin without
 adding information neither tool has. C combines two information sources that
 nobody combines today: physics-derived assemblage labels + empirically realistic
 per-phase compositions.
@@ -73,32 +74,32 @@ ALIGNN structural stream + polymorph branch for v2.
 
 ---
 
-## 2026-05-11 — Deterministic calculators aren't ML targets
+## 2026-05-11 -- Deterministic calculators aren't ML targets
 
-**Q:** Should we use CIPW norm as a training target or auxiliary output?
+**Q:** Should CIPW norm be used as a training target or auxiliary output?
 
-**Context:** Initially proposed CIPW as a possible auxiliary head. User pushed
-back: CIPW is a deterministic algorithmic calculator (pyrolite implements it
+**Context:** CIPW was initially proposed as a possible auxiliary head. Objection:
+CIPW is a deterministic algorithmic calculator (pyrolite implements it
 analytically). Training an ML version is strictly worse than calling the
 function.
 
 **Conclusion:** Don't build ML surrogates for deterministic calculators where
 the analytical version is available. The same logic later applied to MAGEMin:
-we use it as a *label-generation oracle*, not a prediction target. Our model's
+it is used as a *label-generation oracle*, not a prediction target. The model's
 user-facing input is bulk only; the T/P marginalization and the
 assemblage prediction happen inside the model, not by emulating MAGEMin.
 
-**Next:** Apply this principle to architectural decisions going forward — never
-propose learning what physics or geometry already gives us exactly.
+**Next:** Apply this principle to architectural decisions going forward -- never
+propose learning what physics or geometry already gives exactly.
 
 ---
 
-## 2026-05-12 — Class-conditional priors as the unifying design pattern
+## 2026-05-12 -- Class-conditional priors as the unifying design pattern
 
 **Q:** Across three independent decisions (training data stratification, Fe
 redox handling, T/P sampling), what's the right pattern?
 
-**Context:** Hit the same shape three times in a row:
+**Context:** The same shape came up three times in a row:
 - Stratify training bulks by IUGS class label (`qap_name`)
 - Sample Fe³⁺/ΣFe from per-class Middlemost 1989 ratios
 - Sample (T, P) from per-class Putirka 2008 ranges
@@ -116,18 +117,18 @@ class XStrategy:
 Sensitivity analysis becomes a one-line config change. Now codified in
 `fe_redox.py` and `tp_priors.py`; will extend to `h2o.py` next.
 
-**Next:** Apply this same pattern to H2O when we build it.
+**Next:** Apply this same pattern to H2O when it is built.
 
 ---
 
-## 2026-05-12 — Tiered Fe redox handling with provenance tracking
+## 2026-05-12 -- Tiered Fe redox handling with provenance tracking
 
 **Q:** complete.csv has measured Fe partitioning (`feo` + `fe2o3` directly) for
-30% of rows; the rest report total iron in one of two forms. How do we use
-measured data where it exists without forcing assumptions on every row?
+30% of rows; the rest report total iron in one of two forms. How can
+measured data be used where it exists without forcing assumptions on every row?
 
 **Context:** Upstream Stage 1 filter required *both* `feo` and `fe2o3`
-explicitly present — which is why their Stage 1 collapsed from 740k igneous
+explicitly present -- which is why their Stage 1 collapsed from 740k igneous
 rows to 161, badly biased toward older wet-chemistry samples (mostly mafic).
 
 **Decision:** Three-tier strategy:
@@ -137,8 +138,8 @@ rows to 161, badly biased toward older wet-chemistry samples (mostly mafic).
 - **T2c (derived_partial):** one of feo/fe2o3 + a `_tot` → derive the other
 - **T3 (no_iron):** nothing → drop
 
-Each training tuple carries a `fe_provenance` label so we can stratify
-evaluation by Fe-tier and report tier-specific accuracy.
+Each training tuple carries a `fe_provenance` label so evaluation can be
+stratified by Fe-tier and tier-specific accuracy reported.
 
 On the smoke set: 33% T1 / 39% T2 / 28% T2c / 0% T3. The methodological
 transparency makes the paper's iron-handling section auditable.
@@ -147,20 +148,20 @@ transparency makes the paper's iron-handling section auditable.
 
 ---
 
-## 2026-05-12 — Stage 1 H5 from CrabNet-Mineral is not v0 training data
+## 2026-05-12 -- Stage 1 H5 from CrabNet-Mineral is not v0 training data
 
-**Q:** Can we save effort by reusing the existing MAGEMin outputs from the
-other agent's pipeline?
+**Q:** Can the existing MAGEMin outputs from the upstream CrabNet-Mineral
+pipeline be reused?
 
-**Context:** Asked the other agent to summarize how their `filter_complete_csv.py`
-narrowed 1M rows to the 161 compositions in Stage 1. Their filter required
+**Context:** The upstream `filter_complete_csv.py` narrowed 1M rows to the 161
+compositions in Stage 1. Its filter required
 all 11 MAGEMin oxides non-null, which (because H2O is missing in ~98% of rows
 and Cr2O3 in ~97%) implicitly demands wet-chemistry analyses with full Fe
 partitioning. Result: 141/161 basalts, 11/161 picrites, single Frost class,
 SiO2 capped at 60.2%.
 
 **Conclusion:** Using Stage 1 as v0 training data would teach the model "the
-world is basalts and picrites." Not usable. We build our own filter with:
+world is basalts and picrites." Not usable. A separate filter is built with:
 - Stage-2-style permissive Cr2O3 / H2O (fill missing with 0)
 - Tier 2 Fe fallback (use total-Fe columns when split unavailable)
 - Quality bounds (sum 80-120 wt%, drop outliers)
@@ -175,9 +176,9 @@ class distributions look right before going further.
 
 ---
 
-## 2026-05-12 — Two upstream bugs surfaced because our problem setting exercises edge cases
+## 2026-05-12 -- Two upstream bugs surfaced because this problem setting exercises edge cases
 
-**Q:** While validating the MAGEMin smoke run, found two issues that look like
+**Q:** Validating the MAGEMin smoke run turned up two issues that look like
 mistakes in the upstream pipeline. Are they real bugs?
 
 **Context:** First validation pass reported phase wt fractions summing to mean
@@ -187,13 +188,13 @@ labels.
 **Bug 1 (hard correctness):** MAGEMin's `out.ph` returns duplicate phase names
 when two compositions of the same solution phase coexist (e.g., plagioclase
 and alkali feldspar both as `fsp`, or two `cpx` compositions). The upstream
-`parse_magemin_output.py` overwrites by phase name — silently dropping the
-duplicate's mass. Same bug exists in our parser (vendored from upstream). Hit
-in 43.5% of our smoke rows; visible in the mean-0.86 sum statistic.
+`parse_magemin_output.py` overwrites by phase name -- silently dropping the
+duplicate's mass. Same bug exists in the project's parser (vendored from upstream). Hit
+in 43.5% of the smoke rows; visible in the mean-0.86 sum statistic.
 
-**Why we hit it and they didn't (much):** Their brute 28-point T/P grid lands
-in fewer two-feldspar / two-pyroxene cells than our class-conditional
-sampling does. Same bug, different exposure rate.
+**Why it shows up here and not (much) upstream:** The upstream brute 28-point
+T/P grid lands in fewer two-feldspar / two-pyroxene cells than the
+class-conditional sampling here does. Same bug, different exposure rate.
 
 **Fix:** `run_magemin.jl` now emits SS info as a list of per-phase records
 preserving duplicates. `parse_magemin.py` sums Y_wt for duplicate phase names
@@ -201,21 +202,21 @@ and mass-weighted-averages SS endmembers. Phase wt sums now exactly 1.0.
 
 **Bug 2 (design mismatch, not strictly a bug):** The brute T/P grid is Stage-1-
 shaped, not Position-C-shaped. Position B requires class-conditional T/P
-sampling. Refactored `run_magemin.jl` to be stateless — reads T, P per row.
+sampling. Refactored `run_magemin.jl` to be stateless -- reads T, P per row.
 T/P sampling moved upstream into `02b_sample_tp.py` using rock-class priors.
 
-**Next:** Worth a heads-up to the other agent — if they ever run Stage 2 at
-scale, the bug 1 fix should be backported.
+**Next:** If upstream Stage 2 is ever run at scale, the bug 1 fix should be
+backported.
 
 ---
 
-## 2026-05-12 — Hydrous-phase gap forces a v0-blocking design decision
+## 2026-05-12 -- Hydrous-phase gap forces a v0-blocking design decision
 
 **Q:** Smoke MAGEMin labels show amphibole 0.3% and biotite 0.2% of training
-samples — effectively absent. Is this a bug in our pipeline?
+samples -- effectively absent. Is this a bug in the pipeline?
 
 **Context:** Not a bug, a real consequence: 98% of `complete.csv` has no H2O
-measurement → our schema layer defaults to H2O = 0 → MAGEMin's equilibria for
+measurement → the schema layer defaults to H2O = 0 → MAGEMin's equilibria for
 "dry" rocks don't crystallize amphibole or biotite, even at conditions where
 real rocks routinely contain them (mid-crustal andesites, granodiorites, etc.).
 
@@ -233,14 +234,14 @@ real rocks routinely contain them (mid-crustal andesites, granodiorites, etc.).
 **Design (parallel to fe_redox.py):**
 - T1 (measured): `h2o_tot` reported in complete.csv → use directly (~1% of rows)
 - T2 (class-conditional): ranges per qap_name from Wallace 2005 + Plank et al.
-  2013 + Burnham 1979. Ranges not point estimates — within-class H2O variance
+  2013 + Burnham 1979. Ranges not point estimates -- within-class H2O variance
   is genuinely large (arc rocks 1-8 wt%). Uniform sample within range, like
   TPRangeStrategy.
-- T3 doesn't exist — the class default is always defined.
+- T3 doesn't exist -- the class default is always defined.
 
 **Open:** Per-class ranges still being compiled; literature gives ranges with
-sometimes-conflicting central tendencies for the same class. Will reference-
-cite each major class in the module docstring.
+sometimes-conflicting central tendencies for the same class. Each major class
+is to be reference-cited in the module docstring.
 
 **Next:** Write `src/cnmineral/data/h2o.py` + integrate into `schema.py`.
 Re-run smoke to verify amp/bi presence rises to a learnable level (target
@@ -250,7 +251,7 @@ ADR for the binding parts of this decision: `docs/decisions/003_h2o_strategy.md`
 
 ---
 
-## 2026-05-12 — H2O strategy implementation results
+## 2026-05-12 -- H2O strategy implementation results
 
 **Q:** Did the tiered H2O strategy actually move amp/bi presence into a
 learnable range, and what side effects did it produce?
@@ -260,7 +261,7 @@ Wallace 2005 + Plank 2013 + Burnham 1979 per-class ranges) and threaded it
 through `schema.py` + `02_filter_complete.py` + `parse_magemin.py`. Re-ran the
 smoke pipeline end-to-end (522 bulks × 5 (T, P) = 2,610 attempts; ~41 s wall).
 
-**Result — hydrous-phase presence:**
+**Result -- hydrous-phase presence:**
 
 | Phase | Dry baseline | With H2O strategy | Change |
 |---|---|---|---|
@@ -270,7 +271,7 @@ smoke pipeline end-to-end (522 bulks × 5 (T, P) = 2,610 attempts; ~41 s wall).
 | epidote (ep)    | absent | 0.1% | new |
 | cordierite (cd) | absent | 11.0% | new |
 
-Decision validated: amp and bi each in >10% of training labels — comfortably
+Decision validated: amp and bi each in >10% of training labels -- comfortably
 learnable. Within-class targeting also looks right (mu in felsic only, ep at
 specific T-P windows).
 
@@ -289,9 +290,9 @@ Mass balance still exactly 1.0 on every row.
 **Open issue noted but deferred:** With 98% of training rocks having `liq` in
 the assemblage, the trained model will learn to predict melt presence for
 typical bulk inputs. Real users querying with fully-crystallized rocks (which
-is what ICP/XRF analyses are) would get a non-zero `liq` prediction — physically
+is what ICP/XRF analyses are) would get a non-zero `liq` prediction -- physically
 the rock is at room temperature with zero melt. This is a Position-B-shaped
-artifact: we're predicting *equilibrium-at-sampled-T,P*, not
+artifact: the target is *equilibrium-at-sampled-T,P*, not
 *final-crystallized assemblage*. Two possible v1.5 responses:
 - (a) At evaluation time, marginalize the `liq` channel out of the prediction
   (report only solid phase fractions, renormalized)
@@ -300,13 +301,13 @@ artifact: we're predicting *equilibrium-at-sampled-T,P*, not
   data
 - (c) Reframe the model's claim: "predict the assemblage that *would form*
   during crystallization," with melt presence as a separate output
-Not addressing now — flag for after v0 architecture validation. Pure model-
+Not addressing now -- flag for after v0 architecture validation. Pure model-
 output post-processing (option a) is essentially free if it turns out to
 matter.
 
-**Decision confirmed:** H2O fix is right and ready. Conclude data-side
-prerequisites for v1; next session begins model implementation
-(`src/cnmineral/models/`).
+**Decision confirmed:** H2O fix is right and ready. Data-side prerequisites
+for v1 are concluded; model implementation (`src/cnmineral/models/`) is
+next.
 
 **Next:** Commit H2O changes. Begin model side: encoder wrapper around
 kingcrab.py, ModeHead with sigmoid-gate sparsity, training loop on smoke H5
@@ -314,31 +315,30 @@ to validate architecture end-to-end.
 
 ---
 
-## 2026-05-12 — Model side v0 trains end-to-end on smoke H5
+## 2026-05-12 -- Model side v0 trains end-to-end on smoke H5
 
-**Q:** Does the architecture train, and do we hit the v0 success criteria from the plan (`/Users/mliu/.claude/plans/start-to-plan-model-tender-sunset.md`)?
+**Q:** Does the architecture train, and does it meet the v0 success criteria?
 
-**Context:** Implemented v0 model side per the plan — but simpler than the
-original draft. Reading kingcrab.py confirmed that `SubCrab` already does
+**Context:** Implemented v0 model side -- simpler than the original draft. Reading kingcrab.py confirmed that `SubCrab` already does
 encoding + masked-mean pooling + `value × sigmoid(gate)` output in one class.
 For ModeHead-only v0, that's the whole model. No separate "encoder wrapper"
 needed in v0; will refactor when v1 adds multi-head sharing.
 
 **Files added:**
-- `src/cnmineral/models/dataset.py` — `TrainMageminDataset`. Reads H5 eagerly,
+- `src/cnmineral/models/dataset.py` -- `TrainMageminDataset`. Reads H5 eagerly,
   converts 11-oxide schema → 10-cation wt% (sums FeO + Fe2O3 → Fe), divides
   by 100 to give mass fractions in [0, 1] (the encoder expects fractions, not
-  wt% — a non-obvious gotcha)
-- `src/cnmineral/models/model.py` — `BaseModel` wrapping one `SubCrab(out_dims=2*n_minerals)`. Essentially upstream's BaseCrabNet with naming adapted
-- `src/cnmineral/models/losses.py` — `mode_loss` = MSE + soft sum-to-1
+  wt% -- a non-obvious gotcha)
+- `src/cnmineral/models/model.py` -- `BaseModel` wrapping one `SubCrab(out_dims=2*n_minerals)`. Essentially upstream's BaseCrabNet with naming adapted
+- `src/cnmineral/models/losses.py` -- `mode_loss` = MSE + soft sum-to-1
   regularizer
-- `src/cnmineral/models/training.py` — `train_one_epoch`, `evaluate`
+- `src/cnmineral/models/training.py` -- `train_one_epoch`, `evaluate`
   (per-phase R² + sparsity + sum-to-1 violation), `EarlyStopping`,
   `make_loaders` with `StratifiedShuffleSplit` on qap_name
-- `configs/base_v0.yaml` — all hyperparameters in one place
-- `scripts/03_train_base.py` — sole CLI `--config PATH`; everything else
+- `configs/base_v0.yaml` -- all hyperparameters in one place
+- `scripts/03_train_base.py` -- sole CLI `--config PATH`; everything else
   in YAML
-- `tests/test_shapes.py` — shape-check tests run in <1s
+- `tests/test_shapes.py` -- shape-check tests run in <1s
 
 **Two integration fixes during testing:**
 1. `element_properties/` CSVs needed to live alongside `kingcrab.py`
@@ -346,12 +346,12 @@ needed in v0; will refactor when v1 adds multi-head sharing.
    `data/element_properties/` → `src/cnmineral/data/element_properties/`.
 2. CrabNet's `FractionalEncoder` expects fractions in [0, 1], not wt% in
    [0, 100]. The encoder discretizes the input into a lookup index using
-   `frac × resolution`, so wt%=50 produces frac_idx=2.5e5 — way out of
+   `frac × resolution`, so wt%=50 produces frac_idx=2.5e5 -- way out of
    bounds. Fix: divide cation wt% by 100 in the dataset.
 
-**Result — first training run on smoke H5 (2,545 points, 22 phases, CPU, 97.7s):**
+**Result -- first training run on smoke H5 (2,545 points, 22 phases, CPU, 97.7s):**
 
-Plan's 6 success criteria, scored:
+The 6 v0 success criteria, scored:
 - Loop runs without errors → ✓ 95 epochs (early-stop at 94, best 79)
 - Val loss decreasing → ✓
 - Top-5 phase R² > 0.5 → 4 of 5 (spl was 0.36; others 0.69 - 0.99)
@@ -373,15 +373,15 @@ Per-phase R² at best epoch (sorted by val-set presence):
 | amp | 10% | +0.18 |
 | bi | 9% | +0.81 |
 | cd | 8% | +0.19 |
-| (rare phases, presence < 5%) | — | noisy, mostly negative |
+| (rare phases, presence < 5%) | -- | noisy, mostly negative |
 
 **Notable findings:**
-- Olivine R²=0.99 — Fo# is highly predictable given bulk MgO + FeO
+- Olivine R²=0.99 -- Fo# is highly predictable given bulk MgO + FeO
 - Biotite R²=0.81 despite only 8.6% presence. The H2O fix (journal entry above)
-  is doing real work — the model can learn hydrous phases from limited samples
-- Amphibole R²=0.18 despite similar presence to biotite — within-class
+  is doing real work -- the model can learn hydrous phases from limited samples
+- Amphibole R²=0.18 despite similar presence to biotite -- within-class
   composition variance is likely the issue; need to investigate
-- Rare phases (< 5% presence) have noisy R² — expected at 2,545 samples;
+- Rare phases (< 5% presence) have noisy R² -- expected at 2,545 samples;
   should improve at scale (--scale full ≈ 440k points)
 
 **Decision validated:** architecture trains. ModeHead-only as v0 was the right
@@ -391,26 +391,26 @@ same architecture's per-phase R² at scale. After that, multi-head extensions
 (CompHead, GsysHead, ClassHead) can land additively.
 
 **Next:** Commit model-side v0. Decide whether to scale up MAGEMin to full
-corpus next session, or first add the comp / gsys / class heads on the smoke
+corpus next, or first add the comp / gsys / class heads on the smoke
 H5 to validate multi-task plumbing.
 
 ---
 
-## 2026-05-12 — Optuna HPO is on the deferred list; upstream code exists
+## 2026-05-12 -- Optuna HPO is on the deferred list; upstream code exists
 
 **Q:** Where does Optuna hyperparameter optimization fit in the v1 roadmap?
 
 **Context:** v0 training used hand-picked hyperparameters (d_model=256, N=2,
-heads=8, lr=3e-4 — defaults inherited from upstream BaseCrabNet). These were
+heads=8, lr=3e-4 -- defaults inherited from upstream BaseCrabNet). These were
 fine for architecture validation but almost certainly not optimal for the
-Position C training corpus we're producing. Per-phase R² values in the v0
+Position C training corpus being produced. Per-phase R² values in the v0
 run vary widely (olivine 0.99 vs amphibole 0.18), and some of that spread
 likely reflects hyperparameter mismatch rather than fundamental task
 difficulty.
 
-**Decision:** Optuna integration is a deferred v0.5 / v1 task — **NOT v0**.
+**Decision:** Optuna integration is a deferred v0.5 / v1 task -- **NOT v0**.
 v0 ships with hand-picked hyperparameters and characterizes ModeHead
-behavior at scale. Optuna comes after we've:
+behavior at scale. Optuna comes after the project has:
 1. Trained at full MAGEMin scale (~440k points) with v0 hyperparameters
 2. Decided whether the next bottleneck is hyperparameters, data quality, or
    architecture
@@ -418,26 +418,26 @@ behavior at scale. Optuna comes after we've:
 
 **Upstream code to port from:** The CrabNet-Mineral repo
 (`~/git_clones/CrabNet_PyPi/CrabNet-Mineral/`, branch `structure-edm`) has
-working Optuna integration we should adapt rather than rewrite:
-- `alignn/src/objective.py` — Optuna objective functions for BaseCrabNet
+working Optuna integration to adapt rather than rewrite:
+- `alignn/src/objective.py` -- Optuna objective functions for BaseCrabNet
   and StructureCrabNet, including k-fold CV inside the objective
-- `alignn/scripts/run_scaling.py` — multi-scale Optuna study orchestration
+- `alignn/scripts/run_scaling.py` -- multi-scale Optuna study orchestration
   (runs HPO at each data scale separately, since optimal hyperparams
   shift with data volume)
 - Storage: they use Optuna's `JournalStorage` (filesystem-based) rather
-  than SQLite — important on parallel filesystems (HPC Lustre/GPFS) where
-  SQLite breaks. We should follow the same convention.
+  than SQLite -- important on parallel filesystems (HPC Lustre/GPFS) where
+  SQLite breaks. Follow the same convention.
 - Their pattern: separate Optuna study DB per (model, scale) combination,
-  with `tag-prefix` arg controlling naming. Worth mirroring once we have
+  with `tag-prefix` arg controlling naming. Worth mirroring once there are
   multiple model variants (base / multi-task / Dirichlet output / ensemble).
 
-**Scope for porting (when we get to it):**
-- `src/cnmineral/models/objective.py` — Optuna objective for `BaseModel`,
+**Scope for porting:**
+- `src/cnmineral/models/objective.py` -- Optuna objective for `BaseModel`,
   later for the multi-head variant. Reuse k-fold CV pattern from upstream
-  but adapt to our stratified-by-qap_name split.
-- `scripts/04_hpo.py` — thin wrapper invoking the objective with a
+  but adapt to the stratified-by-qap_name split.
+- `scripts/04_hpo.py` -- thin wrapper invoking the objective with a
   configurable n_trials and study storage path
-- `configs/hpo_base.yaml` — search-space specification (d_model in
+- `configs/hpo_base.yaml` -- search-space specification (d_model in
   {128, 256, 512}, N in {1, 2, 3}, heads in {4, 8}, lr log-uniform in
   [1e-4, 1e-2], dropout in [0.0, 0.3], lambda_sum in [0.001, 0.1])
 - JournalStorage path: `data/optuna/<study_name>.journal`. Gitignore the
@@ -445,19 +445,19 @@ working Optuna integration we should adapt rather than rewrite:
 
 **Why not earlier:** Optuna at v0 would have meant tuning hyperparameters
 on the smoke H5 (2,545 points) and likely getting different optima than
-at full scale (440k). Their `run_scaling.py` showed this directly —
+at full scale (440k). Their `run_scaling.py` showed this directly --
 optimal `d_model` shifts as data scale changes. Better to characterize
 the architecture's behavior at v1 scale first, then tune.
 
-**Next:** No action this session. Note left so future sessions know HPO
-is a planned step and where to find the reference code.
+**Next:** No immediate action. HPO is a planned step; the reference code
+is listed above.
 
 ---
 
-## 2026-05-13 — Full-corpus training: architecture validated, label-design issue surfaced
+## 2026-05-13 -- Full-corpus training: architecture validated, label-design issue surfaced
 
 **Q:** Does the v0 architecture generalize to ~170× more training data, and what
-does it tell us about the next direction?
+does it indicate about the next direction?
 
 **Context:** Trained the same `BaseModel` (kingcrab.SubCrab wrapped) on the full
 MAGEMin-derived H5 (447,368 samples, 25 phases). Three pipeline issues handled
@@ -474,9 +474,9 @@ during data generation:
 **Training results:**
 - Wall time: 996.2s (16.6 min) on MPS. Best epoch 26, early-stop at 41 with
   patience 15. Smoke trained in 97s for 95 epochs on CPU.
-- Best val loss: **0.00115** (vs smoke 0.00147 — 22% improvement)
+- Best val loss: **0.00115** (vs smoke 0.00147 -- 22% improvement)
 - Sparsity 0.85, sum-to-1 violation 0.005
-- Train-val gap at best epoch: +0.000042 — **no overfitting**
+- Train-val gap at best epoch: +0.000042 -- **no overfitting**
 
 **Per-phase R² scaling (smoke vs full):**
 
@@ -501,14 +501,14 @@ during data generation:
 | **sph** | 0.01 / 0.01 | **-1.89** / **0.63** | **+2.52** |
 
 **Pattern:** Phases that had <5% presence at smoke scale (sph, sill, fper, g,
-cd, cor) had random or negative R² — too few samples to learn from. At 170×
+cd, cor) had random or negative R² -- too few samples to learn from. At 170×
 more data, they all become learnable, with R² 0.50-0.89.
 
 **14 of 17 phases with > 1% presence now have R² > 0.5.** Three exceptions:
-- `fsp` 0.64 (lower than smoke 0.69) — possibly affected by class redistribution
-- `amp` 0.47 (still the worst >10%-presence phase) — within-class composition
+- `fsp` 0.64 (lower than smoke 0.69) -- possibly affected by class redistribution
+- `amp` 0.47 (still the worst >10%-presence phase) -- within-class composition
   variance is plausibly the cause; worth investigating in v1
-- `ilm` 0.39 — fewer training samples than expected (4.2% presence vs smoke 5.7%)
+- `ilm` 0.39 -- fewer training samples than expected (4.2% presence vs smoke 5.7%)
 
 **Conclusion: architecture scales. No bottleneck on the model side at this size.**
 
@@ -516,7 +516,7 @@ more data, they all become learnable, with R² 0.50-0.89.
 
 **Label-design problem surfaced during inspection:**
 
-Investigated `liq` more carefully — it's not just present in many samples,
+Investigated `liq` more carefully -- it's not just present in many samples,
 it's actually the dominant phase by mass.
 
 ```
@@ -528,24 +528,24 @@ fraction of total training-set mass that is liq: 70%
 ```
 
 **70% of the predicted "rock" is silicate melt, not crystals.** This isn't a
-MAGEMin bug or H2O-strategy bug — it's an upstream sampling issue. We sample
-T from Putirka 2008 ranges, which are *crystallization temperatures* —
+MAGEMin bug or H2O-strategy bug -- it's an upstream sampling issue. T is sampled
+from Putirka 2008 ranges, which are *crystallization temperatures* --
 conditions where the magma was actively crystallizing, by definition with
 substantial melt. Adding H2O (fixed amp/bi gap correctly) made the solidus
 lower → even more melt at the same T.
 
-For users of this model — people mining rocks and running ICP/XRF on
-surface samples — the target is **room-temperature mineralogy**, not in-situ
-crystallization snapshots. Our labels are answering the wrong question.
+For users of this model -- people mining rocks and running ICP/XRF on
+surface samples -- the target is **room-temperature mineralogy**, not in-situ
+crystallization snapshots. The labels are answering the wrong question.
 
 For different cooling histories:
-- **Volcanic** (basalt, andesite, rhyolite — quenched at eruption): melt
+- **Volcanic** (basalt, andesite, rhyolite -- quenched at eruption): melt
   becomes glass on rapid cooling. `liq` IS conceptually a real component of
   the room-T sample. Model output here is approximately correct.
-- **Plutonic** (granite, gabbro, diorite — slow-cooled at depth): melt fully
+- **Plutonic** (granite, gabbro, diorite -- slow-cooled at depth): melt fully
   crystallizes during cooling. `liq` in the prediction corresponds to nothing
   in the room-T sample.
-- **Sedimentary**: not in our training corpus (rock_group == 'igneous' filter).
+- **Sedimentary**: not in the training corpus (rock_group == 'igneous' filter).
 
 The simple post-processing fix (drop liq, renormalize) reshuffles 70% of the
 predicted mass into a ~30% remainder. Not a defensible cleanup.
@@ -573,32 +573,30 @@ Three rejected alternatives:
 3. Regenerate labels: full pipeline with `--strategy subsolidus`
 4. Retrain on subsolidus H5; compare per-phase R² and `liq` mass fraction
    against the current crystallization-T results
-5. Then ship v1 paper-side claim: "model predicts surface-relevant modal
+5. Then state the v1 claim: "model predicts surface-relevant modal
    mineralogy from ICP/XRF bulk chemistry"
 
 **Insight worth carrying forward:** the v0 result *does* validate the
 architecture-to-data interface (BaseModel learns this kind of regression at
 scale, 14 of 17 R² > 0.5, no overfit). The subsolidus regeneration changes
 **what the model predicts**, not whether the architecture works. So the v0
-training was not wasted — it's a methodology baseline ("this is what
-crystallization-T predictions look like") for the eventual paper's
-methods section.
+training was not wasted -- it's a methodology baseline ("this is what
+crystallization-T predictions look like").
 
 **Next:** Patch training script (action 1), then build SubsolidusTPStrategy
 (action 2).
 
 ---
 
-## 2026-05-13 — Small infra notes from the full-corpus run (parking for future debugging)
+## 2026-05-13 -- Small infra notes from the full-corpus run (parking for future debugging)
 
 Brief observations not worth their own decision docs but useful if anything
 behaves unexpectedly later:
 
 **OpenMP / `KMP_DUPLICATE_LIB_OK` on macOS.** Both PyTorch and MAGEMin link
 `libomp.dylib`. When MAGEMin runs concurrently with a PyTorch script, the
-second process aborts at startup with "OpenMP already initialized." Fix is
-documented in the handoff brief but I missed it initially. Now
-`os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")` is set at the top of
+second process aborts at startup with "OpenMP already initialized." Fix:
+`os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")` is now set at the top of
 `scripts/03_train_base.py` and `scripts/eval_checkpoint.py` to make those
 scripts immune to whether MAGEMin happens to be running. Symptom if this
 ever breaks again: SIGABRT immediately after the script imports torch.
@@ -608,46 +606,47 @@ in the full-corpus run crashed deterministically inside MAGEMin's
 solid-solution reset code. Runtimes within 0.5% of each other across re-runs;
 the bug is data-deterministic (specific composition × T × P rows trigger an
 edge case in the SS solver). Subdivision retry (`scripts/retry_failed_chunks.py`)
-splits each failed 5,000-row chunk into 10 sub-chunks of 500 — only the
+splits each failed 5,000-row chunk into 10 sub-chunks of 500 -- only the
 sub-chunk containing the problematic row crashes, recovering ~90% of rows
 per failed chunk. Total loss at full scale: ~2,500 of 457,000 rows (0.55%).
-The same bug almost certainly exists in upstream Stage 2 runs; if Sarah/the
-other agent ever scales there, recommend porting our subdivision script.
+The same bug almost certainly exists in upstream Stage 2 runs; if the
+upstream pipeline ever scales there, porting the subdivision script is
+recommended.
 
 **MPS device selection + batch size 1024.** Initial training ran on CPU
 because the script's device check was CUDA-only. Adding `pick_device()` to
 fall through CUDA → MPS → CPU + bumping `batch_size: 256 → 1024` gave a
 roughly 20× speedup on the full corpus (5.5 hr CPU estimate → 16.6 min on
-MPS in practice). Larger speedup than my predicted 4-6×; partly the MPS
+MPS in practice). Larger speedup than the predicted 4-6×; partly the MPS
 backend and partly the batch-size reduction in per-batch Python overhead.
 
 **tqdm batch-level progress bars** in `train_one_epoch` and `evaluate`.
 `progress=True` flag (default) wraps the loader with `tqdm(..., leave=False)`
 so the bar disappears at end of epoch and the per-epoch summary stays in
 scrollback. Live `loss=` postfix updates per batch. Was originally absent;
-the user requested it after seeing how long training ran without visible
-within-epoch progress.
+added because training ran a long time without visible within-epoch
+progress.
 
-These are mostly small but each cost real debugging time when they bit us.
-Documenting so future-me doesn't re-derive them.
+These are mostly small but each cost real debugging time. Documented so
+they need not be re-derived.
 
 ---
 
-## 2026-05-13 — Revised near-solidus T ranges (correction to earlier table)
+## 2026-05-13 -- Revised near-solidus T ranges (correction to earlier table)
 
 **Q:** What T ranges to use for the regenerated training labels?
 
 **Context:** Earlier journal entry "Full-corpus training: architecture
 validated, label-design issue surfaced" proposed wider, deeper-subsolidus
 T ranges as a fix (granite 400-600, basalt 700-900, etc.). Subsequent
-external assessment via ChatGPT pushed back: at very low T, MAGEMin's `ig`
+external assessment pushed back: at very low T, MAGEMin's `ig`
 database leaves its calibrated regime and produces metamorphic-style
 assemblages (greenschist: chl, ep, ms) that don't reflect what users see
 in granitic surface samples. The 400°C floor on granite is in this drift
 regime.
 
 **Revised ranges (use these, not the earlier table):** Pick T ranges 0-150°C
-*below* the wet solidus per class — the "kinetic arrest" regime where real
+*below* the wet solidus per class -- the "kinetic arrest" regime where real
 igneous rocks stopped reacting during cooling and where MAGEMin's `ig`
 calibration is still trustworthy:
 
@@ -671,14 +670,14 @@ users observe in surface samples. Each range is wide enough (~150°C) to
 preserve some marginalization, but tight enough to be class-specific.
 
 **Status:** Proposed but **not yet implemented in code**. The PetThermoTools
-experiment described in the next journal entry should run first — it might
+experiment described in the next journal entry should run first -- it might
 indicate that subsolidus equilibrium is too biased a proxy for the
-fractional-crystallization endpoint, in which case we'd go to fractional
-crystallization directly rather than implementing the near-solidus strategy.
+fractional-crystallization endpoint, in which case fractional crystallization
+would be adopted directly rather than implementing the near-solidus strategy.
 
 ---
 
-## 2026-05-13 — PetThermoTools experiment design: equilibrium vs fractional crystallization
+## 2026-05-13 -- PetThermoTools experiment design: equilibrium vs fractional crystallization
 
 **Q:** Before committing to near-solidus equilibrium as the label-generation
 strategy, is its modal-mineralogy output actually a good proxy for the
@@ -697,11 +696,11 @@ crystalline assemblage of igneous bulk samples:
   for granitic systems. More physically correct but ~50× more compute and
   requires either PetThermoTools or a custom Julia loop.
 
-I had asserted earlier that "central tendency converges between (A) and (B)."
-That assertion was sloppy. It's plausible for basalts/gabbros where the
+An earlier entry asserted that "central tendency converges between (A) and (B)."
+That assertion was unsupported. It's plausible for basalts/gabbros where the
 assemblage is roughly invariant across the cooling T range, but probably
 wrong for granitic systems where the residual melt evolves substantially.
-We don't know which class it's wrong for and by how much, so the assertion
+Which class it's wrong for, and by how much, is unknown, so the assertion
 shouldn't be load-bearing for the v1 plan.
 
 **Experiment:** Empirically measure modal-mineralogy divergence between (A)
@@ -718,21 +717,21 @@ and (B) across rock classes.
      steps to T_ns, removing 90% of solids per step. Final modal output =
      accumulated removed solids + remaining solids at termination, normalized.
 - Compare with L1 distance on the modal vectors: `Σ |mode_eq[i] − mode_frac[i]|`.
-  Per-phase delta (signed) tells us *which* phases the equilibrium proxy
+  Per-phase delta (signed) shows *which* phases the equilibrium proxy
   over- vs under-predicts.
 - Aggregate per class: median + IQR of L1 distance, mean per-phase delta.
 
 **Tooling decision: use PetThermoTools.** Two candidates were considered:
 
 - *Custom Julia loop* in `scripts/julia/fractional_crystallization.jl`: ~50
-  lines wrapping our existing `point_wise_minimization` call. Cheap, transparent.
+  lines wrapping the existing `point_wise_minimization` call. Cheap, transparent.
 - *PetThermoTools* (https://petthermotools.readthedocs.io): community-vetted
   Python wrapper around MAGEMin_C.jl with `Frac_solid=True` flag and proper
   defaults (cooling step size, solid removal fraction, liquidus search).
 
-We chose PetThermoTools. Reason: if the experiment shows fractional
-crystallization is needed for production label generation (Phase B), we'd
-want PetThermoTools anyway for its solidus-bracketing and step-size logic.
+PetThermoTools was chosen. Reason: if the experiment shows fractional
+crystallization is needed for production label generation (Phase B),
+PetThermoTools is wanted anyway for its solidus-bracketing and step-size logic.
 Investing the integration effort once amortizes over both the experiment
 and potential v1.5/v2 production work. The custom Julia loop saves
 implementation time short-term but doesn't reuse.
@@ -746,7 +745,7 @@ See ADR `docs/decisions/004_petthermotools_for_fractional_crystallization.md`.
 - **Median L1 distance > 0.25 for one or more classes** (likely granite per
   the petrologic intuition): proxy is too biased. Skip Phase A, go straight
   to PetThermoTools-generated labels (Phase B) for production.
-- **In between**: hybrid — Phase A for mafics, Phase B for felsics (since the
+- **In between**: hybrid -- Phase A for mafics, Phase B for felsics (since the
   computational cost is class-localized; doing fractional crystallization on
   only the felsic ~30% of the corpus is much cheaper than doing it on all).
 
@@ -763,10 +762,10 @@ See ADR `docs/decisions/004_petthermotools_for_fractional_crystallization.md`.
 the experiment script stays separate from the main pipeline). Outputs to
 `data/experiments/eq_vs_frac/{results.csv, plots/}`.
 
-**Next session priorities (cold-start for the fresh agent):**
-1. Clone PetThermoTools to a path of user's choosing (user is doing this)
-2. Plan integration: how to call from our Julia env, output format adaptation,
-   etc. Enter plan mode for this.
+**Next:**
+1. Clone PetThermoTools to a local path
+2. Plan integration: how to call from the Julia env, output format adaptation,
+   etc.
 3. Implement `scripts/experiments/eq_vs_frac/run_comparison.py` + supporting
    Julia bits.
 4. Run experiment on a small sample first to validate, then full ~500-bulk run.
@@ -779,7 +778,7 @@ experiment validates that approach.
 
 ---
 
-## 2026-05-13 — PetThermoTools integration + eq-vs-frac experiment results: adopt fractional crystallization
+## 2026-05-13 -- PetThermoTools integration + eq-vs-frac experiment results: adopt fractional crystallization
 
 **Q:** Is equilibrium-at-near-solidus a good enough proxy for the
 fractional-crystallization endpoint to use as production labels?
@@ -788,14 +787,14 @@ fractional-crystallization endpoint to use as production labels?
 `alignn_fix` env via pip-editable install of `~/git_clones/PetThermoTools`.
 Ran `ptt.install_MAGEMinCalc()` which provisioned an isolated Julia env at
 `~/.petthermotools_julia_env` (juliapkg auto-fetched a Julia 1.11.9 sidecar
-alongside our existing 1.12.6) with `MAGEMin_C@2.1.5 + MAGEMinCalc@v0.6.1`.
-The isolated Julia env does NOT conflict with our `scripts/julia/Project.toml`
+alongside the existing 1.12.6) with `MAGEMin_C@2.1.5 + MAGEMinCalc@v0.6.1`.
+The isolated Julia env does NOT conflict with the project's `scripts/julia/Project.toml`
 pin. `ptt.test_MAGEMinCalc()` passed. The crash printed at the end of
 `install_MAGEMinCalc` (`curl_multi_assign` + SIGSEGV during `Pkg.precompile()`
-cleanup) is a known cosmetic bug in juliacall on macOS — MAGEMin_C is fully
+cleanup) is a known cosmetic bug in juliacall on macOS -- MAGEMin_C is fully
 functional.
 
-Two implementation surprises along the way:
+Two implementation issues along the way:
 
 1. **DataFrame-bulks batching is broken for ptt's MAGEMin backend.** The
    wrapper's docstring claims `bulk: dict | DataFrame`, but in practice ptt's
@@ -806,11 +805,11 @@ Two implementation surprises along the way:
    Replacing it with a class-conditional fixed `T_start_C` (set ~50-100 C above
    each class's Putirka upper-bound liquidus) cut per-bulk wall to 2-3 s.
    Verified on a basalt + a granite that the FC endpoint modal vector matches
-   `find_liquidus=True` to L1 < 0.005 — empirically equivalent. Production
+   `find_liquidus=True` to L1 < 0.005 -- empirically equivalent. Production
    cost: 550 bulks in 26 min.
 
 **Experiment:** `scripts/experiments/eq_vs_frac/`. 550 bulks across 11 classes
-(50 per class, gabbro capped at 98 available). Equilibrium leg used our
+(50 per class, gabbro capped at 98 available). Equilibrium leg used the
 existing `run_magemin.jl` (database `ig`, same Project.toml pin as the main
 pipeline) at near-solidus T midpoints. Fractional leg via ptt with `Model =
 "Green2025"`, `Frac_solid=True`, `dt_C=25`, `T_end_C = T_lo` of the
@@ -850,7 +849,7 @@ wrong:**
    systems would diverge most because their residual melt evolves
    substantially across cooling. Empirically rhyolite (0.13) and monzogranite
    (0.16) are the lowest-L1 classes. Plausible explanation: felsic eutectics
-   are narrow — both legs converge on the same near-eutectic qz+fsp+bi
+   are narrow -- both legs converge on the same near-eutectic qz+fsp+bi
    assemblage. The melt's compositional drift mostly happens in the *liq*
    channel of the eq snapshot, which discharges into qz+fsp on either path.
 
@@ -859,8 +858,8 @@ wrong:**
    the FC leg has redistributed that mass into fsp (+0.3) + minor solids. The
    dacite near-solidus T (650-800 C, midpoint 725 C) appears to sit *above*
    the wet solidus for many dacite bulks given their H2O loadings, so the eq
-   snapshot is essentially "magma in progress" again — exactly the failure
-   mode we set out to fix. Lowering T further would push dacite eq into
+   snapshot is essentially "magma in progress" again -- exactly the failure
+   mode the regeneration set out to fix. Lowering T further would push dacite eq into
    MAGEMin's metamorphic-drift regime. There's no T window where eq is both
    thermodynamically calibrated and below the wet solidus for hydrous dacite.
    This is the cleanest argument for FC.
@@ -870,12 +869,12 @@ wrong:**
    over-predicts melt mass at the chosen near-solidus T. FC redistributes
    that mass into the realistic crystalline endpoint. This is the same
    failure mode the original v0 labels had (mean liq 0.70 in the crystallization-
-   T corpus) — just less severe. Near-solidus equilibrium reduces but does
+   T corpus) -- just less severe. Near-solidus equilibrium reduces but does
    not eliminate the melt-inflation problem.
 
 **Implications for v1:**
 - Production label generation switches to FC via PetThermoTools. Drop the
-  `NearSolidusTPStrategy` idea from the May 12 / May 13 entries — don't
+  `NearSolidusTPStrategy` idea from the May 12 / May 13 entries -- don't
   implement it.
 - Per-bulk cost ~3 s on this machine; ~22k bulks × ~20 (P, H2O) samples per
   bulk would be ~13 wall-hours single-process. Need to parallelize across
@@ -893,10 +892,10 @@ wrong:**
 **Next:**
 1. Update CLAUDE.md "Active concern" + "Status snapshot" to reflect the
    resolved label-strategy question.
-2. ADR 005: production label generation via PetThermoTools FC — settings,
+2. ADR 005: production label generation via PetThermoTools FC -- settings,
    sampling strategy, performance budget.
 3. Design the production FC orchestration (chunking, retry, error
-   handling — mirroring the existing MAGEMin chunked pipeline).
+   handling -- mirroring the existing MAGEMin chunked pipeline).
 4. Regenerate corpus → retrain → compare to v0 baseline.
 
 **Files added:**
@@ -911,17 +910,17 @@ wrong:**
 
 ---
 
-## 2026-05-15 — eq-vs-frac v2: anchored terminal T + liq-threshold-driven T_FC_end
+## 2026-05-15 -- eq-vs-frac v2: anchored terminal T + liq-threshold-driven T_FC_end
 
 **Q:** v1's L1s mixed three different effects (path-dependence, terminal-T
 gap between eq and FC, eq running above the wet solidus for hydrous bulks).
 What does the comparison look like when those confounds are removed?
 
 **Context:** Post-v1 audit (`docs/eq_vs_frac_diagnostics.md`) showed that:
-- eq ran at T_midpoint, FC ended at T_lo — a 50-100 C gap that contaminated
+- eq ran at T_midpoint, FC ended at T_lo -- a 50-100 C gap that contaminated
   the L1 with terminal-T differences.
 - For hydrous classes (dacite especially), the eq T sat *above* the wet
-  solidus — eq was "magma in progress" while FC was at the crystallized
+  solidus -- eq was "magma in progress" while FC was at the crystallized
   endpoint. Most of dacite's L1=1.14 was this artifact, not path-dependence.
 - liq_eq vs liq_fc at the chosen T's were grossly mismatched in some classes
   (dacite eq=0.45, FC=0.00; syenite eq=0.17, FC=0.01).
@@ -944,7 +943,7 @@ What does the comparison look like when those confounds are removed?
 
 `liq` vs `fl` distinction matters here: `liq` is silicate melt, `fl` is a
 free aqueous fluid. Below the wet solidus, melt → 0 but excess H2O that
-doesn't fit in amp/bi/mu lives as fl. Threshold gates on `liq` only —
+doesn't fit in amp/bi/mu lives as fl. Threshold gates on `liq` only --
 forcing `fl` to zero would push hydrous bulks below MAGEMin's calibrated
 range.
 
@@ -979,7 +978,7 @@ Final per-class T's:
 | syenite      | 650                 | 0.8                 | 3.9     | 1         |
 
 59 of 547 bulks flagged (11%); excluded from L1. Most felsic and intermediate
-classes converged on 650 C — that T is below the wet solidus for those H2O
+classes converged on 650 C -- that T is below the wet solidus for those H2O
 loadings. Basalt/gabbro hold residual fractionation-trapped evolved melt
 down to 675-700 C. Dunite picked 975 C because its 5%-quantile cools through
 mean-<5% earlier than its 95%-quantile.
@@ -1027,13 +1026,13 @@ production label generation. Worst class median (foidite 0.79) is 8x the
 **Refinements to the production strategy implied by v2:**
 
 - Felsic shallow (rhyolite, granite, granodiorite): a hybrid path *could*
-  work — eq labels at near-eutectic T would lose <0.15 L1. But for pipeline
+  work -- eq labels at near-eutectic T would lose <0.15 L1. But for pipeline
   simplicity, use FC everywhere; the marginal compute cost is small.
 - The T_FC_end_class table here (650 C for most felsic/intermediate, 675-700
   for basalt/gabbro, 975 for dunite, 625 for foidite) is a starting point for
   production. Production may want per-bulk T based on each bulk's individual
   liq trajectory rather than class-aggregate T's; this avoids the 11% audit
-  attrition we hit here.
+  attrition seen here.
 - The 5% threshold is reasonable. A 1% threshold would push 3-4 more classes
   toward MAGEMin's metamorphic-drift floor; not worth the marginal "cleaner
   subsolidus" gain.
@@ -1056,7 +1055,7 @@ Config additions to `configs/eq_vs_frac.yaml`: per-class `T_floor_v2` and a
 **Next:**
 1. Update `CLAUDE.md` "Active concern" / "Status snapshot" to reflect resolved
    label-strategy question.
-2. ADR 005: production label generation via PetThermoTools FC — per-bulk T
+2. ADR 005: production label generation via PetThermoTools FC -- per-bulk T
    selection algorithm, (P, H2O, fO2) sampling design, chunking/retry
    infrastructure, performance budget.
 3. Design production FC orchestration. ~22k bulks × ~20 (P, H2O) samples ×
@@ -1065,7 +1064,7 @@ Config additions to `configs/eq_vs_frac.yaml`: per-class `T_floor_v2` and a
 
 ---
 
-## 2026-05-17 to 05-19 — Production corpus generation: memory leak crisis and resolution
+## 2026-05-17 to 05-19 -- Production corpus generation: memory leak crisis and resolution
 
 **Q:** Generate the v1 production training corpus (~178k path-rows) per ADR 005.
 
@@ -1103,53 +1102,52 @@ scale (10³ calls) but catastrophic at ML-corpus scale (10⁶ calls).
 
 **Result:** 730 of 731 chunks completed cleanly (one chunk hung at the very
 end on what appears to be a juliacall init deadlock, lost ~200 path-rows of
-the ~146k total — negligible). Total wall time ~31 hours including the three
-crashes. The user manually killed the hung orchestrator at user request to
+the ~146k total -- negligible). Total wall time ~31 hours including the three
+crashes. The hung orchestrator was killed manually to
 recover; `merge_chunks.py` produced `data/train_fc_v1.parquet`.
 
 **Final corpus stats:**
 - **177,976 path-rows** across 22,245 unique bulks × 8 paths
 - **64 rock classes** (basalt-dominated per Gard et al. 2019 natural prevalence)
 - **18 mineral phases** discovered in the modal vocabulary
-- **Mean liq mass fraction: 0.049** (v0 baseline was 0.70 — **14× reduction**, the
+- **Mean liq mass fraction: 0.049** (v0 baseline was 0.70 -- **14× reduction**, the
   headline metric that motivated this whole regenerate)
 - **99.96% convergence**, 69 fc_errors (mostly `JuliaError` on edge-case bulks)
-- 22.8% of rows have `liq > 5%`; 10.2% have `liq > 15%` — concentrated in
+- 22.8% of rows have `liq > 5%`; 10.2% have `liq > 15%` -- concentrated in
   foidite-family and gabbro classes where fractionation-trapped melt persists
   below MAGEMin's calibrated T range
 
 **Open upstream work to file:** This juliacall + MAGEMin_C memory leak is a
-real upstream bug. Gleeson (UC Berkeley) is local; worth opening a ptt issue
+real upstream bug. Worth opening a ptt issue (Gleeson, UC Berkeley)
 with the minimal reproducer (8 paths × 100 bulks shows the growth pattern in
 ~30 min). Their package is validated at petrology-session scale and the
 millions-of-calls workload exposes a regime they haven't tested.
 
 **Files committed in this work:**
-- `scripts/production/01_find_T_FC_end_per_bulk.py` — pre-pass with mp pool
-- `scripts/production/02_generate_corpus.py` — orchestrator with mp pool +
+- `scripts/production/01_find_T_FC_end_per_bulk.py` -- pre-pass with mp pool
+- `scripts/production/02_generate_corpus.py` -- orchestrator with mp pool +
   per-path Julia GC + maxtasksperchild=1
-- `scripts/production/merge_chunks.py` — generic chunk-parquet merger
-- `.vscode/settings.json` — Pylance + file watcher exclusions for `data/`
+- `scripts/production/merge_chunks.py` -- generic chunk-parquet merger
+- `.vscode/settings.json` -- Pylance + file watcher exclusions for `data/`
 - `.gitignore` updates for new corpus + cache directories
 
 ---
 
-## 2026-05-19 — v1 model architecture: inverse-inference reframing + Stage 1 locks
+## 2026-05-19 -- v1 model architecture: inverse-inference reframing + Stage 1 locks
 
 **Q:** Given the v1 corpus exists, what's the model architecture that justifies
 its existence (and isn't just another MAGEMin amortization)?
 
-**Context:** Spent time stress-testing the project's value proposition.
-Started from the centroid-prediction framing (deterministic head, bulk only)
-which I'd recommended for v1 simplicity. User pushed back: that's exactly
-Position B (MAGEMin emulator marginalized over T, P) which we explicitly
-rejected at project inception (see 2026-05-11 "Position C crystallized").
+**Context:** Stress-tested the project's value proposition. Started from
+the centroid-prediction framing (deterministic head, bulk only), proposed
+for v1 simplicity. Objection: that's exactly Position B (MAGEMin emulator
+marginalized over T, P), which was explicitly rejected at project inception (see 2026-05-11 "Position C crystallized").
 
 After working through several possible escapes, **arrived at the inverse-
 inference framing**: the model's headline contribution is that it predicts
 **both formation conditions (T, P, H2O) AND mineralogy from bulk chemistry
 alone**. Geologist's workflow today is "run MAGEMin over a (T, P, H2O) sweep
-and stare at an unweighted range of possible assemblages." Our model collapses
+and stare at an unweighted range of possible assemblages." The model collapses
 that range into the conditioned posterior `P(T, P, H2O, modal | bulk)`. No
 existing tool does this:
 - MAGEMin: forward map only, needs (T, P, H2O) as input
@@ -1174,7 +1172,7 @@ predictions irreducible to MAGEMin.
 
 | Component | Decision |
 |---|---|
-| Encoder | Shared SubCrab → pooled latent (no T/P/H2O input — bulk only at inference) |
+| Encoder | Shared SubCrab → pooled latent (no T/P/H2O input -- bulk only at inference) |
 | ModeHead | Dirichlet over mineral wt%, label-smoothing ε=1e-3 |
 | CondHead | Mixture of Gaussians per (T, P, H2O) axis, linear-space, heteroscedastic, K_gmm component count in HPO search space |
 | Ensemble | K=5 deep ensemble for σ_epistemic |
@@ -1196,7 +1194,7 @@ predictions irreducible to MAGEMin.
 - Geologist sees both inferred conditions AND assemblage, with multimodal
   uncertainty over both, in microseconds
 
-**Aleatoric vs epistemic uncertainty (definitions for future-me):**
+**Aleatoric vs epistemic uncertainty (definitions):**
 - Aleatoric = inherent randomness in the data (same bulk → different paths →
   different assemblages). Captured by the within-model distribution width
   (Dirichlet variance, GMM component spread). Irreducible.
@@ -1220,27 +1218,27 @@ good ModeHead approximation. Large gap = ModeHead is the bottleneck. Either
 result is informative.
 
 **Documents created/updated in this work:**
-- `notebooks/train_fc_v1_eda.ipynb` — corpus EDA with liq-threshold filtering
-- ADR 006 (this commit) — v1 model architecture decisions
+- `notebooks/train_fc_v1_eda.ipynb` -- corpus EDA with liq-threshold filtering
+- ADR 006 (this commit) -- v1 model architecture decisions
 - ADR 005 status updated to Resolved → Executed
 - CLAUDE.md status snapshot updated
 
-## 2026-05-22 — Stage 1-3 executed: v1 model built, trained, two leaks fixed
+## 2026-05-22 -- Stage 1-3 executed: v1 model built, trained, two leaks fixed
 
 **Q:** Build, train, and evaluate the ADR 006 architecture end to end.
 
 Covers ~3 days of work. Two data-handling bugs were caught and fixed along
-the way — both were my misreads of the corpus structure, not findings. Notes
+the way -- both were misreads of the corpus structure, not findings. Notes
 kept terse but complete enough to retrace.
 
-**Stage 1 — architecture built.** Files: `src/cnmineral/models/{encoder,
+**Stage 1 -- architecture built.** Files: `src/cnmineral/models/{encoder,
 heads,model,losses,dataset,training,objective}.py`. `BaseModelV1` = shared
 SubCrab encoder → Dirichlet ModeHead (18-phase modal wt%) + GMM CondHead
 (T/P/H2O, K_gmm Gaussians/axis). Joint NLL loss. Driver scripts
 `03_train_base.py` (v0/v1 dispatch), `04_hpo.py`, `05_train_ensemble.py`,
 `06_eval_ensemble.py`. Configs `base_v1.yaml`, `hpo_v1.yaml`.
 
-**Bug 1 — row-level split leak.** First HPO + K=5 ensemble used
+**Bug 1 -- row-level split leak.** First HPO + K=5 ensemble used
 `StratifiedShuffleSplit`/`StratifiedKFold` on *row* indices. Each bulk has 8
 FC paths sharing ~identical encoder input (10 of 11 oxides identical across
 paths), so row-level splits scattered a bulk's paths across train and val →
@@ -1252,19 +1250,19 @@ two-stage stratified `train_test_split` (64/16/20 train/val/test);
 test metrics stay interpretable. Split persisted to `data/splits_v1.json`.
 Row-leaked artifacts archived `*_rowleak` / `*_rowsplit`.
 
-**Bug 2 — H2O target leak.** Input oxide `h2o_tot` == CondHead H2O target
+**Bug 2 -- H2O target leak.** Input oxide `h2o_tot` == CondHead H2O target
 `h2o_path_wt` (corr 1.0, the corpus set bulk water to each FC path's sampled
 H2O). The CondHead H2O axis was copying an input, not inferring it (fake MAE
 0.034). Fix: dropped `h2o_tot` from `V1_OXIDE_COLS` → model takes 10 oxides /
 9 cations. New `V1_CATIONS_ORDER` keeps v0's `TrainMageminDataset` untouched.
 Cost: `h2o_tot` was also a genuine input for hydrous-phase modal prediction;
 removing it regressed amp/bi/mu/fl/ne modal R² (~0.13-0.25 each). Anhydrous
-majors unaffected. v1.1 fix is Option C — use complete.csv's *measured*
+majors unaffected. v1.1 fix is Option C -- use complete.csv's *measured*
 `h2o_tot` (≠ `h2o_path_wt`) as input.
 
 **HPO.** Bulk-level 3-fold CV, joint-NLL objective, JournalStorage. Search
 space widened (d_model/N/heads kept pegging the ceiling). 10-oxide run
-stopped at 16 complete + 25 pruned (50-trial target abandoned — pace ~34
+stopped at 16 complete + 25 pruned (50-trial target abandoned -- pace ~34
 min/complete on the big d=512 config, top-3 tied; diminishing returns).
 Best trial #32: `d_model=512, N=4, heads=16, K_gmm=3, lr=1.25e-4,
 weight_decay=1.0e-5, batch=512, lambda_cond=3.44, dropout=0.13, eps=1.0e-4`.
@@ -1280,21 +1278,21 @@ test set (4,239 bulks, 30,212 rows):
 eval_v1.json + predictions parquets). Archived: `base_v1_ensemble_h2oleak`
 (11-oxide), `base_v1_ensemble_rowsplit`, `base_v1_rowleak`. HPO journals
 `data/optuna/v1_hpo_{10ox,wide,smallsearch,rowleak}.journal`.
-`notebooks/v1_eval.ipynb` — eval dashboard + simulated-user inference demo.
+`notebooks/v1_eval.ipynb` -- eval dashboard + simulated-user inference demo.
 
 **Next:**
 - Tag `v1-trained` at this commit.
 - v1.1: Option C (measured-`h2o_tot` input) to recover hydrous-phase modal;
   CompHead for per-mineral solid-solution chemistry (the phases predicted are
-  mostly solid solutions — modal abundance alone is half the answer).
+  mostly solid solutions -- modal abundance alone is half the answer).
 - Calibration is loose (T/H2O underconfident); post-hoc temperature scaling
   is cheap if needed.
 
 ---
 
-## 2026-05-22 — A2 calibration + B2 amp diagnostic; B1/B8 corpus gating
+## 2026-05-22 -- A2 calibration + B2 amp diagnostic; B1/B8 corpus gating
 
-**Q:** Pick up after `v1-trained`. HANDOFF Tier-2 (A2 calibration) and Tier-1
+**Q:** Following `v1-trained`: Tier-2 (A2 calibration) and Tier-1
 analysis (B2 amp). And: do the cached FC chunks already carry per-mineral
 `Comp_wt` and `G_sys`, so B1+B8 can be a cheap re-parse?
 
@@ -1305,18 +1303,18 @@ extracts `res["mass_g"]` and discards the rest of the PetThermoTools FC return
 dict; per-phase compositions and system Gibbs energy were computed in-memory
 and never persisted. B1 + B8 therefore require a **full FC re-run** (the
 31-hour multi-crash path), not a re-parse. Do them in one bundle; needs
-explicit time/infra buy-in before starting.
+an explicit time/infra commitment before starting.
 
 ---
 
-**A2 — post-hoc temperature scaling on the GMM CondHead.** New
+**A2 -- post-hoc temperature scaling on the GMM CondHead.** New
 `scripts/07_calibrate.py`. Method = Guo et al. 2017 ("On Calibration of Modern
 Neural Networks") adapted to a probabilistic regression head: one scalar per
 axis fit on val by minimizing NLL, applied as `log_sigma → log_sigma + t_axis`
 (Guo et al.'s sigma-scaling regression analog, cf. Laves 2020, Levi 2022).
 Coverage = diagnostic, not the fit target.
 
-NLL-fit temperatures (adopted): **T=0.655, P=0.943, H2O=0.932** — all shrink
+NLL-fit temperatures (adopted): **T=0.655, P=0.943, H2O=0.932** -- all shrink
 sigma. Test before → after:
 
 |axis|NLL|cov1 (gauss)|cov1 (PIT)|KS vs uniform|
@@ -1327,39 +1325,39 @@ sigma. Test before → after:
 
 **Reframing finding.** The headline Gaussian-σ coverage (0.88/0.64/0.76) is
 the wrong metric for a multimodal mixture predictive. The proper diagnostic
-is the **PIT** (probability integral transform — predictive CDF evaluated at
+is the **PIT** (probability integral transform -- predictive CDF evaluated at
 the target; uniform if calibrated). PIT central-68 coverage is 0.81/0.62/0.71
-on test — H2O is essentially calibrated already, P is a hair under, only T is
+on test -- H2O is essentially calibrated already, P is a hair under, only T is
 materially over-covered (PIT histogram is a clean dome). KS vs uniform
 agrees: P 0.05 (near-uniform), H2O 0.11, T 0.17.
 
 Temperature scaling **helps T meaningfully** (KS 0.17→0.12, NLL clearly down,
 central-68 coverage 0.81→0.78); for P and H2O it is near a no-op because
 their PIT non-uniformity is not a scale problem. Concretely the v1 corpus
-samples h2o_path_wt at 2 discrete values per bulk and P_kbar at 4 — so PIT
+samples h2o_path_wt at 2 discrete values per bulk and P_kbar at 4 -- so PIT
 lumpiness on those axes is largely an artifact of evaluating a continuous CDF
 on discrete targets, not miscalibration. T_FC_end_used is per-bulk constant
 and continuous globally, so T is the one axis where calibration is a
 well-posed problem and Guo-style temperature scaling does its job. (Deeper
 consequence, flagged not acted on: the CondHead's P and H2O outputs largely
 recover the per-class sampling grid, not a bulk-conditional inverse
-inference — the per-axis "inverse inference" claim is substantively only
+inference -- the per-axis "inverse inference" claim is substantively only
 about T.)
 
 Artifacts: `checkpoints/base_v1_ensemble/calibration_v1.json`,
 `data/diagnostics/calibration/pit_hist_v1.png` (PIT before/after per axis).
-A single residual t-fit shape — a small dome remains for T after scaling —
+A single residual t-fit shape -- a small dome remains for T after scaling --
 shows a one-scalar fit can't fully flatten the T PIT; the NLL-fit
 deliberately stops short of full coverage-matching (which would want t=0.27,
 hurting NLL). Inference/eval wiring deferred (one flag reading the JSON).
 
 ---
 
-**B2 — amp diagnostic.** New `scripts/b2_amp_diagnostic.py`. Pure analysis on
+**B2 -- amp diagnostic.** New `scripts/b2_amp_diagnostic.py`. Pure analysis on
 test split: variance decomposition + h2oleak comparison + per-class
 breakdown. Decomposes amp per-path R² as `ceiling × R²_bulk` where
 ceiling = SS_between/SS_tot is the highest per-path R² any bulk-only model
-can reach (because the 8 FC paths share an identical input — verified honest
+can reach (because the 8 FC paths share an identical input -- verified honest
 `pred_amp` per-bulk std = 0.00 exactly).
 
 **amp per-path R² = 0.22 = ceiling 0.67 × R²_bulk 0.32.** Both terms matter.
@@ -1391,7 +1389,7 @@ foid-bearing monzodiorite -0.92, diorite -0.64, andesite -0.30. Positive
 only for amp-poor classes (rhyolite +0.36, monzogranite +0.17,
 phonolite +0.17). The headline R²_bulk = 0.32 is buoyed by easy
 near-zero predictions in felsic classes; **in the classes where amp matters,
-the model is genuinely bad — not just metric-artifact bad.**
+the model is genuinely bad -- not just metric-artifact bad.**
 
 **Implications for B1 / CompHead.** CompHead predicts per-mineral composition,
 not abundance. It cannot move amp's modal R² at either the per-path or the
@@ -1399,7 +1397,7 @@ bulk level. amp abundance is hard for two independent reasons: (1) ceiling 0.67
 (33% within-bulk path spread, structurally invisible to a bulk-only model),
 (2) genuine bulk-level difficulty in plutonic mafic-intermediate classes.
 CompHead's value for amp is in predicting amphibole *chemistry* (Mg#, Al, Na),
-which is a separate and worthwhile target — but **B1 should not be pitched as
+which is a separate and worthwhile target -- but **B1 should not be pitched as
 "fixes amp"**.
 
 Plots: `data/diagnostics/b2_amp/{phase_variance_ceilings, amp_parity,
@@ -1410,7 +1408,7 @@ amp_per_class_r2}.png`.
 **Next.**
 - Update MODEL.md "Calibration is loose" bullet with the PIT reframing.
 - B1+B8 require full FC re-run; cost ≈ 31 h + the leak workaround; needs
-  user buy-in before starting.
+  an explicit commitment before starting.
 - B3 (modal-haze / Dirichlet sparsity) is the remaining Tier-1 item not
   blocked on a corpus regen; it's a ModeHead change + retrain.
 - Inference wiring for the calibration JSON: one flag in 06_eval / the
@@ -1418,7 +1416,7 @@ amp_per_class_r2}.png`.
 
 ---
 
-## 2026-05-27 — v2 ablation: SSL pretrain wins, trace inputs don't add (Strategy B partial)
+## 2026-05-27 -- v2 ablation: SSL pretrain wins, trace inputs don't add (Strategy B partial)
 
 **Q:** Does trace-augmented SSL pretraining (Strategy B from the v2 plan)
 improve hydrous-phase modal `R²_bulk`?
@@ -1483,14 +1481,14 @@ condition for Strategy B success. **Not met.** The pattern is **(c) ≈ (d) >
 - **mu is hopeless in every cell** -- joins sph/ep/ru on the "too-rare-
   to-fit" list.
 
-**Why traces don't add value here -- the honest mechanism.** Labels in the
+**Why traces don't add value here -- the mechanism.** Labels in the
 v1 FC corpus are deterministic functions of *majors only* (PetThermoTools FC
 takes the 11-oxide majors and emits modal+conditions; trace elements are
 irrelevant to the simulation). Adding traces as model inputs cannot improve
 the model's ability to predict labels that don't depend on traces. The
 hypothesis "traces discriminate amphibole-bearing diorites from look-alikes"
-might be true in *nature* but is false in *our labels*. To exploit traces
-honestly, the corpus would have to be regenerated against labels that DO
+might be true in *nature* but is false in *the labels*. To exploit traces,
+the corpus would have to be regenerated against labels that DO
 depend on traces -- e.g., the deferred-future mineralML grain-composition
 fusion (Position C) which trains against real-rock per-mineral compositions.
 This is consistent with B2: the bulk-level R² ceiling for amp isn't
@@ -1547,7 +1545,6 @@ v1 baseline that costs less than two hours of compute.
   knn_mineralogy.json, ood_flags_summary.json}` -- latent diagnostics
 - `data/diagnostics/ablation_v2/comparison.json` -- four-cell numeric
   comparison
-- Plan: `~/.claude/plans/sunny-weaving-nebula.md`
 
 **Next.**
 - Update MODEL.md "as-built performance" with the cell-(c) numbers as v2.0.
@@ -1560,7 +1557,7 @@ v1 baseline that costs less than two hours of compute.
 
 ---
 
-## 2026-05-29 — Phase A: SSL pretrain bug fix + corrected v2 results + SSL-as-foundation-model reframe
+## 2026-05-29 -- Phase A: SSL pretrain bug fix + corrected v2 results + SSL-as-foundation-model reframe
 
 **RETRACTION of 2026-05-27 entry.** The "Strategy B partial" result was based
 on a broken SSL pretrain: the v2 mask-token convention `(src=valid, frac=0)`
@@ -1662,7 +1659,7 @@ having two downstream tracks rather than one: a *mineralogy track* (the
 original v1/v2 work) and a *non-mineralogy applications track* (the
 SSL-derived capabilities).
 
-**Architecture / API changes shipped this session:**
+**Architecture / API changes shipped:**
 - `src/cnmineral/models/pretrain_head.py` -- vocab-decoder MLP shape
 - `src/cnmineral/models/pretrain_losses.py` -- mask convention docs +
   optional per-token std normalization (config-gated, off by default)
@@ -1698,30 +1695,29 @@ SSL-derived capabilities).
   applications).
 - Commit on `v2-trace` branch in logical chunks (pretrain code + cells +
   probe + docs as separate commits).
-- After commit: kick off two parallel agents -- mineralogy track
+- After commit: two parallel workstreams -- mineralogy track
   (joint multi-task aux supergroup head + soft-staged comparison) and
   non-mineralogy applications track (build out the items in
   `PRETRAIN_APPLICATIONS.md`, prioritizing k-NN similarity / element
   imputation / OOD as zero-additional-training deliverables).
 - Per-token loss normalization follow-up (`per_token_norm: true`)
   remains queued; worth a one-off re-pretrain comparison either inside
-  the mineralogy agent's session or as a standalone experiment.
+  the mineralogy track or as a standalone experiment.
 
 ## 2026-06-01 -- Design crystallization for fresh-codebase v3 rewrite
 
-**Q.** Before committing to another corpus regen + retrain, can we
-crystallize the value proposition, architecture, training data, and
-implementation plan into a single doc, so a from-scratch rewrite can
+**Q.** Before committing to another corpus regen + retrain, can the
+value proposition, architecture, training data, and implementation
+plan be crystallized into a single doc, so a from-scratch rewrite can
 proceed cleanly without re-deriving design choices?
 
-**Context.** Several long sessions of debugging (kingcrab padding-mask
+**Context.** Debugging (kingcrab padding-mask
 bug, mass%_Liq scale collision, per-phase composition extraction)
 revealed both the right invariants and the wrong ones. The v3 design
-is now stable enough to write down. The user wants primary ownership
-of the rewrite with agentic help only in specific spots; that requires
-a tight handoff doc.
+is now stable enough to write down. The rewrite needs a tight
+implementation doc.
 
-**Conversational arc this session:**
+**Sequence of work:**
 
 1. Built `scripts/experiments/visualize_degeneracy.py` and
    `plot_degeneracy.py` to visualize per-bulk (P, H2O) degeneracy on
@@ -1748,8 +1744,7 @@ a tight handoff doc.
    qap_name volcanic-vs-plutonic; keep H2O on tectonic-class
    population prior.
 
-4. Value-proposition deep-dive (with the user's own ChatGPT framing
-   as a useful structuring tool). Crystallized one-sentence pitch:
+4. Value-proposition deep-dive. Crystallized one-sentence pitch:
    "A probabilistic emulator of MAGEMin integrated over geologically
    plausible formation conditions, with a rock-chemistry foundation-
    model encoder learned from real bulks, parameterized so real
@@ -1768,30 +1763,28 @@ a tight handoff doc.
    classification of discrete mineral species; ours is unsupervised
    SSL on continuous bulk chemistry. Different signals, both faithful.
 
-6. CompHead parameterization discussion. User proposed flattening
+6. CompHead parameterization discussion. Proposal: flatten
    ModeHead+CompHead into a single endmember-wt% head. Mass-balance
    argument is correct but the flattened head has 4x output dim,
    extreme sparsity, database-coupled basis, and loses interpretability.
    Refined alternative: keep two heads, parameterize CompHead as
    per-phase endmember mole fractions (simplex per phase). Physically
    valid composition by construction. Decision deferred to new pilot
-   test 2b added to the plan (and to memory
-   [[comphead_parameterization_options]]).
+   test 2b added to the plan.
 
-**Deliverables this session:**
+**Deliverables:**
 
 - `scripts/experiments/visualize_degeneracy.py` + `plot_degeneracy.py`
   -- 100-path degeneracy viz on one Arc basalt; outputs in
   `data/diagnostics/degeneracy_viz/`
 - `scripts/09b_latent_chem_axes_and_3d.py` -- continuous-chem-axis
   recoloring + 3D UMAP; outputs in `data/diagnostics/latent_v2/`
-- `docs/FRESH_START.md` -- the consolidated implementation handoff
+- `docs/FRESH_START.md` -- the consolidated implementation doc
   for the v3 rewrite. Crystallizes value prop, architecture, training
   data, kingcrab decision, G_sys placement, what to keep vs drop
-- Plan update: pilot 2b added to the v3 corpus regen plan
-  (`~/.claude/plans/sunny-weaving-nebula.md`), gating the regen on an
+- Plan update: pilot 2b added to the v3 corpus regen plan, gating the
+  regen on an
   explicit oxide-wt% vs endmember-fraction CompHead decision
-- Memory: `comphead_parameterization_options` capturing the tradeoff
 
 **Crystallized design choices for v3:**
 
@@ -1810,8 +1803,8 @@ a tight handoff doc.
 
 **Next.**
 
-- User drives the fresh-codebase implementation; agentic help in
-  specific spots (mat2vec loading, ADR migration, mass-balance loss
+- Fresh-codebase implementation; verification focus on specific spots
+  (mat2vec loading, ADR migration, mass-balance loss
   validation, kingcrab-free encoder verification)
 - Before any corpus regen: execute pilot tests 1, 2, 2b, 3, 4 per the
   updated plan; decide oxide-wt% vs endmember-fraction CompHead
@@ -1859,7 +1852,7 @@ The big attrition is iron: requiring `feo` halves the pool
 (544k -> 261k) and requiring `fe2o3` halves it again (261k -> 172k).
 Many igneous samples report `feo_tot` or `fe2o3_tot` alone, not the
 split pair. The Fe-fallback chain (`feo_tot` first, then
-`fe2o3_tot`) is implemented per the handoff but only fires under
+`fe2o3_tot`) is implemented per the design doc but only fires under
 `require_all_majors=False`. Worth a follow-up decision on whether the
 full SSL pretrain should relax the filter to recover the ~330k extra
 rows (P2 below).
@@ -1925,8 +1918,8 @@ medians.)
 The `assert_padding_convention` check on the first batch passed for
 both runs.
 
-**Codebase change recommendations (not implemented this session per
-the handoff's no-touch list).**
+**Codebase change recommendations (not implemented; on the design
+doc's no-touch list).**
 
 P1 -- **`reserve_test` should stratify by `qap_name`** when the dataset
 exposes it. CLAUDE.md mandates 64/16/20 stratified by `qap_name` for
@@ -1976,7 +1969,7 @@ scale; MPS + multiprocessing data loading is fragile on macOS
 (libomp conflicts + spawn semantics). Defer until the wall time
 becomes a real constraint.
 
-**Deliverables this session:**
+**Deliverables:**
 
 - `src/cnmineral/data/bulk_chemistry.py` -- the real CSV-backed dataset
 - `tests/test_bulk_chemistry.py` -- 17 tests pinning the contract
@@ -2003,18 +1996,18 @@ becomes a real constraint.
 
 **Q.** Did the v3 SSL pretrain produce an encoder that clears the
 Track A acceptance gate (>= 76% supergroup MLP, >= 72% qap_name
-MLP -- the v2 cell-c numbers)?  And is 20 epochs enough or do we
-need more?
+MLP -- the v2 cell-c numbers)?  And is 20 epochs enough or is more
+needed?
 
 **Context.** Trained the v3 encoder at the Optuna-tuned
 hyperparameters from `data/optuna/v3_pretrain_hpo_long.journal`
 trial #44 (d_model=256, n_layers=4, n_heads=8, lr=1.47e-4,
-mask_prob=0.230, weight_decay=7.67e-3, dropout=0.013).  Worried
-mid-session that 40 epochs might still be undertraining since the
+mask_prob=0.230, weight_decay=7.67e-3, dropout=0.013).  Concern:
+40 epochs might still be undertraining, since the
 train and val SSL curves were both still descending in lockstep
 (zero train/val gap) -- the classic "no overfitting but possibly
-not converged" pattern.  Decided to compare 20-epoch and 40-epoch
-probe results to settle it empirically.
+not converged" pattern.  20-epoch and 40-epoch probe results are
+compared to settle it empirically.
 
 **Considered.**
 
@@ -2046,11 +2039,10 @@ shuffle / single-seed noise).  The SSL loss kept descending past
 epoch 20 but the downstream metric did not -- the SSL-loss-as-
 proxy curve flattens at the downstream level well before SSL loss
 itself does.  20-epoch is the canonical budget; 40-epoch is kept
-as `epoch_best_40.pt` for the paper ablation ("we trained to 40 to
-verify convergence; no measurable gain past 20").  Skipped C
-(multi-seed) because gate clears by ~5 points; the qualitative
-answer doesn't change with error bars and the work is better spent
-moving forward.
+as `epoch_best_40.pt` for the paper ablation ("trained to 40 to
+verify convergence; no measurable gain past 20").  C (multi-seed)
+skipped because the gate clears by ~5 points; the qualitative
+answer doesn't change with error bars.
 
 Probe HPO on the 20-epoch encoder afterwards tuned qap_name MLP
 from 0.762 to 0.776 (30-trial TPE sweep over the MLP probe HPs;
@@ -2058,7 +2050,7 @@ summary in `results/probe_hpo/`).  The library-default 0.762 stays
 the headline for the v2 comparison since cell-c was also probed at
 library defaults.
 
-Also closed this session: collapsed three confusingly-named eval
+Also closed: collapsed three confusingly-named eval
 scripts into two (`probe_encoder.py --hpo` + `calibrate_probe.py`),
 eliminated 7 CLI flags that overrode or duplicated YAML keys,
 dropped `--pretrain-config` entirely by reading from `ckpt.config`
@@ -2077,12 +2069,10 @@ layout.
   literally predicts missing elements from context).  See
   `docs/PRETRAIN_APPLICATIONS.md` for the 11-capability list and
   prioritization.  Target files: `scripts/eval/impute_elements.py`
-  + `src/cnmineral/eval/imputation.py`.  Plan mode before writing
-  code.
-- Track B remains gated on the FC corpus regen pilots in
-  `~/.claude/plans/sunny-weaving-nebula.md`.  Not the next move.
-- Defer multi-seed and probe-HPO methodology rigor work to the
-  paper-writing phase if reviewers ask for error bars.
+  + `src/cnmineral/eval/imputation.py`.
+- Track B remains gated on the FC corpus regen pilots.  Not the next move.
+- Defer multi-seed and probe-HPO methodology rigor work until error
+  bars are needed.
 - Two open questions for the next probe HPO run: the qap_name
   sweep's best hit the ceiling on both `hidden_dim` (best=1024 of
   [256, 512, 1024]) and `n_hidden_layers` (best=2 of [1, 2]).
@@ -2152,13 +2142,12 @@ fields repointed (the `config` block kept as the sole record of the
 `results/probe_hpo/`, new 4-choice under `results/probe_hpo_wide/`,
 both tagged by the same encoder.
 
-**Next.** Unchanged: Track A part 2 (element imputation, plan mode
-before code); Track B still gated on the FC corpus pilots.
+**Next.** Unchanged: Track A part 2 (element imputation); Track B still gated on the FC corpus pilots.
 
 ## 2026-06-15 -- element imputation lands; trace failure is loss-balance not architecture; foundation-model framing + Phase 1 diagnostic
 
 **Q.** Why does the frozen encoder+head impute major elements well but
-fail completely on traces, and what does that failure tell us about how
+fail completely on traces, and what does that failure imply about how
 to choose a pretraining objective for a model whose whole point is to
 serve many downstream capabilities?
 
@@ -2200,10 +2189,10 @@ the next several experiments).**
 - *SSL is self-supervised, not supervised, despite the MSE.*  The
   mechanics are identical to supervised regression -- target, loss,
   backprop.  The distinction is the *source of the target*: the masked
-  frac is a piece of the input we hid from ourselves, not an external
+  frac is a piece of the input hidden from the model, not an external
   annotation.  No labeler, no separate measurement; the same value is
-  input on one masking draw and target on another.  This is what lets
-  us pretrain on 474k raw Gard bulks with zero labels.  Contrast: the
+  input on one masking draw and target on another.  This is what allows
+  pretraining on 474k raw Gard bulks with zero labels.  Contrast: the
   supervised heads (ModeHead/CondHead) take genuinely external targets
   (MAGEMin/PetThermoTools outputs).  SSL = "supervised learning where
   the labels are free."
@@ -2216,9 +2205,9 @@ the next several experiments).**
   and you retrain a fresh model; there is no latent to reuse for the
   other ten capabilities.  That is the generalist-vs-specialist trade:
   the specialist wins on its one narrow task (especially right now,
-  where our traces are broken-by-objective and *anything* reasonable
+  where the traces are broken-by-objective and *anything* reasonable
   beats them -- not a fair contest), the foundation model wins on
-  breadth and amortization.  The pitch is never "we beat XGBoost at
+  breadth and amortization.  The pitch is never "it beats XGBoost at
   Yb"; it is "one latent serves many jobs, and is competitive where the
   task benefits from learned structure."
 
@@ -2266,7 +2255,7 @@ the next several experiments).**
 The four objectives in play (current is one loss in two roles; the
 proposed fix differs by scenario):
 - Current (both scenarios): `L = mean_{i in M} (f_hat_i - f_i)^2`, raw
-  frac, uniform pooling.  Shaped the latent AND trained the head we
+  frac, uniform pooling.  Shaped the latent AND trained the head that is
   read.
 - Proposed, Scenario A (latent already has trace info): new read-out
   head on frozen `h`, per-element, log target:
@@ -2311,8 +2300,8 @@ log-scale identity line + per-panel log toggle against unconstrained
 (it is a FeO+Fe2O3 blend, no single-oxide inverse); flagged for the
 tutorial.
 
-**Next.** Phase 1 diagnostic in a fresh session; user supplies prior
-XGBoost reference codebases.  Don't pay for an encoder re-pretrain
+**Next.** Phase 1 diagnostic, drawing on prior XGBoost reference
+codebases.  Don't pay for an encoder re-pretrain
 unless the gate lands on B.
 
 ## 2026-06-15 -- trace-imputation gate result: latent carries the trace signal; fix the head, encoder untouched
@@ -2461,8 +2450,8 @@ Harness + per-element JSON: `explorations/imputation_head_design/`.
 
 2. **MLP is the shipped default, not linear.** MLP beats linear by +0.044
    median (+0.08 on Yb) and lands at 0.792 = 94% of the frozen-latent
-   target -- the same 94% the gate advertised as recoverable.  The artifact
-   owner reaches for the default, and the default should be the head that
+   target -- the same 94% the gate advertised as recoverable.  A downstream
+   caller reaches for the default, and the default should be the head that
    reaches the documented target.  `configs/imputation/imputation_head.yaml`
    now ships `hidden: 256`.
 
@@ -2494,7 +2483,7 @@ drop `liq`/`fl` and renormalize the minerals to 1?
 for every component, `bulk_j = sum_phases mass_p * X_{p,j}` (Gibbs
 minimization under element conservation).  The cumulate mode (all
 fractionated solids + residual liq + fl at `T_FC_end`) therefore
-mass-balances exactly to the bulk we fed it.  The model inherits that
+mass-balances exactly to the input bulk.  The model inherits that
 closure as a consistency check: ModeHead (Dirichlet on the simplex) x
 CompHead (per-phase composition) should reconstruct the *dry* input oxides,
 `sum_p mode_p * X_{p,j} ~= bulk_j` -- the same equation, now a training
@@ -2503,8 +2492,8 @@ one component outside that dry sum (model never sees it; CondHead infers
 it).
 
 **Considered.** Solids-only renormalized would be *more comparable to
-observable mineralogy* (thin-section modes, the mineralML grain corpus we
-hold out for cross-modal validation) and might *raise the ModeHead per-path
+observable mineralogy* (thin-section modes, the mineralML grain corpus
+held out for cross-modal validation) and might *raise the ModeHead per-path
 R2 ceiling* by removing `liq`, one of the most path-variable quantities.
 But it **breaks the closure to the input bulk**: the discarded residual melt
 + fluid are small in mass (`T_FC_end` is defined at residual liq < 5%, so
@@ -2590,8 +2579,8 @@ masked-element MSE loss yields higher frozen-latent trace-imputation accuracy
 (median trace log-R2 0.877 vs 0.839, worst-trace Yb 0.831 vs 0.724) and higher
 classification-probe accuracy (supergroup MLP 0.821 vs 0.806, qap MLP 0.769 vs
 0.762) than the linear-space MSE loss, replicated across two seeds;
-inverse-variance-weighted linear-space MSE is worse on both.  We adopt the
-standardized log-space MSE objective as the canonical SSL encoder
+inverse-variance-weighted linear-space MSE is worse on both.  The
+standardized log-space MSE objective is adopted as the canonical SSL encoder
 (`checkpoints/pretrain_v3_logmse_std_seed0/epoch_best.pt`), retiring the
 linear-MSE `pretrain_v3_seed0`.  Binding choice in ADR 007.
 
@@ -2610,8 +2599,7 @@ R2s aren't handicapped by trace-tuned params.  Validate both before #8 leans on
 the gate again (issue #6).
 
 **Context.** Cheap, read-only methodology audit on the canonical encoder
-(`pretrain_v3_logmse_std_seed0/epoch_best.pt`).  Not on the critical path; run
-now while the gate code is fresh.
+(`pretrain_v3_logmse_std_seed0/epoch_best.pt`).  Not on the critical path.
 
 **Setup.** `explorations/trace_signal_in_latent/audit_tuning_objective.py`
 (throwaway) imports the gate helpers unchanged.  Each masked-token latent is
@@ -2729,7 +2717,7 @@ into the constructor (no config knobs; `output_activation` does not exist as a
 parameter), and the encoder is locked (canonical = `pretrain_v3_logmse_std_seed0`).
 
 **Considered.** Re-running the ablation requires re-pretraining with alternate
-head settings, which would either be moot (we ship the existing encoder) or break
+head settings, which would either be moot (the existing encoder ships) or break
 the lock.  But the close does not rest on that:
 
 - **Output activation is moot under log-space, by correctness not cost.** The
@@ -2776,7 +2764,7 @@ few epochs), or something else?
   kNN qap purity 0.582 / 0.554 / 0.487 (k=5/10/50) vs 0.100 random.  Encoder val
   loss best = epoch 20 of 20 (the last), still descending, constant LR (no
   scheduler) -- which superficially looks under-trained.
-- Recalled a prior 20-vs-40-epoch experiment that found no gain.  Verified the
+- A prior 20-vs-40-epoch experiment found no gain.  Verified the
   artifact: it was `checkpoints/pretrain_v3_seed0/epoch_best_40.pt` -- the
   **linear-space** encoder (val_loss 5e-5, old HPs from trial #44), NOT the
   canonical log encoder.  So "40 = 20" is only resolved-by-analogy for the
@@ -2855,7 +2843,7 @@ partly overturns the 06-24 anisotropy attribution.
 
 **Considered.** A learned representation is NOT hard-bounded by a fixed-metric
 raw-input kNN -- metric learning routinely beats raw-feature distance (face
-embeddings vs pixels). But our encoder is reconstruction-trained, which *preserves*
+embeddings vs pixels). But this encoder is reconstruction-trained, which *preserves*
 input geometry rather than reshaping it, so it sits at the input ceiling as
 expected. The only family that could exceed a fixed-metric input ceiling is
 contrastive / pull-together, and only if its positive pairs carry a target the raw
@@ -2864,7 +2852,7 @@ short of labels, so even pull-together is unlikely to break this particular ceil
 
 **Decision.** qap-kNN purity is a near-maxed data ceiling, not a representation
 gap. Reconstruction-family pretexts (group-masking, #3) are bounded near it --
-do not chase qap-kNN with them. The honest reframing of #15: the question is not
+do not chase qap-kNN with them. The reframing of #15: the question is not
 "can a better pretext segregate qap" (chemistry caps that at ~0.61) but "is there
 a target worth injecting -- tectonic setting, FC trajectory -- where a
 metric-learning objective lets the latent exceed what raw chemistry alone
@@ -2986,13 +2974,13 @@ untouched -- only linear-*space* magnitude weighting was deleted.
 ## 2026-06-30 -- Track B corpus scoping: equilibrium-on-volcanic, oxide labels, deferred-prior sampling
 
 **Q.** Reverse-engineering from the desired output (a mass-balanced posterior over
-mineralogy + endmembers + conditions per bulk): what do we generate with MAGEMin,
-what labels do we store, how do we sample conditions, and what makes any of it more
+mineralogy + endmembers + conditions per bulk): what is generated with MAGEMin,
+what labels are stored, how are conditions sampled, and what makes any of it more
 than a fast forward MAGEMin emulator (Candioti 2026) or a from-scratch regressor?
 
 **Context.** The v3 rewrite deleted the FC pipeline (recoverable from `2fd5559^`).
 Recovered `run_magemin.jl` + its Project/Manifest to verify claims directly on real
-gard volcanic bulks (Julia 1.12.6, MAGEMin_C 2.1.9). Two sub-agents ran in parallel
+gard volcanic bulks (Julia 1.12.6, MAGEMin_C 2.1.9). Two investigations ran in parallel
 (condition sampling; MagmaDB analogs). The honest split that fell out: the *corpus*
 (many conditions per bulk) is what makes the multimodal inverse posterior exist and
 beats Candioti; the *latent* earns its keep only via things a from-scratch regressor
@@ -3031,7 +3019,7 @@ Whether an FC leg leaves useful data on the table.
   disagree; MC matches balanced). T is derived (near-solidus), not sampled. Fe split
   class-conditional Middlemost, fO2 fixed.
 - **Scenario weights are "prior-weighted plausibility," not nature's probability.**
-  The circularity (weight = physics integrated against our condition prior) lives
+  The circularity (weight = physics integrated against the condition prior) lives
   only in the prior factor; the assemblage<->condition coupling is real physics. De-
   circularize at inference by reweighting toward evidence-based priors -- Sr/Y +
   La/Yb (volcanic-calibrated but soft, single-sample-noisy, composition-gated),
@@ -3050,9 +3038,9 @@ across compositions, the "top-K scenarios" headline shifts toward a "conditions 
 proportions + minor-phase-presence" posterior. A composition-stratified small test
 decides it (regen spec, now ADR 004, item 7). See [[equilibrium-multimodality-risk]].
 
-**Next.** New agent owns items 2-6 (near-solidus rule, volcanic subset+QC, productionize
+**Next.** Items 2-6 (near-solidus rule, volcanic subset+QC, productionize
 the extractor, phase vocab, output schema) + the small composition-stratified test,
-per the corpus regen spec (retired into ADR 004). Owner-confirm items: near-solidus liq threshold, the
+per the corpus regen spec (retired into ADR 004). Items still to confirm: near-solidus liq threshold, the
 qap list, and the multimodality headline reframe. Deferred: plutonic/cumulate branch
 via FC-of-parents (#22, high priority, starts after volcanic v1) -- cumulates are the
 one real rock class equilibrium can't generate faithfully. Formal ADR 004 amendment
@@ -3062,7 +3050,7 @@ still to be written.
 
 **Q.** Finalize the synthetic-label design for the Track B heads: where on the
 cooling ladder to read the assemblage, at what granularity, and everything else
-gating corpus regen -- so a generation agent can run without design questions.
+gating corpus regen -- so generation can run without design questions.
 
 **Context.** The re-pick experiment had shown the amp/opx multimodality
 survives at 50% melt and that near-solidus carries artifacts (phase-list +40%,
@@ -3104,8 +3092,8 @@ two-tier. (7) Presence cutoff 0.1 vs 1 wt%.
   at the 50 rung) -- nothing to learn. Consequence for heads work: training
   teacher-forces the label melt fraction in the mass-balance closure; the
   inference-time closure residual as an OOD signal degrades (open, heads-side).
-- **Water: N&L 2002 rhyolite-curve solubility bound capped at 8 wt%.** Owner
-  call: well-established literature over in-house envelopes. The extrapolation
+- **Water: N&L 2002 rhyolite-curve solubility bound capped at 8 wt%.** Rationale:
+  well-established literature over in-house envelopes. The extrapolation
   objection dissolves -- the 8 cap (melt-inclusion supply ceiling, Wallace
   2005 / Plank 2013) binds above ~4-5 kbar, exactly where VolatileCalc's
   calibration ends, so the curve is never evaluated out of range. Accepted
@@ -3120,7 +3108,7 @@ two-tier. (7) Presence cutoff 0.1 vs 1 wt%.
   draw rather than hard-drop. Presence cutoff starts at 0.1 wt% (raw modes
   stored; cutoff is a retrain, never a regen); pre-screen runs both cutoffs.
 
-**Next.** Regen agent: bounded sampler -> 36-bulk water A/B (isolate the water
+**Next.** Regen: bounded sampler -> 36-bulk water A/B (isolate the water
 fix; watch biotite) -> ~300-bulk pilot -> pre-screen picks the rung ->
 production. heads.md still describes the liq/fl-bearing ModeHead vocabulary
 and worked example -- update when heads work starts, not a regen blocker.
@@ -3159,13 +3147,13 @@ via p/q, now well-defined -- q went from 1 unique value to 1030), not corpus
 coverage. Training-side wrinkle for the rung pick: intermediate-band biotite
 has ZERO positives at rungs 60/50, matches real exactly (0.40) at rung 30,
 while quartz/K-feldspar match best at 50-60 -- expect the pre-screen to argue
-for two training rungs. Owner enlarged the pilot from ~300 to ~500 bulks
+for two training rungs. The pilot was enlarged from ~300 to ~500 bulks
 (first 5 chunks of the shuffled train table). MAGEMin output gotcha recorded
 in the corpus module: total Fe as FeO + excess O, no Fe2O3 column.
 Evidence: `equilibrium_multimodality/results/water_ab_{switch,presence}.csv`.
 
 **Next.** Pilot (first 5 chunks, `--max-chunks 5`) -> health report -> rung
-pre-screen -> owner picks rung(s) -> production (10k x 48 train + 500 x 128
+pre-screen -> rung(s) picked -> production (10k x 48 train + 500 x 128
 val/test).
 
 ## 2026-07-14 -- explorations/ cleanup before corpus EDA
@@ -3198,7 +3186,7 @@ concentrated in biotite/quartz/amp). Should the heads be fine-tuned on the
 real volcanic benchmark to close it?
 
 **Context.** The harvest-time README said "never train on this," but that was
-never owner-ratified. The architecture explicitly supports re-supervising
+never ratified. The architecture explicitly supports re-supervising
 heads on real labels, so the question is legitimate.
 
 **Considered.** (1) Fine-tune on a benchmark split: costs power on an
@@ -3213,7 +3201,7 @@ role is presence-level generator validation, not head supervision.
 (3) Zero-shot first: ship sim-trained heads, measure the sim-to-real gap on
 the intact benchmark, decide fine-tuning afterward with a number in hand.
 
-**Decision.** Option 3 (owner). The benchmark stays eval-only *until the
+**Decision.** Option 3. The benchmark stays eval-only *until the
 zero-shot gap is measured*; the fine-tuning decision then reopens with "on
 what data" deliberately unresolved (benchmark split, or a future itemized-mode
 harvest, e.g. Rietveld XRD). The pre-screen's label-level agreement is the
@@ -3222,7 +3210,7 @@ corpus-level gaps (pre-screen shows them), prior-level gaps (fixable by p/q
 reweighting at inference), and model-level gaps (only the part below the
 pre-screen ceiling is the head's fault).
 
-**Next.** Rung pick (owner leaning 50+30), production regen launch. The rung
+**Next.** Rung pick (50+30 favoured), production regen launch. The rung
 choice gates head training only -- all four rungs are stored per draw, so
 generation is rung-agnostic and can launch first.
 
@@ -3239,7 +3227,7 @@ while quartz/K-feldspar overshoot grows monotonically with depth. The
 benchmark's mafic band rests on very few real samples, so the pick weighted
 the intermediate and felsic bands.
 
-**Decision (owner).** Two rungs: **50 + 30**. 50 as the primary label (best
+**Decision.** Two rungs: **50 + 30**. 50 as the primary label (best
 overall presence and proportion match); 30 specifically so biotite exists in
 the label distribution for intermediates -- training on 50 alone would make
 biotite in andesites unlearnable (zero positives). Both rungs come from the
@@ -3253,7 +3241,7 @@ distribution.
 
 ## 2026-07-15 -- Track B start: four head decisions locked, hurdle ModeHead lands end-to-end
 
-**Q.** Heads work starts on the ~45% partial corpus (owner directive:
+**Q.** Heads work starts on the ~45% partial corpus (scope:
 ModeHead only, end-to-end, before any other head). Four design questions had
 to be locked first: how the scenario view gets assemblage-conditions
 coupling, the phase vocabulary, instance handling, and the CompHead
@@ -3284,7 +3272,7 @@ phases that don't earn it). CompHead: heteroscedastic per-oxide Gaussian
 (exact error bars, but samples violate the simplex -- an uninformative
 artifact needing post-hoc repair wherever composition vectors are consumed).
 
-**Decision (owner).** (1) CondHead conditions on the presence support:
+**Decision.** (1) CondHead conditions on the presence support:
 p(support | h) x p(T,P,H2O | h, support), teacher-forced true mask at train,
 ModeHead-sampled at inference; mild exposure bias accepted. (2) Vocabulary
 21 solids: trd/crst -> q; chl + fper dropped; and/ky/sill + cor kept
@@ -3312,17 +3300,17 @@ closure-residual-as-OOD degrades under teacher-forced melt fractions.
 
 **Q.** What does the smoke ModeHead actually do (presence calibration, the
 multimodal-signal claim, magnitude honesty, guardrail mass), and how should
-every future head be reported so orientation doesn't restart each session?
+every future head be reported so orientation doesn't restart from scratch?
 
-**Context.** Handoff step 1: interrogate before iterating. 47/100 chunks,
+**Context.** First step: interrogate before iterating. 47/100 chunks,
 4,670 resolvable bulks, provisional hash split (~930 val bulks, 86.6k val
-rows). Owner spent a long review session interrogating the semantics
+rows). The semantics were interrogated in a long review
 (prediction-vs-label counting, BCE mechanics, bin definitions) -- those
 answers were folded into the deck as they were settled.
 
 **Considered.** Notebook vs eval-module for the interrogation (hybrid
-module+notebook proposed; owner chose module + thin script per repo
-conventions). Per-head vs per-metric-family eval slides (owner: per head,
+module+notebook proposed; module + thin script chosen per repo
+conventions). Per-head vs per-metric-family eval slides (per head chosen,
 maximum detail).
 
 **Decision.** Landed `cnmineral/eval/mode_head.py` + `scripts/eval/mode_head.py`
@@ -3342,7 +3330,7 @@ differences are mostly bookkeeping. Deck: standard two-slide-per-head report
 locked (8-item checklist in `slides/overview.py` docstring, rule added to
 CLAUDE.md), plus a one-rock-96-labels fan-out slide and a reliability
 worked-example slide; loss weight renamed lambda_mag on slides (config key
-stays `magnitude_weight`). Split mapping locked (owner): all 10k train-tier
+stays `magnitude_weight`). Split mapping locked: all 10k train-tier
 bulks train; the 500 valtest bulks divide 16:20 -> ~222 val / ~278 test,
 stratified by qap_name (CLAUDE.md settled decisions updated).
 
@@ -3350,8 +3338,8 @@ stratified by qap_name (CLAUDE.md settled decisions updated).
 no-trunk linear baseline + magnitude_weight; plain-Dirichlet ablation
 baseline (heads.md open item). Candidate design change if the amp PIT U-shape
 survives tuning: support-conditioned magnitude branch (mirrors the locked
-CondHead pattern; owner sign-off required). Candidate concerns named, none
-triaged (owner's ledger): (a) FP-mass-at-0.5 conflates head error with
+CondHead pattern; sign-off required). Candidate concerns named, none
+triaged: (a) FP-mass-at-0.5 conflates head error with
 hard-view cost; (b) amp conditional bimodality vs a single per-bulk Dirichlet;
 (c) NLL support-size comparability caveat on strata; (d) eval imports
 `_bulk_latents`/`_row_split_indices` privately from the training module;
@@ -3363,8 +3351,8 @@ hard-view cost; (b) amp conditional bimodality vs a single per-bulk Dirichlet;
 actually claim, is the worked-example slide telling that story truthfully,
 and where does the amphibole failure come from mechanically?
 
-**Context.** Owner orientation session on `magnitude_parity.png` + the
-Dirichlet worked-example slide, before PIT. Numbers drifted mid-session as
+**Context.** Orientation review of `magnitude_parity.png` + the
+Dirichlet worked-example slide, before PIT. Numbers drifted during the review as
 train-tier chunks landed (val grew ~930 -> 1,614 bulks); all provisional.
 
 **Considered.** For the parity regime panels: ranked all 21 phases on MAE,
@@ -3375,15 +3363,15 @@ vs mixture-of-Dirichlets vs condition-on-conditions chain vs flows/diffusion
 pitch for a 21-dim problem).
 
 **Decision.** `plot_magnitude_parity_subset` added to the harness -- THREE
-regimes (owner relaxed the 2x2 protocol to "up to four, only as many as the
+regimes (the 2x2 protocol relaxed to "up to four, only as many as the
 figure defends"): alkali feldspar = healthy (r 0.89); amphibole =
 regression-to-the-middle of a two-humped truth (pred std 0.13 vs true 0.23);
 spinel = MAE-flattered accessory (bias ~80% of median magnitude).
 Plagioclase dropped: on parity it is the same regime as afs -- its small
 systematic under-sizing is invisible in a hexbin and belongs to the PIT
 figure. Both parity plots now shade +/-1 within-bulk sd around the diagonal, with
-the width binned by magnitude level (`within_bulk_sigma_profile`; owner
-observed a flat band overstates the floor at low magnitudes -- confirmed,
+the width binned by magnitude level (`within_bulk_sigma_profile`; a
+flat band was observed to overstate the floor at low magnitudes -- confirmed,
 afs sd 0.058 at level ~0.1 vs 0.165 at ~0.66; the pooled scalar
 `within_bulk_conditional_sigma` stays as the `within_bulk_sd` per-phase
 metric and subset-title stat): the vertical scatter a bulk-level predictor
@@ -3392,12 +3380,12 @@ within-bulk); notably amp's measured r 0.68
 EXCEEDS the bulk-mean-predictor ceiling (~0.59) because the teacher-forced
 true support leaks path information into the sliced mean -- direct evidence
 the support carries magnitude signal, strengthening the support-conditioned
-branch candidate (#25). Plag under-sizing challenged by owner and re-verified
+branch candidate (#25). Plag under-sizing challenged and re-verified
 the valid way -- binned by *prediction* (truth exceeds prediction in 9/10
 deciles, +0.041 top decile; 75% of bulks negative; median bias -0.028) --
 after retracting the truth-binned visual argument (regression-to-the-mean
-artifact, not evidence). Dirichlet worked-example slide redrawn at owner
-request: two tracks converging at a scoring node (truth contributes support
+artifact, not evidence). Dirichlet worked-example slide redrawn:
+two tracks converging at a scoring node (truth contributes support
 only as a grading mask; modes meet prediction at scoring), plus an expanded
 masked-NLL box (normalizer-vs-shape-term reading, definitions, worked
 numbers in notes). Mechanism settled in discussion: presence stays honest
@@ -3412,7 +3400,7 @@ zero gradient, so it measures trunk leakage, not correctness).
 **Next.** Finish the PIT walkthrough (subset landed: quartz flat / amp
 U-with-tilt / rutile hump; note the full-tier head flattened plag's PIT --
 the "piled at 1" example migrated to afs, deck caption needs a pass once
-valtest lands), then alpha_concentration and mass_guardrails; then plan-mode
+valtest lands), then alpha_concentration and mass_guardrails; then
 design of the ModeHead-only Optuna scouting sweep (#25). Decision gate for the bimodality fix: stratify amp PIT by
 support -- U-shape dissolving within fixed supports means support-conditioning
 suffices, persisting means mixture components.
@@ -3425,20 +3413,20 @@ supports, across rungs, or within a fixed (support, rung) cell? The answer
 picks the fix: support-conditioning can only dissolve humps that separate by
 support; within-cell humps need explicit mixture components.
 
-**Context.** Owner review of the Optuna scouting-sweep framing killed its
+**Context.** Review of the Optuna scouting-sweep framing killed its
 three questions: the no-trunk linear baseline is decision-free (no outcome
-changes what we build next), hurdle-vs-plain-Dirichlet is deferred to
+changes what gets built next), hurdle-vs-plain-Dirichlet is deferred to
 whatever tuning round exists later, and tuning-vs-structural for amphibole
 was already answered by construction (many-to-one corpus is a settled
 decision; the 51% amp<->opx switch confirmed it empirically 2026-06-30).
-Order of operations locked this session: PIT-by-support diagnostic + this
+Order of operations locked: PIT-by-support diagnostic + this
 data exam now -> valtest tier lands (4/5 chunks done) -> split swap +
-figure/caption refresh -> CompHead/CondHead build (plan mode) -> joint
+figure/caption refresh -> CompHead/CondHead build -> joint
 tuning per ADR 006 -> amphibole fix ladder measured against that baseline.
 Rationale for heads-first: CondHead's locked chain-rule design builds the
 support-conditioning machinery anyway, its GMM builds the mixture plumbing,
 and the mass-balance term gives the fix ladder the right baseline to beat.
-Owner ordered a direct corpus examination of the bimodality claim.
+The bimodality claim was examined directly in the corpus.
 
 **Considered.** Three bimodality statistics. Split-based Ashman D from exact
 1-D 2-means: rejected after exemplar review -- the optimal split gives D
@@ -3476,9 +3464,9 @@ separately.** Analysis scripts were scratch (not repo artifacts); method and
 numbers recorded here and in #25.
 
 **Next.** PIT-by-support diagnostic + per-bulk overlay on the current
-checkpoint (eval-harness code, plan mode first); valtest lands -> delete
+checkpoint (eval-harness code, design before code); valtest lands -> delete
 `provisional_bulk_split`, refresh figures and deck captions; then
-CompHead/CondHead plan mode.
+CompHead/CondHead design.
 
 ## 2026-07-18 -- Split swap: sealed valtest roster replaces the provisional split; first val-roster baseline
 
@@ -3487,7 +3475,7 @@ split: what carries the sealed val/test assignment, how do the degenerate
 valtest bulks enter it, and what replaces "provisional" in reporting?
 
 **Context.** Both tiers complete and audited (948k train rows; valtest
-125,105 usable rows, 97.7%); bulk 411132 dropped by owner decision
+125,105 usable rows, 97.7%); bulk 411132 dropped by decision
 2026-07-17, leaving 499 roster bulks. New facts surfaced at implementation:
 7 roster bulks have zero usable rows at any rung (3 tephritic phonolite,
 2 rhyolite, 1 phonolitic tephrite, 1 alkali feldspar trachyte), and 5 of
@@ -3526,7 +3514,7 @@ and the regen-status slide closed out. Issues #29/#30 filed as
 low-priority assessments (shared eval-figure helpers once Comp/Cond evals
 exist; inspect_checkpoint doesn't know ModeHeadCheckpoint).
 
-**Next.** CompHead/CondHead build (plan mode; two heads + joint loss +
+**Next.** CompHead/CondHead build (two heads + joint loss +
 mass-balance) -> joint tuning per ADR 006 -> staged amphibole fixes
 (support-conditioning first, mixture second), each measured against this
 baseline.
@@ -3538,7 +3526,7 @@ the mass-balance closure term -- what shape does the joint stack take, and
 what did the corpus reveal on the way?
 
 **Context.** ModeHead-only baseline landed on the sealed val roster
-(-1.0066 nats/row). Owner sign-off on two structural choices: the joint
+(-1.0066 nats/row). Two structural choices fixed: the joint
 trainer retrains all three heads together against the frozen encoder
 (closure is differentiable in both modes and comps; ADR 006's single-stage
 HPO assumes one objective), and the build ships end-to-end. The standalone
@@ -3570,20 +3558,20 @@ Two training fixes forced by raw-unit cond targets: `init_output_bias`
 seeds the mixture at the targets' mean/std (an unseeded head starts ~1,300
 sigmas from typical T and Adam needs ~mu/lr steps to close), and gradient
 clipping is per-head so CondHead's early gradients can't starve the
-others. Surprises: (1) ~0.3% of corpus rows do not self-close in MAGEMin's
+others. Two findings: (1) ~0.3% of corpus rows do not self-close in MAGEMin's
 own output (multi-instance melt immiscibility; dropped-phase mass), tail
-bounded at 5.24 wt%, 99.7% of rows within 0.1 wt% -- owner reviewed the
-distribution and declined to act; the real-corpus closure test asserts
+bounded at 5.24 wt%, 99.7% of rows within 0.1 wt% -- the
+distribution was reviewed and no action taken; the real-corpus closure test asserts
 quantile thresholds. (2) lambda_cond is nearly inert for optimization
 (L_cond's gradient reaches only CondHead's own weights; frozen encoder +
 separate trunks + teacher forcing sever every cross-head path, and Adam
 absorbs constant rescaling); its one real lever is the val-total early
-stop, where 0.01 down-weights condition progress 100x -- owner classed
-this an observation/feature (mineralogy-first), not a bug. Exposure bias
+stop, where 0.01 down-weights condition progress 100x -- classed
+as an observation/feature (mineralogy-first), not a bug. Exposure bias
 filed as #31 with the mitigation ladder (observed-combinations filter
 first, mask noising second, joint support model never-yet).
 
-**Next.** Baseline joint training run (owner-executed) -> both eval
+**Next.** Baseline joint training run -> both eval
 harnesses -> read exposure delta (#31), closure residuals, comp
 concentration blur, GMM component structure -> eval-semantics deck slides
 from the real figures + heads.md/roadmap status -> joint single-stage HPO
@@ -3617,7 +3605,7 @@ mineralogy-first).
 
 ## 2026-07-19 -- Heads study locked: per-head selection, mode-primary HPO objective, 3-prime sweep design
 
-**Q.** In what order do we tune/ablate the heads, and what objective does
+**Q.** In what order are the heads tuned/ablated, and what objective does
 the joint HPO (ADR 006) rank trials by?
 
 **Context.** Baseline readout above. Candidate objectives: weighted total
@@ -3650,7 +3638,7 @@ config keys, per-head selection trainer (`selection_series`),
 data, `tiebreak_best` read-out, fANOVA + scatter figures) + config
 (n_trials 150 ceiling, no pruner, seed 0 every trial).
 
-**Next.** Epic + child issues; owner reruns the baseline config (doubles
+**Next.** Epic + child issues; rerun the baseline config (doubles
 as the gate input), then the main sweep, mini-sweeps, production readout.
 
 ## 2026-07-19 -- Cross-epoch closure gate: PASS; rerun corrects the comp-overfitting read
@@ -3674,7 +3662,7 @@ selection adopted. Note the signed per-oxide bias is state-dependent
 differ from the teacher-forced instrument's stable +SiO2/-Al2O3 -- the
 closure-penalty-form ablation should use the teacher-forced instrument.
 
-**Next.** Main sweep overnight (expect trials to run the full 60-epoch
+**Next.** Main sweep (expect trials to run the full 60-epoch
 ceiling; cond rarely plateaus 10-in-a-row before 60); epic + child issues.
 
 ## 2026-07-19 -- Main sweep sealed at 42 trials; trial-21 tiebreak winner adopted; ceiling 120
@@ -3720,7 +3708,7 @@ production retrain replicates the trial through ep60 and then lets
 comp/cond continue. The Optuna incumbent (trial 36, -5.8577) ceded 0.020
 in-band mode nats for 0.32 comp nats: the tiebreak working as designed.
 **Epoch ceiling 60 -> 120** in the production config and both
-mini-sweeps (owner call, over 200). Mini-sweep configs authored
+mini-sweeps (chosen over 200). Mini-sweep configs authored
 (joint_heads_minisweep_{comp,cond}.yaml): search = that head's hidden x
 layers ([64..512] x [1..3]), base = winner verbatim, mode_reference
 -5.8381, trial 0 = the current 128x1; **n_trials 16**, not the planned
@@ -3751,7 +3739,7 @@ under the tie-band admissibility guard?
 **Context.** Both sweeps ran the 12-cell grid (hidden {64,128,256,512} x
 layers {1..3}) at the tuned environment, 120-epoch ceiling, sealed at 20
 complete trials each (budget bumped 16 -> 20 mid-run; journal resume
-counts only COMPLETE trials, so user-killed trials cost nothing across
+counts only COMPLETE trials, so killed trials cost nothing across
 relaunches). TPE re-measured the incumbent cells heavily -- and every
 duplicate reproduced to 14 decimals: training is fully deterministic on
 this stack at fixed seed, so within-config wobble is exactly zero.
@@ -3765,7 +3753,7 @@ the honest read is "<=128 ties, >128 hurts beyond noise" -- either way the
 incumbent stands. Cond (5/12 cells, winner re-measured 8x): opposite
 story -- monotone in width (64s ~8.72 < 128x1 8.5999 < 256x3 8.3623 <
 512x2 8.3110), confirming starvation rather than overfit; winner sits at
-the measured grid's edge (512x3 was proposed twice, both user-killed;
+the measured grid's edge (512x3 was proposed twice, both killed;
 accepted per mineralogy-first, cond is the bonus head). Bonus
 measurement: cond-architecture swaps perturb mode/comp only through the
 shared RNG stream (init draw order, dropout masks), giving a free
@@ -3835,7 +3823,7 @@ mixture magnitude branch). #37 + epic #32 close with this entry.
 format, so no joint model ever had the full ModeHead interrogation --
 bandaid an adapter, or consolidate?
 
-**Context.** Owner call: no bandaid sprawl. Joint training is the only
+**Context.** Constraint: no bandaid sprawl. Joint training is the only
 production path; the standalone pipeline existed purely as history.
 
 **Considered.** Adapter-only (two formats forever) and three-scripts +
@@ -3870,8 +3858,8 @@ no longer regenerable. #30 closed obsolete, #29 closed satisfied.
 improvement ledger, frozen per-version headline reports) live, given
 `results/` was gitignored scratch?
 
-**Context.** Session locked four canonical headline figures per model
-version (skill trajectory, mode truth-vs-pred, inference card, scenario
+**Context.** Four canonical headline figures per model
+version are locked (skill trajectory, mode truth-vs-pred, inference card, scenario
 view); the trajectory needs numbers from every past version, but old
 checkpoints and eval pipelines die (the standalone-ModeHead record is
 already unregenerable), so its inputs cannot live in gitignored dirs.
@@ -3901,7 +3889,7 @@ standalone-era record (checkpoint on disk at
 `results/README.md`, its numbers become durable via the ledger.
 
 **Next.** Skill-score reference + ledger schema + inference-card and
-scenario-view builders (this session), writing into the new layout.
+scenario-view builders, writing into the new layout.
 
 ## 2026-07-21 -- Headline reporting layer: ledger + trajectory + two per-model figures; results/ goes untracked with a role split
 
@@ -3910,8 +3898,8 @@ a small, repeatable artifact set -- and where does it live?
 
 **Context.** 20+ diagnostic figures per version is an instrument panel,
 not a report. Presentations need a fixed format an audience can re-read
-across versions; iteration needs a pithy per-version summary the owner
-can judge in a minute.
+across versions; iteration needs a pithy per-version summary that
+can be judged in a minute.
 
 **Considered.** Skill scores over an input-blind climatology baseline
 (built, validated, then REMOVED -- a constructed reference invites
@@ -3920,8 +3908,8 @@ delta anyway; raw NLL says the same thing without a defendable choice).
 Per-dimension NLL normalization for a shared cross-head axis (rejected:
 mode's divisor is arbitrary within ~3x). Teacher-forced condition panels
 in the card (rejected: the card is the product demo; every panel now
-conditions on the model's own predictions). Tracked results/ (adopted in
-the morning, REVERSED by evening: headline artifacts stay private;
+conditions on the model's own predictions). Tracked results/ (adopted,
+then REVERSED the same day: headline artifacts stay private;
 tracking them bought durability at the cost of publishing dev history).
 
 **Decision.** Reporting layer: `results/ledger.yaml` (append-only, one
@@ -4003,7 +3991,7 @@ absent from the input (total-Fe token only) -- the prime suspect for spl
 staying worst (0.159) even at the raw ceiling. Feature importances:
 ilm leans Ti (0.31, hypothesis confirmed); ru/sph lean Ca/alkalis (which
 Ti phase wins is Ca-controlled); spl leans Mg/Fe (Cr-free spinel
-physics). Direction locked with the owner: the next corpus regen is the
+physics). Direction locked: the next corpus regen is the
 goalpost; #45 is the pre-regen decision ledger (redox #46, sizing via
 #27, P/H2O proposal revisions, valtest instrument upgrade, rare-class
 rescue, Cr deferral); #25 (amphibole) and #18 (real-rock transfer,
@@ -4110,12 +4098,12 @@ also improve (0.109 -> 0.053) -- the class ratio keys on `qap_name`,
 which chemistry does not fully determine, so even rule-assigned redox
 is partly input-invisible. Residual: measured group still ~2x floor
 under bulk10 (0.076 vs 0.039). Status-quo option is dead on these
-numbers; the input-vs-sampled-condition call is the owner's, recorded
+numbers; the input-vs-sampled-condition call is recorded
 on #45. Also revises the ceiling probe's verdict: "the corpus is the
 ceiling" was true of the 22-token input, but the binding constraint was
 the input basis, not corpus size or draw noise.
 
-**Next.** Owner call, same day: promote Fe redox to an optional input
+**Next.** Decided the same day: promote Fe redox to an optional input
 token at the regen, uniform optional-token semantics -- fed where the
 generator saw a value, padded/masked otherwise, unknown-redox inference
 marginalizing implicitly through the probabilistic heads. No explicit
@@ -4184,12 +4172,12 @@ component of exposure bias remains separately tracked by
 library + exact weights + coarsening and threshold-semantics decisions
 + prediction-set eval), #18, (#40), #48 dry run, close #45, regen.
 
-## 2026-07-23 -- N-scaling (#27): bulks are where the nats are; draws flat past ~24; regen re-shaped by NeurIPS deadline
+## 2026-07-23 -- N-scaling (#27): bulks are where the nats are; draws flat past ~24; regen re-shaped to a laptop budget
 
 **Q.** How does joint-heads quality scale with training-bulk count, and
 does the bulks-vs-draws split justify the regen shape -- now under a
-changed constraint set: NERSC down for weeks, NeurIPS submission in ~5
-weeks, so the regen is a ~60 h laptop weekend (~875k draws at the
+changed constraint set: NERSC down for weeks, so the regen is a ~60 h
+laptop run (~875k draws at the
 measured ~4 draws/s), not the 10x HPC run.
 
 **Context.** `explorations/corpus_scaling/`: nested md5-hash bulk
@@ -4215,8 +4203,8 @@ variation itself -- and thins the within-bulk multimodality margin).
 Reusing old broad-proposal draws next to new trace-conditional draws
 (rejected: the within-bulk distribution IS the proposal; mixing two
 proposals contaminates the posterior the regen is fixing). Dense-draw
-sub-tier insurance (~1k bulks x 96; deferred: two-tier bookkeeping in
-deadline crunch, insurance against a risk the narrower proposal should
+sub-tier insurance (~1k bulks x 96; deferred: two-tier bookkeeping
+overhead, insurance against a risk the narrower proposal should
 reduce).
 
 **Decision.** Per-phase verdicts: garnet data-limited (pf_r 0.66 ->
@@ -4224,17 +4212,17 @@ reduce).
 capped (~0.70 pf_r; #46 redox token is the lever); amphibole not
 data-limited (flat across the ladder; #25 mixture question); ilmenite
 saturated. Sizing input to #45: allocate to bulks at 24 draws/bulk --
-recommended weekend shape ~30k bulks x 24, keeping the existing 10k
+recommended shape ~30k bulks x 24, keeping the existing 10k
 train bulks and the sealed 500-bulk valtest roster (regenerated under
 the new proposal, valtest at 256 draws), rare-class quotas on the new
 bulks. Caveat: the 24-draw knee was measured under the broad proposal;
-the #48 dry run checks it under the trace-conditional one. Owner locks
-the final shape on #45.
+the #48 dry run checks it under the trace-conditional one. The final
+shape is locked on #45.
 
-**Next.** Compressed pre-Saturday queue: #48 dry run (proposal check,
+**Next.** Queue before generation: #48 dry run (proposal check,
 sampler-level, fast), valtest-256 instrument bookkeeping, rare-class
-quota list, lock #45 shape, launch generation. #47 build and #18 slip
-past the weekend (don't gate generation; val-roster NLL +
+quota list, lock #45 shape, launch generation. #47 build and #18 follow
+generation (they don't gate it; val-roster NLL +
 interrogation harness are the frozen instrument). Redox token is
 model-side, rides the regen's encoder re-pretrain.
 
@@ -4268,7 +4256,7 @@ the new rows -- QAPF is an igneous taxonomy, 0% non-null on sedimentary
 -- so stratification/probing moves to rock_group as the coarse label
 with qap probes restricted to the igneous slice, per #24).
 
-**Decision (owner).** Ingest as much data as the encoder can get: the
+**Decision.** Ingest as much data as the encoder can get: the
 next re-pretrain relaxes `require_all_majors` and drops the igneous
 filter. Strict Fe matters where labels are made, not where the encoder
 learns: MAGEMin generation wants measured speciation for label
@@ -4308,7 +4296,7 @@ median shrink 0.21-0.44 (the one real lever); all measured in
 `knob_sensitivity.csv`.
 
 **Decision.** Adopted for the regen at default knobs (sigma 0.15, eps
-0.08, felsic in) -- owner locked 2026-07-23; knob effects on holdout and
+0.08, felsic in) -- locked 2026-07-23; knob effects on holdout and
 real-rock transfer are speculative pre-regen, so tuning is deferred to a
 future regen with every knob kept off extremes. Measured: 63% of bulks
 reach a discriminant rung (30/26/7 by rung), median joint-envelope shrink
@@ -4322,7 +4310,7 @@ table's single dry-basalt range -- the arc/MORB conflation inside the
 `basalt` class is the gap the revision targets, so the flips are the fix
 working, not a defect.
 
-**Next.** Remaining pre-Saturday queue: valtest-256 instrument
+**Next.** Remaining pre-regen queue: valtest-256 instrument
 bookkeeping, rare-class quota list, #45 shape lock, then wire
 `draw_conditions_traced` into the generator at the regen build.
 
@@ -4362,7 +4350,7 @@ benchmark's job. Also un-hardcoded the "128 draws/bulk" eval figure tags:
 derive the tag from it (the only 128s found outside display strings were
 none).
 
-**Next.** Rare-class quota list, #45 shape sign-off, generator wiring of
+**Next.** Rare-class quota list, #45 shape lock, generator wiring of
 `draw_conditions_traced`. When the first post-regen eval lands, define the
 new instrument entry in `ledger.yaml` (measure its noise floor and tie
 band on the 256-draw roster rather than assuming the 1/sqrt(2) scaling).
@@ -4398,25 +4386,25 @@ head vs middle).
 Mahajan et al. 2018; word2vec 0.75 / XLM-R 0.3 bracket it),
 availability-capped, monotone by construction, ~95% of the maximum
 possible tail rescue with saturation emergent rather than imposed.
-Owner condition: the paper appendix shows the candidate table and this
+Condition: the paper appendix shows the candidate table and this
 reasoning. Landed: `expansion_quotas` in
 `cnmineral.data.volcanic_subset` (tested), `--expand` mode on
 `build_corpus_bulk_tables.py`, official table
 `data/corpus/train_bulks_expansion.csv` (20k at seed 20260714: big four
 +10.3k, middle eight +7.6k, bottom ten +2.1k with 8/10 exhausted,
 smallest class 32 -> 111). The locked item is the rule (alpha=0.5 +
-caps); the budget flexes with actual weekend hours. Side checks:
+caps); the budget flexes with available generation hours. Side checks:
 measured-Fe-pair share in the tail (22-58%) matches the head, and tail
 exhaustion costs no NERSC headroom -- gard2019 has no more of these
 classes at any scale.
 
-**Next.** #45 shape sign-off, then generator wiring
+**Next.** #45 shape lock, then generator wiring
 (`draw_conditions_traced` + redox stamping) and launch.
 
 ## 2026-07-23 -- Regen generator wiring: traced proposal in, nested-block expansion emit, redox needs no new column
 
 **Q.** Wire the adopted trace-conditional proposal (#48) into the corpus
-generator for tonight's launch (#45) without touching the orchestrator's
+generator for the launch (#45) without touching the orchestrator's
 fault-tolerance machinery, consume both bulk tables, and make an early
 stop preserve the alpha=0.5 quota shape.
 
@@ -4431,7 +4419,7 @@ draws (bisection boundaries included). The sampler additionally needs
 
 **Considered.** Stamping nothing from the proposal (rejected: tier/rung
 routing records what the generator actually did against future knob
-drift; two per-bulk categoricals, owner sign-off). A new redox column
+drift; two per-bulk categoricals). A new redox column
 (rejected: `in_feo`/`in_fe2o3` are ratio-invariant under the H2O
 renormalization and, with `fe_provenance`, derive both #46 token
 parameterizations exactly -- stamping enough to defer the choice is the
@@ -4451,8 +4439,8 @@ without changing the selection (tested). Also fixed the orchestrator
 test double, red since the solver-hang timeout landed (missing `timeout`
 kwarg) -- all four fault-tolerance tests were failing on HEAD.
 
-**Next.** Owner stamps the budget on #45, re-emits the expansion at the
-launch allocation (`--expand N --expand-block M`), runs valtest first
+**Next.** Stamp the budget on #45, re-emit the expansion at the
+launch allocation (`--expand N --expand-block M`), run valtest first
 (~9 h, early attrition read on the narrower boxes), then the train tier;
 during-regen track switches to #18 transfer/few-shot.
 
@@ -4465,7 +4453,7 @@ rather than guess it.
 
 **Context.** Path A, zero-shot, nothing fit on real rocks: the benchmark
 stays eval-only until the gap is measured, since fine-tuning first spends the
-one honest transfer number we get. The model speaks 21 minerals; real modal
+one honest transfer number available. The model speaks 21 minerals; real modal
 data resolves ~7 groups. Both halves of the coarsening turn out exact --
 presence composes as a noisy-OR (the head emits independent Bernoulli
 marginals), magnitude by Dirichlet aggregation, and dropping the phases no
@@ -4517,7 +4505,7 @@ model class that couples all groups -- it was fit with nothing held out, and
 it forecasts R2 for a thing that minimizes NLL. Not a bound. The only
 rigorous version is fitting the adapter under cross-validation.
 
-**Next.** Sequencing agreed with the owner: (1) mapping sensitivity audit --
+**Next.** Sequencing agreed: (1) mapping sensitivity audit --
 perturb densities, the 0.5 vol% trace bound, the alteration rule, the support
 forcing, and see how far the headline moves, since everything else rests on
 it; (2) the thin per-group adapter under k-fold, to establish an honest
@@ -4653,7 +4641,7 @@ What survives: support errors cost in both directions, misses ~2.1x spurious per
 phase (+2.71 vs +1.26), and a sampled support of exactly the right *size* but
 wrong membership costs +4.77 -- membership dominates, size barely matters.
 
-**Exploration deleted at the owner's call as fluff**; the probe, its tests, and
+**Exploration deleted as fluff**; the probe, its tests, and
 its figures are gone and this entry is the record. The return did not justify a
 directory: one negative result and one metric correction.
 
@@ -4724,7 +4712,7 @@ drops alpha0 on the scored support 46.2 -> 25.1, widening the Dirichlet by half.
 At 25 rocks it *worsens* share MAE (0.107 -> 0.114) while still improving the
 Dirichlet term: at that budget it buys calibration, not accuracy.
 
-Two corrections to my own plan. Its verification step said the fitted diagonal
+Two corrections to the plan. Its verification step said the fitted diagonal
 should recover the measured per-group offsets (opq +0.99, bi +0.51, q -0.53) --
 wrong, and the same confusion this journal already retracted once: those are
 share moments, while the adapter is a multiplicative shift on concentrations
@@ -4795,7 +4783,7 @@ instrument -- with the real-rock benchmark judging the era transition
 ## 2026-07-28 -- Cascade 1 kickoff: heads wired to the traced tiers, the instrument becomes code-read
 
 **Q.** With both traced tiers generated and the encoder re-pretrain running
-in a parallel session, how does the heads retrain sequence, how big is the
+concurrently, how does the heads retrain sequence, how big is the
 mini-HPO, and where does the tie band live now that the instrument it was
 sized for is retired?
 
@@ -4811,7 +4799,7 @@ repeat (~82 trials; re-buys certainty on capacity answers whose mechanism
 did not change). Tie band in a new tracked instruments file, or manual
 copies plus a consistency test (both keep a second copy alive).
 
-**Decision.** Owner-locked, four pieces. (1) *Baseline first*: retrain at
+**Decision.** Locked, four pieces. (1) *Baseline first*: retrain at
 the incumbent dials on the traced tiers (`joint_heads_regen_seed0`),
 re-score, then sweep -- two ledger entries mirroring joint-baseline ->
 joint-tuned, so the corpus change is measured alone. (2) *Weights-only
@@ -4828,7 +4816,7 @@ floor is measured where it is used*: `bulk_frequency_targets` +
 `eval.mode_head`, so every ModeHead eval stamps per-phase floors into its
 `metrics.json`. The stanza field is renamed `noise_floor` -- the value is
 presence-fraction MAE, not nats -- while the band stays `tie_band_nats`,
-adjudicated by the owner from the floor plus the seed-noise scale rather
+adjudicated from the floor plus the seed-noise scale rather
 than unit-converted. Riders: the #49 amp gate check (report-only) and
 recalibrator HPO join this cascade's real-rock batch; #53 waits for
 cascade 2, where it decomposes encoder-vs-heads in one shot. Wiring smoke:
@@ -4838,9 +4826,9 @@ rowless -- same ~1.5% as the old instrument's 218/221); nine classes sit
 permanently at 5-6 valtest bulks, recorded as `thin_classes` in the stanza
 so per-class numbers for them are structurally caveated as anecdote.
 
-**Next.** Owner launches the baseline retrain once the parallel session's
+**Next.** Launch the baseline retrain once the concurrent
 imputation HPO frees MPS (both trainers auto-pick it; no CPU flag exists).
-The first eval prints the measured floor, the owner sets the band, the
+The first eval prints the measured floor, the band is set, the
 stanza fills, and the sweep unlocks.
 
 ## 2026-07-28 -- Acceptance: the all-rock + redox encoder rides as-is
@@ -4860,12 +4848,12 @@ the old-encoder numbers are fresh roster-restricted re-runs, not the
 recorded own-split scorecard values.
 
 **Considered.** A mechanical tie-band gate (rejected at spec time -- the
-owner adjudicates the table, with the ADR 007 cross-seed spread as reading
+table is adjudicated directly, with the ADR 007 cross-seed spread as reading
 aid). Delivering on one seed (rejected: the deltas sat at the band edge,
 so the pre-authorized seed1 tiebreaker ran). Running the Strategy-A
-re-HPO before adoption (owner declined in the interest of time).
+re-HPO before adoption (declined).
 
-**Decision.** Adopted ride-as-is; owner adjudicated same day. Numbers:
+**Decision.** Adopted ride-as-is; adjudicated same day. Numbers:
 qap MLP 0.759 vs 0.769, supergroup MLP 0.814 vs 0.821, kNN qap purity
 0.577 vs 0.582, LR probes -0.018; seed1 (0.765 / 0.812) puts cross-seed
 spread at 0.002-0.006, so the igneous deficit is real, small, and an
@@ -4898,7 +4886,7 @@ weights-only sweep move; and did the incumbent dials survive?
 
 **Context.** First eval on `valtest128-traced@2000` measured the floor:
 binomial max 0.0206 (presence-fraction MAE) vs the old instrument's 0.024.
-Owner carried the 0.03-nat band (the ~0.021 seed-noise cross-check is an
+The 0.03-nat band was carried forward (the ~0.021 seed-noise cross-check is an
 old-corpus figure; a fresh one only materializes if the arch mini-sweeps
 ever run). Baseline retrain at incumbent dials (`joint_heads_regen_seed0`,
 120 epochs, ~36 s/epoch at 1.65M rows): mode -5.4187, comp -56.2998, cond
@@ -4937,7 +4925,7 @@ entries (regen-baseline + regen-tuned) land at ship per #44 order.
 
 **Next.** Real-rock batch on the production checkpoint: zero-shot (the
 cross-era judge; 10.406 to beat), #52 few-shot curve re-run, recalibrator
-HPO (sweep designed with the owner, carve-out selection only), #49 amp
+HPO (carve-out selection only), #49 amp
 gate check (report-only). Then ship flow and the v3.4 tag.
 
 ## 2026-07-29 -- Era tags renamed by contribution; weights stay out of git until submission
@@ -4964,13 +4952,13 @@ contribution in the repo's locked vocabulary; no status or temporal words;
 the number carries ordering. The cascade-1 ship will tag
 v3.4-trace-conditioned-draws.
 
-Weights policy, owner-locked: the repo stays lean -- no tracked
+Weights policy, locked: the repo stays lean -- no tracked
 checkpoints, no releases while the models are research iterations
 (publishing a checkpoint implies it should be used). Tag annotations carry
 the era's production-checkpoint sha256s (v3.3's rewritten format is the
 standard: pithy prose + hash block); the hashes recorded at tag time are
 what make checkpoints attachable and verifiable as GitHub release assets
-at NeurIPS submission. Tracked surface: code, configs, docs, tests,
+at paper submission. Tracked surface: code, configs, docs, tests,
 slides source, `results/` (headline layer), `explorations/*/results/`,
 split rosters. Out: `data/`, `runs/`, `checkpoints/`, optuna journals.
 Accepted risk, named: until submission the era weights exist on one
@@ -4991,7 +4979,7 @@ eruption-v2 rocks, scored across three arms (old corpus
 traced tuned `joint_heads_regen_tuned_seed0`), each against a climatology
 null -- per-group base rates plus the mean measured composition, fit on the
 train/val carve-out with one tuned concentration. The null was added
-because "4.7 nats doesn't mean anything to me" was correct: a cost has no
+because 4.7 nats on its own is uninterpretable: a cost has no
 scale without a do-nothing baseline.
 
 **Considered.** (1) *Coverage and sharpness*: stated-80% intervals are
@@ -5113,7 +5101,7 @@ tuned arm's 6.3-nat zero-shot penalty shrinks to 0.3. Direct input to the
 open production adjudication: the regression the cross-era judge measured
 is almost entirely recalibrator-absorbable.
 
-**Decision implications, owner to adjudicate.** HPO on the fit
+**Decision implications, pending adjudication.** HPO on the fit
 hyperparameters optimizes NLL and will not close a coverage gap that any
 Beta-shaped correction can only close vacuously; a mean-shifting term is
 not the priority either, since the fit already absorbs constant location
@@ -5129,8 +5117,8 @@ instead, which is why small-share groups (bi, px) are the only ones whose
 ceiling binds. The instrument therefore records median interval width at
 every optimum, and the figure prints the `k` that buys each ceiling.
 
-**Next.** Owner call on the recalibrator HPO docket item in light of the
-above, and on the production adjudication now that the tuned arm's
+**Next.** Decide the recalibrator HPO docket item in light of the
+above, and the production adjudication now that the tuned arm's
 real-rock penalty is measured as recalibrator-absorbable. The 423 censored
 trace-only observations remain outside the fit objective.
 
@@ -5219,15 +5207,15 @@ did buy stands: quartz presence and assemblage ranking.
 work selects and validates on train/val; any later test number is a
 disclosed second look.
 
-## 2026-08-03 -- Owner decisions: production, cascade 2, mixture, recalibrator order
+## 2026-08-03 -- Decisions: production, cascade 2, mixture, recalibrator order
 
 Recorded with rationale in the 2026-08-03 recap doc (retired 2026-09-03; the effective-lambda argument is in heads.md's loss-weighting section, the measurements in the entry above); terse ledger here.
 
 1. **Production remains `joint_heads_supportmag_seed0`.** The provisional
    2026-07-29 adoption of trial 22 is reversed -- it loses to its own
    baseline on every paired real-rock metric, and both regen checkpoints
-   lose to the old-corpus model after identical correction. No v3.4 tag
-   rushed; historical tags stay as-is.
+   lose to the old-corpus model after identical correction. No v3.4 tag;
+   historical tags stay as-is.
 2. **Cascade 2 = all-rock 23-token encoder x the OLD broad-draw corpus.**
    Baseline-first at current production dials (isolates the encoder
    effect), then the sweep under the corrected criterion: effective
@@ -5252,7 +5240,7 @@ corpus at the support-conditioned-magnitude production dials with only
 (`joint_heads_allrock_seed0`). The redox slot stays padded throughout, so
 heads-train, eval, and deployment share one regime and the swap measures
 the representation change alone; the fed-where-measured arm is filed as
-#61. The corrected sweep criterion also landed in code this session:
+#61. The corrected sweep criterion also landed in code:
 `magnitude_weight` search bounded at or below 0.048 (effective lambda <= 1)
 in the sweep configs, `dirichlet_nll_sampled_support` as a band-veto in
 `tiebreak_best` (attr-less pre-criterion trials exempt), and
@@ -5272,7 +5260,7 @@ the sampled-support axis agreeing with the rocks, the first live
 confirmation that the veto metric tracks the transfer direction while
 teacher-forced NLL points the other way.
 
-**Decision (owner).** Sweep BOTH encoders under the corrected criterion at
+**Decision.** Sweep BOTH encoders under the corrected criterion at
 matched budget: identical search space (ModeHead architecture re-opened per
 #54), instrument, sampler seed, and 48-trial ceiling --
 `configs/heads/joint_heads_hpo.yaml` (all-rock) and
@@ -5281,7 +5269,7 @@ journals. Each sweep's tiebreak winner retrains at 120 epochs and the
 paired real-rock protocol re-judges the encoders at their tuned best.
 
 **Also.** `run_checkpoint_contrast.py` writes a fixed output name, so
-today's two-checkpoint run overwrote the tracked three-way JSON that held
+the two-checkpoint run overwrote the tracked three-way JSON that held
 the sealed-test record; restored from git history as
 `checkpoint_contrast_matrix_three_way.json` alongside the current one.
 Ledger entries appended (`allrock-baseline` in both ledgers, measured on
@@ -5321,12 +5309,12 @@ minus tuned +0.021 [-0.271, +0.237]. Reading: the corrected criterion's
 pick transfers at no measured cost and did NOT lose after correction (the
 zero-shot penalty was absorbable width, as predicted), but a real-rock win
 claim is unproven -- val's third consecutive non-separation, and a test
-read remains an owner-authorized disclosed second look.
+read remains a disclosed second look that requires explicit authorization.
 
-**Decision (owner).** Production unchanged pending the encoder verdict.
+**Decision.** Production unchanged pending the encoder verdict.
 The igneous twin sweep (joint_heads_igneous_hpo, matched budget and seed)
 launched 2026-08-04 to run in the background -- Ctrl-C-resumable, so it
-does not block the queue; the owner's prior expectation, recorded here, is
+does not block the queue; the prior expectation, recorded here, is
 a small tuned-vs-tuned difference, with the sweep's value being measured
 attribution for the adoption argument (all-rock encoder's independent
 merits at no measured real-rock cost). The broader order of operations
@@ -5345,7 +5333,7 @@ bimodal bulks stay bimodal within their dominant support (the residue
 support-conditioning cannot represent in principle; amp two-sided PIT
 groups 0.026 -> 0.114 when #25 landed), the recalibrator residual is
 heavier-tailed than any Beta at the fitted mean, and the broad-draw
-corpus's hedging value. Design settled in conversation before any code.
+corpus's hedging value. Design settled before any code.
 
 **Considered.** Per-phase mixtures: rejected -- on a simplex a
 single-phase mixture is not a coherent object (moved amp mass must come
@@ -5383,7 +5371,7 @@ visualization pass: mixture quantiles (`share_interval` has no closed
 form under a mixture), card whisker semantics, beta-overlay K-curves;
 those paths skip with a printed note or refuse loudly at K>1.
 
-**Next.** Owner trains K=2 (GPU frees when the igneous twin sweep is
+**Next.** Train K=2 (GPU frees when the igneous twin sweep is
 Ctrl-C'd after its current trial; resumable by study name), then the
 interrogation and the pre-registered verdict. A mixture kept likely moots
 the recalibrator's heavy-tail extension; dropped sends recalibrator work
@@ -5394,7 +5382,7 @@ rather than ties, the mixture config's encoder + dials re-point first.
 
 **Q.** Does K=2 earn the pre-registered keep?
 
-**Context.** Trained on the owner's GPU (`joint_heads_allrock_mixture_seed0`,
+**Context.** Trained on the GPU (`joint_heads_allrock_mixture_seed0`,
 early stop at 58, mode best at epoch 8; the igneous sweep was Ctrl-C'd at 14
 of 48 complete to free the GPU -- resumable by study name, production-dials
 trial 0 leading its mode tie set outright at the pause). Engagement first,
@@ -5421,19 +5409,18 @@ data-side). The gate hedges rather than switches: weights near 50/50 on
 showcase bulks, broad gate-weight distribution -- always-on hedging, which
 is exactly the shape that wins corpus NLL and pays width on rocks.
 
-**Decision (owner).** Kept as a dial -- the pre-registered binary
+**Decision.** Kept as a dial -- the pre-registered binary
 (promote/delete) resolved to neither. `mode_n_components` stays, K=1
 remains the soft default for investigations; the corpus beta-overlay
 artifact (genuinely bimodal truth with the two components on the humps)
 demonstrated the mechanism captures real corpus structure worth keeping
 reachable. Main-line figure semantics stay K=1; K>1
-visualization remains a design conversation if ever promoted. Standing
-figure preference recorded: for main-paper real-rock cards the owner
-prefers the full predicted density drawn against the measured dot over
+visualization remains an open design question if ever promoted. Standing
+figure preference recorded: for main-paper real-rock cards the full
+predicted density drawn against the measured dot is preferred over
 the point-and-whisker summary. No results/ or ledger entries -- the
-mixture is not adopted. Interpretation of the transfer failure ran in the
-same session (next entry); #62 (find more real benchmarks) filed P1 out
-of the discussion.
+mixture is not adopted. Interpretation of the transfer failure is the next entry; #62 (find more
+real benchmarks) filed P1 out of that analysis.
 
 ## 2026-08-04 -- Why the mixture does not transfer: the instrument passes it, nature is one-humped at matched chemistry, and gate re-pointing only ties
 
@@ -5442,7 +5429,7 @@ instrument marginalizes the residue away; the real conditional lacks the
 corpus's second hump; the gate is population-mis-weighted with no
 recalibration lever.
 
-**Considered / Result.** Three experiments, tmp/ scripts, one session.
+**Considered / Result.** Three experiments, tmp/ scripts.
 (1) Instrument transplant -- population fixed, instrument changed: corpus
 val rows scored through the real-rock coarsening (on-support concentration
 sums, off-vocab mass dropped, sub-composition renormalized; off-vocab truth
@@ -5524,27 +5511,25 @@ the sweep's corpus gain bought no real-rock transfer (the corpus/real
 divergence again, now with tuning treatment matched across encoders).
 Every axis ties or leans all-rock; none leans igneous.
 
-**Decision (owner).** The pre-registered rule fires -- a tie licenses
+**Decision.** The pre-registered rule fires -- a tie licenses
 adoption on independent merits (redox recovers the qap probe, effective
 rank 49 vs 32, ~788k-row SSL corpus): `pretrain_allrock_redox_seed0` is
 the canonical encoder and `joint_heads_allrock_tuned_seed0` is promoted
 to production (ledger prose amended per the regen-tuned precedent;
 per-model results/ figures generated at promotion). #54 closes -- the
 comp/cond mini-sweeps are waived as superseded: the planned re-tunes
-re-open the full search space anyway. NeurIPS-window strategy (deadline
-2026-08-29): freeze this stack and write; run #60 corpus scaling as the
-background priority (D over C -- the corpus axis owns every large
-measured real-rock effect, and Sim2Science is a simulator-side venue);
-#55 encoder re-HPO stays open, parked past the deadline; no fixed
-swap-cutoff date, the owner owns any late-swap decision. Work branches
-into two sessions: one on #60, one on paper analysis (recalibrator
+re-open the full search space anyway. The stack is frozen; #60 corpus
+scaling runs as the background priority (D over C -- the corpus axis owns
+every large measured real-rock effect); #55 encoder re-HPO stays open,
+parked. Work branches into two tracks: one on #60, one on paper analysis
+(recalibrator
 upgrades first, then the few-shot curve re-run on production, then the
 padded-calibration eval, which gates the implicit-marginalization
 claim).
 
 **Next.** Ship-flow figures for the promoted model; deck refresh rides
-the paper-analysis session; the recalibrator design conversation opens
-that session.
+the paper-analysis track; the recalibrator design opens
+that track.
 
 ## 2026-08-05 -- Recalibrator tailed tier: the contamination term earns the whole gain, the silica slopes measure nothing
 
@@ -5553,7 +5538,7 @@ an SiO2 location term on the magnitude side and heavier-tailed magnitude
 structure. Built as the `tailed` tier on the frozen production stack, do they
 deliver on the four criteria fixed before the code was written?
 
-**Context.** Design ratified with the owner before code: `tailed` = matrix
+**Context.** Design ratified before code: `tailed` = matrix
 plus (1) pure-location silica slopes on px/bi/q -- tilt then rescale the free
 block so total concentration is exactly preserved, keeping the amp pin's
 letter and spirit -- and (2) a shared two-parameter precision contamination:
@@ -5593,11 +5578,11 @@ at ~log(1-eps) on well-covered rocks.
 canvas (#59) via `plot_coverage_sharpness` + `mixture_share_interval`
 (bisected mixture quantiles); headline aggregation is equal weight per group,
 now stated in the captions of both group-aggregating panels (#58). Internal
-reference, never for the paper: climatology val joint 2.175 vs tailed 0.965
+reference only: climatology val joint 2.175 vs tailed 0.965
 -- the recalibrated production stack now clears the bar the zero-shot arms
 lost to.
 
-**Decision.** Owner adjudication pending at the debrief: keep or excise the
+**Decision.** Adjudication pending: keep or excise the
 silica slopes (measured at nothing; parsimony argues excise, the
 decomposition's evidence argued for them). The tailed tier becomes the
 headline transfer instrument going forward; rendered verdicts stay stamped
@@ -5609,7 +5594,7 @@ provenance swaps + deck.
 
 ## 2026-08-06 -- Silica slopes excised: tailed = matrix + precision contamination
 
-**Decision (owner).** The silica location term measured +0.007 [-0.004,
+**Decision.** The silica location term measured +0.007 [-0.004,
 +0.016] nats against the full tailed fit -- statistically nothing -- so it is
 removed rather than shipped as three dead parameters. The canonical
 recalibration layer going forward is the `tailed` tier = matrix scaling plus
@@ -5623,8 +5608,8 @@ recorded as tested and refuted at the joint-likelihood level -- the marginal
 correlation is real, but a location term cannot monetize it against the
 shared-simplex cost.
 
-**Next.** Few-shot curve re-run on production (vector/matrix/tailed),
-owner-run; then padded-redox calibration; then provenance swaps + deck.
+**Next.** Few-shot curve re-run on production (vector/matrix/tailed);
+then padded-redox calibration; then provenance swaps + deck.
 
 ## 2026-08-06 -- Few-shot curve re-run on production: #52's shape holds, the contamination needs claims history
 
@@ -5637,7 +5622,7 @@ labelled budgets?
 #52 conventions otherwise (whole-unit draws, budgets 25-400, 10 draws each,
 paired across tiers); curve tiers vector/matrix/tailed, mlp off per the #52
 finding. Weight decay re-selected on this checkpoint's val: vector 0.1,
-matrix 1.0, tailed 1.0 -- unchanged from the recorded constants. Owner-run.
+matrix 1.0, tailed 1.0 -- unchanged from the recorded constants.
 
 **Result.** Zero-shot magnitude 7.63 nats; full-train tailed reaches -1.92
 (cross-instrument consistent with the acceptance read's -1.924). The #52
@@ -5671,8 +5656,8 @@ the val slice (fit on the 368-rock train roster; test untouched).
 Statistics are paired and unit-clustered: all pairwise contrasts plus
 per-rock slopes of adapted NLL on log2(bulks) -- levels on a 111-rock /
 39-unit slice carry more unit noise than per-doubling effects. Scored
-under the matrix tier, then re-scored under the tailed tier the paper
-session shipped the same morning (`run_realrock.py --tier`; tier-suffixed
+under the matrix tier, then re-scored under the tailed tier shipped
+the same morning (`run_realrock.py --tier`; tier-suffixed
 results files, zero-shot shared).
 
 **Result.** Corpus-side replicates #27 at the tuned dials: -1.119 ->
@@ -5689,14 +5674,14 @@ confirmed by intervention, and the traced-regen signature reproduced by a
 different knob (corpus growth instead of draw narrowing). Accuracy is
 insensitive to corpus size across the full 16x range (share MAE
 0.093-0.099, adapted presence NLL 2.87-2.91). Production point
-cross-checks both sessions digit-for-digit (11.638 / 1.277 / 0.972).
+cross-checks both tracks digit-for-digit (11.638 / 1.277 / 0.972).
 
-**Decision (owner).** No larger broad-draw regen: the real-rock axis is
+**Decision.** No larger broad-draw regen: the real-rock axis is
 flat within ~0.1-0.2 nats/doubling under the canonical instrument, and
 the sim-to-real gap is not a data-quantity problem. #60 closes measured;
 the paper's scaling claim extends from "corpus-side measured, real-rock
 open" to measured-on-both-axes with a dose-response divergence on the
-same five models. The freed background thread pivots: the next session
+same five models. The freed background thread pivots: the next step
 finds new real evaluation data and re-audits the existing benchmark chunk
 by chunk (source, extraction path, assumptions, notes per chunk) --
 every transfer verdict currently rests on one dataset, fit and scored on
@@ -5705,8 +5690,8 @@ encode its visual-estimate measurement style. New-benchmark numbers land
 as new instruments, provenance-scoped, never re-litigating frozen
 verdicts.
 
-**Next.** Real-data session opens with the audit + harvest design; paper
-session still owes the padded-redox calibration eval, provenance swaps,
+**Next.** Real-data work opens with the audit + harvest design; the
+paper-analysis track still owes the padded-redox calibration eval, provenance swaps,
 deck refresh.
 
 ## 2026-08-06 -- Fe provenance tiers audited: `derived_partial` is mostly class-assumed, and the missingness tracks publication era, not composition
@@ -5761,7 +5746,7 @@ headline contrast is unaffected: it compared `measured` against
 `assumed_class` by name, so the ambiguous tier never entered the number.
 
 **Next.** Padded-redox eval design, populated arm scoped to the `measured`
-tier per the owner's confirm (75 val bulks).
+tier (75 val bulks).
 
 ## 2026-08-06 -- Padded redox does not marginalize: it is a low default, and the blank itself is a provenance signal
 
@@ -5772,7 +5757,7 @@ like something else?
 
 **Context.** Three facts found while verifying the setup reshaped the
 question before any code. The production heads train, validate and deploy at
-22 tokens -- the pad-dropout knob left open on the cascade-2 handoff was never
+22 tokens -- the pad-dropout knob left open after cascade 2 was never
 turned, it was resolved by omission, so the heads have never seen the slot
 populated. The eruption-v2 benchmark cannot populate it at all: `samples.csv`
 carries only `feo_tot` / `fe2o3_tot`, which are total-iron reportings, so 0 of
@@ -5782,8 +5767,8 @@ on the frozen heads would confound "the encoder fails to marginalize" with
 question lives at the encoder, which did see both regimes (24.1% populated in
 pretraining, no dropout). Measured in `explorations/redox_padding`, label-free
 throughout, on the 3070 `measured`-tier bulks (the tier that coincides exactly
-with the tokenizer's populated condition) and the 787,721-row SSL corpus. The
-owner scoped this to the descriptive measurements; pricing what padding costs
+with the tokenizer's populated condition) and the 787,721-row SSL corpus. Scope:
+the descriptive measurements; pricing what padding costs
 on the labels, and any populated-arm retrain, are parked.
 
 **Result.** Four readings, and the claim fails on three of them.
@@ -5832,12 +5817,12 @@ not adapt to the rock, and is legible to the encoder as a fact about the
 analysis. Nothing here argues against the production configuration -- training
 and deployment share one regime, that regime is forced by what real rocks
 report, and the equivalence making it coherent is now tested. What goes is the
-mechanism story attached to it; the doc wording is the owner's to place.
+mechanism story attached to it; the doc wording is placed separately.
 
 **Next.** Provenance swaps and the deck, which is where the encoder-doc
 wording (still "fed where measured", against the locked populated/padded
 terminology) gets corrected. Pricing probe and populated-arm retrain stay
-parked; the retrain re-scores if the real-data session finds a benchmark
+parked; the retrain re-scores if the real-data expansion finds a benchmark
 carrying FeO and Fe2O3.
 
 ## 2026-08-06 -- sediments do not transfer, and the encoder is not what is missing: Andrews XRD through the canonical figures
@@ -5911,10 +5896,10 @@ per-rock bootstrap is **2.08x narrower** than the unit-clustered one (135
 units, 640 rocks). Andrews intervals are the per-rock kind and are captioned
 with that factor.
 
-**Framing (owner, in progress).** The sediment failure becomes structure
-rather than an aside: preempt the reviewer who is unsurprised that an igneous
-pipeline scored on igneous rocks, and point future work at simulating
-sedimentary samples, which the workshop is about. The measured claim is
+**Framing (open).** The sediment failure becomes structure
+rather than an aside: it answers the objection that an igneous pipeline
+scored on igneous rocks is unsurprising, and points future work at simulating
+sedimentary samples, the workshop's subject. The measured claim is
 *not* "broadening the encoder changed nothing" -- it is the division of labour
 above, representation breadth improving recognition and leaving quantification
 untouched, which localises the gap to head supervision. Existing results that
@@ -5925,7 +5910,7 @@ flat across 16x corpus scaling; #52 measured ~26 labelled real rocks
 recovering ~77% of the magnitude gain. Open: whether the headline swaps to
 igneous-tuned canon (narratively cleaner, costs re-running the recalibrator,
 the #52 curve and the figures against the freeze) or keeps all-rock-tuned and
-inverts the rhetoric (free, and puts the sediment-aware encoder inside the
+inverts the framing (free, and puts the sediment-aware encoder inside the
 claim rather than beside it). Also open, and #53 is the experiment for it:
 the claim that the encoder is not the limitation is currently inferred, not
 controlled.
@@ -5939,15 +5924,15 @@ pointed at sediment bulks.
 
 ## 2026-08-06 -- canon stays all-rock; the sediment result goes in the main claim, not an appendix
 
-**Decision (owner).** The framing left open in the Andrews entry above is
+**Decision.** The framing left open in the Andrews entry above is
 settled: **no canon swap.** The headline stack stays
 `joint_heads_allrock_tuned_seed0`, the freeze holds, and nothing is re-run
 against the igneous-tuned twin. Reverting to an igneous-only headline would
 have bought narrative tidiness ("igneous end to end, so du Bray is
 unsurprising") at the cost of re-running the recalibrator fit, the #52 curve
-and the five figures three weeks from the deadline.
+and the five figures.
 
-The rhetoric inverts instead, and lands stronger. Rather than "we were igneous
+The framing inverts instead. Rather than "the pipeline was igneous
 throughout, and separately here is an appendix where broadening did not help",
 the claim is: *the canonical encoder already saw sedimentary chemistry, so the
 representation is not the limitation, and sedimentary prediction still fails*
@@ -5982,8 +5967,8 @@ emits those rows *beside* the visual ones, with `load_benchmark(prefer_basis=)`
 choosing; the default is the visual estimate and a regression test asserts the
 default load is bit-identical to the benchmark without the new rows, so nothing
 already scored moved. Both arms are restricted to the five groups Appendix 10
-counts, since it never looks for pyroxene or olivine, and the owner had already
-scoped the headline to du Bray (MSH and Pinatubo, 11 hand-transcribed rocks worth
+counts, since it never looks for pyroxene or olivine, and the headline had already been
+scoped to du Bray (MSH and Pinatubo, 11 hand-transcribed rocks worth
 +0.04 nats, stop being averaged in).
 
 **Result.** Neither ruler is uniformly better, which was not the expected shape.
@@ -6014,11 +5999,11 @@ a wash. Moving those two units into val to put good truth on the scoring side is
 the live follow-up, and it now has to price the presence-side loss too, not just
 the magnitude gain.
 
-**Decision (owner).** Four uses of the paired data were put up: always visual,
+**Decision.** Four uses of the paired data were put up: always visual,
 always point count, split by term (presence from the eyeball, quantity from the
 count, with the geologist's uncounted sightings censored at the ~1-in-600
 detection limit), or leave the scored benchmark alone and carry the pair as a
-measurement error bar. The owner took the last: **the scoring rule stays one
+measurement error bar. The last was taken: **the scoring rule stays one
 uniform convention, the visual estimate, across all 629 rocks**, and the
 disagreement becomes an appendix discussion of what would change if point counts
 were used. Rationale: least disruptive, one rule for the whole dataset, and with
@@ -6043,11 +6028,10 @@ columns; and nothing pins which revision of the USGS workbooks is on disk.
 the unit-key fix and what it does to the committed split. The split placement of
 the point-counted units waits on those.
 
-## 2026-08-06 -- amendment: the sediment failure is recoverable, and that is the stronger claim
+## 2026-08-06 -- amendment: the sediment failure is recoverable
 
 **Q.** How much of the zero-shot sediment failure survives a correction layer
-fit on real sedimentary labels? Proposition (b) from the Andrews entry above,
-run "for good measure" and expected to show nothing.
+fit on real sedimentary labels? Proposition (b) from the Andrews entry above.
 
 **Context.** The du Bray protocol on a benchmark whose test slice has never
 been spent: weight decay chosen once on val, layer fit on the 363-rock train
@@ -6070,7 +6054,7 @@ shot, no. Given a few hundred real labels, sedimentary prediction reaches the
 same footing as volcanic. Since the recalibration layer is the cheapest
 possible form of head re-supervision, this is the most direct evidence in the
 project that the missing ingredient is target-domain head supervision rather
-than representation -- and it is a better paper claim than the failure was.
+than representation.
 It is also consistent with the corrected reading of the presence result: the
 zero-shot failure is reliability, not resolution, and reliability is what
 rescaling addresses.
@@ -6108,7 +6092,7 @@ model that no longer exists?
 
 **Context.** Final item of the paper-freeze queue. Five files hit on the
 superseded encoder tag; the deck's own note flagged its corpus-regen status
-strip as a retire-or-fold candidate. Owner scoped the pass: re-stamp plus new
+strip as a retire-or-fold candidate. Scope of the pass: re-stamp plus new
 transfer slides, and retire the status strip into the corpora slide.
 
 **Result.** Three of the five doc hits were legitimate and were left alone --
@@ -6151,14 +6135,14 @@ marginalization, is corrected to name the measured behaviour instead.
 
 **Next.** Nothing owed on the freeze queue -- all four items are discharged.
 The sealed test slice still gets exactly one disclosed read, on the final
-stack, owner-authorized.
+stack.
 
 ## 2026-08-06 -- du Bray's unread columns priced, and the unit-key leak measured instead of arbitrated
 
 **Q.** The harvest reads 8 of 42 petrography and 24 of 68 chemistry columns.
 Four unread ones looked promising, and the benchmark's unit key is raw source
 text that fragments one eruption across several spellings. What is actually in
-those columns, and does the fragmentation cost us anything?
+those columns, and does the fragmentation cost anything?
 
 **Context.** Workstream 1 of #63, continuing the point-count pass. The premise
 throughout was that these are extras on a benchmark already harvested and
@@ -6172,7 +6156,7 @@ source for all four questions and answered three of them against expectation.
 **not a ratio**: 357 benchmark rocks carry it, 299 naming a single pyroxene.
 Splitting the lumped `px` group would change the scoring vocabulary from seven
 groups to eight and make every ledger number incomparable, for resolution on
-half the scored rocks. Owner kept it lumped; the cpx-vs-opx question, if it is
+half the scored rocks. It stays lumped; the cpx-vs-opx question, if it is
 ever asked, goes to the 13 MSH and Pinatubo rocks whose sources name their
 pyroxenes outright. `harvest.py`'s "sparsely populated" comment was wrong and
 is corrected.
@@ -6219,7 +6203,7 @@ easier rocks. Granting the most permissive merge any curated table would make,
 the conclusion does not move.
 
 **Decision.** px stays lumped. `ClrIndx` and `chem_src` are closed as
-documentation, not work. #56 is parked to near submission as one of two
+documentation, not work. #56 is parked as one of two
 whole-hog options -- leave it alone, or re-run all evals on the unadjusted
 convention and report those -- never piecemeal, since a half-converted
 benchmark is the only bad outcome; the measurement is on the issue so it is not
@@ -6237,7 +6221,7 @@ USGS workbooks is on disk -- no checksum or download manifest, with Appendix
 over a durable encoder. What evidence carries that, and what anchors the
 paper's nats now that the rock-independent reference is being dropped?
 
-**Context.** Paper framing session (`paper/writing_journal.md`, 2026-08-13
+**Context.** The paper framing pass (`paper/writing_journal.md`, 2026-08-13
 part 2) deleted the rock-independent reference (`eval.real_rock.climatology`)
 from the manuscript after measuring that its information access was never
 matched to the model's: it is fit on 479 measured rocks while the zero-shot
@@ -6246,10 +6230,10 @@ slice it is scored on. The asymmetry runs conservative for the recovery claim
 and inflationary for the zero-shot deficit. It stays in the codebase as an
 internal instrument; it leaves the paper.
 
-Replacing it, the owner's frame is analytical chemistry's external/internal
+Replacing it, the frame is analytical chemistry's external/internal
 standards. External = the measured proportions themselves, reached through
 self-anchoring metrics (fold error against 1x, AUROC against 0.5, coverage
-against nominal). Internal = arms of our own system sharing encoder, rocks,
+against nominal). Internal = arms of the system itself sharing encoder, rocks,
 splits and scoring, so everything but one variable cancels. Three internal
 standards already exist on disk (zero-shot arm; the vector/matrix/tailed tier
 ladder; the Broad/Sharp/SharpWeight sampling arms). The missing one isolates
@@ -6268,8 +6252,8 @@ else from the issue holds -- same budgets, same unit draws, paired per draw,
 same fixed test slice, same hurdle likelihood, one shrinkage constant per arm
 chosen once on val.
 
-The framing changes, and that is what makes it worth the deadline risk. As a
-control, #53 has an outcome that damages the paper (fresh head wins ->
+The framing changes, and that is what makes it worth building. As a
+control, #53 has an outcome that undercuts the central claim (fresh head wins ->
 simulator supervision was a detour). Read as a modularity demonstration, both
 outcomes report in the same words: the frozen latent supports heads trained on
 either label source, and the budget where the arms cross is an exchange rate --
@@ -6297,8 +6281,8 @@ encoder needed at all?
 **Context.** #53 shipped as scoped: a 7-group hurdle head (`MeasuredModeHead`,
 34,839 params, 1-hidden MLP, 2-component Dirichlet mixture) trained on measured
 proportions over the frozen latent, on the same budgets and the same unit draws
-as the correction tiers, same hurdle objective, val slice. Then the owner asked
-whether anything took raw geochemistry into a head and predicted mineralogy.
+as the correction tiers, same hurdle objective, val slice. Then a further check:
+did anything take raw geochemistry into a head and predict mineralogy?
 Nothing did. Every arm, old and new, sat downstream of the encoder, so the
 latent-ablated arm controlled for "the labels are easy" but nothing controlled
 for "the encoder was not needed." A third input variant was added: the same head
@@ -6342,7 +6326,7 @@ while paired signs run 9-10 of 10 -- the bands understate every contrast here.
    recalibration layer sits at 0.1139 at 26 rocks against 0.1101 for no fit at
    all, clearing the zero-shot line only at ~106 rocks and winning unanimously
    from 210. Under the intuitive-metrics-lead rule the claim becomes **25 rocks
-   fix the confidence, roughly 200 fix the accuracy.** Owner accepted.
+   fix the confidence, roughly 200 fix the accuracy.** Adopted.
 
 **Caveat carried.** The comparison is lopsided against the simulation-trained
 head: a 123-parameter rescale of its *outputs* against a 34,839-parameter head,
@@ -6350,8 +6334,7 @@ a ~280x mismatch, with its weights never adapted. Whether parameter-efficient
 fine-tuning inside the head closes the gap is open and is being spec'd
 separately.
 
-**Next.** Paper writing resumes on the encoder-first Results ordering (owner
-decision; `paper/writing_journal.md` session 17). The three re-supervised heads
+**Next.** Paper writing resumes on the encoder-first Results ordering. The three re-supervised heads
 are named in prose by what they are given, never by code name. Figures 1 and 2
 stay the only main-text figures; this material is appendix, carried in main text
 as prose plus a pointer. The figures owe a paired-difference panel, since the
@@ -6408,7 +6391,7 @@ support the amount branch is conditioned on.
   structural check that a member phase moves only its own group -- a transposed
   21x7 map passes `gradcheck` perfectly happily.
 
-**Two method errors, both mine, both corrected.** The plateau probe was
+**Two method errors, both corrected.** The plateau probe was
 specified at zero shrinkage so the plateau would be "the optimizer's, not the
 regularizer's." That rationale is wrong: 33k adapters against at most 368 rocks
 drive the Dirichlet density down without bound, the train loss reached -8 nats
@@ -6540,7 +6523,7 @@ supergroup: linear 0.731 vs 0.659 (+0.071); MLP 0.814 vs 0.813 (tie).
    refuting the exploration's own prediction that `input_knn_ceiling`'s
    linear-space win was a distance-metric artifact a per-feature-scaling
    classifier would erase.
-5. **`supergroup` should not appear in the paper, on any axis.** It is our own
+5. **`supergroup` should not appear in the paper, on any axis.** It is the project's own
    9-way collapse (`cnmineral.eval.supergroup`), a substring-matching rule
    ported from v2 whose docstring names its purpose as a UMAP color palette. It
    is uncited and internally inconsistent: `syenite` -> felsic-plutonic but
@@ -6620,20 +6603,20 @@ The two that did not conform to any statable rule: Fe-Ti oxides 5.00 against a
 magnetite/ilmenite mean of 4.94, and silica phases 2.40 against a
 tridymite/cristobalite mean of 2.32.
 
-**Decision (owner).** `MINERAL_DENSITY` updates to the exact member means --
+**Decision.** `MINERAL_DENSITY` updates to the exact member means --
 Fe-Ti oxides 5.00 -> 4.94, silica phases 2.40 -> 2.32 (members = the
 polymorphs only: the label is MSH groundmass silica, 7 rocks, 0-1.1 vol%,
 never co-reported with a quartz row, and quartz is its own table entry) -- so
 the paper's sentence "labels with no composition to interpolate along are
 assigned the mean of their members" is exactly true and self-checkable.
-Reported numbers, stamped artifacts, and figures are NOT regenerated: an
-executive decision, the shifts are 1.2% and 3.4% on density ratios where only
+Reported numbers, stamped artifacts, and figures are NOT regenerated: the
+shifts are 1.2% and 3.4% on density ratios where only
 ratios enter, the mapping audit already measured density perturbations far
 larger than this as immaterial, and the presence factor is provably invariant
 to densities. Re-runs from HEAD will differ from stamped values below display
 precision.
 
-**Also.** B8 cites the database directly (owner Zotero entry
+**Also.** B8 cites the database directly (Zotero entry
 `barthelmy_webmineral`); the DHZ/Klein comment provenance was superseded by
 the check. Olivine stays 3.50 = Fo80 interpolation (0.8 x 3.27 + 0.2 x 4.39),
 now stated with the equation in B8.
@@ -6699,7 +6682,7 @@ re-stamp.
 
 ## 2026-09-02 -- amphibole pin retired: the fit reproduces it, and a benchmark-specific special case does not belong in the layer
 
-**Q.** Owner, after the re-measurement above: would it be more robust to fit
+**Q.** After the re-measurement above: would it be more robust to fit
 amphibole's correction and let it land at zero, rather than hardcode the pin?
 
 **Context.** The pin encoded one benchmark's identifiability finding into the
@@ -6781,7 +6764,7 @@ task; dropping it would leave no chemistry stratification at all. Weight decay
 for the restamp: the protocol defines the constant as a function of the val
 slice, so it is re-selected on the new one.
 
-**Decision (owner).** All four as recommended. `unit_grouped_split` keeps only
+**Decision.** All four, as set out above. `unit_grouped_split` keeps only
 the `split_balance` argmax. `canonical_units` in the loader maps whitespace /
 case variants to their most common spelling (`?` qualifiers stay distinct; the
 `Strat_Name` disagreement stays unrepaired). Roster rebuilt at seed 0. At the
@@ -6838,7 +6821,7 @@ whole tailed gain (it earned the pin's cost back), and the item 3 entry's
 "numbers move by ~nothing" (they move by 0.58 nats on val). The paper stands
 as submitted at the tag; this goes on the camera-ready reconcile queue.
 
-**Decision (owner).** Matrix (119 parameters) returns to canonical. Tailed is
+**Decision.** Matrix (119 parameters) returns to canonical. Tailed is
 deleted as its own step after this restamp lands, by the rule that deleted the
 K=2 mixture: an exact tie, parameters at initialization, the record kept here
 and at the tag. The restamp records the tie with tailed still present.
@@ -6878,7 +6861,7 @@ the tailed deletion, whose slides it rewrites.
 **Q.** Delete the tailed tier now that it ties matrix exactly with its two
 parameters at initialization, or keep it as a free option.
 
-**Decision (owner).** Deleted, by the rule that deleted the K=2 mixture: an
+**Decision.** Deleted, by the rule that deleted the K=2 mixture: an
 exact tie, parameters at initialization, the record kept here and at the
 submission tag. Gone: the tier, `CONTAM_LOGIT_BIAS` and the contamination
 branch in `RealRockRecalibrator`; the two tailed tests; the arm on the curve
@@ -6913,7 +6896,7 @@ deletion.
 **Q.** Keep the paper's number builder describing the submission, or move it to
 HEAD now that the tailed artifacts it read are gone?
 
-**Decision (owner).** Move it: the submitted state is frozen four times over
+**Decision.** Move it: the submitted state is frozen four times over
 (tag, mirror, backup, Overleaf) and the builder's job is to describe HEAD.
 `build_numbers.py` now reads `acceptance.json` (matrix canonical), the matrix
 rows of the curve, the matrix entries of the sediment and unit-leakage
@@ -7037,7 +7020,7 @@ opaques are set by the fixed fO2 the heads never see. Corpus scaling helps
 exactly where the simulated label and the measured mineralogy describe the
 same thing.
 
-**Decision (owner, 2026-09-03).** The 09-02 Lawrencium rule resolves on the
+**Decision (2026-09-03).** The 09-02 Lawrencium rule resolves on the
 dropped side: the cluster has no corpus-size use. The direction is
 calibrating the generator against measured mineralogy, formalized as epic
 #74 with one child per experiment (#75 to #79): three tests on
@@ -7052,7 +7035,7 @@ crashed on HEAD since the mixture deletion (a dangling `log_w` argument);
 fixed, one line; the zero-shot eval path has no end-to-end test.
 
 **Next.** The three on-disk tests, about an hour combined, before the
-plumbing day the benchmark-composition run needs.
+plumbing the benchmark-composition run needs.
 
 ## 2026-09-03 -- Zero-shot evaluation split into scoring, metrics and figures, with the smoke test the mixture deletion showed was missing
 
@@ -7123,8 +7106,8 @@ compositions reproduces the corpus-size hump as a hump in fitting depth:
 at about 5,600 steps 0.113. Headline NLL 2.3, 3.4 / 3.0, 4.0, 5.0, 6.8, 7.7,
 11.6, monotone. The 56-step head's corpus val hurdle NLL is -0.23 nats per
 row against production's -2.67: the emulator that transfers best is the one
-that has barely fit the simulator. The weight-decay arms (10x, 100x, 1000x) and the narrow-ModeHead arm,
-finished after the pause, do not reproduce it: 10x is production to the
+that has barely fit the simulator. The weight-decay arms (10x, 100x, 1000x) and the narrow-ModeHead arm
+do not reproduce it: 10x is production to the
 third decimal (0.113, ModeHead selected at the same epoch); 100x and 1000x
 land at 0.114 with headline NLL 15.1 / 14.8 (the ModeHead selects later,
 epoch 18, about 16,800 steps); the 64-wide ModeHead at 0.110 with NLL 7.0
@@ -7161,9 +7144,9 @@ rung leaves the search as a share dimension and stays a presence dimension
 for quartz and biotite, which #78 reads directly. The head-selection rule
 (early stopping on corpus val) is what places production at 5,600 steps,
 the worst real-rock point of the ladder; selecting on the real-rock train
-split, which #74's rules allow, is a candidate the owner has not ruled on.
+split, which #74's rules allow, is a candidate not yet ruled on.
 
-**Next.** Owner reads the verdicts before #78; every #76 arm is finished. The two
+**Next.** The verdicts are reviewed before #78; every #76 arm is finished. The two
 ladders overlaid on gradient steps at ModeHead selection are
 `tmp/group_mae_vs_steps.py` (+ `.csv`, `.png`): the mean-of-seven traces one
 curve. No point has more than two seeds.
@@ -7187,7 +7170,7 @@ read on 106 val rocks / 39 units, unit bootstrap on per-rock slopes).
 Bias here is always relative to this benchmark's convention, du Bray's
 phenocryst point counts on quenched lavas; nothing below says the
 simulator is wrong, only that what a head learns past a few dozen steps
-is not what that convention counts (owner's framing).
+is not what that convention counts.
 
 **Result.** Zero-shot mean-of-seven absolute error at 24 or 56 steps is
 flat in corpus size: 0.101 to 0.104 from 78 to 10,000, slope +0.0002 and
@@ -7215,7 +7198,7 @@ depth for the small corpora, and seeds; next entry.
 
 ## 2026-09-04 -- The fair learning curve is flat: real-rock selection picks 16 to 24 steps at every corpus size, and the recalibrated read wants a different head
 
-**Q.** Three follow-ups to the grid, planned with the owner. (1) The
+**Q.** Three follow-ups to the grid. (1) The
 community's learning-curve method with the right validation set: stop
 the ModeHead where the real-rock train split says to, once on hurdle NLL
 and once on share absolute error, read val. (2) True fixed depth for the
@@ -7275,25 +7258,25 @@ the recalibrated optimum are different heads: the recalibrator wants a
 head fit four to ten times deeper (112 to 224 steps), where corpus size
 does help and where the best heads sit 0.15 to 0.19 nats below
 production. Selection on real-rock train NLL therefore serves the
-zero-shot claim and hurts the recalibrated one. Whichever ruler the paper
-reports through decides the rule, and the rule can be a fixed step budget
+zero-shot claim and hurts the recalibrated one. Whichever ruler is
+reported decides the rule, and the rule can be a fixed step budget
 either way. At fixed deep depth more simulated data helps in the ordinary
 sense, by preventing a small corpus from overfitting its compositions;
 that is a different claim from "more data improves the best achievable
 head", which stays unsupported zero-shot and weakly supported after
 recalibration.
 
-**Decision.** The stopping rule is the owner's call; not taken here.
+**Decision.** The stopping rule is left open; not taken here.
 Candidates named, not adopted: selection on recalibrated train NLL (the
 layer fit inside the epoch loop, untested), and a three-seed 10,000 x 112
 to 224 head as the recalibrated baseline for #74. tmp/ stays as laid out
 in `tmp/README.md` until the rule is decided.
 
-**Next.** Owner reads; then #78 or the rule.
+**Next.** A review of these results; then #78 or the rule.
 
 ## 2026-09-04 -- Rulings after the depth grid: the target is a scaling pair, no stopping rule yet, plutonic parked, one figure
 
-**Decision (owner).** Four rulings on the day's results. (1) The target of
+**Decision.** Four rulings on the day's results. (1) The target of
 epic #74 is a **scaling pair**: a simulated label convention and a
 measurement convention whose error falls with corpus size at fixed depth,
 after recalibration, on seeds; on the canon figure, a line that falls in
@@ -7301,7 +7284,7 @@ the zero-shot and recalibrated share-error panels to below the shallow
 heads. The volcanic search for one is the priority, exhaustive on the
 simulator side (rung, water and pressure prior, redox, recipe, the
 phenocryst/groundmass split of the label) since the benchmark side is thin.
-(2) No stopping rule is chosen. There is no time pressure, the canon figure
+(2) No stopping rule is chosen. The canon figure
 shows every depth side by side, and a convention picked now would be
 picked on less evidence than a convention picked after the candidate
 corpora are drawn; the only step that needs a written convention is #79's
@@ -7328,7 +7311,7 @@ figure's generator sat in a gitignored directory where deletions are
 permanent. On 09-08 the figure script had gained an unrecorded `_clean`
 variant (no references, no production star, larger text) for a talk.
 
-**Decision (owner).** Two figures are the ones every scaling experiment is
+**Decision.** Two figures are the ones every scaling experiment is
 reviewed on: `depth_ladder.png` (four rulers) and its per-category
 companion `depth_ladder_groups.png`, in their current matplotlib style.
 The clean variant was a one-off presentation export and is dropped. Paper
@@ -7356,7 +7339,7 @@ aggregation and the final-over-grid line rule, the truncated loader).
 README fourth section with the tag grammar, the two-figure ruling, the
 scaling-pair definition and the seeds protocol, plus an inline correction
 to the #60 decision (the ladder confounded depth with size; the verdict
-stands). Roadmap and memory repointed.
+stands). Roadmap repointed.
 
 **Next.** #78. The one-bulk generator smoke run passed the same day: one
 dacite at two trace-conditional draws, 62 MAGEMin points, all converged,
@@ -7369,7 +7352,7 @@ one draw); Julia and MAGEMin are intact after the split rebuild.
 **Q.** Where should the rule that experiments do not patch production live,
 and what does the codebase already violate?
 
-**Context.** Preparing #78, the owner ruled that its scripts must be a
+**Context.** Preparing #78, it was ruled that its scripts must be a
 self-contained exploration: the generator's expansion step hard-codes the
 trace-conditional prior, and the fix is a copy inside the exploration, not
 a flag on `scripts/build/generate_mineralogy_corpus.py`. The rule behind
@@ -7379,7 +7362,7 @@ callers rather than tests, CLAUDE.md said leave unrelated code alone and
 delete dead code. None said that a flag, branch, hook or config key whose
 only caller is an experiment is that experiment's scaffolding.
 
-**Decision (owner).** The rule is written in three places: CLAUDE.md
+**Decision.** The rule is written in three places: CLAUDE.md
 ("Production code is not an experiment's configuration surface", the
 authoritative statement), `explorations/README.md` (the operational
 version: copy the step into the exploration and change the copy) and
@@ -7423,7 +7406,7 @@ absolute errors from the measured share on the paper's crystal
 normalization (the mean over the pooled rung-50 and rung-30 rows, the best
 single draw at those rungs chosen per category, the best step along that
 draw's whole path), sorted at tolerance 0.05 into reproduced / buried /
-wrong stage / wrong recipe (owner rulings 09-09/10 and 09-15, written into
+wrong stage / wrong recipe (rulings 09-09/10 and 09-15, written into
 the README because the earlier record sat in the emptied `tmp/`). Plumbing
 facts the build found: the repo has no QAPF-from-chemistry classifier
 (gard's names are precomputed), so the iron split takes a TAS class
@@ -7459,7 +7442,7 @@ over a rock's quantified categories, so an oxide that stays wrong drags on
 the same rock's silicates. Per-category verdicts flatter against the joint
 read.
 
-**Decision (owner).** Pursue the coherent subset, feldspar, pyroxene,
+**Decision.** Pursue the coherent subset, feldspar, pyroxene,
 amphibole and biotite (about 90% of the crystal cargo on the typical rock,
 hits in one direction), high pressure and relatively wet. #79 is unblocked
 and rewritten as a screen of candidate (P, H2O) priors ranked by a
@@ -7488,8 +7471,8 @@ conditioned on the rock's chemistry, bring the corpus labels close enough
 to the phenocryst counts for corpus size to matter?
 
 **Context.** #78 found that some draw reaches the measured silicate share
-of most benchmark rocks while the broad-box marginal buries it. Owner
-rulings 2026-09-16: the ladder is 128 / 256 / 512 / 1,024 / 2,048
+of most benchmark rocks while the broad-box marginal buries it.
+Rulings 2026-09-16: the ladder is 128 / 256 / 512 / 1,024 / 2,048
 compositions (four doublings, one night of MAGEMin per scheme, every size
 by nesting), seeds on the endpoints are training seeds so no scheme is
 generated twice, no intermediate screen, the cluster delayed.
@@ -7535,7 +7518,7 @@ which formed over a history before eruption, and no single condition
 reproduces all four silicates for 38% of rocks. The generator and the
 ruler count different things.
 
-**Decision (owner, 2026-09-18).** For the current (generator, ruler) pair
+**Decision (2026-09-18).** For the current (generator, ruler) pair
 there is no way to change how the generator runs to attain scaling. The
 pair has to change: rethink the generator and introduce fractional
 crystallization against the same ruler, or find a new ruler. Two paths.
@@ -7570,14 +7553,14 @@ simulator's label (its average absolute error against the measured share),
 never whether the label tracks differences between rocks once that offset
 is removed, and it carried no constant baseline and no intervals.
 
-**Context.** Re-audit in discussion with the owner. The flat real-rock line
+**Context.** A re-audit. The flat real-rock line
 under the production prior is measured with trained heads (#60, #69, #76,
 the depth grid); #79's inference past it is simulator-only and involved no
 recalibration. A scratch check put a constant forecast, the train-mean
 share renormalized over each rock's mineral list, at 0.106 on the four val
 silicates: level with #79's per-rock oracle window (0.107), below every
-head (0.112 to 0.123) and below the generator average (0.136). The owner
-filed three follow-ups as #85 with no gate: the gate is written after every
+head (0.112 to 0.123) and below the generator average (0.136). Three
+follow-ups were filed as #85 with no gate: the gate is written after every
 metric is read.
 
 **Instruments.** `explorations/generator_reach/run_signal.py`, seconds and
@@ -7620,8 +7603,7 @@ constant; the real recalibrator on the head is the second view and agrees.
 The constant varies only through the mineral list, so its r is what the
 list alone carries; a joint fit of simulator and constant, the signal past
 the mineral list, was not run. The 224-step line's -0.046 nats per doubling
-(journal 2026-09-04) is an observation, not an example of a scaling pair
-(owner).
+(journal 2026-09-04) is an observation, not an example of a scaling pair.
 
 **Reading.** #79's narrow claim stands: no condition prior inside the box
 moves the silicate labels. Its broad claim, that no generator setting can
@@ -7629,7 +7611,7 @@ produce a scaling pair on this benchmark, does not: the label's signal is
 per category, present for feldspar and quartz and absent for amphibole and
 biotite, and part of the gap may be the measurement convention.
 
-**Next (owner, 2026-10-02).** (1) The 224-step line with every point a
+**Next (2026-10-02).** (1) The 224-step line with every point a
 last-epoch head on three seeds (13 new heads, `final224_allrock_n{N}` with
 `_seed{K}`), read per category on recalibrated share error, feldspar,
 quartz and pyroxene first. (2) The same signal read as the first step of
@@ -7647,7 +7629,7 @@ the current generator might match where phenocryst counts could not
 granitoids) and PP 1793 (Boulder batholith) into
 `data/real_mineralogy/plutonic/`, apart from eruption-v2, whose tables stay
 byte-identical. DS 454 is pinned as the authority on PP 1793's columns.
-Owner rulings during the build: DS 942's unit is `Shorthand` (55 units,
+Rulings during the build: DS 942's unit is `Shorthand` (55 units,
 keeping an intrusion's facies together) and PP 1793's is `intrs_name` (30
 after canonicalization); every rock the sources kept counts as fresh,
 since neither grades alteration per rock; the 71 rocks with a category
@@ -7689,7 +7671,7 @@ phenocryst counts, and most of the improvement is in the amounts, which is
 where the two conventions count different things. Whether the head's
 rock-to-rock variation beats a constant on this benchmark is open.
 
-**Next (owner, 2026-10-02).** Two rulings shape #83's readout.
+**Next (2026-10-02).** Two rulings shape #83's readout.
 
 Every source is read under the two settings the scaling review figures
 use: no correction, and the production matrix recalibrator fit on train.
@@ -7712,7 +7694,7 @@ run on these rocks. #83 is rewritten to this readout with no gate until
 every metric is read, #84's pre-written gate is withdrawn, and #85's
 volcanic read is re-run once under the new settings.
 #82's body overstates PP 1793 (259 rocks and 35 intrusions where the
-harvest finds 246 and 30); the owner closes the issue.
+harvest finds 246 and 30); the issue is closed by hand.
 
 ## 2026-10-05 -- #83: the plutonic benchmark shows almost no cumulate chemistry; no cumulate rule is built
 
@@ -7722,7 +7704,7 @@ that are crystal piles rather than frozen melts and report them separately.
 **Context.** The generator treats a rock's chemistry as a melt that cooled in
 place. That fails for a cumulate, so a misfit there says little about the
 generator. The europium anomaly, the usual marker, exists for few of these
-rocks. The handoff cited PP 1793 as suggesting plagioclase accumulation in
+rocks. PP 1793 was cited as suggesting plagioclase accumulation in
 three plutons covering 126 rocks.
 
 **Result.** A scratch read; no repo files were written. Each of the 507
@@ -7748,7 +7730,7 @@ inside the melt range, mineral proportions are still largely fixed by the
 chemistry, so the own-bulk read gains little error. Cumulates matter where
 chemistry sits far from any melt, and almost none does here.
 
-**Decision (owner, 2026-10-05).** No cumulate rule, no flag, no separate
+**Decision (2026-10-05).** No cumulate rule, no flag, no separate
 reporting. Every #83 read covers all evaluated rocks together. Recorded on
 #83 (body and comment) and on #22, whose plutonic case has no rocks to
 serve here.
@@ -7761,7 +7743,7 @@ the recipe and box, redox, muscovite, and the joint fit.
 **Q.** Before any generator run, does the production head track the plutonic
 whole-rock modes better than baselines that use no simulator?
 
-**Context.** These are the owner's 2026-10-02 rulings, read for the first
+**Context.** These are the 2026-10-02 rulings, read for the first
 time. Every source is read with no correction and under the production
 matrix recalibrator fit on train. Spearman, with its sign, is the
 fitting-free check. Signal is judged against a ladder of baselines: the
@@ -7792,14 +7774,14 @@ does. A head fit on 291 real rocks' chemistry does not beat the constant,
 while the norm's mass balance gives the felsic minerals almost for free.
 Val is small: 8 rocks carry pyroxene and 1 olivine.
 
-**Reading (owner, 2026-10-05).** Step 0 does not answer #83. It sets the
+**Reading (2026-10-05).** Step 0 does not answer #83. It sets the
 bar: Stage A's labels must beat the CIPW norm under the same correction,
 not only the constant. That puts the joint-fit question (does the
 generator add anything beyond the norm?) at the centre. The scaling test
 remains Stage B, after Stage A is read.
 
 **Next.** Settle #83's open decisions (the recipe and box, redox, muscovite,
-the joint fit). Then Stage A's code through plan mode, the owner's 6-hour
+the joint fit). Then Stage A's code, the 6-hour
 run, and the read. #85's volcanic re-run under the new settings is the
 next code change in `run_signal.py`.
 
@@ -7837,11 +7819,11 @@ biotite never pass it. The joint NLL still falls, but not through the
 shares; #86 asks whether presence or magnitude spread carries it.
 
 **Next.** #86. The 63 tuffs with both a visual estimate and a point count
-are deprioritized (owner).
+are deprioritized.
 
 ## 2026-10-05 -- #83 step 0 re-read: with the 68 oxide-lumped rocks and grouped 5-fold cross-validation, the production head ties the CIPW norm and both beat the simple baselines
 
-**Q.** Does step 0's reading survive the two protocol changes the owner
+**Q.** Does step 0's reading survive the two protocol changes
 ruled for screening reads?
 
 **Context.** Two rulings the same day. First, the 68 rocks whose Fe-Ti
@@ -7888,7 +7870,7 @@ end to end on that run.
 the equilibrium label track the whole-rock modes better than the baselines
 that use no simulator, and does it carry anything the CIPW norm lacks?
 
-**Context.** The run (2026-10-05, owner's machine): 578 rocks x 128 draws
+**Context.** The run (2026-10-05, local machine): 578 rocks x 128 draws
 over the #78 box x 31 steps to 600 C, 5.5 h, no solver crashes, read at
 10% melt, 5% melt and the last converged step. 130 and 222 of 73,600
 draws never reach 10% and 5%; no train or val rock falls back to its last
@@ -7940,9 +7922,9 @@ say, and the nonlinear fit cannot beat it with 404 rocks. The simulator's
 edge over the norm is probabilistic, a small NLL gain carried mostly by
 the presence of minerals the norm cannot produce. The head's zero-shot gap
 to the simulator, 0.080 against 0.060, is confounded by the rung: the
-head emulates 50 and 30% melt. No gate (owner).
+head emulates 50 and 30% melt. No gate.
 
-**Next** (owner, 2026-10-06; the shape may change as results come in).
+**Next** (2026-10-06; the shape may change as results come in).
 First the simulator at 50 and 30% melt on the same rocks from the same
 run, no MAGEMin and no training, to split the rung from emulation error:
 if the simulator at 50/30 reads near the head's 0.080 the head copied the
@@ -7994,7 +7976,7 @@ rocks report trace elements on 11 to 61% of rows and the head sees mostly
 blank trace tokens. The rung is no longer a corpus-shape decision for this
 benchmark; keeping the whole path in a regeneration stays free.
 
-**Next** (owner, 2026-10-06). Five steps, one decision each. First, where
+**Next** (2026-10-06). Five steps, one decision each. First, where
 the copying error comes from: the head against MAGEMin on its own
 simulated val bulks, with traces as reported and blanked to the plutonic
 pattern. Second, whether the line falls at all: the depth-ladder heads on
@@ -8061,7 +8043,7 @@ is the norm's, with a small NLL edge over the norm. The Stage B zero-shot
 panel needs the marginal read beside the teacher-forced one, or a head
 against the simulator is apples to oranges.
 
-**Next.** Owner's call. The on-disk head ladder (78 to 10,000 bulks, 56
+**Next.** Undecided. The on-disk head ladder (78 to 10,000 bulks, 56
 and 224 steps, seeds) read on the 404 rocks with both estimators would
 show whether and where the approach to the ceiling happens, at no
 generation cost; #87, the regeneration and the full test follow as planned
@@ -8108,10 +8090,9 @@ shielded from the late reactions the model runs, which is a recipe signal
 built: any aggregate read of "does the rung matter" is blind to this, so
 the rung has to be read per mineral; and the right read point differs by
 mineral on the same rock, 50% for quartz and amphibole, 10% for
-pyroxene, which no single rung serves. The owner marks this as an
-extremely important observation (2026-10-06).
+pyroxene, which no single rung serves.
 
-**Next.** Discussion continues (owner); nothing scheduled from this
+**Next.** Under discussion; nothing scheduled from this
 entry. Candidates named, not adopted: the per-mineral rung as a dimension
 of #88's per-composition policy; the amphibole consumption path in the
 model between 720 and 640 C as a thing to look at directly in the kept
@@ -8119,7 +8100,7 @@ ladder; the same per-mineral read on the eruption benchmark's rows.
 
 ## 2026-10-06 -- The two standing goals: a scaling pair, and breaking past the ceilings
 
-**Owner, 2026-10-06.** Two goals govern the generator work from here, and
+**2026-10-06.** Two goals govern the generator work from here, and
 every read is judged by what it does for them. A summary of the day's
 discussion follows in a later entry.
 
@@ -8145,13 +8126,13 @@ result. A policy that beats the norm with no ladder behind it is a better
 simulator read with no model in it. The headline needs the policy to
 raise the ceiling and the ladder to show a head reaching it.
 
-**Rulings during the discussion (owner, 2026-10-06).**
+**Rulings (2026-10-06).**
 - Fractional crystallization is explored on both benchmarks (#83 for the
   plutonic modes, #84 for the eruption rocks), done properly: the Stage A
   protocol with the recipe changed and nothing else, no subset, no
   preliminary check of whether it should run, and no gate written before
-  the read. The owner considers it increasingly important to the scaling
-  problem as a whole and wants it soon.
+  the read. It is increasingly important to the scaling
+  problem as a whole and is prioritized.
 - Before it, the seven-mineral ladder read on the kept Stage A rows is
   worth doing: per draw, where each mineral's mass peaks along the path,
   how much of the peak is left at 10% melt, and what grows as it declines,
@@ -8195,7 +8176,7 @@ was traced to cross-validation, not the 68 rocks.
   forward: before a number becomes a claim, say what each side of it
   conditions on and read it per mineral.
 
-**The plan before Stage B** (owner, 2026-10-06; revised as results come
+**The plan before Stage B** (2026-10-06; revised as results come
 in, not fixed):
 1. The seven-mineral ladder read on the kept equilibrium rows of both
    benchmarks: per draw, where each mineral's mass peaks, how much of the
@@ -8212,7 +8193,7 @@ in, not fixed):
    cross-fitted read and baselines, no gate before the read. Tooling: the
    FC pipeline of earlier iterations (git history, `scripts/production/`
    at cab99fb; ADR 005) with PetThermoTools, installed in the env from
-   the owner's clone. Prerequisites: PetThermoTools' Julia environment
+   a local clone. Prerequisites: PetThermoTools' Julia environment
    carries MAGEMin_C 2.0.5 against the production Manifest's 2.1.9, so the
    two recipes are aligned on one MAGEMin version before anything is
    generated; the OpenMP guard; ADR 005's worker-recycling workaround for
@@ -8239,15 +8220,14 @@ ladder has to beat.
 
 Three days on the first two steps of the plan of 2026-10-06, worked in
 parallel. The ladder read is done and committed; the fractional generator
-is built, smoked on both benchmarks and handed to the owner to launch.
+is built, smoked on both benchmarks and ready to launch.
 
 **Environment (2026-10-06).** PetThermoTools' Julia environment
 (`~/.petthermotools_julia_env`) carried MAGEMin_C 2.0.5 on MAGEMin_jll
 1.8.5 against production's 2.1.9 on 1.9.3. Updated to 2.1.9 (MAGEMinCalc
 0.6.1 puts no bound on it); MAGEMin_C became a direct dependency, and
 juliapkg and CondaPkg left `pyjuliapkg/` and `.CondaPkg/` beside the
-project files. Backup of the old Project and Manifest in the session's
-scratchpad. Starting Julia from Python on that project
+project files. Starting Julia from Python on that project
 (`PYTHON_JULIAPKG_PROJECT`) rather than activating it after juliacall's own
 base project is what makes it load: the base project's Parsers 3.0 is
 incompatible with CSV's WeakRefStrings, and a package already loaded cannot
@@ -8266,9 +8246,9 @@ rule applied. Reading MAGEMinCalc's `path_main`: the fractionation is a
 fixed-step loop, minimize, record, next bulk the melt's composition, mass
 times the melt fraction, everything else removed including exsolved fluid.
 
-**Decision (owner, 2026-10-08): the driver is a loop of our own, checked
-against PetThermoTools.** "It essentially is like PetThermoTools with more
-capabilities at little cost." ADR 004 amended, CLAUDE.md's settled
+**Decision (2026-10-08): the driver is an in-repo loop, checked
+against PetThermoTools.** The loop is essentially PetThermoTools with more
+capabilities at little cost. ADR 004 amended, CLAUDE.md's settled
 decision reworded. `explorations/generator_reach/run_fractional.jl` runs
 the production runner's per-thread minimization step by step with the
 scheme above, status and G per step, a stop at melt-out, raw phase names,
@@ -8311,10 +8291,10 @@ sealed), per mineral:
   amphibole-to-biotite-plus-quartz reaction down the equilibrium path);
   the hypothesis that real plutons keep the amphibole, now with a number
   it predicts (0.042 against 0.066).
-- Named, not on the ledger: perfect removal is predicted to overshoot on
+- Named, not tracked: perfect removal is predicted to overshoot on
   pyroxene where partial removal would not; the coarse 600 C ladder end
   leaves a fifth of the melt on wet deep draws.
-- Next: the owner launches the fractional run on both benchmarks (about
+- Next: the fractional run on both benchmarks (about
   11 h); then #87 on both recipes' draws, scored by tracking and by
   whether a window makes each mineral form in the right fraction of
   draws at the right amount.
@@ -8361,7 +8341,7 @@ read under the Stage A protocol on the plutonic rocks
   bar at 0.042, now passed by a source for the first time, by 0.003 to
   0.004 with the band on zero; the per-mineral reading as the only one
   that sees any of this (the four-silicate mean moves 0.003).
-- Named, not on the ledger: partial removal as the recipe between the two
+- Named, not tracked: partial removal as the recipe between the two
   (the measured rocks keep amphibole and carry biotite; equilibrium
   converts the first into the second, perfect removal keeps the first and
   starves the second); the 600 C ladder end for wet deep draws; the
@@ -8373,9 +8353,8 @@ read under the Stage A protocol on the plutonic rocks
 
 ## 2026-10-19 -- Benchmark overlap with the pretraining set and the MAGEMin corpus: volcanic 21 of 640, plutonic DS 942 entirely, corpus none
 
-**Q.** A reviewer asked whether the 640 volcanic benchmark rocks were
-excluded from the 787,721-row pretraining set. Are they, and does either
-benchmark overlap the MAGEMin corpus bulks the heads were trained on?
+**Q.** Were the 640 volcanic benchmark rocks excluded from the
+787,721-row pretraining set, and does either benchmark overlap the MAGEMin corpus bulks the heads were trained on?
 
 **Context.** Pretraining (`configs/pretrain/pretrain_allrock_redox.yaml`,
 `BulkChemistryDataset`, unchanged since the `sim2sci-neurips` tag) filters
@@ -8430,3 +8409,97 @@ it is a caveat on every plutonic result so far, #83 included.
 the plutonic metrics on DS 942 split by pretraining membership (58 rocks in
 pretraining test against the 271 in train or val), and compare PP 1793,
 almost untouched by pretraining, against DS 942.
+
+## 2026-10-27 -- The zero-shot corpus-size line filled below 78 compositions: the rise ends by 625, quartz and pyroxene carry it, biotite and olivine run the other way
+
+**Q.** Read zero-shot rather than recalibrated, how does the volcanic
+corpus-size line behave below 78 compositions and between the old sizes,
+per mineral?
+
+**Context.** #85's headline was the recalibrated read, flat on the four
+silicates. The recalibrator is fit on hundreds of measured rocks and does
+much of the work, so zero-shot was ruled the signal for a scaling
+pair (2026-10-27) and the rising regime is characterized here. An
+earlier table from that day mislabelled a feldspar-quartz-pyroxene-amphibole
+mean as the four-silicate mean (0.145 to 0.124 from 78 to 1,250); on the
+project's four silicates the fall is 0.127 to 0.120, and the figure now
+shows the mean of seven only. Sizes 10, 20, 40, 156 and 625 were added to
+the `final224` family, three seeds each, epochs scaled below 78 so every
+head holds 224 gradient steps (`explorations/corpus_scaling/README.md`,
+the section of this date). Nothing in `src/` changed.
+
+**Result** (`explorations/corpus_scaling/results/gradient_steps/zero_shot_scaling_224.png`, val rocks, percent). Mean of
+seven 13.6 at 10 compositions, 12.9 at 40, 12.5 at 625, 12.3 at 10,000:
+the rise ends by about 625. Feldspar falls 20.2 to 17.1 by 40 and wanders;
+amphibole drifts 14.5 to 12.1; quartz and pyroxene worsen from 10 to 40
+and then fall to their plateau by 625 to 1,250, and carry the mean's fall
+past 78. Biotite worsens monotonically 10.0 to 12.1 by 625 on all seeds,
+below the constant forecast's 9.4 everywhere: the equilibrium paths make
+biotite out of amphibole, so the more of the simulator a head learns, the
+more biotite it predicts on rocks whose phenocryst counts do not carry it.
+Olivine is a U (17.8, 13.7 at 40 to 78, above 16 from 1,250) on 13 rocks,
+recorded and not built on. Fe-Ti oxides stay within their seed range and
+never approach the constant forecast's 6.0.
+
+**Struck off and surviving.** Struck off: "corpus size does nothing on
+real rocks" as a blanket statement; it was the recalibrated read, and
+zero-shot the mean falls 1.3 points from 10 to 625. Surviving: the
+plateau, now from 625 rather than 1,250; the per-mineral split, with
+quartz, pyroxene, feldspar and amphibole improving with simulated data and
+biotite and olivine worsening; the oxides as a recipe problem. The
+simulator's own draw mean, read zero-shot on the same rocks, is worse than
+every head on every category (`generator_reach/results/signal.csv`), so
+the heads beat the generator they are trained toward and the simulator is
+no literal ceiling zero-shot.
+
+**Decision.** No slopes fitted until the depth sweep is read. The
+plutonic line (#83 Stage B) follows this with the same figure: volcanic
+pool, both recipes, labels at 30 and 10% melt, 48 draws, 96 rows per
+composition; #90 (partial crystal removal) and #91 (plutonic pool) filed as
+the follow-ups behind it.
+
+**Next.** The depth sweep: the same ten sizes at 56, 224, 896 and 3,584
+gradient steps, one figure per depth and a summary of the mean of seven
+against steps per size, to say how much of the shape belongs to the
+choice of 224. Then the per-rock olivine look if the U survives depth.
+
+## 2026-10-27 -- The 56-step line: shallower heads read better zero-shot at every size, and what that does and does not prove
+
+**Q.** With the depth sweep's first row in, how does the 56-step line
+compare with 224, and why would a less-trained head read better on real
+rocks?
+
+**Context.** The sweep (56, 224, 896 steps on ten sizes and three seeds;
+3,584 dropped as not worth its compute) exists to say how
+much of the corpus-size picture belongs to the choice of 224 steps.
+`results/gradient_steps/zero_shot_scaling_{D}.png`, the locked style.
+
+**Result.** At 56 steps the mean of seven runs 12.2 to 11.3 percent and
+is flat from 40 compositions; at 224, 13.6 to 12.3 and flat from 625.
+Shallower is lower at every size and the rise ends sooner. Olivine's U at
+224 is a depth effect (12.3 flat at 56); biotite rises with size at both
+depths; the oxides at 10 compositions and 56 steps nearly reach the
+constant forecast.
+
+**Reading.** The head learns the simulator, the simulator is biased
+against the phenocryst ruler per mineral, and an under-trained head sits
+between the corpus mean and the simulator, which is closer to the rocks
+for the minerals the simulator gets wrong. Measured support: the depth
+ordering at every size, the simulator's own draw mean worse than every
+head zero-shot, the constant beating every head on biotite and the oxides,
+the recalibrated read reversing the order. Missing: the head's distance
+to the simulator's draw mean against depth, a training-free measurement
+on heads already on disk. Confidence: direction solid; mechanism a
+reading until that figure exists.
+
+**Refinement.** The #83 rationale "a head cannot beat the simulator" is
+a bound on information, shown after recalibration, not on raw zero-shot
+error, which under-training can lower by shrinkage. The plutonic order of
+operations is unchanged.
+
+**Next.** Finish the 896 row; the head-to-simulator distance figure; the
+compute-axis view (MAE against steps times rows, one curve per size); the
+two convergence rules and fixed epochs as the other two protocols, each on
+the locked figure, reported as sensitivity and not as a winner. Beating
+the constant zero-shot on biotite and the oxides is label-side: #84's
+read, #88, #46.
