@@ -60,89 +60,98 @@ julia --project=magemin -e 'using Pkg; Pkg.instantiate()'
 
 ## Pipeline
 
-Stages marked *(runnable here)* execute against files in this snapshot.
-Stages marked *(pre-computed)* involve long computation and ship their
-outputs instead.
+The two production checkpoints are tracked, so stages 2 to 4 can be skipped:
+stage 5 and the tutorial run against them directly.
 
 **1. Tokenize whole-rock chemistry** *(in-package)*. The model reads one
-whole-rock analysis as a set of element tokens (element identity plus amount)
-with an optional iron-redox row; temperature, pressure, and water content are
-never inputs. Tokenizer: `src/cnmineral/data/tokens.py`. The pretraining
+composition as a set of element tokens (element identity plus amount) with an
+optional iron-redox row; temperature, pressure, and water content are never
+inputs. Tokenizer: `src/cnmineral/data/tokens.py`. The pretraining
 compilation (Gard et al. 2019) is a public download.
 
-**2. Pretrain the encoder** *(pre-computed -- ships `epoch_best.pt`)*.
-Masked-element self-supervision over roughly 788,000 compositions spanning
-all rock types.
+**2. Pretrain the encoder** *(trained encoder tracked)*. Masked-element
+self-supervision over roughly 788,000 compositions spanning all rock types.
 
 ```bash
 python scripts/training/pretrain.py --config configs/pretrain/pretrain_allrock_redox.yaml
 ```
 
-**3. Generate simulated labels** *(pre-computed -- ships the excerpt)*. Each
-label pairs one measured composition with the mineral assemblage `MAGEMin`
-computes for it. Sampling several pressure and water conditions per
-composition lets the labels express multiple formation conditions for one
-rock.
+**3. Generate simulated labels** *(needs Julia and MAGEMin)*. Each label pairs
+one measured composition with the mineral assemblage `MAGEMin` computes for
+it. Sampling several pressure and water conditions per composition lets the
+labels express multiple formation conditions for one rock.
 
 ```bash
 python scripts/build/generate_mineralogy_corpus.py --bulks <bulk csvs> --out data/corpus --draws 24
 ```
 
-**4. Train the heads** *(pre-computed -- ships `heads_best.pt`)*. Three heads
-predict distributions over mineral abundances, per-phase compositions, and
-formation conditions from the frozen encoder's representation.
+**4. Train the heads** *(trained heads tracked)*. Three heads predict
+distributions over mineral abundances, per-phase compositions, and formation
+conditions from the frozen encoder's representation.
 
 ```bash
 python scripts/training/joint_heads.py --config configs/heads/joint_heads.yaml
 ```
 
-**5. Evaluate on measured rocks** *(runnable here)*. Scores the shipped model
-against the 640-rock benchmark, zero-shot and recalibrated. The third command
-refits the recalibration layer at each fitting-set size, reproducing the
-paper's few-shot experiment.
+**5. Evaluate on measured rocks**. Evaluates the model on the 640-rock
+volcanic benchmark, zero-shot and with the recalibration layer fit on the
+fitting split. The third command measures how the recalibration layer improves
+with fitting-set size; on `main` it runs on the rebuilt benchmark split, so
+its numbers differ from the paper's.
 
 ```bash
 python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
 python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt --fit-recalibrator matrix
-python figures/src/fit_fewshot_curve.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
+python explorations/real_rock_fewshot/run_curve.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt --select-wd
 ```
 
-**6. Regenerate the paper's figures** *(runnable here)*. Each `fig_*.py`
-redraws one paper figure from the frozen inputs in `figures/data/`. The
-paired `extract_*.py` rebuild those inputs from the artifacts in this
-snapshot (two exceptions read the full simulated corpus and are noted in
-their docstrings).
+## Running the model on your own rocks
 
-```bash
-python figures/src/fig_cohort_card.py
-python figures/src/fig_inference_card.py
-```
+`docs/tutorial/` takes a table of compositions to a per-rock posterior over
+mineralogy and formation conditions, zero-shot and recalibrated, with the
+figure an application would draw. Inference needs no Julia or MAGEMin.
 
-## Checkpoints, data, and figure inputs
+## Reproducing the paper
 
-Everything the runnable stages above read is either in the source tree or
-listed here.
+The [`submission`](https://github.com/matthew-j-liu/phasecast/tree/submission)
+branch and the `sim2sci-camera-ready` release hold the paper state:
+`figures/src/` (one `fig_*.py` per figure, the `extract_*.py` scripts that
+rebuild their inputs, and the `fit_*.py` scripts for the few-shot
+experiment), `figures/data/` (the frozen figure inputs), and
+`data/corpus_excerpt.csv` (one composition's sampled crystallization runs and
+the resulting assemblages).
+
+## Checkpoints and data
 
 | path | contents | size |
 |---|---|---|
 | `checkpoints/pretrain_allrock_redox_seed0/epoch_best.pt` | the pretrained encoder: a plain `torch.save` dict (encoder and optimizer state, training config, loss history) -- load with `cnmineral.training.Checkpoint.load` | 44 MB |
 | `checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt` | the three supervised heads (mineral abundances, phase compositions, formation conditions): state dicts plus their head, loss, and label configs -- load with `JointHeadCheckpoint.load` | 7 MB |
 | `data/real_mineralogy/samples.csv` | benchmark chemistry and metadata: 730 volcanic samples with major oxides, 13 trace elements, and petrographic notes, keyed by source and sample id | 240 KB |
-| `data/real_mineralogy/modes.csv` | the same samples' measured mineral abundances, one row per sample-phase pair, carrying each source's own phase name and its mapping into the vocabulary the model is scored against | 240 KB |
-| `data/corpus_excerpt.csv` | a readable slice of the simulated label corpus: one composition's sampled crystallization runs and the resulting assemblages | few KB |
-| `figures/src/` | one `fig_*.py` per paper figure, the `extract_*.py` scripts that rebuild their inputs from the artifacts above, and the `fit_*.py` scripts that recompute the few-shot experiment | -- |
-| `figures/data/` | the frozen inputs the figure scripts read: one small CSV per figure plus the two few-shot result JSONs | ~700 KB |
+| `data/real_mineralogy/modes.csv` | the same samples' measured mineral abundances, one row per sample-phase pair, carrying each source's own phase name and its mapping into the model's vocabulary | 240 KB |
 
-The benchmark evaluation joins the two CSVs; its headline scores the 640
+The benchmark evaluation joins the two CSVs and evaluates the 640
 least-altered rocks that quantify at least one mineral abundance (724 rocks
-carry both chemistry and modes) -- the cohort every benchmark number in the
-paper refers to. The train/val/test split rosters ship inside the
-package (`src/cnmineral/data/`).
+carry both chemistry and modes). The train, validation and test splits ship
+inside the package (`src/cnmineral/data/`).
 
 Not included: the full simulated corpus (3.5 GB of parquet, regenerable end
 to end from the public compilation via stage 3) and transient run outputs.
 The full corpus will be hosted on MPContribs; the link will appear here once
 the upload is live.
+
+## Repository layout
+
+- `src/cnmineral/`: the package (data and tokenization, models, losses,
+  training, evaluation).
+- `scripts/`: command-line entry points (`build/`, `training/`, `eval/`,
+  `view/`), most driven by a YAML file in `configs/`.
+- `magemin/`: the pinned Julia environment and the MAGEMin driver.
+- `explorations/`: one directory per research question, with its code,
+  findings and committed results.
+- `results/`: headline figures and numbers per model version.
+- `docs/`: the encoder (`encoder.md`), the heads (`heads.md`), architecture
+  decisions (`decisions.md`) and the dated research log (`journal.md`).
 
 ## License and attribution
 
