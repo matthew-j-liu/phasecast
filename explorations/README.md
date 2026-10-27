@@ -29,8 +29,8 @@ isn't held to production standards.
   are committed so the finding persists without a rerun (`results/` under each
   exploration is exempt from the repo-root `results/` ignore). Only
   large/regenerable files (cached latents, study DBs) are gitignored.
-- **Canonical verdict lands in `docs/JOURNAL.md`** (chronological) and an ADR in
-  `docs/decisions/` if it changes a production choice. The exploration dir is the
+- **Canonical verdict lands in `docs/journal.md`** (chronological) and an ADR in
+  `docs/decisions.md` if it changes a production choice. The exploration dir is the
   backing exhibit + repro; cross-link both ways.
 - **Name by responsibility**, not date/number/phase.
 - **Closed studies retire to `archive/`.** Once the question is settled and the

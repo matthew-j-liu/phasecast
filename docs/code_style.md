@@ -40,13 +40,13 @@ are anti-patterns:
 Where session-specific evidence DOES belong:
 
 - `docs/journal.md` -- chronologically anchored by design; "on
-  2026-06-11 we compared 20 vs 40 epochs and got X" reads
+  2026-06-11, 20 vs 40 epochs were compared and gave X" reads
   correctly here forever because it's explicitly a log of what
   happened when.
-- `docs/decisions/NNN_*.md` -- ADRs for binding architectural
-  choices with rationale.
-- `docs/roadmap.md` "Where the system stands" -- explicitly
-  current-state; updates as gates close.
+- `docs/decisions.md` -- ADRs for binding architectural choices
+  with rationale.
+- GitHub issues -- explicitly current-state for each open
+  question; updated as results land.
 - PR descriptions and commit messages.
 
 Production-side comments instead aim for **durable structural

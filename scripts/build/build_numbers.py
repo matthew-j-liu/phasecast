@@ -360,9 +360,9 @@ for name, comment in (
 # recorded table (gate median trace log-R2, igneous-era encoder, 0.839 vs
 # 0.877; reproducible from tag v3.1-logmse-objective)
 emit("encImputeTraceRSqLinearObj", "0.84",
-     "docs/decisions/007_ssl_pretrain_objective.md: linear-space objective")
+     "docs/decisions.md ADR 007: linear-space objective")
 emit("encImputeTraceRSqLogObj", "0.88",
-     "docs/decisions/007_ssl_pretrain_objective.md: standardized log objective")
+     "docs/decisions.md ADR 007: standardized log objective")
 
 # the three heads re-supervised on measured proportions (#53), which differ only
 # in what they are given about a rock: the latent representation, only the

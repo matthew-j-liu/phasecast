@@ -304,18 +304,12 @@ enumerates valid values).
   that directory stay gitignored; the two text files are tracked.
 - [docs/encoder.md](docs/encoder.md) — foundation encoder, value proposition,
   four-axis differentiation, tokenization/data-flow, the three corpora, SSL
-  pretrain mechanic, and the load-bearing code invariant.
+  pretrain mechanic, and the load-bearing code invariant; then the
+  representation scorecard (living, provisional rubric for latent strength,
+  one anchored axis per eval, re-scored each encoder cascade) and the 11
+  capabilities beyond mineralogy (imputation, k-NN, OOD, etc.).
 - [docs/heads.md](docs/heads.md) — the supervised heads + multimodal posterior
   (hurdle ModeHead, CompHead, CondHead, mass-balance, output views, eval).
-- [docs/roadmap.md](docs/roadmap.md) — execution plan after submission:
-  where the system stands, the three thrusts in order (research week,
-  software, crystal-structure pretraining), what is deprioritized, and
-  where the closed tracks' records live.
-- [docs/pretrain_applications.md](docs/pretrain_applications.md) — the 11
-  SSL-encoder capabilities beyond mineralogy (imputation, k-NN, OOD, etc.).
-- [docs/scorecard.md](docs/scorecard.md) — living, provisional rubric for latent
-  representation strength; one anchored axis per eval, status candidate/
-  provisional/locked, re-scored each encoder cascade.
 - [docs/code_style.md](docs/code_style.md) — code conventions and schema
   discipline.
 - [docs/journal.md](docs/journal.md) — append-only chronological research log
@@ -323,9 +317,10 @@ enumerates valid values).
   impersonally: decisions and the evidence for them, no attribution, schedule
   or deliberation narrative (the entries before 2026-10-27 were rewritten once
   to this standard; otherwise the log is append-only).
-- [docs/decisions/](docs/decisions/) — ADRs (001 scope, 002 rejected paths, 003
-  H2O strategy, 004 PetThermoTools for FC, 005 production FC labels, 006 v1 model
-  architecture, 007 SSL pretrain objective, 008 H2O target leak).
+- [docs/decisions.md](docs/decisions.md) — ADRs as numbered sections (001
+  scope, 002 rejected paths, 003 H2O strategy, 004 PetThermoTools for FC, 005
+  production FC labels, 006 v1 model architecture, 007 SSL pretrain objective,
+  008 H2O target leak).
 - [docs/methodology/](docs/methodology/) — technique index source +
   auto-generated index + design doc.
 - [tests/TESTS.md](tests/TESTS.md) — per-test inventory.

@@ -3,7 +3,7 @@
 ## Question
 
 The canonical encoder's pooled latent decodes rock type at qap MLP probe 0.759
-(`docs/scorecard.md`), and that number carries the claim that the latent is
+(the scorecard in `docs/encoder.md`), and that number carries the claim that the latent is
 geologically organized. But gard2019's `qap_name` is a **computed**
 classification derived from LOI-free major-element chemistry (Gard et al. 2019,
 Sect. 4.2/4.4 and Table 3), not an observed petrographic name -- and the encoder
@@ -15,7 +15,7 @@ readings:
   faithful compression recovers it.
 
 The control that separates them is the same probe trained on the **raw assay**.
-`docs/scorecard.md` lists this as the missing ceiling for both the qap and
+The scorecard in `docs/encoder.md` lists this as the missing ceiling for both the qap and
 supergroup decodability rows (`0.100 (random) -> *TBD*`), which #19 supplies.
 This is the classifier analogue of the archived
 [input_knn_ceiling](../archive/input_knn_ceiling/README.md), which answered the

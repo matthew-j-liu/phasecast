@@ -58,8 +58,8 @@ Committed evidence in `results/`: `cloud.png`, `marginals.png`, `nscaling.png`,
 `endpoints.csv`.
 
 **Decision.** Locks open item 1 of
-[ADR 004](../../docs/decisions/004_petthermotools_for_fractional_crystallization.md):
+[ADR 004](../../docs/decisions.md#adr-004):
 `q = Uniform(P[0.5,12] kbar x H2O[0,8] wt%)`, LHS draws with `(P, H2O, q)` stored
 per row, prior deferred to inference via `w = p/q`; small test at N=128, production
 N ~= 48-64. Spec impact on items 2 (near-solidus attrition) and 8 (sample count)
-is recorded in [ADR 004](../../docs/decisions/004_petthermotools_for_fractional_crystallization.md).
+is recorded in [ADR 004](../../docs/decisions.md#adr-004).

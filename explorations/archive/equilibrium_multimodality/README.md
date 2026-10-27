@@ -170,4 +170,4 @@ a user sees depends on `p(H2O)`. State this where the headline is sold.
   `tests/explorations/test_equilibrium_multimodality.py`.
 - Raw MAGEMin JSONL (142,848 points) in `work/` -- gitignored, regenerable via
   `driver.py`.
-- ADR: `docs/decisions/004_*.md` amended 2026-06-30 (volcanic/equilibrium scope).
+- ADR: `docs/decisions.md` ADR 004 amended 2026-06-30 (volcanic/equilibrium scope).

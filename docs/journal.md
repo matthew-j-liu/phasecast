@@ -7,9 +7,10 @@ attribution, schedule or deliberation narrative.
 
 **Where to put what:**
 - *Binding architectural decisions* (hard-to-reverse choices, with alternatives
-  considered and revisit triggers) → `docs/decisions/NNN_topic.md` (ADRs).
+  considered and revisit triggers) → `docs/decisions.md` (ADRs, one numbered
+  section each).
 - *Observations, in-flight reasoning, hypotheses, daily updates* → this file.
-- *Living architecture documents* → `docs/POSITION_C.md` and similar; updated
+- *Living architecture documents* → `docs/encoder.md`, `docs/heads.md`; updated
   in place when the design itself evolves.
 - *Project orientation* → `CLAUDE.md`.
 
@@ -247,7 +248,7 @@ is to be reference-cited in the module docstring.
 Re-run smoke to verify amp/bi presence rises to a learnable level (target
 ~15-30% of arc/dacite/granite samples). Then proceed to model side.
 
-ADR for the binding parts of this decision: `docs/decisions/003_h2o_strategy.md`.
+ADR for the binding parts of this decision: ADR 003 in `docs/decisions.md`.
 
 ---
 
@@ -736,7 +737,7 @@ Investing the integration effort once amortizes over both the experiment
 and potential v1.5/v2 production work. The custom Julia loop saves
 implementation time short-term but doesn't reuse.
 
-See ADR `docs/decisions/004_petthermotools_for_fractional_crystallization.md`.
+See ADR 004 in `docs/decisions.md`.
 
 **Decision rule based on results:**
 - **Median L1 distance < 0.10 across all classes**: subsolidus equilibrium

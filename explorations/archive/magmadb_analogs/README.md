@@ -47,7 +47,7 @@ path with `--magmadb`.
 Use MagmaDB as-is for the shown-not-reweighted analog panel + OOD flag on the
 arc basalt-andesite slice; no larger compilation yet (gated on Track B heads
 existing + a demonstrated case where a panel would have corrected a scenario).
-Verdict recorded in [ADR 004](../../docs/decisions/004_petthermotools_for_fractional_crystallization.md) "Output stance"
+Verdict recorded in [ADR 004](../../docs/decisions.md#adr-004) "Output stance"
 (Output stance).
 
 Artifacts: `results/magmadb_vs_gard.png`, `results/coverage_metrics.json`.
