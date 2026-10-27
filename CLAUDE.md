@@ -77,6 +77,13 @@ tracebacks beats any speed win from parallel workers at this suite size.
   don't re-litigate.
 - **Audits update the codebase as they go.**  The deliverable is a codebase that
   doesn't need the audit document to be understood.
+- **Screens rank; only the full test closes a lever.**  An investigation states
+  its hypothesis and the metrics it will measure, not a pass/fail gate; the gate
+  is written after every metric has been read.  A cheaper screen on another
+  metric may rank candidates (a prior, a recipe, a read point) but never closes
+  one: closing takes the test the scaling-pair work is judged by.  #79's
+  level-only null closed the condition prior before #85 showed level was the
+  wrong metric; #87 re-reads it.
 
 ## Writing code
 
@@ -171,6 +178,12 @@ a vendored padding heuristic.  Full story in [docs/encoder.md](docs/encoder.md).
 - **assemblage** — a row's mineral content (phases + modes).
 - **scenario** — RESERVED for the model's posterior clusters at inference
   (heads.md View 2); never a corpus row.
+- **scaling pair** (added 2026-10-27) — a simulated label convention plus a
+  real measurement whose real-rock error falls with corpus size at fixed
+  training depth, read zero-shot; the target of #74 and its children.
+- **recalibrator** (added 2026-10-27) — the small post-hoc fit on measured
+  rocks, tiers **vector** and **matrix** (matrix is production); never
+  "adapter", which names only the low-rank head-update fit.
 
 ## Settled decisions (don't re-litigate)
 
@@ -194,8 +207,10 @@ don't re-open the question.
   Gaussian/GMM is sufficient; a negative prediction is informative diagnostic, not
   a problem to hide.
 - **Don't pitch a centroid (deterministic) head as the model.**  That's amortized
-  MAGEMin marginalized over T, P, H2O — rejected at inception.  The model must
-  include CondHead for the inverse-inference contribution.
+  MAGEMin marginalized over T, P, H2O — rejected at inception.  CondHead stays
+  in the model for the inverse-inference view, but mineralogy is the target:
+  abundance first, presence judged by its effect on abundance error, and
+  CondHead a rider that never drives a design choice (`docs/heads.md`).
 - **Fractional crystallization drives MAGEMin_C directly through
   `explorations/generator_reach/run_fractional.jl`** (ADR 004, amended
   2026-10-09): MAGEMinCalc's scheme reimplemented in the production Julia
