@@ -12,7 +12,7 @@ from explorations.corpus_scaling.aggregate import (
     last_doubling_deltas,
     point_record,
 )
-from explorations.corpus_scaling.run_ladder import hash_order, point_config
+from explorations.corpus_scaling.run_ladder import hash_order, point_config, write_roster
 
 
 def test_hash_order_deterministic_and_input_order_independent() -> None:
@@ -26,6 +26,15 @@ def test_hash_order_prefixes_nest() -> None:
     ordered = hash_order(list(range(1000)))
     small, large = set(ordered[:100]), set(ordered[:400])
     assert small < large
+
+
+def test_write_roster_writes_the_sorted_md5_prefix_and_nests(tmp_path) -> None:
+    ordered = hash_order(list(range(1000)))
+    rosters = {n: pd.read_csv(write_roster(tmp_path / f"n{n}", ordered, n))["sample_id"].tolist()
+               for n in (10, 20, 40)}
+    assert rosters[10] == sorted(ordered[:10])
+    assert set(rosters[10]) < set(rosters[20]) < set(rosters[40])
+    assert (tmp_path / "n10" / "train_bulk_ids.csv").exists()
 
 
 def test_point_config_overrides_only_the_subset_keys() -> None:
@@ -116,6 +125,10 @@ def test_selected_steps_follows_the_cell_rule() -> None:
     assert selected_steps(ladder, monitor) == batches_per_epoch(78) * 2
     assert batches_per_epoch(78) == 8
     assert batches_per_epoch(10000) == 932
+    # 10 compositions fill one 1,024-row batch, so an epoch is one step
+    assert batches_per_epoch(10) == 1
+    assert selected_steps(dict(series="final", n_bulks=10, rule="final"), monitor) == 4
+    assert selected_steps(dict(series="final", n_bulks=40, rule="final"), monitor) == 4 * 4
 
 
 def _rows() -> pd.DataFrame:
@@ -144,6 +157,51 @@ def test_aggregate_spans_seeds_and_line_prefers_final_cells() -> None:
     assert curve.n_bulks.tolist() == [78, 312, 10000]
     assert curve.series.tolist() == ["final", "grid", "grid"]
     assert curve.mae_mean_mean.tolist()[0] == 0.12
+
+
+def test_zero_shot_figure_aggregates_the_224_step_cells_per_size(tmp_path) -> None:
+    from explorations.corpus_scaling.fig_zero_shot_scaling import PANELS, load_line
+    cats = ("fsp", "px", "amp", "bi", "ol", "opq", "q")
+    assert set(PANELS) == set(cats) | {"mean7"}
+
+    def row(n, seed, series="final", tag=None):
+        r = dict(series=series, n_bulks=n, depth=224, seed=seed, tag=tag or f"final224_n{n}_s{seed}")
+        r.update({f"val_mae_{g}": v for g, v in zip(cats, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7))})
+        return r
+    df = pd.DataFrame([row(78, 0), row(78, 1), row(312, 0), row(312, 0, "grid", "depth224_n312"),
+                       row(10000, 0, "corpus val", "joint_heads_allrock_tuned_seed0")])
+    df.loc[1, "val_mae_fsp"] = 0.3
+    df.to_csv(tmp_path / "ladder.csv", index=False)
+    agg = load_line(224, tmp_path / "ladder.csv")
+    assert agg.index.tolist() == [78, 312]
+    assert agg.loc[78, "seeds"] == 2 and agg.loc[312, "seeds"] == 1
+    assert abs(agg.loc[78, "val_mae_fsp_mean"] - 0.2) < 1e-12
+    assert (agg.loc[78, "val_mae_fsp_min"], agg.loc[78, "val_mae_fsp_max"]) == (0.1, 0.3)
+    assert abs(agg.loc[312, "val_mae_mean7_mean"] - 0.4) < 1e-12
+
+
+def test_distance_table_reads_each_basis_against_its_target() -> None:
+    from explorations.corpus_scaling.fig_head_simulator_distance import distance_table
+    rng = np.random.default_rng(0)
+    cats = ("fsp", "px", "amp", "bi", "ol", "opq", "q")
+    numeric = np.ones((4, 7), dtype=bool)
+    numeric[0, 6] = False
+    magnitude = rng.dirichlet(np.ones(7), size=4) * numeric
+    sim = rng.dirichlet(np.ones(7), size=4) * numeric
+    sim[3] = np.nan  # a rock no draw reaches
+    marginal = np.where(np.isfinite(sim), sim, magnitude)
+    d = distance_table(magnitude, marginal, sim, magnitude, numeric)
+    # the marginal read copies the simulator where it exists: zero distance to it
+    assert all(d[f"d_sim_{g}"] == 0.0 for g in cats) and d["d_sim_mean7"] == 0.0
+    # the forced read copies the rocks: zero distance to them on every quantified row
+    assert all(d[f"d_rock_{g}"] == 0.0 for g in cats)
+    # the marginal read against the rocks counts every quantified row, unreached included
+    assert abs(d["d_rock_marginal_fsp"] - np.abs(marginal[:, 0] - magnitude[:, 0]).mean()) < 1e-12
+    assert abs(d["d_rock_marginal_q"] - np.abs(marginal[1:, 6] - magnitude[1:, 6]).mean()) < 1e-12
+    assert abs(d["d_rock_marginal_mean7"] - np.mean([d[f"d_rock_marginal_{g}"] for g in cats])) < 1e-12
+    # against the simulator only the reached rows count
+    d = distance_table(magnitude, magnitude, sim, magnitude, numeric)
+    assert abs(d["d_sim_fsp"] - np.abs(magnitude[:3, 0] - sim[:3, 0]).mean()) < 1e-12
 
 
 def test_truncated_loader_cuts_only_shuffled_epochs() -> None:

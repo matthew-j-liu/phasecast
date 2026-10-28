@@ -53,6 +53,15 @@ def hash_order(sample_ids: list[int]) -> list[int]:
     )
 
 
+def write_roster(ckpt_dir: Path, ordered_ids: list[int], n_bulks: int) -> Path:
+    """The first `n_bulks` ids of the md5 order, written sorted as the
+    training config's `train_bulk_ids` file beside that point's checkpoint."""
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    roster_path = ckpt_dir / "train_bulk_ids.csv"
+    pd.DataFrame({"sample_id": sorted(ordered_ids[:n_bulks])}).to_csv(roster_path, index=False)
+    return roster_path
+
+
 def point_config(base: dict, tag: str, roster_path: Path | None,
                  draw_limit: int | None, seed: int) -> dict:
     config = dict(base)
@@ -79,11 +88,7 @@ def run_point(base: dict, tag: str, ordered_ids: list[int],
 
     roster_path = None
     if n_bulks is not None and n_bulks < len(ordered_ids):
-        roster_path = ckpt_dir / "train_bulk_ids.csv"
-        ckpt_dir.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame({"sample_id": sorted(ordered_ids[:n_bulks])}).to_csv(
-            roster_path, index=False
-        )
+        roster_path = write_roster(ckpt_dir, ordered_ids, n_bulks)
 
     if ckpt_path.exists():
         print(f"{tag}: checkpoint exists, skipping train")
@@ -112,11 +117,22 @@ def main() -> None:
         "--seed", type=int, default=0,
         help="training seed; nonzero appends _seed{N} to the point tags",
     )
+    parser.add_argument(
+        "--rosters-only", action="store_true",
+        help="write the nested roster of each --points size and stop; "
+             "run_variant.py trains fixed-depth cells on them",
+    )
     args = parser.parse_args()
 
     with open(BASE_CONFIG) as f:
         base = yaml.safe_load(f)
     ordered_ids = hash_order(pd.read_csv(TRAIN_BULKS)["sample_id"].tolist())
+
+    if args.rosters_only:
+        for n in args.points.split(","):
+            path = write_roster(CHECKPOINTS / f"{TAG_PREFIX}_n{int(n)}", ordered_ids, int(n))
+            print(f"{path}: {int(n)} compositions")
+        return
 
     suffix = f"_seed{args.seed}" if args.seed else ""
     if args.draws:

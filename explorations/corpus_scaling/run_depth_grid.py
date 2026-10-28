@@ -56,8 +56,8 @@ from cnmineral.training.real_rock_recalibrator import (
 from explorations.prior_search.run_prior_screen import OTHERS, SILICATES
 
 RESULTS = Path(__file__).resolve().parent / "results"
-SIZES = (78, 312, 1250, 5000, 10000)
-DEPTHS = (24, 56, 112, 224, 448)
+SIZES = (10, 20, 40, 78, 156, 312, 625, 1250, 5000, 10000)
+DEPTHS = (24, 56, 112, 224, 448, 896)
 PRODUCTION = "joint_heads_allrock_tuned_seed0"
 LADDER = {n: f"corpus_scaling_allrock_n{n}" for n in (78, 156, 312, 625, 1250, 2500, 5000)}
 LADDER[10000] = PRODUCTION
@@ -112,7 +112,10 @@ def selected_steps(cell, monitor):
         epoch = int(np.argmin(selection_series(monitor)["mode"])) + 1
     else:
         epoch = int(np.argmin(monitor[cell["rule"]])) + 1
-    per_epoch = batches_per_epoch(cell["n_bulks"]) if cell["series"] == "corpus val" else 8
+    # below 78 compositions an epoch holds fewer than the 8 truncated batches
+    per_epoch = batches_per_epoch(cell["n_bulks"])
+    if cell["series"] != "corpus val":
+        per_epoch = min(8, per_epoch)
     return per_epoch * epoch
 
 
@@ -351,7 +354,7 @@ def draw(agg, reference):
         ax.set_xscale("log", base=2)
         ax.set_xticks(SIZES, [f"{n:,}" for n in SIZES], fontsize=8)
         ax.minorticks_off()
-        ax.set_xlim(55, 14000)  # errorbar on a log axis wrecks the autoscale window
+        ax.set_xlim(7, 14000)  # errorbar on a log axis wrecks the autoscale window
         ax.tick_params(axis="y", labelsize=8)
         ax.grid(alpha=0.3)
 
