@@ -1,17 +1,21 @@
 """The zero-shot corpus-size line per mineral category in the paper's
 style: the last-epoch heads at one fitting depth
-(`final{D}_allrock_n{N}[_seed{K}]`, `--depth D`, 224 by default) read on
-the volcanic val rocks, from `results/depth_ladder.csv`. Eight
-panels grouped by mineral family (framework, anhydrous mafic, hydrous,
-oxides) and the mean of seven. No reference lines and no fitted slopes; the
-curves are read by eye first.
+(`final{D}_allrock_n{N}[_seed{K}]`, `--depth D`, 224 by default) read on a
+benchmark's train and val rocks, from `results/zero_shot_line_{benchmark}.csv`
+(`run_zero_shot_line.py`). Eight panels grouped by mineral family
+(framework, anhydrous mafic, hydrous, oxides) and the mean of seven. No
+reference lines and no fitted slopes; the curves are read by eye first. On
+the plutonic benchmark a second figure draws the line per pretraining group.
 
-  python explorations/corpus_scaling/fig_zero_shot_scaling.py --depth 224
+  python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark volcanic --depth 224
+  python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark plutonic --depth 224
 
-Writes `results/gradient_steps/zero_shot_scaling_{D}.png` and `.pdf`. The looks come from
-`paper/figures/src/style.py` (gitignored on main), imported at draw time.
-The layout and sizes below are the locked style for data-scaling
-plots (2026-10-27); the plutonic line and the per-depth copies reuse them.
+Writes `results/gradient_steps/zero_shot_scaling_{D}.png` and `.pdf` for the
+volcanic benchmark, `zero_shot_scaling_plutonic_{D}` and
+`zero_shot_scaling_plutonic_{D}_pretraining` for the plutonic one. The looks
+come from `paper/figures/src/style.py` (gitignored on main), imported at
+draw time. The layout and sizes below are the locked style for data-scaling
+plots (2026-10-27); every per-benchmark and per-depth copy reuses them.
 """
 
 import argparse
@@ -28,8 +32,6 @@ from matplotlib.lines import Line2D
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from cnmineral.data.phase_vocab import GROUPS
-
 RESULTS = Path(__file__).resolve().parent / "results"
 STYLE_DIR = REPO / "paper" / "figures" / "src"
 
@@ -39,25 +41,20 @@ PANELS = ("fsp", "q", "px", "ol", "amp", "bi", "opq", "mean7")
 LABELS = {"fsp": "Feldspar", "q": "Quartz", "px": "Pyroxene", "ol": "Olivine",
           "amp": "Amphibole", "bi": "Biotite", "opq": "Fe-Ti oxides", "mean7": "Mean of seven"}
 MIN_SPAN = 3.0  # percentage points of y range per panel
+PRETRAINING_LABELS = {"ds942_seen": "DS 942, seen in pretraining", "ds942_held_out": "DS 942, held out",
+                      "pp1793": "PP 1793"}
 
 
-def with_mean7(df, prefix):
-    """Adds the seven-category mean of `{prefix}_mae_{g}` per row, the mean
-    of the per-category errors as `share_slopes` reads them."""
-    out = df.copy()
-    out[f"{prefix}_mae_mean7"] = out[[f"{prefix}_mae_{g}" for g in GROUPS]].mean(axis=1)
-    return out
-
-
-def load_line(depth, csv=RESULTS / "depth_ladder.csv"):
-    """Seed mean, min and max per corpus size of the last-epoch heads'
-    zero-shot val share error (`val_mae_*`) at `depth` gradient steps."""
-    df = with_mean7(pd.read_csv(csv), "val")
-    cols = [f"val_mae_{c}" for c in PANELS]
-    cells = df[(df.series == "final") & (df.depth.astype(str) == str(depth))]
+def load_line(depth, benchmark="volcanic", group="all", csv=None):
+    """Seed mean, min and max per corpus size of the heads' zero-shot share
+    error (`mae_*`) on one rock group at `depth` gradient steps."""
+    df = pd.read_csv(csv or RESULTS / f"zero_shot_line_{benchmark}.csv")
+    cols = [f"mae_{c}" for c in PANELS]
+    cells = df[(df.depth == depth) & (df.group == group)]
     agg = cells.groupby("n_bulks")[cols].agg(["mean", "min", "max"])
     agg.columns = [f"{a}_{b}" for a, b in agg.columns]
     agg["seeds"] = cells.groupby("n_bulks").size()
+    agg["n_rocks"] = cells.groupby("n_bulks")["n_rocks"].first()
     return agg.sort_index()
 
 
@@ -98,25 +95,27 @@ def finish_panel(ax, sizes, title, style):
     ax.xaxis.set_minor_locator(plt.NullLocator())
 
 
-def draw(agg, depth, out=None):
-    out = out or RESULTS / "gradient_steps" / f"zero_shot_scaling_{depth}"
+def plot_lines(lines, title, out):
+    """`lines` maps a legend label to (aggregated line, colour key, or None
+    for the per-panel default); one curve per entry in every panel."""
     out.parent.mkdir(exist_ok=True)
     style, spec = setup_style()
-    line, mean_line = style.CIVIDIS[2], style.CIVIDIS[9]
-    sizes = [int(n) for n in agg.index]
+    sizes = sorted({int(n) for agg, _ in lines.values() for n in agg.index})
     fig, axes = panel_grid(style)
     for i, (ax, c) in enumerate(zip(axes.ravel(), PANELS)):
-        m = 100 * agg[f"val_mae_{c}_mean"]
-        ax.errorbar(sizes, m, yerr=[m - 100 * agg[f"val_mae_{c}_min"], 100 * agg[f"val_mae_{c}_max"] - m],
-                    fmt="-", marker="o", color=mean_line if c == "mean7" else line,
-                    ms=3.5, elinewidth=0.9, capsize=1.5)
+        for agg, color in lines.values():
+            color = color or (style.CIVIDIS[9] if c == "mean7" else style.CIVIDIS[2])
+            ns = [int(n) for n in agg.index]
+            m = 100 * agg[f"mae_{c}_mean"]
+            ax.errorbar(ns, m, yerr=[m - 100 * agg[f"mae_{c}_min"], 100 * agg[f"mae_{c}_max"] - m],
+                        fmt="-", marker="o", color=color, ms=3.5, elinewidth=0.9, capsize=1.5)
         finish_panel(ax, sizes, f"({chr(97 + i)}) {LABELS[c]}", style)
-    fig.suptitle("Zero-shot predictions on validation rocks (volcanic)", y=0.995, fontsize=spec["label"] + 2)
+    fig.suptitle(title, y=0.995, fontsize=spec["label"] + 2)
     fig.supxlabel("Simulated compositions in the training corpus", y=0.085, fontsize=spec["label"])
     fig.supylabel("Abundance MAE (%)", x=0.012, fontsize=spec["label"])
-    fig.legend(handles=[Line2D([], [], color=line, marker="o", ms=3.5,
-                               label=f"Head at {depth} gradient steps; bars span three training seeds")],
-               loc="lower center", bbox_to_anchor=(0.53, 0.0), handlelength=2.6)
+    fig.legend(handles=[Line2D([], [], color=color or style.CIVIDIS[2], marker="o", ms=3.5, label=label)
+                        for label, (_, color) in lines.items()],
+               loc="lower center", bbox_to_anchor=(0.53, 0.0), ncol=len(lines), handlelength=2.6)
     fig.savefig(out.with_suffix(".png"), dpi=200)
     fig.savefig(out.with_suffix(".pdf"))
     plt.close(fig)
@@ -125,13 +124,27 @@ def draw(agg, depth, out=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--benchmark", choices=("volcanic", "plutonic"), default="volcanic")
     parser.add_argument("--depth", type=int, default=224, help="gradient steps of the line to draw")
     args = parser.parse_args()
-    agg = load_line(args.depth)
-    print(f"{args.depth} steps, sizes and seeds:", dict(agg["seeds"]))
+    agg = load_line(args.depth, args.benchmark)
+    stem = "zero_shot_scaling" if args.benchmark == "volcanic" else "zero_shot_scaling_plutonic"
+    print(f"{args.benchmark}, {args.depth} steps, {int(agg['n_rocks'].iloc[0])} rocks, seeds:", dict(agg["seeds"]))
     print("mean of seven, zero-shot by size:",
-          {int(n): round(v, 4) for n, v in agg["val_mae_mean7_mean"].items()})
-    print("wrote", draw(agg, args.depth))
+          {int(n): round(v, 4) for n, v in agg["mae_mean7_mean"].items()})
+    title = f"Zero-shot predictions on train and validation rocks ({args.benchmark})"
+    label = f"Head at {args.depth} gradient steps; bars span three training seeds"
+    print("wrote", plot_lines({label: (agg, None)}, title,
+                              RESULTS / "gradient_steps" / f"{stem}_{args.depth}"))
+    if args.benchmark == "plutonic":
+        style, _ = setup_style()
+        colors = dict(zip(PRETRAINING_LABELS, (style.CIVIDIS[2], style.CIVIDIS[6], style.CIVIDIS[9])))
+        lines = {}
+        for group, name in PRETRAINING_LABELS.items():
+            g = load_line(args.depth, "plutonic", group)
+            lines[f"{name} ({int(g['n_rocks'].iloc[0])} rocks)"] = (g, colors[group])
+        print("wrote", plot_lines(lines, f"Zero-shot by pretraining membership (plutonic, {args.depth} steps)",
+                                  RESULTS / "gradient_steps" / f"{stem}_{args.depth}_pretraining"))
 
 
 if __name__ == "__main__":

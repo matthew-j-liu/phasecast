@@ -3,7 +3,8 @@
 Locks the pure pieces: the md5 roster order (deterministic, input-order
 independent, prefixes nest), the per-point config overrides, tag parsing into
 axis coordinates, the last-doubling delta table, and the depth grid's cell
-rules, share metrics and share-error slopes. The ladder orchestrator
+rules, share metrics and share-error slopes; the zero-shot line's
+per-group aggregation, pretraining match and membership rule. The ladder orchestrator
 needs real checkpoints, so it is exercised by the CLI run, not here.
 """
 
@@ -159,25 +160,64 @@ def test_aggregate_spans_seeds_and_line_prefers_final_cells() -> None:
     assert curve.mae_mean_mean.tolist()[0] == 0.12
 
 
-def test_zero_shot_figure_aggregates_the_224_step_cells_per_size(tmp_path) -> None:
+def test_zero_shot_figure_aggregates_one_group_at_one_depth_per_size(tmp_path) -> None:
     from explorations.corpus_scaling.fig_zero_shot_scaling import PANELS, load_line
     cats = ("fsp", "px", "amp", "bi", "ol", "opq", "q")
     assert set(PANELS) == set(cats) | {"mean7"}
 
-    def row(n, seed, series="final", tag=None):
-        r = dict(series=series, n_bulks=n, depth=224, seed=seed, tag=tag or f"final224_n{n}_s{seed}")
-        r.update({f"val_mae_{g}": v for g, v in zip(cats, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7))})
+    def row(n, seed, depth=224, group="all"):
+        r = dict(benchmark="plutonic", group=group, depth=depth, n_bulks=n, seed=seed,
+                 tag=f"final{depth}_allrock_n{n}", n_rocks=40)
+        r.update({f"mae_{g}": v for g, v in zip(cats, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7))})
+        r["mae_mean7"] = 0.4
         return r
-    df = pd.DataFrame([row(78, 0), row(78, 1), row(312, 0), row(312, 0, "grid", "depth224_n312"),
-                       row(10000, 0, "corpus val", "joint_heads_allrock_tuned_seed0")])
-    df.loc[1, "val_mae_fsp"] = 0.3
-    df.to_csv(tmp_path / "ladder.csv", index=False)
-    agg = load_line(224, tmp_path / "ladder.csv")
+    df = pd.DataFrame([row(78, 0), row(78, 1), row(312, 0), row(312, 0, depth=56),
+                       row(312, 1, group="pp1793")])
+    df.loc[1, "mae_fsp"] = 0.3
+    df.to_csv(tmp_path / "line.csv", index=False)
+    agg = load_line(224, csv=tmp_path / "line.csv")
     assert agg.index.tolist() == [78, 312]
     assert agg.loc[78, "seeds"] == 2 and agg.loc[312, "seeds"] == 1
-    assert abs(agg.loc[78, "val_mae_fsp_mean"] - 0.2) < 1e-12
-    assert (agg.loc[78, "val_mae_fsp_min"], agg.loc[78, "val_mae_fsp_max"]) == (0.1, 0.3)
-    assert abs(agg.loc[312, "val_mae_mean7_mean"] - 0.4) < 1e-12
+    assert abs(agg.loc[78, "mae_fsp_mean"] - 0.2) < 1e-12
+    assert (agg.loc[78, "mae_fsp_min"], agg.loc[78, "mae_fsp_max"]) == (0.1, 0.3)
+    assert abs(agg.loc[312, "mae_mean7_mean"] - 0.4) < 1e-12 and agg.loc[312, "n_rocks"] == 40
+    assert load_line(224, group="pp1793", csv=tmp_path / "line.csv").index.tolist() == [312]
+
+
+def test_pretraining_match_renormalizes_iron_and_takes_every_copy_within_tolerance() -> None:
+    from explorations.corpus_scaling import run_zero_shot_line as z
+    base = dict(sio2=70.0, tio2=0.3, al2o3=15.0, mgo=1.0, cao=2.5, na2o=4.0, k2o=3.5)
+    rock = pd.DataFrame([dict(base, feo_tot=np.nan, fe2o3_tot=2.0)])
+    # the same analysis reported 2% higher (a raw total), with its iron split into FeO
+    # and Fe2O3; a second copy; a near-miss about 0.06 wt% off in silica after renormalizing; an empty row
+    fe = 2.0 * z.FE2O3_TO_FEO_MASS
+    copy = {k: 1.02 * v for k, v in base.items()}
+    pool = pd.DataFrame([
+        dict(copy, feo=1.02 * fe / 2, fe2o3=1.02 / 2 * 2.0, feo_tot=np.nan, fe2o3_tot=np.nan),
+        dict(copy, feo=np.nan, fe2o3=np.nan, feo_tot=1.02 * fe, fe2o3_tot=np.nan),
+        dict(base, sio2=70.0 + 0.2, feo=np.nan, fe2o3=np.nan, feo_tot=fe, fe2o3_tot=np.nan),
+        dict({k: np.nan for k in base}, feo=np.nan, fe2o3=np.nan, feo_tot=np.nan, fe2o3_tot=np.nan)])
+    hits, dist = z.match(z.renormalized_majors(rock), z.renormalized_majors(pool))
+    assert sorted(hits[0].tolist()) == [0, 1] and dist[0] < 1e-9
+    ids = [np.array([11, 12]), np.array([13]), np.array([], dtype=int)]
+    assert z.membership_status(ids, test_ids=[13, 12]).tolist() == ["seen", "held_out", "absent"]
+    assert z.membership_status(ids, test_ids=[11, 12, 13]).tolist() == ["held_out", "held_out", "absent"]
+
+
+def test_group_metrics_read_each_rock_group_on_its_own_rows() -> None:
+    from explorations.corpus_scaling.run_zero_shot_line import group_metrics
+    from explorations.corpus_scaling.run_depth_grid import share_metrics, with_means
+    rng = np.random.default_rng(0)
+    magnitude, share = rng.dirichlet(np.ones(7), 12), rng.dirichlet(np.ones(7), 12)
+    numeric = rng.random((12, 7)) > 0.3
+    groups = {"all": np.ones(12, dtype=bool), "first": np.arange(12) < 5}
+    out = group_metrics(share, magnitude, numeric, groups)
+    for name, m in groups.items():
+        expected = with_means(share_metrics(share[m], magnitude[m], numeric[m])[0])
+        assert np.allclose([out[name][f"mae_{k}"] for k in ("fsp", "px", "amp", "bi", "ol", "opq", "q",
+                                                              "silicate", "other", "mean7")],
+                           expected, equal_nan=True)
+        assert out[name]["n_rocks"] == int(m.sum()) and out[name]["n_fsp"] == int(numeric[m, 0].sum())
 
 
 def test_distance_table_reads_each_basis_against_its_target() -> None:
