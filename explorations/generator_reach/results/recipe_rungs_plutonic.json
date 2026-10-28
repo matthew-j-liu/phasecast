@@ -1,0 +1,143 @@
+{
+ "settings": {
+  "benchmark": "plutonic",
+  "rocks": 404,
+  "units": 61,
+  "splits": [
+   "train",
+   "val"
+  ],
+  "test": "sealed",
+  "reads": [
+   "90",
+   "80",
+   "70",
+   "60",
+   "50",
+   "40",
+   "30",
+   "20",
+   "10",
+   "5",
+   "last",
+   "50+30"
+  ],
+  "head": "joint_heads_allrock_tuned_seed0",
+  "presence_cutoff": 0.001,
+  "n_boot": 2000,
+  "bootstrap_seed": 0,
+  "tables": {
+   "equilibrium": "ladder",
+   "fractional": "pile"
+  }
+ },
+ "draws": {
+  "90": {
+   "equilibrium": 73854,
+   "fractional": 73851,
+   "matched": 73851
+  },
+  "80": {
+   "equilibrium": 73854,
+   "fractional": 73844,
+   "matched": 73844
+  },
+  "70": {
+   "equilibrium": 73854,
+   "fractional": 73837,
+   "matched": 73837
+  },
+  "60": {
+   "equilibrium": 73854,
+   "fractional": 73822,
+   "matched": 73822
+  },
+  "50": {
+   "equilibrium": 73854,
+   "fractional": 73721,
+   "matched": 73721
+  },
+  "40": {
+   "equilibrium": 73854,
+   "fractional": 72529,
+   "matched": 72529
+  },
+  "30": {
+   "equilibrium": 73854,
+   "fractional": 70675,
+   "matched": 70675
+  },
+  "20": {
+   "equilibrium": 73854,
+   "fractional": 68206,
+   "matched": 68206
+  },
+  "10": {
+   "equilibrium": 73854,
+   "fractional": 65296,
+   "matched": 65296
+  },
+  "5": {
+   "equilibrium": 73762,
+   "fractional": 63744,
+   "matched": 63720
+  },
+  "last": {
+   "equilibrium": 73854,
+   "fractional": 73854,
+   "matched": 73854
+  },
+  "50+30": {
+   "equilibrium": 73854,
+   "fractional": 70675,
+   "matched": 70675
+  }
+ },
+ "dropped_rocks": [],
+ "lowest_mean7_fraction": {
+  "equilibrium": {
+   "90": 0.0,
+   "80": 0.0,
+   "70": 0.0,
+   "60": 0.0,
+   "50": 0.0,
+   "40": 0.0895,
+   "30": 0.0305,
+   "20": 0.129,
+   "10": 0.0645,
+   "5": 0.002,
+   "last": 0.0,
+   "50+30": 0.6845
+  },
+  "fractional": {
+   "90": 0.0,
+   "80": 0.0,
+   "70": 0.0,
+   "60": 0.0,
+   "50": 0.0,
+   "40": 0.0,
+   "30": 0.0,
+   "20": 0.001,
+   "10": 0.018,
+   "5": 0.7315,
+   "last": 0.2495,
+   "50+30": 0.0
+  }
+ },
+ "runs": {
+  "equilibrium": {
+   "work": "explorations/generator_reach/work/plutonic128",
+   "n_chunks": 6,
+   "n_rocks": 578,
+   "n_draws": 73984,
+   "mean_failed_per_draw": 0.094
+  },
+  "fractional": {
+   "work": "explorations/generator_reach/work/plutonic128_fc",
+   "n_chunks": 6,
+   "n_rocks": 578,
+   "n_draws": 73984,
+   "mean_failed_per_draw": 0.316
+  }
+ }
+}

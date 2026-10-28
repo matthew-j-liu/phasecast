@@ -1,0 +1,156 @@
+{
+ "settings": {
+  "benchmark": "volcanic",
+  "rocks": 477,
+  "units": 85,
+  "splits": [
+   "train",
+   "val"
+  ],
+  "test": "sealed",
+  "reads": [
+   "90",
+   "80",
+   "70",
+   "60",
+   "50",
+   "40",
+   "30",
+   "20",
+   "10",
+   "5",
+   "last",
+   "own_melt",
+   "50+30"
+  ],
+  "head": "joint_heads_allrock_tuned_seed0",
+  "presence_cutoff": 0.001,
+  "n_boot": 2000,
+  "bootstrap_seed": 0,
+  "tables": {
+   "equilibrium": "ladder",
+   "fractional": "pile"
+  }
+ },
+ "draws": {
+  "90": {
+   "equilibrium": 81920,
+   "fractional": 81920,
+   "matched": 81920
+  },
+  "80": {
+   "equilibrium": 81920,
+   "fractional": 81920,
+   "matched": 81920
+  },
+  "70": {
+   "equilibrium": 81920,
+   "fractional": 81920,
+   "matched": 81920
+  },
+  "60": {
+   "equilibrium": 81920,
+   "fractional": 81914,
+   "matched": 81914
+  },
+  "50": {
+   "equilibrium": 81920,
+   "fractional": 81829,
+   "matched": 81829
+  },
+  "40": {
+   "equilibrium": 81920,
+   "fractional": 80603,
+   "matched": 80603
+  },
+  "30": {
+   "equilibrium": 81920,
+   "fractional": 78962,
+   "matched": 78962
+  },
+  "20": {
+   "equilibrium": 81920,
+   "fractional": 76630,
+   "matched": 76630
+  },
+  "10": {
+   "equilibrium": 81920,
+   "fractional": 73504,
+   "matched": 73504
+  },
+  "5": {
+   "equilibrium": 81920,
+   "fractional": 71735,
+   "matched": 71735
+  },
+  "last": {
+   "equilibrium": 81920,
+   "fractional": 81920,
+   "matched": 81920
+  },
+  "own_melt": {
+   "equilibrium": 81664,
+   "fractional": 81592,
+   "matched": 81592
+  },
+  "50+30": {
+   "equilibrium": 81920,
+   "fractional": 78962,
+   "matched": 78962
+  }
+ },
+ "dropped_rocks": [
+  {
+   "key": "dubray_ds764|08BA2",
+   "total_crystals_pct": 100.0
+  }
+ ],
+ "lowest_mean7_fraction": {
+  "equilibrium": {
+   "90": 0.0,
+   "80": 0.0,
+   "70": 0.07,
+   "60": 0.8525,
+   "50": 0.0765,
+   "40": 0.0,
+   "30": 0.0,
+   "20": 0.0,
+   "10": 0.0,
+   "5": 0.0,
+   "last": 0.0,
+   "own_melt": 0.0,
+   "50+30": 0.001
+  },
+  "fractional": {
+   "90": 0.0,
+   "80": 0.0,
+   "70": 0.212,
+   "60": 0.5855,
+   "50": 0.1345,
+   "40": 0.0,
+   "30": 0.0,
+   "20": 0.0,
+   "10": 0.0,
+   "5": 0.002,
+   "last": 0.0,
+   "own_melt": 0.0,
+   "50+30": 0.066
+  }
+ },
+ "runs": {
+  "equilibrium": {
+   "work": "explorations/generator_reach/work/broad128",
+   "n_chunks": 7,
+   "n_rocks": 640,
+   "n_draws": 81920,
+   "mean_failed_per_draw": 0.041
+  },
+  "fractional": {
+   "work": "explorations/generator_reach/work/broad128_fc",
+   "n_chunks": 7,
+   "n_rocks": 640,
+   "n_draws": 81920,
+   "mean_failed_per_draw": 0.234
+  }
+ }
+}
