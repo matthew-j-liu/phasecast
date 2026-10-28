@@ -8483,7 +8483,7 @@ depths; the oxides at 10 compositions and 56 steps nearly reach the
 constant forecast.
 
 **Reading.** The head learns the simulator, the simulator is biased
-against the phenocryst ruler per mineral, and an under-trained head sits
+against the phenocryst measurements per mineral, and an under-trained head sits
 between the corpus mean and the simulator, which is closer to the rocks
 for the minerals the simulator gets wrong. Measured support: the depth
 ordering at every size, the simulator's own draw mean worse than every
@@ -8504,3 +8504,113 @@ two convergence rules and fixed epochs as the other two protocols, each on
 the locked figure, reported as sensitivity and not as a winner. Beating
 the constant zero-shot on biotite and the oxides is label-side: #84's
 read, #88, #46.
+
+## 2026-10-27 -- Correction: the constant forecast does not beat every head on biotite
+
+**Q.** Does the constant forecast beat every head on biotite at every
+corpus size and depth, as the 56-step entry above lists among its measured
+support?
+
+**Result** (`explorations/corpus_scaling/results/depth_ladder.csv`, val
+rocks, `val_mae_bi`). Not at the smallest, shallowest corner: at 10
+compositions and 56 steps the three seeds read 0.090, against the
+constant's 0.094. At 10 compositions and 896 steps they read 0.094 to
+0.098, level with it. Every other size and depth reads 0.098 to 0.124,
+above it. The Fe-Ti oxides stay above the constant's 0.060 everywhere
+(0.062 at 10 compositions and 56 steps, the closest).
+
+**Decision.** The statement holds for the oxides and, on biotite, for
+every cell but that corner. The reading it supported is unchanged: the
+corner is the least-trained head on the least data, the one nearest the
+corpus mean, which is where shrinkage predicts it.
+
+## 2026-10-27 -- Head against simulator on the same basis: the scaling-line heads converge on the simulator's draw mean with compositions and depth, and inherit its error as they do
+
+**Q.** Do the depth sweep's heads move toward the simulator's own
+prediction as corpus size and fitting depth grow, which the reading of
+the per-depth figures assumed?
+
+**Context.** Training-free read of all 90 cells (56, 224, 896 steps x ten
+sizes x three seeds) on the 106 volcanic val rocks. The simulator target
+is its draw mean over the pooled 50 and 30% rung rows under the broad box
+(`generator_reach/results/signal.csv`'s `simulator` row); the head is read
+on the same basis, a marginal over sampled supports, with the
+teacher-forced read kept for the distance to the rocks. Both reproductions
+hold to 1e-16 (`explorations/corpus_scaling/README.md`, "Head against the
+simulator"). A teacher-forced head against a marginal simulator read
+backwards on amphibole and olivine, the mismatch the same-basis rule
+exists for.
+
+**Result** (mean of seven, percent). Distance to the simulator falls with
+corpus size at every depth, 7.7 to 9.4 at 10 compositions to 2.3 to 3.3 at
+10,000, and with depth from a few hundred compositions on (896 below 224
+below 56 at 625 and 10,000). At 10,000 the deeper head is the closer copy
+on biotite (2.9 / 1.5 / 1.2 at 56 / 224 / 896 steps), the oxides, quartz
+and feldspar; amphibole and olivine sit near the simulator at every depth.
+Over the same cells the teacher-forced distance to the rocks rises with
+depth (11.3 / 12.3 / 13.0) and the marginal distance to the rocks climbs
+toward the simulator's own 15.9 (15.2 / 15.6 / 16.2).
+
+**Reading.** The heads converge on the simulator as they see more
+compositions and train longer, and inherit its error against the
+phenocryst measurements as they do. The depth ordering of the per-depth
+figures is the simulator's bias arriving. Qualification: on the marginal
+basis every head is within a point of the simulator from 625 compositions
+up, so part of the shallow head's advantage on the teacher-forced read is
+the basis, not the depth.
+
+**Struck off and surviving.** Struck off: the mechanism as a reading; it
+is measured for biotite, the oxides, quartz and feldspar. Surviving: the
+ceiling bound as a statement about information; the label-side route to
+beating the constant forecast (#84, #88, #46). The distance item of #92 is
+done; its protocol items stay.
+
+**Next.** Point 1 closes with the commit. Then #85's volcanic re-run and
+#84's fractional read, with the same-basis convention stated per source.
+
+## 2026-10-27 -- The 896-step row closes the depth sweep: higher than 224 at every size, the corpus-size effect reduced to one step, the per-mineral directions unchanged
+
+**Q.** With the third depth row in, how much of the corpus-size picture
+belongs to the choice of 224 gradient steps?
+
+**Context.** The sweep is 56, 224 and 896 steps on ten sizes and three
+seeds, last-epoch heads, epochs scaled below 78 compositions so every cell
+holds its step count; the 3,584 row was dropped as not worth its compute
+for this argument. `explorations/corpus_scaling/results/gradient_steps/zero_shot_scaling_{D}.png`,
+one figure per depth in the locked style.
+
+**Result** (mean of seven, val rocks, percent). At 896 steps 14.0 at 10
+compositions, 13.2 to 13.4 from 20 to 1,250, 12.6 at 5,000, 13.0 at
+10,000: above the 224 line at every size, and the size effect is one step
+from 10 to 20 followed by wobble within the seed range. Across the three
+rows the depth ordering holds at every size (56 below 224 below 896), the
+end of the fall moves with depth (40, 625, 20 compositions at 56, 224, 896
+steps), and the per-mineral directions do not: quartz and pyroxene fall,
+biotite rises, the oxides are flat or worse, olivine's U is present at 224
+and deeper at 896, quartz keeps falling with size at every depth (17.6 to
+14.4 at 896).
+
+**Decision.** The shape of the corpus-size line depends on depth through
+its level and where its fall ends; the per-mineral split does not. 224
+stays the reference depth. Train to convergence and fixed epochs as the
+other two protocols, and the compute-axis view, are #92.
+
+## 2026-10-27 -- The simulated corpus holds no plutonic-origin composition
+
+**Q.** Are plutonic rocks in the production corpus, so that the production
+heads were trained toward the plutonic benchmark's rocks as well as the
+volcanic one?
+
+**Result.** Every corpus composition is volcanic-tagged in gard2019's
+`rock_origin`: 9,946 of 9,946 train bulks and 493 of 493 valtest bulks.
+The builder keeps the 25 aphanitic QAPF names
+(`cnmineral.data.volcanic_subset.VOLCANIC_QAP`, ADR 004) and plutonic-named
+rows stay out. By chemistry-derived class the train bulks still include
+about 1,060 granite, 670 granodiorite and 280 quartz monzonite
+compositions, so the granitoid range is covered in composition space; by
+sample origin and label read point (50 and 30% melt against whole-rock
+modes near the solidus) the plutonic benchmark is a transfer the heads were
+never trained toward.
+
+**Decision.** Recorded on #83; a plutonic composition pool is #91, after
+#83 Stage B on the fixed pool.

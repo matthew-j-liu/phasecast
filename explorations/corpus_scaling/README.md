@@ -291,3 +291,204 @@ the simulator side (rung, water and pressure prior, redox, recipe, the
 phenocryst/groundmass split of the label) through #78 and then #79; the
 plutonic branch (#63, #22) is parked until every volcanic pair tried fails
 to scale.
+
+## The zero-shot line per mineral, filled below 78 compositions (2026-10-27)
+
+The #85 read above was the recalibrated one. Its zero-shot columns
+(`val_mae_{g}`, the 106 val rocks) are the signal for a scaling pair, since
+the recalibrator is fit on hundreds of measured rocks and does much of the
+work on its own, so a head trained on very little simulated data looks
+mature after it. Read zero-shot, the 224-step line falls from 78 to about
+1,250 compositions on quartz and pyroxene and is flat after, which left the
+rising regime sampled by two points. This section fills it and draws the
+line per mineral.
+
+### Method
+
+- Five sizes added to the `final224_allrock_n{N}[_seed{K}]` family: 10, 20
+  and 40 (new md5-prefix rosters, `run_ladder.py --rosters-only`) and 156
+  and 625 (rosters already on disk). Three seeds each, last-epoch state,
+  48 draws and the two rungs held.
+- Below 78 compositions an epoch holds fewer than the 8 truncated batches
+  of 1,024 rows (one batch at 10, two at 20, four at 40), so the epoch
+  count scales to hold 224 gradient steps: `--set epochs=224` / `112` /
+  `56`, against 28 from 78 up. A step below 78 compositions therefore sees
+  a partial last batch (960, 896 or 768 rows). `selected_steps` in
+  `run_depth_grid.py` records the step count with the epoch's own batch
+  count, and `SIZES` carries the ten sizes.
+- `fig_zero_shot_scaling.py` draws the line in the paper's style
+  (`paper/figures/src/style.py`, imported at draw time): eight panels
+  grouped by family (feldspar, quartz; pyroxene, olivine; amphibole,
+  biotite; Fe-Ti oxides, mean of seven), seed mean with the seed range as
+  bars, every corpus size labelled. No reference lines and no fitted
+  slopes: the curves are read by eye first and any slope convention is
+  chosen after.
+
+```
+python explorations/corpus_scaling/run_ladder.py --rosters-only --points 10,20,40
+python explorations/corpus_scaling/run_variant.py --tag final224_allrock_n10 \
+    --roster checkpoints/corpus_scaling_allrock_n10/train_bulk_ids.csv \
+    --batches-per-epoch 8 --set epochs=224 --mode-selection final   # and seeds 1, 2; 20/112, 40/56, 156/28, 625/28
+python explorations/corpus_scaling/run_depth_grid.py
+python explorations/corpus_scaling/fig_zero_shot_scaling.py --depth 224   # and 56, 896, 3584
+```
+
+### Result
+
+`results/gradient_steps/zero_shot_scaling_{D}.png`, one per fitting depth; the fifteen new cells all report 224
+steps, the earlier rows reproduce. Zero-shot absolute error on the val
+rocks, in percent, seed means; the constant forecast (train-split mean
+share over each rock's measured list) in parentheses where it matters:
+
+- Mean of seven: 13.6 at 10 compositions, 12.9 at 40, 12.5 at 625, 12.3 at
+  10,000. The rise runs from 10 to about 625 and the plateau starts there,
+  not at 1,250.
+- Feldspar falls hard from 10 to 40 (20.2 to 17.1) and wanders after
+  (16.6 at 10,000). Amphibole drifts down the whole way (14.5 to 12.1),
+  with the widest seed range at the small end.
+- Quartz and pyroxene are not monotone: both worsen from 10 to 40 (quartz
+  17.0 to 18.8, pyroxene 7.5 to 8.8 at 20) and then fall to their plateau
+  by 625 to 1,250 (13.6 and 6.8). These two carry the mean's fall past 78.
+- Biotite worsens monotonically from 10 to 625 (10.0 to 12.1) and stays
+  there, all three seeds agreeing at every size; the constant forecast
+  (9.4) beats every head. The mechanism is on record: the equilibrium paths
+  convert amphibole into biotite as they cool (the seven-mineral ladder
+  read, `generator_reach`), so the simulated labels carry more biotite
+  than du Bray's phenocryst counts. A head with little data predicts
+  something near an average share; each doubling teaches it more of the
+  simulator's biotite, which the phenocryst counts do not carry, until it has learned
+  it fully. Biotite is a category where learning the simulator better
+  hurts the zero-shot read.
+- Olivine is a U: 17.8 at 10, 13.7 at 40 and 78, above 16 from 1,250. The
+  shape holds across seeds but 13 val rocks quantify olivine (seed range
+  four points at 10 compositions), and #78 found olivine recipe-limited,
+  so it is not built on. The per-rock predictions on the 13 rocks across
+  sizes would say whether it is biotite's story with a dip first.
+- Fe-Ti oxides never leave their seed range (7.8 to 8.4) and never
+  approach the constant forecast (6.0): a redox and recipe problem (#46,
+  #78), not a data problem. Their panel autoscales to under one point, so
+  the seed bars look large there and are not.
+
+### Open
+
+The line is compute-matched, not convergence-matched: 224 steps is 24
+passes over a 10-composition corpus and 2% of one pass over 10,000. How
+much of the shape belongs to that choice, across fixed steps, train to
+convergence and fixed epochs, is #92.
+
+### The 56-step line, and why shallower reads better zero-shot
+
+`results/gradient_steps/zero_shot_scaling_56.png`, same ten sizes and three
+seeds. Mean of seven 12.2 at 10 compositions, 11.3 by 40, flat to 10,000,
+against 13.6 to 12.3 at 224 steps: lower at every size, and the rise ends
+by 40 compositions rather than 625. Amphibole and olivine fall from 10 or
+20 to 40 and are flat after; olivine sits near 12.3 against 16 to 17 at
+224 steps, so the U at 224 is a depth effect. Biotite rises again, 9.0 to
+11.4 by 156. Quartz and pyroxene settle by 40 to 312. The oxides are best
+at 10 compositions (6.3, near the constant forecast's 6.0) and flat at 7.3
+after.
+
+The reading, with what is measured and what is not. The head is trained to
+match the simulator, and the simulator is biased against the phenocryst
+measurements in a consistent direction per mineral (the ladder read: biotite made from
+amphibole, olivine overstated). Early in training the head predicts
+something near the corpus mean and moves toward the simulator's per-rock
+labels with depth; for the minerals the simulator gets wrong, the halfway
+point beats the destination. Measured: zero-shot error rises with depth at
+every size (24 to 448 steps, now 56 against 224 on ten sizes); the
+simulator's own draw mean on the benchmark chemistry is worse zero-shot
+than every head on every category (`generator_reach/results/signal.csv`),
+and it is the limit a perfect head reaches; the constant forecast beats
+every head on the oxides and, on biotite, every head but the 10-composition
+one at 56 steps (journal 2026-10-27, the correction entry); seed ranges do
+not widen with depth; the recalibrated read reverses the depth order. Not measured: that the
+heads' predictions move toward the simulator's draw mean as depth grows.
+Until that distance is measured (#92) the sentence "shallower heads are
+worse models of the simulator that sit closer to the rocks" is a reading,
+not a result.
+
+Refinement of the ceiling argument behind #83: "a head cannot beat the
+simulator" holds for information (after recalibration the head and the
+simulator tie), not for raw zero-shot error, where under-training acts as
+shrinkage toward an average that happens to sit closer to the rocks than
+the simulator's bias. The plutonic order of operations stands; the bound
+is not to be stated on zero-shot numbers.
+
+Getting under the constant forecast zero-shot on biotite and the oxides
+is a label-side question, since both move away from the constant as the
+head learns more: the fractional recipe on the volcanic rocks (#84, on
+disk, read after #85), a per-mineral read point (#88), the redox input for
+the oxides (#46), or supervision on measured rocks, which is calibration
+rather than zero-shot. More simulated data or another depth will not do
+it.
+
+Depth sweep (2026-10-27): 56 and 896 steps on three seeds beside
+224; the 3,584 row dropped as not worth its compute for this argument. The
+other two protocols and the compute view are #92.
+
+### The 896-step line
+
+`results/gradient_steps/zero_shot_scaling_896.png`. Mean of seven 14.0 at
+10 compositions, 13.2 to 13.4 from 20 to 1,250, 12.6 at 5,000, 13.0 at
+10,000: higher than the 224-step line at every size, and the size effect
+is a single step from 10 to 20 followed by wobble within the seed range.
+So the depth ordering holds at every corpus size (56 below 224 below 896
+on the mean), and the deeper the head, the less corpus size does. Per
+mineral: quartz still falls (17.6 at 10, 20.0 at 40, 14.4 by 1,250);
+pyroxene drifts 7.9 to 6.7; feldspar drops 19 to 17.5 by 40 and is flat;
+amphibole is flat near 14 to 312 and falls to 12 by 5,000; olivine's U is
+deeper (20.8, 14 at 40 to 78, 18.5 at 10,000); biotite rises 9.5 to 12 by
+625; the oxides are 9.2 at 10 and near 8 to 8.8 after, their worst row.
+The three depth rows together are the sensitivity read: the shape of the
+corpus-size line depends on depth mainly through where its fall ends (40,
+625, 20 compositions at 56, 224, 896 steps) and its level, while the
+per-mineral directions (quartz and pyroxene down, biotite up, oxides flat
+or up) hold at every depth.
+
+### Head against the simulator
+
+`fig_head_simulator_distance.py` -> `results/gradient_steps/head_simulator_distance.{csv,png,pdf}`.
+Every cell of the depth sweep (56, 224, 896 steps x ten sizes x three
+seeds) read on the 106 val rocks against two targets. The simulator target
+is its draw mean over the pooled 50 and 30% rung rows under the broad box,
+exactly `signal.csv`'s `simulator` row; the head is read on the same basis,
+a marginal over assemblages sampled from its own presence probabilities
+(`run_signal.marginal_shares`), because a teacher-forced head against a
+marginal simulator differs on every mineral whose presence varies across
+draws (a first draft did that and amphibole and olivine read backwards).
+The distance to the rocks keeps the teacher-forced read, the per-depth
+figures' number, and reproduces `depth_ladder.csv`'s `val_mae_*` to 1e-16;
+the simulator's own distance to the rocks reproduces `signal.csv` to 1e-16.
+Colour encodes depth on this figure (224 heavy in the dark cividis, 56 and
+896 lighter), the one departure from the locked single-line style.
+
+Mean of seven, val rocks, percent, seed means:
+
+| compositions | to the simulator, 56 / 224 / 896 steps | to the rocks (forced), 56 / 224 / 896 | to the rocks (marginal), 56 / 224 / 896 |
+|---|---|---|---|
+| 10 | 9.4 / 7.7 / 8.1 | 12.2 / 13.6 / 14.0 | 14.0 / 15.1 / 15.4 |
+| 40 | 4.3 / 4.1 / 4.4 | 11.5 / 12.9 / 13.3 | 15.6 / 16.6 / 16.5 |
+| 625 | 2.9 / 2.5 / 2.3 | 11.3 / 12.5 / 13.3 | 15.2 / 15.7 / 15.9 |
+| 10,000 | 3.3 / 2.5 / 2.3 | 11.3 / 12.3 / 13.0 | 15.2 / 15.6 / 16.2 |
+
+The simulator's own distance to the rocks on the same basis is 15.9.
+
+**Result.** The distance to the simulator falls with corpus size at every
+depth (7.7 to 9.4 at 10 compositions, 2.3 to 3.3 at 10,000, most of it by
+312) and, from a few hundred compositions on, with depth (896 below 224
+below 56 at 625 and 10,000). Per mineral at 10,000 compositions the deeper
+head is the closer copy on biotite (2.9 / 1.5 / 1.2), the oxides (3.2 /
+2.7 / 1.9), quartz (4.3 / 3.4 / 2.7) and feldspar (5.1 / 3.4 / 3.0);
+amphibole and olivine sit near the simulator at every depth (about 3 and
+1.5). Over the same cells the teacher-forced distance to the rocks rises
+with depth, and the marginal distance to the rocks climbs toward the
+simulator's own 15.9 (15.2, 15.6, 16.2 at 10,000). So the heads converge
+on the simulator as they see more compositions and train longer, and
+inherit its error against the phenocryst measurements as they do: the
+sentence "shallower heads are worse copies of the simulator that sit
+closer to the rocks" is now a measurement for biotite, the oxides, quartz
+and feldspar, and the depth ordering of the per-depth figures is the
+simulator's bias arriving, not noise. The one qualification: the shallow
+head's advantage on the rocks is also partly a basis effect, since on the
+marginal basis every head sits within a point of the simulator's 15.9 from
+625 compositions up.
