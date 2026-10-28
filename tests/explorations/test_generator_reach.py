@@ -5,8 +5,9 @@ and the signal read's pure pieces (renormalization, the line fit, the
 bootstrap table, the ruler disagreement, and for the plutonic read the rank
 metrics, the CIPW norm and the packaging of a share source for the
 recalibrator); the fractional runner's inputs, parser and chunk writer
-against a fake Julia, the table-aware points builder, and the ladder read's
-pure pieces on a synthetic path.
+against a fake Julia, the table-aware points builder, the ladder read's
+pure pieces on a synthetic path, and the recipe read's rung ends, matched
+draws, read set, bootstrap, norm input and benchmark alignment.
 The real generators need Julia and MAGEMin, so they are exercised by the smoke
 runs, not here."""
 
@@ -791,3 +792,122 @@ def test_ladder_peaks_remaining_gain_budget_and_proxy_on_a_synthetic_path():
     assert amp_all.median_remaining_10 == 0.0 and amp_all.gain_bi == pytest.approx(1.0)
     assert amp_dry.n_carrying == 1 and summary.loc[("amp", "wet")].n_carrying == 0
     assert np.isnan(summary.loc[("px", "all")].median_T_peak)
+
+
+from explorations.generator_reach import run_recipe_rungs
+
+
+def _two_recipe_points():
+    # rock 0: equilibrium brings both draws below 50% melt, fractional only draw 0;
+    # only draw 0 of either recipe gets below 30%. Rock 1 has no fractional run.
+    eq = _points([
+        [0, 0, 1100.0, 0.9, 0.0, 0.1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 1000.0, 0.45, 0.0, 0.3, 0.2, 0, 0, 0, 0, 0, 0],
+        [0, 0, 900.0, 0.25, 0.0, 0.4, 0.3, 0, 0, 0, 0, 0, 0],
+        [0, 1, 1100.0, 0.6, 0.0, 0.2, 0.2, 0, 0, 0, 0, 0, 0],
+        [0, 1, 1000.0, 0.4, 0.0, 0.3, 0.3, 0, 0, 0, 0, 0, 0],
+        [1, 0, 1100.0, 0.3, 0.0, 0.5, 0, 0, 0, 0, 0, 0, 0],
+    ])
+    fc = _points([
+        [0, 0, 1100.0, 0.9, 0.0, 0.1, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 1000.0, 0.45, 0.0, 0.2, 0.3, 0, 0, 0, 0, 0, 0],
+        [0, 0, 900.0, 0.25, 0.0, 0.3, 0.4, 0, 0, 0, 0, 0, 0],
+        [0, 1, 1100.0, 0.6, 0.0, 0.2, 0.2, 0, 0, 0, 0, 0, 0],
+        [0, 1, 1000.0, 0.55, 0.0, 0.3, 0.3, 0, 0, 0, 0, 0, 0],
+    ])
+    magnitude = np.zeros((2, 7))
+    numeric = np.zeros((2, 7), dtype=bool)
+    magnitude[:, :2], numeric[:, :2] = [0.5, 0.5], True
+    return {"equilibrium": run_read.shares_and_distances(eq, magnitude, numeric),
+            "fractional": run_read.shares_and_distances(fc, magnitude, numeric)}
+
+
+def test_rung_ends_take_the_highest_t_point_below_a_scalar_or_per_rock_target():
+    points = _two_recipe_points()["equilibrium"]
+    ends = run_recipe_rungs.rung_ends(points, 0.5).set_index(["bulk", "draw"])["T_celsius"]
+    assert ends.to_dict() == {(0, 0): 1000.0, (0, 1): 1000.0, (1, 0): 1100.0}
+    ends = run_recipe_rungs.rung_ends(points, 0.3).set_index(["bulk", "draw"])["T_celsius"]
+    assert ends.to_dict() == {(0, 0): 900.0}
+    target = pd.Series({0: 0.95, 1: 0.2})
+    ends = run_recipe_rungs.rung_ends(points, target).set_index(["bulk", "draw"])["T_celsius"]
+    assert ends.to_dict() == {(0, 0): 1100.0, (0, 1): 1100.0}
+
+
+def test_recipe_reads_use_only_draws_both_recipes_reach_and_pool_50_and_30():
+    points = _two_recipe_points()
+    reads, counts = run_recipe_rungs.recipe_reads(points, run_recipe_rungs.READS, pd.Series({0: 0.5, 1: 0.95}), 2)
+    assert counts["50"] == {"equilibrium": 3, "fractional": 1, "matched": 1}
+    # the last step is each draw's coolest converged point, on the draws both recipes ran
+    assert counts["last"] == {"equilibrium": 3, "fractional": 2, "matched": 2}
+    last, _ = reads["fractional", "last"]
+    assert last[0, :2] == pytest.approx([(0.3 / 0.7 + 0.5) / 2, (0.4 / 0.7 + 0.5) / 2])
+    assert counts["50+30"] == {"equilibrium": 1, "fractional": 1, "matched": 1}
+    eq50, _ = reads["equilibrium", "50"]
+    assert eq50[0, :2] == pytest.approx([0.6, 0.4])
+    assert np.isnan(eq50[1]).all()
+    fc50, presence = reads["fractional", "50"]
+    assert fc50[0, :2] == pytest.approx([0.4, 0.6]) and presence[0, :2].tolist() == [1.0, 1.0]
+    pooled, _ = reads["equilibrium", "50+30"]
+    assert pooled[0, :2] == pytest.approx([(0.6 + 0.4 / 0.7) / 2, (0.4 + 0.3 / 0.7) / 2])
+    own, _ = reads["equilibrium", "own_melt"]
+    assert np.allclose(own[0], eq50[0])
+    assert np.isnan(reads["equilibrium", "10"][0][0]).all()
+    without = tuple(r for r in run_recipe_rungs.READS if r != "own_melt")
+    reads, counts = run_recipe_rungs.recipe_reads(points, without, None, 2)
+    assert "own_melt" not in counts and ("equilibrium", "own_melt") not in reads
+    assert np.allclose(reads["equilibrium", "50+30"][0], pooled, equal_nan=True)
+
+
+def test_align_places_benchmark_rows_on_the_composition_rows_by_key():
+    comps = pd.DataFrame(dict(bulk=[0, 1, 2], key=["a", "b", "c"]))
+    benchmark = SimpleNamespace(
+        bulk_ids=np.array(["c", "a"]), magnitude=np.full((2, 7), 0.5), numeric=np.ones((2, 7), dtype=bool),
+        presence=np.ones((2, 7)), measured=np.ones((2, 7), dtype=bool), unit=np.array(["u2", "u1"]))
+    benchmark.magnitude[0, 0] = 0.9
+    truth, at = run_recipe_rungs.align(benchmark, comps)
+    assert at.tolist() == [2, 0]
+    assert truth["evaluated"].tolist() == [True, False, True]
+    assert truth["magnitude"][2, 0] == 0.9 and truth["magnitude"][0, 0] == 0.5
+    assert not truth["numeric"][1].any() and truth["unit"].tolist() == ["u1", None, "u2"]
+
+
+def test_read_set_keeps_only_rocks_read_everywhere():
+    full = np.ones((3, 7))
+    gap = full.copy()
+    gap[1, 2] = np.nan
+    reads = {("equilibrium", "50"): (full, full), ("fractional", "50"): (gap, full)}
+    rows = np.array([True, True, False])
+    assert run_recipe_rungs.read_set(reads, rows).tolist() == [True, False, False]
+
+
+def test_bootstrap_bands_contain_the_estimate_and_lowest_fractions_sum_to_one():
+    rng = np.random.default_rng(0)
+    n = 30
+    magnitude = rng.dirichlet(np.ones(7), n)
+    numeric = np.ones((n, 7), dtype=bool)
+    units = np.repeat(np.arange(10), 3)
+    shares = {}
+    for rec, exact in (("equilibrium", "30"), ("fractional", "own_melt")):
+        for i, r in enumerate(run_recipe_rungs.READS):
+            noisy = magnitude + rng.normal(0, 0.02 * (i + 1), magnitude.shape)
+            shares[rec, r] = magnitude if r == exact else run_signal.renormalize(noisy, numeric)
+    est, reps, wins = run_recipe_rungs.bootstrap(shares, magnitude, numeric, units, n_boot=50)
+    for rec, exact in (("equilibrium", "30"), ("fractional", "own_melt")):
+        assert sum(wins[rec].values()) == pytest.approx(1.0) and wins[rec][exact] == 1.0
+    for name, e in est.items():
+        lo, hi = run_recipe_rungs.band(reps[name])
+        assert (lo <= e + 1e-12).all() and (e <= hi + 1e-12).all()
+    presence = {k: (v > 0.1).astype(float) for k, v in shares.items()}
+    tab = run_recipe_rungs.table(shares, presence, est, reps, magnitude, numeric,
+                                 (magnitude > 0.1).astype(float), numeric)
+    row = tab[(tab["source"] == "fractional") & (tab["read"] == "30") & (tab["category"] == "mean7")].iloc[0]
+    m7 = run_recipe_rungs.OUT_LABELS.index("mean7")
+    assert row["fc_minus_eq"] == pytest.approx(est["fractional", "30"][m7] - est["equilibrium", "30"][m7])
+    assert row["fc_minus_eq_lo"] <= row["fc_minus_eq"] <= row["fc_minus_eq_hi"]
+
+
+def test_norm_input_carries_total_iron_as_feo_on_every_row():
+    comps = pd.DataFrame(dict(feo_tot=[5.0, np.nan], fe2o3_tot=[np.nan, 10.0]))
+    out = run_recipe_rungs.norm_input(comps)
+    assert out["feo_tot"].tolist() == pytest.approx([5.0, 10.0 * 2 * 71.844 / 159.69])
+    assert comps["feo_tot"].isna().sum() == 1
