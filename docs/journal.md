@@ -8614,3 +8614,79 @@ never trained toward.
 
 **Decision.** Recorded on #83; a plutonic composition pool is #91, after
 #83 Stage B on the fixed pool.
+
+## 2026-10-28 -- Recipe and read point across melt fractions on both benchmarks: fractional crystallization ties equilibrium at each recipe's best read, and 50+30 stays the corpus label
+
+**Q.** Read without a model or a fit, does fractional crystallization of
+each benchmark rock's own composition land closer to its measured
+mineralogy than equilibrium does (#84), and at which melt fraction should
+a label be read?
+
+**Context.** Both recipes were run on each benchmark rock's own
+composition with identical (P, H2O) draws (`work/broad128`,
+`broad128_fc`, `plutonic128`, `plutonic128_fc`; journal 2026-10-09,
+2026-10-13); the volcanic fractional run was unread. The volcanic rocks
+erupted mostly liquid: phenocryst content median 18%, 7 to 35% from the
+10th to the 90th percentile (`total_crystals_pct`). Recalibration and
+cross-validation were set aside for this read, so nothing is fit and the
+train and val rocks are read together, test sealed: volcanic 477 rocks in
+85 units, plutonic 404 in 61 intrusions. Each recipe is read at 90 to 10%
+and 5% melt, the last converged step, the 50+30 corpus label and, on the
+volcanic rocks, each rock's own melt fraction, on the draws both recipes
+reach at that read. The metric is raw simulator error (absolute share
+error) per mineral category and the mean of seven, with unit-bootstrap
+bands; the production head's marginal read and the CIPW norm are the
+fit-free baselines. `explorations/generator_reach/run_recipe_rungs.py`;
+README, "Recipe and read point across melt fractions".
+
+**Result** (mean of seven, percent).
+- Each recipe's best single rung: volcanic equilibrium 13.28 and
+  fractional 13.26, both at 60% melt; plutonic equilibrium 4.74 at 40% and
+  fractional 4.77 at 5%. The recipes tie at their best reads on both
+  benchmarks.
+- Fractional changes less with depth and leads only where equilibrium has
+  drifted (volcanic 10% melt -1.6 [-2.1, -1.1]; plutonic last step -1.0
+  [-1.7, -0.2]); on the plutonic rocks at 70 to 40% it trails by 0.8 to
+  1.2, its early pile rich in pyroxene.
+- Per mineral the fractional signature repeats on both benchmarks: lower
+  amphibole error, lower quartz error read deep, higher biotite error from
+  70% down. For amphibole and biotite together the measured rocks sit
+  between the recipes, the gap partial crystal removal (#90) targets.
+- Volcanic equilibrium biotite tracks the rocks read shallow (Spearman
+  +0.33 at 90%) and runs backwards at or below 50% (-0.32 for the 50+30
+  label); the production head reads -0.27, its label's ordering. Plutonic
+  equilibrium biotite tracks at +0.51 to +0.53. The backwards biotite
+  belongs to the volcanic phenocrysts.
+- Shapes: plutonic error falls with depth and flattens near the solidus,
+  as whole-rock modes of a crystallized rock should; volcanic error is
+  U-shaped, as phenocrysts should be, with its minimum at 60% melt rather
+  than near the 82% the rocks erupted at. Each rock's own melt fraction
+  reads worse (14.6) than a fixed 60 to 70%.
+- One label for one corpus: equilibrium at 60 reads 13.28 volcanic and
+  6.21 plutonic; at 50+30 13.97 and 4.66; at 50 13.50 and 5.16. Averaged
+  over the two benchmarks, 50+30 (9.32) and 50 (9.33) lead; as a mean ratio
+  to each benchmark's best, 50+30 leads (1.03) and 60 trails (1.17).
+
+**Considered.** Rung 60 as the volcanic label, tested by a corpus-size
+line of heads trained on rung-60 labels: dropped, because the production
+heads serve both benchmarks from one corpus and 60 costs the plutonic
+rocks a third more error. Separate labels per benchmark would split that
+corpus.
+
+**Decision.** Equilibrium at 50+30 stays the corpus label, now supported
+by share error on both benchmarks rather than by the 2026-07-14
+presence pre-screen alone. Fractional crystallization is not adopted as a
+label; #84 closes.
+
+**Struck off and surviving.** Struck off: fractional crystallization as a
+better phenocryst label on the mean of seven; each rock's own melt
+fraction as a read point; a benchmark-specific rung. Surviving: partial
+crystal removal (#90) for amphibole and biotite; a read point per mineral
+(#88); the volcanic floor near 13 points that neither recipe nor read
+point gets under;
+polybaric paths as an unscheduled hypothesis (#93).
+
+**Next.** The plutonic zero-shot corpus-size line from the existing 224-step
+heads (no training), with the volcanic line re-read on train and val to
+match, and the plutonic read split by pretraining membership (journal
+2026-10-19).

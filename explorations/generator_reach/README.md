@@ -754,5 +754,134 @@ result (absolute error; the signed bias is simulated minus measured share):
   the read rocks against 90% under equilibrium; biotite 0.75 against 0.98,
   amphibole 0.95 against 0.93.
 
-The eruption run is on disk (`work/broad128_fc`) and unread: its read waits
-on the eruption benchmark's re-run under the cross-fitted protocol (#85).
+The eruption run is read model-free, beside the plutonic run, in the next
+section.
+
+## Recipe and read point across melt fractions (2026-10-28, #84)
+
+**Question.** Read without any model or fit, does fractional
+crystallization of each benchmark rock's own composition land closer to
+its measured mineralogy than equilibrium does, and at which melt fraction
+should a label be read?
+
+**Method.** `run_recipe_rungs.py` reads both runs of each benchmark
+(`broad128` / `broad128_fc`, `plutonic128` / `plutonic128_fc`). The two
+runs of a benchmark drew identical (P, H2O) for every (rock, draw), checked
+at run time, so the recipe is the only difference.
+
+- Reads: rungs 90 to 10% and 5% melt (each draw's highest-temperature
+  point below the rung, the rule the runs themselves use), each draw's last
+  converged step, the pooled 50 + 30 rungs the corpus label uses, and on
+  the volcanic rocks each rock's own melt fraction (1 -
+  `total_crystals_pct` / 100, a volume fraction against a mass fraction;
+  the plutonic rocks are fully crystalline and have none).
+- At every read both recipes use only the draws both reach there. Every
+  rock's simulated share is the equal-weight draw mean of each draw's
+  share over the rock's measured mineral list.
+- Rocks: train and val, test sealed, the same rocks at every read.
+  Volcanic 477 rocks in 85 eruptive units (one rock at 100% crystals has
+  no own-melt read and leaves); plutonic 404 rocks in 61 intrusions.
+- Metric: raw simulator error (absolute share error, no fit) per mineral
+  category and the mean of seven, with Spearman and presence AUROC beside
+  it. Unit bootstrap (2,000 resamples) for the bands, the fractional minus
+  equilibrium differences, and the fraction of resamples in which each read
+  has the lowest mean-of-seven error.
+- Fit-free baselines: the production head read as its marginal (shares
+  averaged over assemblages sampled from its own presence probabilities,
+  the basis of the simulator's draw mean) and the CIPW norm. No
+  recalibration anywhere, and no folds, since nothing is fit.
+
+```
+python explorations/generator_reach/run_recipe_rungs.py --benchmark volcanic
+python explorations/generator_reach/run_recipe_rungs.py --benchmark plutonic
+```
+
+Writes `results/recipe_rungs_{benchmark}.csv` (one row per source, read and
+category: error with its 95% band and interquartile range, fractional minus
+equilibrium with its band, Spearman, AUROC), `.json` (settings, draw counts
+per read, dropped rocks, lowest-error fractions, run facts) and `.png` /
+`.pdf` (the locked data-scaling frame of
+`explorations/corpus_scaling/fig_zero_shot_scaling.py`; bars are the
+interquartile range). About 15 seconds each once the points are cached.
+
+**Result.** Mean-of-seven raw simulator error, percent:
+
+| read | volcanic eq | volcanic fc | plutonic eq | plutonic fc |
+|---|---|---|---|---|
+| 90 | 15.28 | 15.17 | 12.83 | 12.91 |
+| 80 | 14.00 | 13.90 | 9.96 | 10.45 |
+| 70 | 13.52 | 13.38 | 7.84 | 8.67 |
+| 60 | **13.28** | **13.26** | 6.21 | 7.33 |
+| 50 | 13.50 | 13.37 | 5.16 | 6.34 |
+| 40 | 14.14 | 13.62 | **4.74** | 5.65 |
+| 30 | 14.76 | 13.82 | 4.87 | 5.24 |
+| 20 | 15.24 | 13.95 | 4.95 | 4.98 |
+| 10 | 15.59 | 13.96 | 5.02 | 4.81 |
+| 5 | 15.71 | 13.96 | 5.09 | **4.77** |
+| last step | 15.66 | 13.99 | 5.84 | 4.79 |
+| own melt | 14.60 | 14.46 | | |
+| 50+30 | 13.97 | 13.53 | 4.66 | 5.74 |
+| production head (marginal) | 14.10 | | 5.17 | |
+| CIPW norm | 15.59 | | 6.36 | |
+
+Bold marks each recipe's best single rung.
+
+- **At its best read the recipe ties on both benchmarks.** Volcanic: both
+  lowest at 60% melt, 13.28 against 13.26. Plutonic: equilibrium at 40%
+  4.74 against fractional at 5% 4.77. Fractional changes less with depth
+  (its early crystals are frozen in the pile), so it pulls ahead only where
+  equilibrium has drifted: volcanic at 10% melt -1.6 points [-2.1, -1.1],
+  plutonic at the last step -1.0 [-1.7, -0.2]. Read at 70 to 40% on the
+  plutonic rocks it is worse (+0.8 to +1.2), its early pile rich in
+  pyroxene (+3.8 and +5.1 points on pyroxene at 70 and 50%).
+- **The same per-mineral signature on both benchmarks.** Fractional reduces
+  amphibole error (volcanic -0.9 to -5.1 points from 70% down, plutonic
+  -1.6 to -3.2 from 70% down) and quartz error when read deep (volcanic
+  -0.9 to -1.6, plutonic -1.0 to -3.5), and raises biotite error from 70%
+  down (volcanic +1.0 to +2.0, plutonic +0.4 to +1.8; at 90% the recipes
+  nearly coincide). Equilibrium converts
+  amphibole to biotite as it cools; perfect removal never lets that
+  reaction run. For amphibole and biotite together the measured rocks sit
+  between the two recipes, the gap #90 (partial crystal removal) targets.
+  Volcanic olivine and Fe-Ti oxides are also lower under fractional
+  (olivine -0.6 to -3.2 on 60 rocks; oxides -0.2 to -1.2, with the run's
+  missing redox buffer as a caveat); plutonic oxides are slightly lower
+  under equilibrium, on shares of 1 to 2 percent.
+- **Biotite's ranking.** Volcanic equilibrium biotite tracks the rocks when
+  read shallow (Spearman +0.33 at 90%, +0.29 at 70%) and runs backwards at
+  or below 50% (-0.20 at 50, -0.34 at 30, -0.32 for the 50+30 label); the
+  production head reads -0.27, carrying its label's ordering. Fractional
+  biotite never runs backwards (+0.13 to +0.17 at or below 50%). On the plutonic
+  rocks equilibrium biotite tracks at every read from 50% down (+0.51 to
+  +0.53) and fractional less (+0.33 to +0.38): the backwards biotite is a
+  property of the volcanic phenocrysts, not of equilibrium.
+- **Shape of the curves.** Plutonic error falls with depth and flattens
+  near the solidus, as whole-rock modes of a fully crystallized rock
+  should. Volcanic error is U-shaped, as phenocrysts (the crystals grown
+  before eruption, groundmass excluded) should be, but its minimum sits at
+  60% melt while the rocks erupted near 82% (median 18% crystals), and each
+  rock's own melt fraction reads worse than a fixed 60 to 70%.
+
+**One rung for one corpus.** A single training corpus serving both
+benchmarks wants one label read. Equilibrium, mean of seven, percent:
+
+| read | volcanic | plutonic | mean of the two | mean ratio to each benchmark's best |
+|---|---|---|---|---|
+| 60 | 13.28 | 6.21 | 9.75 | 1.17 |
+| 50 | 13.50 | 5.16 | 9.33 | 1.06 |
+| 50+30 | 13.97 | 4.66 | 9.32 | 1.03 |
+| 40 | 14.14 | 4.74 | 9.44 | 1.04 |
+| 30 | 14.76 | 4.87 | 9.82 | 1.08 |
+
+The volcanic optimum (60) costs the plutonic rocks a third more error; the
+corpus label, 50+30, is the best compromise on either weighting, tied
+with 50 in points. Fractional's best global reads (5 and 10%) average 9.37
+and 9.39.
+
+**Decision.** Equilibrium at 50+30 stays the corpus label; neither the
+recipe nor a benchmark-specific rung is adopted. Fractional
+crystallization is not a better label on the mean of seven for either
+benchmark; its value is per mineral (amphibole, quartz read deep) and in
+biotite's ordering, which points at partial removal (#90) rather than a
+fractional corpus. The plutonic zero-shot scaling line of the existing
+50+30 heads is the next read.
