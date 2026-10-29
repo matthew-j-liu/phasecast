@@ -187,6 +187,23 @@ def test_zero_shot_figure_aggregates_one_group_at_one_depth_per_size(tmp_path) -
     assert load_line(224, group="pp1793", csv=tmp_path / "line.csv").index.tolist() == [312]
 
 
+def test_roster_line_averages_replicates_and_keeps_the_full_corpus_from_its_seeds(tmp_path) -> None:
+    from explorations.corpus_scaling.fig_zero_shot_scaling import PANELS, load_roster_line
+
+    def row(n, roster, seed, v, group="all"):
+        r = dict(group=group, depth=224, n_bulks=n, roster=roster, seed=seed)
+        r.update({f"mae_{c}": v for c in PANELS})
+        return r
+    rows = [row(10, 0, 0, 0.9), row(10, 1, 0, 0.2), row(10, 2, 0, 0.4), row(10, 3, 0, 0.3, group="pp1793"),
+            row(10000, 0, 0, 0.1), row(10000, 0, 1, 0.3)]
+    pd.DataFrame(rows).to_csv(tmp_path / "line.csv", index=False)
+    agg = load_roster_line(224, csv=tmp_path / "line.csv")
+    assert agg.index.tolist() == [10, 10000]
+    assert agg.loc[10, "mae_fsp_mean"] == pytest.approx(0.3)
+    assert (agg.loc[10, "mae_fsp_min"], agg.loc[10, "mae_fsp_max"]) == (0.2, 0.4)
+    assert agg.loc[10000, "mae_mean7_mean"] == pytest.approx(0.2)
+
+
 def test_pretraining_match_renormalizes_iron_and_takes_every_copy_within_tolerance() -> None:
     from explorations.corpus_scaling import run_zero_shot_line as z
     base = dict(sio2=70.0, tio2=0.3, al2o3=15.0, mgo=1.0, cao=2.5, na2o=4.0, k2o=3.5)

@@ -7,7 +7,8 @@ benchmark's train and val rocks, from `results/zero_shot_line_{benchmark}.csv`
 reference lines and no fitted slopes; the curves are read by eye first. On
 the plutonic benchmark a second figure draws the line per pretraining group,
 and where roster replicates exist a third shows seed, rock and roster
-variation together (`zero_shot_line_{benchmark}_bands.json`).
+variation together (`zero_shot_line_{benchmark}_bands.json`) and a fourth
+draws the line averaged over the random rosters.
 
   python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark volcanic --depth 224
   python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark plutonic --depth 224
@@ -58,6 +59,20 @@ def load_line(depth, benchmark="volcanic", group="all", csv=None):
     agg.columns = [f"{a}_{b}" for a, b in agg.columns]
     agg["seeds"] = cells.groupby("n_bulks").size()
     agg["n_rocks"] = cells.groupby("n_bulks")["n_rocks"].first()
+    return agg.sort_index()
+
+
+def load_roster_line(depth, benchmark="volcanic", csv=None):
+    """Mean, min and max over the random-roster heads per corpus size, with
+    the full corpus (which has one roster) as its nested heads' seed mean,
+    min and max."""
+    df = pd.read_csv(csv or RESULTS / f"zero_shot_line_{benchmark}.csv")
+    cols = [f"mae_{c}" for c in PANELS]
+    cells = df[(df.depth == depth) & (df.group == "all")]
+    reps = cells[cells.roster > 0]
+    full = cells[(cells.roster == 0) & ~cells.n_bulks.isin(reps.n_bulks)]
+    agg = pd.concat([reps, full]).groupby("n_bulks")[cols].agg(["mean", "min", "max"])
+    agg.columns = [f"{a}_{b}" for a, b in agg.columns]
     return agg.sort_index()
 
 
@@ -179,6 +194,14 @@ def main():
     if ((df.depth == args.depth) & (df.roster > 0)).any():
         print("wrote", plot_variation(args.benchmark, args.depth,
                                       RESULTS / "gradient_steps" / f"{stem}_{args.depth}_variation"))
+        rosters = load_roster_line(args.depth, args.benchmark)
+        print("mean of seven over random rosters:",
+              {int(n): round(v, 4) for n, v in rosters["mae_mean7_mean"].items()})
+        label = (f"Head at {args.depth} gradient steps, mean of five random rosters; bars span the rosters "
+                 f"(10,000: the full corpus, three seeds)")
+        print("wrote", plot_lines({label: (rosters, None)},
+                                  f"Zero-shot predictions averaged over random rosters ({args.benchmark})",
+                                  RESULTS / "gradient_steps" / f"{stem}_{args.depth}_rosters"))
     if args.benchmark == "plutonic":
         style, _ = setup_style()
         colors = dict(zip(PRETRAINING_LABELS, (style.CIVIDIS[2], style.CIVIDIS[6], style.CIVIDIS[9])))
