@@ -183,11 +183,48 @@ def plot_variation(benchmark, depth, out):
     return out
 
 
+def plot_mean_vs_median(benchmark, depth, out):
+    """The mean of seven over the random training subsets two ways, on one y
+    scale: (a) median with the 25th and 75th percentiles, (b) mean with one
+    standard deviation. The full corpus, a single subset, is read the same
+    way over its three seeds."""
+    df = pd.read_csv(RESULTS / f"zero_shot_line_{benchmark}.csv")
+    cells = df[(df.depth == depth) & (df.group == "all")]
+    subsets = cells[cells.subset > 0]
+    full = cells[(cells.subset == 0) & ~cells.n_bulks.isin(subsets.n_bulks)]
+    by = (100 * pd.concat([subsets, full]).set_index("n_bulks")["mae_mean7"]).groupby(level=0)
+    sizes = [int(n) for n in by.size().index]
+    style, spec = setup_style()
+    color = style.CIVIDIS[2]
+    fig, axes = plt.subplots(1, 2, figsize=(1.3 * style.TEXT_WIDTH_IN, 3.4), sharey=True)
+    fig.subplots_adjust(left=0.1, right=0.98, top=0.8, bottom=0.33, wspace=0.12)
+    median, q25, q75 = by.median(), by.quantile(0.25), by.quantile(0.75)
+    mean, sd = by.mean(), by.std()
+    for ax, (y, lo, hi), title in ((axes[0], (median, q25, q75), "(a) Median, 25th to 75th percentile"),
+                                   (axes[1], (mean, mean - sd, mean + sd), "(b) Mean, one standard deviation")):
+        ax.errorbar(sizes, y, yerr=[y - lo, hi - y], fmt="-", marker="o", color=color,
+                    ms=3.5, elinewidth=0.9, capsize=1.5)
+        finish_panel(ax, sizes, title, style)
+    fig.supxlabel("Simulated compositions in the training corpus", y=0.02, fontsize=spec["label"] - 2)
+    fig.supylabel("Abundance MAE (%)", x=0.01, fontsize=spec["label"] - 2)
+    fig.suptitle(f"Mean of seven over random training subsets ({benchmark}, {depth} steps; 10,000: three seeds)",
+                 y=0.99, fontsize=spec["label"] - 3)
+    fig.savefig(out.with_suffix(".png"), dpi=200)
+    fig.savefig(out.with_suffix(".pdf"))
+    plt.close(fig)
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--benchmark", choices=("volcanic", "plutonic"), default="volcanic")
     parser.add_argument("--depth", type=int, default=224, help="gradient steps of the line to draw")
+    parser.add_argument("--mean-vs-median", action="store_true",
+                        help="draw only `gradient_steps/mean_vs_median`, the two summaries of the subset line")
     args = parser.parse_args()
+    if args.mean_vs_median:
+        print("wrote", plot_mean_vs_median(args.benchmark, args.depth, RESULTS / "gradient_steps" / "mean_vs_median"))
+        return
     agg = load_line(args.depth, args.benchmark)
     stem = "zero_shot_scaling" if args.benchmark == "volcanic" else "zero_shot_scaling_plutonic"
     print(f"{args.benchmark}, {args.depth} steps, {int(agg['n_rocks'].iloc[0])} rocks, seeds:", dict(agg["seeds"]))
