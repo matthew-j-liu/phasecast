@@ -19,7 +19,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
-from ..data.phase_vocab import GROUP_INDEX, GROUPS, MODEL_TO_GROUP, PHASE_INDEX
+from ..data.phase_vocab import GROUP_INDEX, MODEL_TO_GROUP, PHASE_INDEX
 from ..eval.mode_head import (
     conditional_mean,
     magnitude_parity_stats,
@@ -396,20 +396,3 @@ def lift_group_presence_to_phases(
         out[:, PHASE_INDEX[phase]] = 1.0 - absent ** gamma[:, GROUP_INDEX[group]]
     return out
 
-
-def per_group_offsets(recalibrator: RealRockRecalibrator) -> dict[str, dict[str, float]]:
-    """The fitted constants, per group, for reading against the measured ones.
-
-    Only meaningful for the vector tier, where a group's correction is a
-    constant; the higher tiers couple groups and their offsets are not
-    separable this way.
-    """
-    with torch.no_grad():
-        return {
-            group: {
-                "presence_scale": float(recalibrator.presence_scale[i]),
-                "presence_offset": float(recalibrator.presence_offset[i]),
-                "magnitude_offset": float(recalibrator.magnitude_offset[i]),
-            }
-            for i, group in enumerate(GROUPS)
-        }

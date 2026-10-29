@@ -28,20 +28,17 @@ import numpy as np
 
 from cnmineral.eval.latent import bulk_latents, load_encoder_from_checkpoint
 from cnmineral.eval.real_rock import load_benchmark, run_real_rock_eval, split_mask
-from cnmineral.models.real_rock_recalibrator import TIERS
 from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import (
     build_group_predictions,
     fit_recalibrator,
     paired_bootstrap,
-    per_group_offsets,
     score_recalibrator,
 )
 
 
-def report_recalibrator(ckpt, benchmark, latents, device, tier: str,
-                   weight_decay: float) -> None:
+def report_recalibrator(ckpt, benchmark, latents, device, weight_decay: float) -> None:
     """Fit on the train roster, report on val, paired on the same rocks.
 
     Absolute levels on a ~160-rock slice carry roughly +/- 2 nats, so the
@@ -56,7 +53,7 @@ def report_recalibrator(ckpt, benchmark, latents, device, tier: str,
     print(f"train {len(train)} rocks / {len(np.unique(train.unit))} units   "
           f"val {len(val)} rocks / {len(np.unique(val.unit))} units")
 
-    recalibrator = fit_recalibrator(train, tier=tier, weight_decay=weight_decay)
+    recalibrator = fit_recalibrator(train, tier="matrix", weight_decay=weight_decay)
     base, got = score_recalibrator(None, val), score_recalibrator(recalibrator, val)
     print(f"\nmean composition size {base['mean_composition_size']:.3f} "
           "(unchanged by the recalibrator -- same rocks, same truth)")
@@ -67,12 +64,6 @@ def report_recalibrator(ckpt, benchmark, latents, device, tier: str,
               f"[{boot['lo']:+.3f}, {boot['hi']:+.3f}] nats")
     print(f"share MAE  {base['share_mae_mean']:7.4f} -> "
           f"{got['share_mae_mean']:7.4f}")
-    if tier == "vector":
-        print("\nfitted per-group corrections:")
-        for group, v in per_group_offsets(recalibrator).items():
-            print(f"  {group:4s} magnitude {v['magnitude_offset']:+.3f}   "
-                  f"presence scale {v['presence_scale']:+.3f} "
-                  f"offset {v['presence_offset']:+.3f}")
 
 
 def main() -> None:
@@ -82,8 +73,8 @@ def main() -> None:
         help="JointHeadCheckpoint produced by scripts/training/joint_heads.py",
     )
     parser.add_argument(
-        "--fit-recalibrator", choices=TIERS, default=None,
-        help="fit the sim-to-real recalibrator on the train roster and report on val (test is spent)",
+        "--fit-recalibrator", action="store_true",
+        help="fit the matrix recalibrator on the train roster and report on val (test is spent)",
     )
     parser.add_argument(
         "--weight-decay", type=float, default=1.0,
@@ -105,8 +96,7 @@ def main() -> None:
           f"({int(benchmark.clean.sum())} least-altered)")
     latents = bulk_latents(encoder, benchmark, device)
     if args.fit_recalibrator:
-        report_recalibrator(ckpt, benchmark, latents, device, args.fit_recalibrator,
-                       args.weight_decay)
+        report_recalibrator(ckpt, benchmark, latents, device, args.weight_decay)
         return
     run_real_rock_eval(ckpt, benchmark, latents, device=device,
                        tag=checkpoint.parent.name)

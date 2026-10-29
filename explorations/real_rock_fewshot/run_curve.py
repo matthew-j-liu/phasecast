@@ -61,7 +61,6 @@ from cnmineral.training.real_rock_recalibrator import (
     draw_units,
     fit_recalibrator,
     paired_bootstrap,
-    per_group_offsets,
     score_recalibrator,
     select_weight_decay,
 )
@@ -70,6 +69,7 @@ from explorations.real_rock_fewshot.adapted_mode_head import (
     fit_adapted_head,
     score_adapted_head,
 )
+from explorations.real_rock_fewshot.run_residual_decomposition import per_group_offsets
 
 REPO = Path(__file__).resolve().parents[2]
 RESULTS = Path(__file__).resolve().parent / "results"

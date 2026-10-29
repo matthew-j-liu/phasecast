@@ -103,7 +103,7 @@ its numbers differ from the paper's.
 
 ```bash
 python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt
-python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt --fit-recalibrator matrix
+python scripts/eval/real_rock.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt --fit-recalibrator
 python explorations/real_rock_fewshot/run_curve.py --checkpoint checkpoints/joint_heads_allrock_tuned_seed0/heads_best.pt --select-wd
 ```
 

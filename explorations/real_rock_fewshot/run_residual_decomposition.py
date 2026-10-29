@@ -39,7 +39,6 @@ from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import (
     build_group_predictions,
     fit_recalibrator,
-    per_group_offsets,
     score_recalibrator,
 )
 
@@ -60,6 +59,24 @@ DEFAULT_CHECKPOINTS = (
     Path("checkpoints/joint_heads_regen_tuned_seed0/heads_best.pt"),
     Path("checkpoints/joint_heads_regen_seed0/heads_best.pt"),
 )
+
+
+def per_group_offsets(recalibrator) -> dict[str, dict[str, float]]:
+    """The fitted constants, per group, for reading against the measured ones.
+
+    Only meaningful for the vector tier, where a group's correction is a
+    constant; the higher tiers couple groups and their offsets are not
+    separable this way.
+    """
+    with torch.no_grad():
+        return {
+            group: {
+                "presence_scale": float(recalibrator.presence_scale[i]),
+                "presence_offset": float(recalibrator.presence_offset[i]),
+                "magnitude_offset": float(recalibrator.magnitude_offset[i]),
+            }
+            for i, group in enumerate(GROUPS)
+        }
 
 
 def shifted_beta_quantiles(a, b, *, k=1.0, delta=0.0, q=NOMINAL_Q):
