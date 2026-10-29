@@ -33,4 +33,14 @@ jobs:
         run: pip install -e .
 
       - name: Run the unit tests
-        run: pytest tests/
+        run: |
+          set -o pipefail
+          pytest tests/ -rfEs | tee pytest.log
+
+      - name: Summarize the test results
+        if: always()
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep -A 1000 "short test summary info" pytest.log >> "$GITHUB_STEP_SUMMARY" \
+            || tail -n 1 pytest.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
