@@ -6,9 +6,9 @@ benchmark's train and val rocks, from `results/zero_shot_line_{benchmark}.csv`
 (framework, anhydrous mafic, hydrous, oxides) and the mean of seven. No
 reference lines and no fitted slopes; the curves are read by eye first. On
 the plutonic benchmark a second figure draws the line per pretraining group,
-and where roster replicates exist a third shows seed, rock and roster
-variation together (`zero_shot_line_{benchmark}_bands.json`) and a fourth
-draws the line averaged over the random rosters.
+and where heads on random training subsets exist a third shows seed, rock
+and training-subset variation together (`zero_shot_line_{benchmark}_bands.json`)
+and a fourth draws the line averaged over the random training subsets.
 
   python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark volcanic --depth 224
   python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark plutonic --depth 224
@@ -49,12 +49,12 @@ PRETRAINING_LABELS = {"ds942_seen": "DS 942, seen in pretraining", "ds942_held_o
 
 
 def load_line(depth, benchmark="volcanic", group="all", csv=None):
-    """Seed mean, min and max per corpus size of the nested-roster heads'
+    """Seed mean, min and max per corpus size of the nested-subset heads'
     zero-shot share error (`mae_*`) on one rock group at `depth` gradient
     steps."""
     df = pd.read_csv(csv or RESULTS / f"zero_shot_line_{benchmark}.csv")
     cols = [f"mae_{c}" for c in PANELS]
-    cells = df[(df.depth == depth) & (df.group == group) & (df.roster == 0)]
+    cells = df[(df.depth == depth) & (df.group == group) & (df.subset == 0)]
     agg = cells.groupby("n_bulks")[cols].agg(["mean", "min", "max"])
     agg.columns = [f"{a}_{b}" for a, b in agg.columns]
     agg["seeds"] = cells.groupby("n_bulks").size()
@@ -62,18 +62,22 @@ def load_line(depth, benchmark="volcanic", group="all", csv=None):
     return agg.sort_index()
 
 
-def load_roster_line(depth, benchmark="volcanic", csv=None):
-    """Mean, min and max over the random-roster heads per corpus size, with
-    the full corpus (which has one roster) as its nested heads' seed mean,
-    min and max."""
+def load_subset_line(depth, benchmark="volcanic", csv=None):
+    """Per corpus size, the mean over the heads trained on random training
+    subsets and the 25th and 75th percentiles as `_min` / `_max` (the bars
+    span the middle half of the subsets); the full corpus, a single subset,
+    takes its nested heads' seed mean, min and max."""
     df = pd.read_csv(csv or RESULTS / f"zero_shot_line_{benchmark}.csv")
     cols = [f"mae_{c}" for c in PANELS]
     cells = df[(df.depth == depth) & (df.group == "all")]
-    reps = cells[cells.roster > 0]
-    full = cells[(cells.roster == 0) & ~cells.n_bulks.isin(reps.n_bulks)]
-    agg = pd.concat([reps, full]).groupby("n_bulks")[cols].agg(["mean", "min", "max"])
-    agg.columns = [f"{a}_{b}" for a, b in agg.columns]
-    return agg.sort_index()
+    subsets = cells[cells.subset > 0]
+    full = cells[(cells.subset == 0) & ~cells.n_bulks.isin(subsets.n_bulks)]
+    by = subsets.groupby("n_bulks")[cols]
+    agg = pd.concat([by.mean().add_suffix("_mean"), by.quantile(0.25).add_suffix("_min"),
+                     by.quantile(0.75).add_suffix("_max")], axis=1)
+    whole = full.groupby("n_bulks")[cols].agg(["mean", "min", "max"])
+    whole.columns = [f"{a}_{b}" for a, b in whole.columns]
+    return pd.concat([agg, whole[agg.columns]]).sort_index()
 
 
 def setup_style():
@@ -142,12 +146,13 @@ def plot_lines(lines, title, out):
 
 def plot_variation(benchmark, depth, out):
     """The three sources of variation on one axis per category: the
-    nested-roster line with its seed range, its unit-bootstrap
-    interquartile range shaded, and each roster replicate's head as a hollow marker."""
+    nested-subset line with its seed range, its unit-bootstrap
+    interquartile range shaded, and each random training subset's head as a
+    small hollow marker."""
     import json
 
     df = pd.read_csv(RESULTS / f"zero_shot_line_{benchmark}.csv")
-    reps = df[(df.depth == depth) & (df.group == "all") & (df.roster > 0)]
+    subsets = df[(df.depth == depth) & (df.group == "all") & (df.subset > 0)]
     bands = json.loads((RESULTS / f"zero_shot_line_{benchmark}_bands.json").read_text())[str(depth)]["all"]
     agg = load_line(depth, benchmark)
     style, spec = setup_style()
@@ -161,14 +166,16 @@ def plot_variation(benchmark, depth, out):
         m = 100 * agg[f"mae_{c}_mean"]
         ax.errorbar(sizes, m, yerr=[m - 100 * agg[f"mae_{c}_min"], 100 * agg[f"mae_{c}_max"] - m],
                     fmt="-", marker="o", color=line, ms=3.5, elinewidth=0.9, capsize=1.5)
-        ax.plot(reps["n_bulks"], 100 * reps[f"mae_{c}"], "o", mfc="none", mec=rep_color, ms=3.5, mew=0.9)
+        ax.plot(subsets["n_bulks"], 100 * subsets[f"mae_{c}"], "o", mfc="none", mec=rep_color, ms=2.5, mew=0.6,
+                alpha=0.5)
         finish_panel(ax, sizes, f"({chr(97 + i)}) {LABELS[c]}", style)
-    fig.suptitle(f"Seed, rock and roster variation ({benchmark}, {depth} steps)", y=0.995, fontsize=spec["label"] + 2)
+    fig.suptitle(f"Seed, rock and training-subset variation ({benchmark}, {depth} steps)", y=0.995, fontsize=spec["label"] + 2)
     fig.supxlabel("Simulated compositions in the training corpus", y=0.085, fontsize=spec["label"])
     fig.supylabel("Abundance MAE (%)", x=0.012, fontsize=spec["label"])
-    handles = [Line2D([], [], color=line, marker="o", ms=3.5, label="Nested roster; bars span three seeds"),
+    handles = [Line2D([], [], color=line, marker="o", ms=3.5, label="Nested training subset; bars span three seeds"),
                plt.Rectangle((0, 0), 1, 1, color=line, alpha=0.15, label="Unit-bootstrap interquartile range"),
-               Line2D([], [], ls="none", marker="o", mfc="none", mec=rep_color, ms=3.5, label="Random rosters, seed 0")]
+               Line2D([], [], ls="none", marker="o", mfc="none", mec=rep_color, ms=3.5,
+                      label="Random training subsets, seed 0")]
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.53, 0.0), ncol=3, handlelength=2.6)
     fig.savefig(out.with_suffix(".png"), dpi=200)
     fig.savefig(out.with_suffix(".pdf"))
@@ -191,17 +198,17 @@ def main():
     print("wrote", plot_lines({label: (agg, None)}, title,
                               RESULTS / "gradient_steps" / f"{stem}_{args.depth}"))
     df = pd.read_csv(RESULTS / f"zero_shot_line_{args.benchmark}.csv")
-    if ((df.depth == args.depth) & (df.roster > 0)).any():
+    if ((df.depth == args.depth) & (df.subset > 0)).any():
         print("wrote", plot_variation(args.benchmark, args.depth,
                                       RESULTS / "gradient_steps" / f"{stem}_{args.depth}_variation"))
-        rosters = load_roster_line(args.depth, args.benchmark)
-        print("mean of seven over random rosters:",
-              {int(n): round(v, 4) for n, v in rosters["mae_mean7_mean"].items()})
-        label = (f"Head at {args.depth} gradient steps, mean of five random rosters; bars span the rosters "
-                 f"(10,000: the full corpus, three seeds)")
-        print("wrote", plot_lines({label: (rosters, None)},
-                                  f"Zero-shot predictions averaged over random rosters ({args.benchmark})",
-                                  RESULTS / "gradient_steps" / f"{stem}_{args.depth}_rosters"))
+        subsets = load_subset_line(args.depth, args.benchmark)
+        print("mean of seven over random training subsets:",
+              {int(n): round(v, 4) for n, v in subsets["mae_mean7_mean"].items()})
+        label = (f"Head at {args.depth} gradient steps, mean over random training subsets; bars span their "
+                 f"middle half (10,000: the full corpus, three seeds)")
+        print("wrote", plot_lines({label: (subsets, None)},
+                                  f"Zero-shot predictions averaged over random training subsets ({args.benchmark})",
+                                  RESULTS / "gradient_steps" / f"{stem}_{args.depth}_subsets"))
     if args.benchmark == "plutonic":
         style, _ = setup_style()
         colors = dict(zip(PRETRAINING_LABELS, (style.CIVIDIS[2], style.CIVIDIS[6], style.CIVIDIS[9])))

@@ -8,11 +8,11 @@ the encoder trained on (pretraining train or val), DS 942 rocks it held out
 (pretraining test), and PP 1793, which pretraining barely touched (journal
 2026-10-19). Membership matches each rock's eight majors, renormalized to
 100 with total iron as FeO, against the rebuilt pretraining set: every oxide
-within 0.02 wt% of one row. The roster replicates
-(`run_roster_replicates.py`, `final224_allrock_n{N}_roster{r}`) are read beside
-the nested-roster heads. Per depth and rock group, a unit bootstrap (whole
+within 0.02 wt% of one row. The heads trained on random training subsets
+(`run_training_subsets.py`, `final224_allrock_n{N}_subset{r}`) are read beside
+the nested-subset heads. Per depth and rock group, a unit bootstrap (whole
 eruptive units or intrusions, the same resample at every size) bands the
-nested-roster line, seed-averaged per rock, and its rise (78 - 10), fall
+nested-subset line, seed-averaged per rock, and its rise (78 - 10), fall
 (10,000 - 78) and net (10,000 - 10); and the val rocks' rise, fall and net
 are placed among random draws of as many train and val units. Writes
 `results/zero_shot_line_{benchmark}.csv`, `zero_shot_line_{benchmark}_bands.json`
@@ -63,7 +63,7 @@ LABELS = (*GROUPS, *MEANS)
 MAJORS = ("sio2", "tio2", "al2o3", "fe_t", "mgo", "cao", "na2o", "k2o")
 MATCH_TOL = 0.02
 DS942, PP1793 = "dubray_ds942", "dubray_pp1793"
-ROSTER_REPLICATES = (1, 2, 3, 4, 5)
+SUBSETS = tuple(range(1, 51))
 N_BOOT = 2000
 
 
@@ -206,7 +206,7 @@ def subset_percentiles(errors, units, subset, n_draw=N_BOOT, seed=0):
 
 def load(name):
     """The evaluated benchmark and its train-or-val and val masks; the plutonic split
-    roster is only in place inside its context manager."""
+    assignments are only in place inside its context manager."""
     if name == "volcanic":
         benchmark = load_benchmark()
         benchmark = benchmark.subset(benchmark.clean & benchmark.has_magnitude)
@@ -251,21 +251,21 @@ def main():
     for depth in DEPTHS:
         for n in SIZES:
             cells = [(0, seed, tag) for seed, tag in with_seeds(f"final{depth}_allrock_n{n}")]
-            cells += [(r, 0, f"final{depth}_allrock_n{n}_roster{r}") for r in ROSTER_REPLICATES
-                      if (REPO / "checkpoints" / f"final{depth}_allrock_n{n}_roster{r}" / "heads_best.pt").exists()]
+            cells += [(r, 0, f"final{depth}_allrock_n{n}_subset{r}") for r in SUBSETS
+                      if (REPO / "checkpoints" / f"final{depth}_allrock_n{n}_subset{r}" / "heads_best.pt").exists()]
             nested = []
-            for roster, seed, tag in cells:
+            for subset, seed, tag in cells:
                 ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / tag / "heads_best.pt")
                 gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
                 share = conditional_mean(gp.alpha7.numpy(), numeric)
-                if roster == 0:
+                if subset == 0:
                     nested.append(rock_errors(share, benchmark.magnitude, benchmark.numeric))
                 for name, metrics in group_metrics(share, benchmark.magnitude, benchmark.numeric,
                                                    groups).items():
                     records.append(dict(benchmark=args.benchmark, group=name, depth=depth, n_bulks=n,
-                                        roster=roster, seed=seed, tag=tag, **metrics))
+                                        subset=subset, seed=seed, tag=tag, **metrics))
             errors[depth, n] = np.mean(nested, axis=0)
-        line = [r for r in records if r["depth"] == depth and r["group"] == "all" and r["roster"] == 0]
+        line = [r for r in records if r["depth"] == depth and r["group"] == "all" and r["subset"] == 0]
         print(f"{depth} steps, mean of seven by size: " + ", ".join(
             f"{n:,} {np.mean([r['mae_mean7'] for r in line if r['n_bulks'] == n]):.4f}" for n in SIZES))
     out = RESULTS / f"zero_shot_line_{args.benchmark}.csv"
@@ -275,7 +275,7 @@ def main():
     units = np.asarray(benchmark.unit).astype(str)
     m7 = LABELS.index("mean7")
     bands = {"settings": {"n_boot": N_BOOT, "seed": 0, "rocks": "train and val", "basis": "teacher-forced",
-                          "seed_mean": "per-rock errors averaged over the nested roster's seeds"}}
+                          "seed_mean": "per-rock errors averaged over the nested subset's seeds"}}
     for depth in DEPTHS:
         stack = np.stack([errors[depth, n] for n in SIZES])
         entry = {}

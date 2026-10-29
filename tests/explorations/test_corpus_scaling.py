@@ -4,8 +4,8 @@ Locks the pure pieces: the md5 roster order (deterministic, input-order
 independent, prefixes nest), the per-point config overrides, tag parsing into
 axis coordinates, the last-doubling delta table, and the depth grid's cell
 rules, share metrics and share-error slopes; the zero-shot line's
-per-group aggregation, pretraining match and membership rule, roster
-replicates, paired bands and subset percentiles. The ladder orchestrator
+per-group aggregation, pretraining match and membership rule, random
+training subsets, paired bands and subset percentiles. The ladder orchestrator
 needs real checkpoints, so it is exercised by the CLI run, not here.
 """
 
@@ -168,14 +168,14 @@ def test_zero_shot_figure_aggregates_one_group_at_one_depth_per_size(tmp_path) -
     assert set(PANELS) == set(cats) | {"mean7"}
 
     def row(n, seed, depth=224, group="all"):
-        r = dict(benchmark="plutonic", group=group, depth=depth, n_bulks=n, roster=0, seed=seed,
+        r = dict(benchmark="plutonic", group=group, depth=depth, n_bulks=n, subset=0, seed=seed,
                  tag=f"final{depth}_allrock_n{n}", n_rocks=40)
         r.update({f"mae_{g}": v for g, v in zip(cats, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7))})
         r["mae_mean7"] = 0.4
         return r
-    replicate = dict(row(78, 0), roster=3, mae_fsp=0.9)
+    random_subset = dict(row(78, 0), subset=3, mae_fsp=0.9)
     df = pd.DataFrame([row(78, 0), row(78, 1), row(312, 0), row(312, 0, depth=56),
-                       row(312, 1, group="pp1793"), replicate])
+                       row(312, 1, group="pp1793"), random_subset])
     df.loc[1, "mae_fsp"] = 0.3
     df.to_csv(tmp_path / "line.csv", index=False)
     agg = load_line(224, csv=tmp_path / "line.csv")
@@ -187,21 +187,22 @@ def test_zero_shot_figure_aggregates_one_group_at_one_depth_per_size(tmp_path) -
     assert load_line(224, group="pp1793", csv=tmp_path / "line.csv").index.tolist() == [312]
 
 
-def test_roster_line_averages_replicates_and_keeps_the_full_corpus_from_its_seeds(tmp_path) -> None:
-    from explorations.corpus_scaling.fig_zero_shot_scaling import PANELS, load_roster_line
+def test_subset_line_averages_random_subsets_and_keeps_the_full_corpus_from_its_seeds(tmp_path) -> None:
+    from explorations.corpus_scaling.fig_zero_shot_scaling import PANELS, load_subset_line
 
-    def row(n, roster, seed, v, group="all"):
-        r = dict(group=group, depth=224, n_bulks=n, roster=roster, seed=seed)
+    def row(n, subset, seed, v, group="all"):
+        r = dict(group=group, depth=224, n_bulks=n, subset=subset, seed=seed)
         r.update({f"mae_{c}": v for c in PANELS})
         return r
-    rows = [row(10, 0, 0, 0.9), row(10, 1, 0, 0.2), row(10, 2, 0, 0.4), row(10, 3, 0, 0.3, group="pp1793"),
-            row(10000, 0, 0, 0.1), row(10000, 0, 1, 0.3)]
+    rows = [row(10, 0, 0, 0.9), row(10, 1, 0, 0.1), row(10, 2, 0, 0.2), row(10, 3, 0, 0.3), row(10, 4, 0, 0.4),
+            row(10, 5, 0, 0.5), row(10, 6, 0, 0.7, group="pp1793"), row(10000, 0, 0, 0.1), row(10000, 0, 1, 0.3)]
     pd.DataFrame(rows).to_csv(tmp_path / "line.csv", index=False)
-    agg = load_roster_line(224, csv=tmp_path / "line.csv")
+    agg = load_subset_line(224, csv=tmp_path / "line.csv")
     assert agg.index.tolist() == [10, 10000]
     assert agg.loc[10, "mae_fsp_mean"] == pytest.approx(0.3)
-    assert (agg.loc[10, "mae_fsp_min"], agg.loc[10, "mae_fsp_max"]) == (0.2, 0.4)
+    assert (agg.loc[10, "mae_fsp_min"], agg.loc[10, "mae_fsp_max"]) == pytest.approx((0.2, 0.4))
     assert agg.loc[10000, "mae_mean7_mean"] == pytest.approx(0.2)
+    assert (agg.loc[10000, "mae_fsp_min"], agg.loc[10000, "mae_fsp_max"]) == pytest.approx((0.1, 0.3))
 
 
 def test_pretraining_match_renormalizes_iron_and_takes_every_copy_within_tolerance() -> None:
@@ -240,11 +241,11 @@ def test_group_metrics_read_each_rock_group_on_its_own_rows() -> None:
         assert out[name]["n_rocks"] == int(m.sum()) and out[name]["n_fsp"] == int(numeric[m, 0].sum())
 
 
-def test_roster_replicates_are_reproducible_distinct_and_drawn_from_the_corpus() -> None:
-    from explorations.corpus_scaling.run_roster_replicates import replicate_roster
+def test_random_training_subsets_are_reproducible_distinct_and_drawn_from_the_corpus() -> None:
+    from explorations.corpus_scaling.run_training_subsets import random_subset
     ids = list(range(1000, 1500))
-    a, b = replicate_roster(ids, 40, 1), replicate_roster(ids, 40, 2)
-    assert np.array_equal(a, replicate_roster(ids, 40, 1)) and not np.array_equal(a, b)
+    a, b = random_subset(ids, 40, 1), random_subset(ids, 40, 2)
+    assert np.array_equal(a, random_subset(ids, 40, 1)) and not np.array_equal(a, b)
     assert len(np.unique(a)) == 40 and set(a) <= set(ids) and np.all(np.diff(a) > 0)
 
 

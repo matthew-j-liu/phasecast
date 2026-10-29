@@ -4,7 +4,7 @@
   "seed": 0,
   "rocks": "train and val",
   "basis": "teacher-forced",
-  "seed_mean": "per-rock errors averaged over the nested roster's seeds"
+  "seed_mean": "per-rock errors averaged over the nested subset's seeds"
  },
  "56": {
   "all": {
