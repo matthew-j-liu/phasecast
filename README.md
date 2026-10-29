@@ -1,5 +1,7 @@
 # phasecast: probabilistic mineralogy from whole-rock geochemistry
 
+[![tests](https://github.com/matthew-j-liu/phasecast/actions/workflows/tests.yml/badge.svg)](https://github.com/matthew-j-liu/phasecast/actions/workflows/tests.yml)
+
 ![phasecast overview](docs/images/phasecast_overview.png)
 
 The model takes the whole-rock chemistry of a rock and predicts mineral identity, 
