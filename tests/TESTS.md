@@ -701,6 +701,8 @@ Tests for archived explorations (moved to `explorations/archive/`,
 
 ### test_real_mineralogy.py
 
+The tests marked `needs_workbooks` re-parse the downloaded USGS source workbooks, which are not tracked; they skip when any `data/real_mineralogy/dubray_*` directory is absent, as on CI (`explorations/real_mineralogy/sources.md` lists the downloads).
+
 1. `test_default_load_is_unchanged_by_the_pointcount_rows` -- the gate on harvesting a second ruler: with Appendix 10's rows in `modes.csv`, the default load is bit-identical to the same benchmark with those rows removed, so no number already scored against the visual estimates moved.
 2. `test_basis_preference_selects_one_ruler_per_rock` -- a rock measured twice is read once and the two readings differ on exactly the 70 doubly-measured rocks; singly-measured rocks are untouched and both arms still renormalize to 1.
 3. `test_pointcount_cell_grammar` -- Appendix 10's four cell forms: a bare count, `TR`/`TR?`/`TR(?)` as present-but-uncounted, `1(?)` as a count with an uncertain identification, and `87 (total feldspar)` as a composite that must not be read as a plagioclase count.

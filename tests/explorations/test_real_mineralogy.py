@@ -44,6 +44,12 @@ PLUTONIC_SOURCES = {"dubray_ds942", "dubray_pp1793"}
 MAJORS = ["sio2", "tio2", "al2o3", "feo_tot", "mno", "mgo", "cao", "na2o",
           "k2o", "p2o5"]
 
+needs_workbooks = pytest.mark.skipif(
+    not all((DATA / source).is_dir() for source in
+            ("dubray_ds764", "dubray_ds1099", "dubray_ds942", "dubray_pp1793")),
+    reason="USGS source workbooks absent; explorations/real_mineralogy/sources.md lists them",
+)
+
 
 @pytest.fixture(scope="module")
 def plutonic():
@@ -137,6 +143,7 @@ def test_pointcount_cell_grammar():
         _pointcount_cell("about half")
 
 
+@needs_workbooks
 def test_derived_percent_reproduces_the_published_block(monkeypatch):
     """Percentages are computed from raw counts, then checked against the file.
 
@@ -158,6 +165,7 @@ def test_derived_percent_reproduces_the_published_block(monkeypatch):
         parse_dubray_pointcounts(known)
 
 
+@needs_workbooks
 @pytest.mark.parametrize("name", sorted(tables_script.BENCHMARKS))
 def test_composition_tables_partition_the_scored_set(composed, name):
     """Every appendix table counts the same rocks, exactly once.
@@ -201,6 +209,7 @@ def test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one():
     assert np.allclose(counted.magnitude[moved].sum(1), 1.0)
 
 
+@needs_workbooks
 def test_undoing_the_recalculation_lands_on_the_raw_analytical_total(tmp_path):
     """The scale-convention undo reproduces the total the lab actually reported.
 
@@ -302,6 +311,7 @@ def test_plutonic_mode_cell_grammar():
             _mode_cell(text)
 
 
+@needs_workbooks
 def test_plutonic_harvest_emits_each_rock_once_from_its_own_screens(plutonic):
     """Each source contributes the rocks its own primary dataset holds, once.
 
@@ -327,6 +337,7 @@ def test_plutonic_harvest_emits_each_rock_once_from_its_own_screens(plutonic):
     assert len(set(canonical_units(s1793["unit"]))) == 30
 
 
+@needs_workbooks
 def test_plutonic_modes_close_on_the_whole_rock(plutonic):
     """Whole-rock point counts sum to about 100, with no groundmass.
 
@@ -345,6 +356,7 @@ def test_plutonic_modes_close_on_the_whole_rock(plutonic):
         assert (samples["total_crystals_pct"] == 100.0).all()
 
 
+@needs_workbooks
 def test_mode_typos_must_be_found_where_they_are_expected(monkeypatch):
     """A typo correction that does not find its cell fails the harvest.
 
@@ -423,6 +435,7 @@ def test_unmeasured_categories_are_masked_or_leave_the_evaluated_set():
         assert not set(evaluated.bulk_ids) & left_out
 
 
+@needs_workbooks
 def test_plutonic_composition_tables_describe_the_evaluated_rocks(composed):
     """The plutonic tables break down exactly the rocks the instrument evaluates.
 
