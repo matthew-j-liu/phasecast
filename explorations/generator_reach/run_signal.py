@@ -414,7 +414,7 @@ def packaged(gp, share, presence_p, kappa, floor=PACKAGE_FLOOR):
     s = np.maximum(np.nan_to_num(share), floor)
     s = s / s.sum(1, keepdims=True)
     return replace(gp, logits7=torch.as_tensor(np.log(p / (1 - p)), dtype=torch.float64),
-                   alpha7=torch.as_tensor(kappa * s, dtype=torch.float64), log_w=None)
+                   alpha7=torch.as_tensor(kappa * s, dtype=torch.float64))
 
 
 class TwoSourceRecalibrator(nn.Module):
@@ -432,7 +432,7 @@ class TwoSourceRecalibrator(nn.Module):
         self.magnitude_mix_b = nn.Parameter(torch.zeros(n, n))
 
     def forward(self, logits_a, alpha_a, logits_b, alpha_b):
-        logits, alpha, _ = self.base(logits_a, alpha_a)
+        logits, alpha = self.base(logits_a, alpha_a)
         return (logits + logits_b @ self.presence_mix_b,
                 alpha * (alpha_b.log() @ self.magnitude_mix_b).exp())
 
@@ -594,7 +594,7 @@ def fit_sources(inputs, fit_rows):
     fit_gp = gp.subset(fit_rows)
     fit = fit_recalibrator(fit_gp, tier="matrix", weight_decay=1.0)
     with torch.no_grad():
-        logits, alpha, _ = fit(gp.logits7, gp.alpha7, log_w=gp.log_w)
+        logits, alpha = fit(gp.logits7, gp.alpha7)
     shares = {"head_zero_shot": conditional_mean(gp.alpha7.numpy(), numeric),
               "head_marginal": inputs["marginal"],
               "head_recalibrated": conditional_mean(alpha.numpy(), numeric)}
@@ -608,7 +608,7 @@ def fit_sources(inputs, fit_rows):
     norm_gp = packaged(gp, norm, (norm > 0).astype(float), kappa)
     norm_fit = fit_recalibrator(norm_gp.subset(fit_rows), tier="matrix", weight_decay=1.0)
     with torch.no_grad():
-        logits, alpha, _ = norm_fit(norm_gp.logits7, norm_gp.alpha7)
+        logits, alpha = norm_fit(norm_gp.logits7, norm_gp.alpha7)
     shares["cipw_recalibrated"] = conditional_mean(alpha.numpy(), numeric)
     presence["cipw_recalibrated"] = torch.sigmoid(logits).numpy()
     nll["cipw_recalibrated"] = score_recalibrator(norm_fit, norm_gp)["joint"]
@@ -633,7 +633,7 @@ def fit_sources(inputs, fit_rows):
         gen_gp = packaged(gp, read["share"], read["presence"], kappa)
         gen_fit = fit_recalibrator(gen_gp.subset(fit_rows), tier="matrix", weight_decay=1.0)
         with torch.no_grad():
-            logits, alpha, _ = gen_fit(gen_gp.logits7, gen_gp.alpha7)
+            logits, alpha = gen_fit(gen_gp.logits7, gen_gp.alpha7)
         shares[f"{name}_recalibrated"] = conditional_mean(alpha.numpy(), numeric)
         presence[f"{name}_recalibrated"] = torch.sigmoid(logits).numpy()
         nll[f"{name}_recalibrated"] = score_recalibrator(gen_fit, gen_gp)["joint"]

@@ -115,7 +115,7 @@ def _posterior(heads, latent_row, p21_row, correct_alpha7, n, seed, top_k=3):
 def _corrector(recalibrator, logits7_row):
     def correct(alpha7):
         with torch.no_grad():
-            _, corrected, _ = recalibrator(logits7_row.expand(len(alpha7), -1), torch.as_tensor(alpha7, dtype=torch.float64))
+            _, corrected = recalibrator(logits7_row.expand(len(alpha7), -1), torch.as_tensor(alpha7, dtype=torch.float64))
         return corrected.numpy()
     return correct
 

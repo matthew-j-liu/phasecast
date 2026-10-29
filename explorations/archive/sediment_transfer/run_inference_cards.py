@@ -147,6 +147,8 @@ def main() -> None:
             f"{int(benchmark.numeric[row].sum())} measured groups"
         )
 
+        # archived record: the recalibrator returns (logits, alpha) since its
+        # log_w passthrough was removed on 2026-10-29; both calls here predate it
         with torch.no_grad():
             adj_logits, adj_alpha, _ = recalibrator(
                 test.logits7[local:local + 1], test.alpha7[local:local + 1],

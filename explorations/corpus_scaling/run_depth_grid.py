@@ -136,7 +136,7 @@ def head_shares(ckpt, benchmark, latents, train_mask, device):
     gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
     fit = fit_recalibrator(gp.subset(train_mask), tier="matrix", weight_decay=1.0)
     with torch.no_grad():
-        _, alpha, _ = fit(gp.logits7, gp.alpha7, log_w=gp.log_w)
+        _, alpha = fit(gp.logits7, gp.alpha7)
     numeric = benchmark.numeric.astype(np.float64)
     return gp, fit, conditional_mean(gp.alpha7.numpy(), numeric), conditional_mean(alpha.numpy(), numeric)
 

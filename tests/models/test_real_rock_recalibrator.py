@@ -31,10 +31,9 @@ def test_recalibrator_is_the_identity_at_initialization(tier):
     same scale the ledger reports.
     """
     logits, alpha = _inputs()
-    out_logits, out_alpha, log_w = RealRockRecalibrator(tier)(logits, alpha)
+    out_logits, out_alpha = RealRockRecalibrator(tier)(logits, alpha)
     assert torch.allclose(out_logits, logits)
     assert torch.allclose(out_alpha, alpha)
-    assert log_w is None
 
 
 @pytest.mark.parametrize("tier", TIERS)
@@ -46,7 +45,7 @@ def test_structural_zeros_survive_the_magnitude_correction(tier):
     """
     logits, alpha = _inputs()
     alpha[:, GROUP_INDEX["ol"]] = 0.0
-    _, out_alpha, _ = _randomize(RealRockRecalibrator(tier))(logits, alpha)
+    _, out_alpha = _randomize(RealRockRecalibrator(tier))(logits, alpha)
     assert (out_alpha[..., GROUP_INDEX["ol"]] == 0).all()
     assert torch.isfinite(out_alpha).all()
 
@@ -66,8 +65,8 @@ def test_matrix_tier_contains_the_vector_tier_exactly():
         target = dict(richer.named_parameters())
         for name, p in vector.named_parameters():
             target[name].copy_(p)
-    got_logits, got_alpha, _ = richer(logits, alpha)
-    want_logits, want_alpha, _ = vector(logits, alpha)
+    got_logits, got_alpha = richer(logits, alpha)
+    want_logits, want_alpha = vector(logits, alpha)
     assert torch.allclose(got_logits, want_logits, atol=1e-6)
     assert torch.allclose(got_alpha, want_alpha, atol=1e-6)
 
@@ -83,13 +82,13 @@ def test_off_support_groups_contribute_a_neutral_log_feature():
     logits, alpha = _inputs()
     alpha[:, GROUP_INDEX["ol"]] = 0.0
     recalibrator = _randomize(RealRockRecalibrator("matrix"))
-    _, baseline, _ = recalibrator(logits, alpha)
+    _, baseline = recalibrator(logits, alpha)
 
     # scaling the mixing weights that read the off-support column must be a
     # no-op, which only holds if that column enters as a constant zero
     with torch.no_grad():
         recalibrator.magnitude_mix[GROUP_INDEX["ol"], :] *= 7.0
-    _, moved, _ = recalibrator(logits, alpha)
+    _, moved = recalibrator(logits, alpha)
     assert torch.allclose(baseline, moved)
 
 

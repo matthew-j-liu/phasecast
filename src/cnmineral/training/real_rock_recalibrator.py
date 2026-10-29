@@ -57,7 +57,6 @@ class GroupPredictions:
     magnitude: torch.Tensor
     numeric: torch.Tensor
     unit: np.ndarray
-    log_w: torch.Tensor | None = None
     latent: torch.Tensor | None = None
     raw: torch.Tensor | None = None
     measured: torch.Tensor | None = None
@@ -72,7 +71,6 @@ class GroupPredictions:
             logits7=self.logits7[t], alpha7=self.alpha7[t], sio2=self.sio2[t],
             presence=self.presence[t], magnitude=self.magnitude[t],
             numeric=self.numeric[t], unit=self.unit[mask],
-            log_w=None if self.log_w is None else self.log_w[t],
             latent=None if self.latent is None else self.latent[t],
             raw=None if self.raw is None else self.raw[t],
             measured=None if self.measured is None else self.measured[t],
@@ -94,7 +92,6 @@ def build_group_predictions(
 
     pred = predict(head, latents, benchmark)
     p7 = np.clip(pred["p7"], 1e-7, 1 - 1e-7)
-    log_w = pred.get("log_w")
     return GroupPredictions(
         logits7=torch.as_tensor(np.log(p7 / (1 - p7)), dtype=torch.float64),
         alpha7=torch.as_tensor(pred["alpha7"], dtype=torch.float64),
@@ -103,8 +100,6 @@ def build_group_predictions(
         magnitude=torch.as_tensor(benchmark.magnitude, dtype=torch.float64),
         numeric=torch.as_tensor(benchmark.numeric.astype(np.float64)),
         unit=benchmark.unit,
-        log_w=None if log_w is None
-        else torch.as_tensor(log_w, dtype=torch.float64),
         latent=latents.detach().cpu().to(torch.float64),
         raw=raw_chemistry(benchmark),
         measured=torch.as_tensor(benchmark.measured.astype(np.float64)),
@@ -181,12 +176,10 @@ def fit_recalibrator(
     opt = torch.optim.Adam(recalibrator.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(epochs):
         opt.zero_grad()
-        logits, alpha, log_w = recalibrator(
-            train.logits7, train.alpha7, log_w=train.log_w
-        )
+        logits, alpha = recalibrator(train.logits7, train.alpha7)
         loss = recalibrator_nll(
             logits, alpha, train.presence, train.magnitude, train.numeric,
-            log_w=log_w, measured=train.measured,
+            measured=train.measured,
         )["joint"].mean()
         loss.backward()
         opt.step()
@@ -242,12 +235,10 @@ def score_recalibrator(
     correction, which is what makes a difference read as nats recovered.
     """
     if recalibrator is None:
-        forecast = data.logits7, data.alpha7, data.log_w
+        logits, alpha = data.logits7, data.alpha7
     else:
-        forecast = recalibrator(
-            data.logits7, data.alpha7, log_w=data.log_w
-        )
-    return score_predictions(*forecast, data)
+        logits, alpha = recalibrator(data.logits7, data.alpha7)
+    return score_predictions(logits, alpha, None, data)
 
 
 def draw_units(
@@ -391,7 +382,7 @@ def lift_group_presence_to_phases(
     whose feldspar is half the crystal cargo.
     """
     with torch.no_grad():
-        corrected, _, _ = recalibrator(logits7, torch.ones_like(logits7))
+        corrected, _ = recalibrator(logits7, torch.ones_like(logits7))
     target = torch.sigmoid(corrected).numpy()
     now = coarsen_presence(p21)
 

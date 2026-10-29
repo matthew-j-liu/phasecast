@@ -164,7 +164,7 @@ def main() -> None:
         )
 
         with torch.no_grad():
-            adj_logits, adj_alpha, _ = recalibrator(
+            adj_logits, adj_alpha = recalibrator(
                 test.logits7[local:local + 1], test.alpha7[local:local + 1],
             )
         # the Dirichlet's per-group marginal is a Beta, so the spread the model
@@ -198,7 +198,7 @@ def main() -> None:
 
         def correct(alpha7, _row=local):
             with torch.no_grad():
-                _, out, _ = recalibrator(
+                _, out = recalibrator(
                     test.logits7[_row:_row + 1].expand(len(alpha7), -1),
                     torch.as_tensor(alpha7, dtype=torch.float64),
                 )

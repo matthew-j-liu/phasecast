@@ -506,9 +506,9 @@ def test_packaged_source_reproduces_its_floored_shares_at_the_identity_correctio
     assert (out.alpha7.numpy()[:, GROUP_INDEX["amp"]] > 0).all()
     p = torch.sigmoid(out.logits7).numpy()
     assert np.allclose(p, np.where(share > 0, 1 - run_signal.PACKAGE_FLOOR, run_signal.PACKAGE_FLOOR))
-    assert out.magnitude is gp.magnitude and out.log_w is None
+    assert out.magnitude is gp.magnitude
     with torch.no_grad():
-        _, alpha, _ = RealRockRecalibrator("matrix").to(torch.float64)(out.logits7, out.alpha7)
+        _, alpha = RealRockRecalibrator("matrix").to(torch.float64)(out.logits7, out.alpha7)
     assert torch.allclose(alpha, out.alpha7)
 
 
@@ -539,7 +539,7 @@ def test_two_source_recalibrator_with_zero_b_terms_is_its_matrix_base():
         for p in model.base.parameters():
             p.add_(0.1 * torch.randn_like(p))
         logits, alpha = model(gp.logits7, gp.alpha7, other.logits7, other.alpha7)
-        base_logits, base_alpha, _ = model.base(gp.logits7, gp.alpha7)
+        base_logits, base_alpha = model.base(gp.logits7, gp.alpha7)
     assert torch.equal(logits, base_logits) and torch.equal(alpha, base_alpha)
 
 

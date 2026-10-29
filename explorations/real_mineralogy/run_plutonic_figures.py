@@ -136,7 +136,7 @@ def sampled_mode(head, latent, recalibrator, gp_row, p21, corrected):
 
     if corrected:
         with torch.no_grad():
-            _, alpha7, _ = recalibrator(
+            _, alpha7 = recalibrator(
                 gp_row.logits7.expand(N_SAMPLES, -1),
                 torch.as_tensor(alpha7, dtype=gp_row.alpha7.dtype),
             )
@@ -182,7 +182,7 @@ def inference_tables(head, bench, latents, out: Path) -> None:
 
     gp_row = val.subset(np.arange(len(val)) == local)
     with torch.no_grad():
-        adj_logits, _, _ = recalibrator(gp_row.logits7, gp_row.alpha7)
+        adj_logits, _ = recalibrator(gp_row.logits7, gp_row.alpha7)
         p21_zero = torch.sigmoid(
             head.presence_logits(latents[row:row + 1])).cpu().numpy()
     p21_adj = lift_group_presence_to_phases(recalibrator, gp_row.logits7, p21_zero)

@@ -78,7 +78,7 @@ def main() -> None:
           f"{after['dirichlet'].mean():.3f}")
 
     with torch.no_grad():
-        adj_logits, adj_alpha, _ = recalibrator(val.logits7, val.alpha7)
+        adj_logits, adj_alpha = recalibrator(val.logits7, val.alpha7)
     p7 = torch.sigmoid(adj_logits).numpy()
     numeric = benchmark.numeric[val_mask].astype(np.float64)
     forced_share = conditional_mean(adj_alpha.numpy(), numeric)
@@ -98,7 +98,7 @@ def main() -> None:
     alpha7_model, _ = coarsen_alpha(alpha21, support21)
     model_support7 = coarsen_support(support21)
     with torch.no_grad():
-        _, adj_alpha_model, _ = recalibrator(
+        _, adj_alpha_model = recalibrator(
             gp.logits7, torch.as_tensor(alpha7_model, dtype=gp.alpha7.dtype),
         )
     model_share = conditional_mean(adj_alpha_model.numpy()[val_mask],

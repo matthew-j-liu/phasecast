@@ -65,45 +65,25 @@ class RealRockRecalibrator(nn.Module):
         self,
         logits7: torch.Tensor,
         alpha7: torch.Tensor,
-        log_w: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
-        """([B, 7] presence logits, [B, 7] alpha) -> corrected (logits, alpha, log_w).
-
-        The returned log_w is the input log_w passed through unchanged.
-
-        A mixture head passes alpha7 [B, K, 7] with gate log-weights: the one
-        per-group correction is applied identically to every component and the
-        gate is left alone, so recalibration capacity stays fixed across
-        single-Dirichlet and mixture arms (the contrast measures the mixture,
-        not extra correction parameters). The coupled tiers' `log_alpha`
-        feature then reads the gate-weighted mean concentration -- a [B, 7]
-        summary, not a per-component input.
-        """
-        if alpha7.dim() == 3:
-            alpha_feat = (log_w.exp().unsqueeze(-1) * alpha7).sum(1)
-        else:
-            alpha_feat = alpha7
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """([B, 7] presence logits, [B, 7] alpha) -> corrected (logits, alpha)."""
         # An off-support group has no concentration, so its feature is the
         # neutral 0 rather than log(tiny).  Clamping instead would hand the
         # coupled tiers a -27 spike on exactly the groups that carry no
         # information, and they diverge on it.
         log_alpha = torch.where(
-            alpha_feat > 0, alpha_feat.clamp_min(1e-12).log(),
-            torch.zeros_like(alpha_feat),
+            alpha7 > 0, alpha7.clamp_min(1e-12).log(),
+            torch.zeros_like(alpha7),
         )
 
         d_presence = self.presence_scale * logits7 + self.presence_offset
-        d_magnitude = self.magnitude_offset.expand_as(alpha_feat)
+        d_magnitude = self.magnitude_offset.expand_as(alpha7)
 
         if self.tier == "matrix":
             d_presence = d_presence + logits7 @ self.presence_mix
             d_magnitude = d_magnitude + log_alpha @ self.magnitude_mix
 
-        correction = d_magnitude.exp()
-        if alpha7.dim() == 3:
-            correction = correction.unsqueeze(1)
-        alpha = alpha7 * correction
-        return d_presence, alpha, log_w
+        return d_presence, alpha7 * d_magnitude.exp()
 
     def extra_repr(self) -> str:
         return f"tier={self.tier}"
