@@ -5,10 +5,8 @@ from cnmineral.data.condition_proposal import (
     P_HI,
     P_LO,
     W_CAP,
-    ProposalKnobs,
     bulk_proposal,
     draw_conditions,
-    draw_conditions_traced,
     nl_rhyolite_solubility,
     q_density,
     setting_posterior,
@@ -141,7 +139,7 @@ def test_traced_importance_weights_recover_area():
 
 def test_wet_box_p_floor():
     # arc-felsic box has w_lo = 3: no draws where solubility leaves no room
-    bp = bulk_proposal("rhyolite", ARC_TRACES, ProposalKnobs(eps=0.0))
+    bp = bulk_proposal("rhyolite", ARC_TRACES)
     p, w, q = bp.draw(512, np.random.default_rng(9))
     assert np.all(w <= w_max(p) + 1e-12)
     assert np.all(q > 0)
@@ -162,7 +160,7 @@ def test_fallback_covers_rosters():
 
 
 def test_traced_deterministic_under_seed():
-    a = draw_conditions_traced("andesite", ARC_TRACES, 64, np.random.default_rng(7))
-    b = draw_conditions_traced("andesite", ARC_TRACES, 64, np.random.default_rng(7))
+    a = bulk_proposal("andesite", ARC_TRACES).draw(64, np.random.default_rng(7))
+    b = bulk_proposal("andesite", ARC_TRACES).draw(64, np.random.default_rng(7))
     for x, y in zip(a, b):
         assert np.array_equal(x, y)

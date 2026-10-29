@@ -26,6 +26,8 @@ from cnmineral.data.condition_proposal import (
     SETTINGS,
     TRACE_TIER_BOXES,
     WALLACE_PLANK_2013,
+    # archived record: ProposalKnobs and bulk_proposal's knobs= were removed
+    # on 2026-10-29; the locked values now live in condition_proposal.py
     ProposalKnobs,
     bulk_proposal,
     draw_conditions,

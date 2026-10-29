@@ -45,8 +45,7 @@
       "src/cnmineral/models/imputation_head.py",
       "src/cnmineral/models/measured_mode_head.py",
       "src/cnmineral/models/mode_head.py",
-      "src/cnmineral/models/pretrain_head.py",
-      "src/cnmineral/models/real_rock_recalibrator.py"
+      "src/cnmineral/models/pretrain_head.py"
     ],
     "gmm_cond_head": [
       "configs/heads/joint_heads.yaml",

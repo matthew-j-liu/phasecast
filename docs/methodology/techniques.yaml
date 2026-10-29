@@ -255,7 +255,6 @@ techniques:
       - "setting_posterior"
       - "BulkProposal"
       - "bulk_proposal"
-      - "draw_conditions_traced"
   - name: temperature_smoothed_class_sampling
     type: preprocessing
     patterns:

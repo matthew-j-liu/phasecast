@@ -355,12 +355,9 @@ PUTIRKA_2008_P = {
 }
 
 
-@dataclass(frozen=True)
-class ProposalKnobs:
-    sigma: float = 0.15
-    eps: float = 0.08
-    felsic_in_trace_tier: bool = True
-    felsic_sigma_mult: float = 2.0
+SETTING_SIGMA = 0.15
+FELSIC_SIGMA_MULT = 2.0
+FLOOR_EPS = 0.08
 
 
 def _sigmoid(z):
@@ -497,23 +494,20 @@ class BulkProposal:
         return p, w, self.q(p, w)
 
 
-def bulk_proposal(qap_name, traces, knobs=ProposalKnobs()):
+def bulk_proposal(qap_name, traces):
     """Build the trace-conditional proposal for one bulk.
 
     Cascade posterior -> posterior-weighted (maficity, setting) boxes, with
     the fallback share drawn from the per-class Wallace/Plank + Putirka box;
-    every bulk keeps `knobs.eps` mass on the broad floor.  `tier` is
+    every bulk keeps `FLOOR_EPS` mass on the broad floor.  `tier` is
     'trace' when the discriminant carries the majority of the non-floor
     mass, else 'fallback'.
     """
     from cnmineral.eval.supergroup import qap_to_supergroup
 
     bucket = _MAFICITY.get(qap_to_supergroup(qap_name), "intermediate")
-    if bucket == "felsic" and not knobs.felsic_in_trace_tier:
-        (w_arc, w_ridge, w_intra, w_fb), rung = (0.0, 0.0, 0.0, 1.0), None
-    else:
-        sigma = knobs.sigma * (knobs.felsic_sigma_mult if bucket == "felsic" else 1.0)
-        (w_arc, w_ridge, w_intra, w_fb), rung = setting_posterior(traces, sigma)
+    sigma = SETTING_SIGMA * (FELSIC_SIGMA_MULT if bucket == "felsic" else 1.0)
+    (w_arc, w_ridge, w_intra, w_fb), rung = setting_posterior(traces, sigma)
 
     boxes, weights = [], []
     for setting, wt in zip(SETTINGS, (w_arc, w_ridge, w_intra)):
@@ -527,12 +521,7 @@ def bulk_proposal(qap_name, traces, knobs=ProposalKnobs()):
         boxes.append(_make_box(p_lo, p_hi, w_lo, w_hi))
         weights.append(w_fb)
     tot = sum(weights)
-    weights = tuple(wt / tot * (1.0 - knobs.eps) for wt in weights)
+    weights = tuple(wt / tot * (1.0 - FLOOR_EPS) for wt in weights)
     tier = "trace" if rung is not None and (w_arc + w_ridge + w_intra) >= w_fb else "fallback"
-    return BulkProposal(tuple(boxes), weights, knobs.eps, tier, rung,
+    return BulkProposal(tuple(boxes), weights, FLOOR_EPS, tier, rung,
                         (w_arc, w_ridge, w_intra))
-
-
-def draw_conditions_traced(qap_name, traces, n, rng, knobs=ProposalKnobs()):
-    """Trace-conditional counterpart of `draw_conditions`; same return shape."""
-    return bulk_proposal(qap_name, traces, knobs).draw(n, rng)

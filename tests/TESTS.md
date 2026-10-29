@@ -85,9 +85,9 @@ rename, or repurpose a test) updates this file in the same change.**
 14. `test_traced_q_matches_closed_form` -- the q returned by `BulkProposal.draw` equals `BulkProposal.q` at the drawn points.
 15. `test_floor_keeps_old_support` -- the traced density is at least `eps * q_density` (and positive) everywhere the broad proposal has support.
 16. `test_traced_importance_weights_recover_area` -- `E_q[1/q]` under the mixture recovers the broad-support area (the floor makes the supports equal).
-17. `test_wet_box_p_floor` -- a wet box (`w_lo` = 3) never draws above the solubility bound even with the floor off.
+17. `test_wet_box_p_floor` -- a wet box (`w_lo` = 3) never draws above the solubility bound.
 18. `test_fallback_covers_rosters` -- every qap_name in both corpus rosters resolves to a single fallback box (skips without the local corpus tables).
-19. `test_traced_deterministic_under_seed` -- same seed, same traced draws.
+19. `test_traced_deterministic_under_seed` -- same seed, same `bulk_proposal(...).draw()` draws.
 
 ### test_feldspar_rule.py
 
