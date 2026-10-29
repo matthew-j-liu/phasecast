@@ -27,7 +27,6 @@ import numpy as np
 import pandas as pd
 
 from .condition_proposal import bulk_proposal
-from .fe_redox import ClassRatioStrategy
 from .magemin_oxides import bulk_to_magemin
 
 T_LADDER = np.arange(1200.0, 599.0, -20.0)
@@ -54,14 +53,13 @@ def build_inputs(bulks, majors, n_draws, seed):
     and resume-stable. Returns (input_df, meta_df, draws_df); `sid` links
     input rows to meta rows.
     """
-    fe3 = ClassRatioStrategy()
     passthrough = [c for c in bulks.columns if c != "sample_id"]
     inputs, meta, draws = [], [], []
     sid = 0
     for _, b in bulks.iterrows():
         bid = int(b.sample_id)
         row = majors.loc[bid]
-        base = bulk_to_magemin(row, b.get("qap_name"), h2o_wt=0.0, fe3_strategy=fe3)
+        base = bulk_to_magemin(row, b.get("qap_name"), h2o_wt=0.0)
         anh = {k: base[k] for k in OXIDE_KEYS}
         anh_sum = sum(anh.values())
         traces = {c: float(row[c]) if pd.notna(row.get(c)) else np.nan

@@ -55,6 +55,8 @@ def build_inputs(sel, majors, n, seed, work):
     sid = 0
     for _, b in sel.iterrows():
         row = majors.loc[b.sample_id]
+        # archived record: bulk_to_magemin lost fe3_strategy= on 2026-10-29
+        # and always applies ClassRatioStrategy, the value passed here
         base = bulk_to_magemin(row, b.qap_name, h2o_wt=0.0, fe3_strategy=fe3)
         anh = {k: base[k] for k in OXIDE_KEYS}
         anh_sum = sum(anh.values())

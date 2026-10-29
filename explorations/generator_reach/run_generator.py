@@ -48,7 +48,6 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from cnmineral.data.condition_proposal import draw_conditions
-from cnmineral.data.fe_redox import ClassRatioStrategy
 from cnmineral.data.magemin_corpus import INPUT_COLS, OXIDE_KEYS, T_LADDER
 from cnmineral.data.magemin_oxides import bulk_to_magemin
 from cnmineral.data.phase_vocab import NON_SOLID_PHASES
@@ -76,12 +75,11 @@ LADDER_COLS = ["bulk", "draw", "T_celsius", "liq_frac", "phase", "instance", "mo
 def build_inputs(comps, n_draws, seed):
     """Expand composition rows into `run_magemin.jl` input rows, per-point meta
     and one row per draw; the per-rock rng is seeded `seed + bulk`."""
-    fe3 = ClassRatioStrategy()
     inputs, meta, draws = [], [], []
     sid = 0
     for _, b in comps.iterrows():
         bulk = int(b.bulk)
-        base = bulk_to_magemin(b, b.rock_class, h2o_wt=0.0, fe3_strategy=fe3)
+        base = bulk_to_magemin(b, b.rock_class, h2o_wt=0.0)
         anh = {k: base[k] for k in OXIDE_KEYS}
         anh_sum = sum(anh.values())
         rng = np.random.default_rng(seed + bulk)

@@ -8,7 +8,7 @@ Two schemas in play:
         SiO2, Al2O3, CaO, MgO, FeO, Fe2O3, K2O, Na2O, TiO2, Cr2O3, H2O
 
 Handled here:
-    - FeOt <-> FeO + Fe2O3   (split via `Fe3RatioStrategy`)
+    - FeOt <-> FeO + Fe2O3   (split via `ClassRatioStrategy`)
     - MnO, P2O5              (dropped going INTO MAGEMin)
     - H2O                    (injected by the caller -- sampled per (P, H2O) draw,
                               not read from the bulk; see ADR 004 "Conditions")
@@ -25,11 +25,11 @@ Fe provenance tier per bulk (also the item-10 provenance seed):
 """
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 import pandas as pd
 
-from .fe_redox import ClassRatioStrategy, Fe3RatioStrategy
+from .fe_redox import ClassRatioStrategy
 
 
 MAGEMIN_OXIDES = [
@@ -118,17 +118,14 @@ def split_fe(row, rock_class, fe3_strategy) -> FeSplit:
     return FeSplit(feo=0.0, fe2o3=0.0, provenance="no_iron")
 
 
-def bulk_to_magemin(row, rock_class, h2o_wt, fe3_strategy: "Optional[Fe3RatioStrategy]" = None) -> dict:
+def bulk_to_magemin(row, rock_class, h2o_wt) -> dict:
     """Convert one bulk row -> MAGEMin 11-oxide input (lowercase keys) + provenance.
 
     `h2o_wt` is injected by the caller (the sampled H2O for this draw), not read
     from the bulk. MnO/P2O5 are dropped (absent from the MAGEMin schema); missing
     Cr2O3 becomes 0.
     """
-    if fe3_strategy is None:
-        fe3_strategy = ClassRatioStrategy()
-
-    fe = split_fe(row, rock_class, fe3_strategy)
+    fe = split_fe(row, rock_class, ClassRatioStrategy())
 
     def _get(key):
         v = row.get(key)

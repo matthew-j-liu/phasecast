@@ -183,17 +183,14 @@ Critical schema requirements for the v3 corpus regen, beyond what v1 has:
 
 ### Strategy modules (corpus-gen priors)
 
-The corpus-gen pipeline encodes petrologic priors as toggle-able strategies,
-not hardcoded constants (`src/cnmineral/data/`). Mirror this pattern for any
-new prior:
+The corpus-gen pipeline's petrologic priors live in `src/cnmineral/data/`:
 
-- `fe_redox.py` -- Fe3+/ΣFe ratio (Middlemost 1989 per-class defaults;
-  ClassRatioStrategy + ConstantRatioStrategy)
-- `tp_priors.py` -- (T, P) sampling (Putirka 2008 per-class ranges). The P axis
-  carries forward into FC's (P, H2O) sampling; T sampling is replaced by
-  per-bulk T_FC_end at which residual liq < 5%.
-- `h2o.py` -- H2O wt% (Wallace 2005 + Plank 2013 + Burnham 1979 per-class
-  ranges; ClassRangeH2OStrategy + ConstantH2OStrategy)
+- `fe_redox.py` -- Fe3+/ΣFe ratio (`ClassRatioStrategy`, Middlemost 1989
+  per-class defaults; a perturbed table is the sensitivity-analysis hook)
+- `condition_proposal.py` -- (P, H2O) sampling: the bounded uniform proposal
+  under the Newman & Lowenstern 2002 rhyolite solubility, and the
+  trace-conditional mixture of literature boxes (per-class Wallace/Plank and
+  Putirka 2008 ranges where traces are missing)
 
 Tier-1 (measured) -> use directly. Tier-2 (assumed) -> strategy applies. A
 provenance label is carried through the pipeline so evaluation can stratify by

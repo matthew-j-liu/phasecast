@@ -50,7 +50,7 @@ def test_split_fe_no_iron_returns_zeros():
 def test_bulk_to_magemin_injects_h2o_and_drops_mno_p2o5():
     row = pd.Series(dict(sio2=57.0, al2o3=16.0, cao=7.0, mgo=4.0, feo_tot=7.0,
                          k2o=1.0, na2o=4.0, tio2=1.0, mno=0.2, p2o5=0.3))
-    out = bulk_to_magemin(row, "andesite", h2o_wt=3.5, fe3_strategy=FE3)
+    out = bulk_to_magemin(row, "andesite", h2o_wt=3.5)
     assert out["h2o_tot"] == 3.5
     assert "mno" not in out and "p2o5" not in out
     assert out["cr2o3"] == 0.0            # missing -> 0

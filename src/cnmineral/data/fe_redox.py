@@ -15,8 +15,6 @@ References:
     mineralogical classifications." Contrib. Mineral. Petrol. 56:181-189.
 """
 
-from typing import Optional, Protocol
-
 
 # Per-qap_name Fe3+/SigmaFe defaults. Values derived from Middlemost 1989 / Le
 # Maitre 1976 compilations, mapped to qap_name's modal-mineralogy categories.
@@ -122,13 +120,6 @@ MIDDLEMOST_1989 = {
 }
 
 
-class Fe3RatioStrategy(Protocol):
-    """A callable that returns Fe3+/SigmaFe given rock class + (optionally) oxides."""
-
-    def __call__(self, rock_class: str, oxides: "Optional[dict]" = None) -> float:
-        ...
-
-
 class ClassRatioStrategy:
     """Look up Fe3+/SigmaFe from a per-class table. Default is Middlemost 1989.
 
@@ -149,15 +140,3 @@ class ClassRatioStrategy:
     def __call__(self, rock_class, oxides=None):
         key = (rock_class or "").strip().lower()
         return self.ratios.get(key, self.ratios["default"])
-
-
-class ConstantRatioStrategy:
-    """Same Fe3+/SigmaFe ratio for all rocks. Useful as an ablation baseline."""
-
-    def __init__(self, ratio):
-        if not 0.0 <= ratio <= 1.0:
-            raise ValueError(f"ratio must be in [0, 1], got {ratio}")
-        self.ratio = float(ratio)
-
-    def __call__(self, rock_class, oxides=None):
-        return self.ratio
