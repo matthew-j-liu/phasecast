@@ -163,7 +163,6 @@ def fit_recalibrator(
     weight_decay: float = 1e-2,
     epochs: int = 400,
     lr: float = 0.05,
-    hidden: int = 32,
     seed: int = 0,
 ) -> RealRockRecalibrator:
     """Full-batch fit of one recalibrator on `train`, to convergence.
@@ -178,7 +177,7 @@ def fit_recalibrator(
     dataloader here would be ceremony.
     """
     torch.manual_seed(seed)
-    recalibrator = RealRockRecalibrator(tier, hidden=hidden).to(train.logits7.dtype)
+    recalibrator = RealRockRecalibrator(tier).to(train.logits7.dtype)
     opt = torch.optim.Adam(recalibrator.parameters(), lr=lr, weight_decay=weight_decay)
     for _ in range(epochs):
         opt.zero_grad()

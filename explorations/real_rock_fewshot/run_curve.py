@@ -78,7 +78,7 @@ RESULTS = Path(__file__).resolve().parent / "results"
 # rather than re-selected on every run so the curve is reproducible and the
 # val slice's contribution stays one scalar per arm.
 WEIGHT_DECAY: dict[str, float] = {
-    "vector": 0.01, "matrix": 1.0, "mlp": 3.0,
+    "vector": 0.01, "matrix": 1.0,
     "measured": 1.0, "measured_raw": 1.0, "measured_ablated": 10.0,
     "adapted": 1.0,
 }
@@ -116,7 +116,7 @@ CONTRAST_ARMS: tuple[str, ...] = (
 PLOT_ARMS: tuple[str, ...] = ("matrix",) + MEASURED_ARMS
 
 BUDGETS: tuple[int, ...] = (25, 50, 100, 200, 400)
-ARM_COLOR = {"vector": "tab:blue", "matrix": "tab:orange", "mlp": "tab:green",
+ARM_COLOR = {"vector": "tab:blue", "matrix": "tab:orange",
              "measured": "tab:purple",
              "measured_raw": "tab:brown", "measured_ablated": "tab:gray",
              "adapted": "tab:cyan"}

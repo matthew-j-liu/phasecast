@@ -51,18 +51,17 @@ def test_structural_zeros_survive_the_magnitude_correction(tier):
     assert torch.isfinite(out_alpha).all()
 
 
-@pytest.mark.parametrize("tier", ["matrix", "mlp"])
-def test_richer_tiers_contain_the_vector_tier_exactly(tier):
-    """vector in matrix in mlp, so the 21-param affine is the degenerate case
-    of every richer tier.
+def test_matrix_tier_contains_the_vector_tier_exactly():
+    """vector in matrix, so the 21-param affine is the degenerate case of the
+    coupled tier.
 
-    Copying a fitted vector tier's parameters into a richer tier must reproduce
-    it to floating point -- otherwise the tiers are rivals rather than a nesting
-    and the curve compares three different things.
+    Copying a fitted vector tier's parameters into the matrix tier must
+    reproduce it to floating point -- otherwise the tiers are rivals rather
+    than a nesting and the curve compares two different things.
     """
     logits, alpha = _inputs()
     vector = _randomize(RealRockRecalibrator("vector"))
-    richer = RealRockRecalibrator(tier)
+    richer = RealRockRecalibrator("matrix")
     with torch.no_grad():
         target = dict(richer.named_parameters())
         for name, p in vector.named_parameters():
@@ -77,7 +76,7 @@ def test_off_support_groups_contribute_a_neutral_log_feature():
     """An off-support alpha must not reach the coupled tiers as log(tiny).
 
     Clamping to 1e-12 before the log hands the mixing matrix a -27 spike on
-    groups carrying no information, and the matrix / mlp fits diverge on it
+    groups carrying no information, and the matrix fit diverges on it
     (val NLL ~1e20). The feature is 0 there instead, so a zero column cannot
     move the correction.
     """

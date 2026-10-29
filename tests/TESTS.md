@@ -319,7 +319,7 @@ rename, or repurpose a test) updates this file in the same change.**
 
 1. `test_recalibrator_is_the_identity_at_initialization` -- an unfit recalibrator reproduces the zero-shot outputs exactly, which is what lets a fitted one's gain read as nats recovered on the ledger's scale.
 2. `test_structural_zeros_survive_the_magnitude_correction` -- coarsening leaves alpha 0 where a group has no member on the support; the correction is multiplicative so those stay 0 rather than becoming -inf.
-3. `test_richer_tiers_contain_the_vector_tier_exactly` -- copying a fitted vector tier's parameters into `matrix` / `mlp` reproduces it, so the 21-param affine is the degenerate case rather than a rival.
+3. `test_matrix_tier_contains_the_vector_tier_exactly` -- copying a fitted vector tier's parameters into `matrix` reproduces it, so the 21-param affine is the degenerate case rather than a rival.
 4. `test_off_support_groups_contribute_a_neutral_log_feature` -- scaling the mixing weights that read an off-support column is a no-op, which only holds if that column enters as 0 rather than log(tiny).
 5. `test_unknown_tier_is_rejected` -- a mistyped tier raises rather than silently falling back.
 

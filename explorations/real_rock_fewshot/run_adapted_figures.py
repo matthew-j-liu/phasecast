@@ -43,7 +43,7 @@ from cnmineral.training.real_rock_recalibrator import (
 RESULTS = Path(__file__).resolve().parent / "results"
 
 # the values selected on val for run_curve; see run_curve.WEIGHT_DECAY
-WEIGHT_DECAY = {"vector": 0.01, "matrix": 1.0, "mlp": 3.0}
+WEIGHT_DECAY = {"vector": 0.01, "matrix": 1.0}
 
 
 def main() -> None:
@@ -51,7 +51,7 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, required=True)
     # the interval and mean panels here read the Beta marginal directly, so
     # every tier here must emit a single Dirichlet
-    parser.add_argument("--tier", choices=("vector", "matrix", "mlp"),
+    parser.add_argument("--tier", choices=("vector", "matrix"),
                         default="matrix")
     args = parser.parse_args()
 

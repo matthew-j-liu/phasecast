@@ -8,10 +8,11 @@ phases: that is where the labels live, where the residuals were measured, and
 where the three tiers nest exactly.  Encoder and heads stay frozen; fitting
 lives in `cnmineral.training.real_rock_recalibrator`.
 
-The tiers are `vector` in `matrix` in `mlp`, so the ~21-parameter per-group
-affine is the degenerate case of the MLP rather than a rival to it.  `matrix`
-is the canonical layer.  Two extensions were built, measured and removed: a
-pure-location silica slope on px/bi/q magnitudes (+0.007 [-0.004, +0.016]
+The tiers are `vector` in `matrix`, so the ~21-parameter per-group affine is
+the degenerate case of the coupled layer rather than a rival to it.  `matrix`
+is the canonical layer.  Three extensions were built, measured and removed: an
+MLP on top of `matrix` whose capacity never repaid itself at any labelled
+budget (journal 2026-09-02), a pure-location silica slope on px/bi/q magnitudes (+0.007 [-0.004, +0.016]
 nats, journal 2026-08-06) and a two-parameter precision contamination on top
 of `matrix`, whose 0.3-nat margin turned out to be the cost of pinning
 amphibole's correction at zero (journal 2026-09-03).
@@ -22,7 +23,7 @@ from torch import nn
 
 from ..data.phase_vocab import GROUPS
 
-TIERS: tuple[str, ...] = ("vector", "matrix", "mlp")
+TIERS: tuple[str, ...] = ("vector", "matrix")
 
 
 class RealRockRecalibrator(nn.Module):
@@ -43,12 +44,7 @@ class RealRockRecalibrator(nn.Module):
     the density assumption and is not interpretable.
     """
 
-    def __init__(
-        self,
-        tier: str = "vector",
-        *,
-        hidden: int = 32,
-    ) -> None:
+    def __init__(self, tier: str = "vector") -> None:
         super().__init__()
         if tier not in TIERS:
             raise ValueError(f"unknown tier {tier!r}; expected one of {TIERS}")
@@ -61,17 +57,9 @@ class RealRockRecalibrator(nn.Module):
         self.presence_offset = nn.Parameter(torch.zeros(n))
         self.magnitude_offset = nn.Parameter(torch.zeros(n))
 
-        if tier in ("matrix", "mlp"):
+        if tier == "matrix":
             self.presence_mix = nn.Parameter(torch.zeros(n, n))
             self.magnitude_mix = nn.Parameter(torch.zeros(n, n))
-        if tier == "mlp":
-            self.trunk = nn.Sequential(
-                nn.Linear(2 * n, hidden), nn.GELU(), nn.Linear(hidden, 2 * n)
-            )
-            # zero the last layer so the MLP branch starts silent and the
-            # module is exactly its `matrix` tier at initialization.
-            nn.init.zeros_(self.trunk[-1].weight)
-            nn.init.zeros_(self.trunk[-1].bias)
 
     def forward(
         self,
@@ -107,14 +95,9 @@ class RealRockRecalibrator(nn.Module):
         d_presence = self.presence_scale * logits7 + self.presence_offset
         d_magnitude = self.magnitude_offset.expand_as(alpha_feat)
 
-        if self.tier in ("matrix", "mlp"):
+        if self.tier == "matrix":
             d_presence = d_presence + logits7 @ self.presence_mix
             d_magnitude = d_magnitude + log_alpha @ self.magnitude_mix
-        if self.tier == "mlp":
-            delta = self.trunk(torch.cat([logits7, log_alpha], dim=-1))
-            n = len(GROUPS)
-            d_presence = d_presence + delta[..., :n]
-            d_magnitude = d_magnitude + delta[..., n:]
 
         correction = d_magnitude.exp()
         if alpha7.dim() == 3:
