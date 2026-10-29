@@ -220,10 +220,12 @@ def main():
     parser.add_argument("--benchmark", choices=("volcanic", "plutonic"), default="volcanic")
     parser.add_argument("--depth", type=int, default=224, help="gradient steps of the line to draw")
     parser.add_argument("--mean-vs-median", action="store_true",
-                        help="draw only `gradient_steps/mean_vs_median`, the two summaries of the subset line")
+                        help="draw only `gradient_steps/mean_vs_median_{benchmark}`, the two summaries of the "
+                             "subset line")
     args = parser.parse_args()
     if args.mean_vs_median:
-        print("wrote", plot_mean_vs_median(args.benchmark, args.depth, RESULTS / "gradient_steps" / "mean_vs_median"))
+        print("wrote", plot_mean_vs_median(args.benchmark, args.depth,
+                                           RESULTS / "gradient_steps" / f"mean_vs_median_{args.benchmark}"))
         return
     agg = load_line(args.depth, args.benchmark)
     stem = "zero_shot_scaling" if args.benchmark == "volcanic" else "zero_shot_scaling_plutonic"
