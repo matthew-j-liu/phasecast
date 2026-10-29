@@ -168,14 +168,17 @@ def differences(values):
 
 
 def paired_bands(errors, units, n_boot=N_BOOT):
-    """The line per size with unit-bootstrap 95% bands, and its rise, fall
-    and net with bands; every size reads the same resample, so the
+    """The line per size with unit-bootstrap 95% bands and interquartile
+    ranges, and its rise, fall and net with 95% bands; every size reads the same resample, so the
     differences are paired."""
     est = line_values(errors, np.arange(len(units)))
     reps = np.stack([line_values(errors, idx) for idx in unit_resamples(units, n_boot)])
     lo, hi = np.nanpercentile(reps, 2.5, axis=0), np.nanpercentile(reps, 97.5, axis=0)
+    q25, q75 = np.nanpercentile(reps, 25, axis=0), np.nanpercentile(reps, 75, axis=0)
     out = {"points": {int(n): {label: [est[i, j], lo[i, j], hi[i, j]] for j, label in enumerate(LABELS)}
-                      for i, n in enumerate(SIZES)}}
+                      for i, n in enumerate(SIZES)},
+           "points_interquartile": {int(n): {label: [q25[i, j], q75[i, j]] for j, label in enumerate(LABELS)}
+                                    for i, n in enumerate(SIZES)}}
     d_est, d_reps = differences(est), differences(reps)
     out["differences"] = {name: {label: [d_est[name][j], *np.nanpercentile(d_reps[name][:, j], [2.5, 97.5])]
                                  for j, label in enumerate(LABELS)} for name in d_est}

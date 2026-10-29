@@ -127,8 +127,8 @@ def plot_lines(lines, title, out):
 
 def plot_variation(benchmark, depth, out):
     """The three sources of variation on one axis per category: the
-    nested-roster line with its seed range, its unit-bootstrap 95% band
-    shaded, and each roster replicate's head as a hollow marker."""
+    nested-roster line with its seed range, its unit-bootstrap
+    interquartile range shaded, and each roster replicate's head as a hollow marker."""
     import json
 
     df = pd.read_csv(RESULTS / f"zero_shot_line_{benchmark}.csv")
@@ -140,8 +140,8 @@ def plot_variation(benchmark, depth, out):
     sizes = [int(n) for n in agg.index]
     fig, axes = panel_grid(style)
     for i, (ax, c) in enumerate(zip(axes.ravel(), PANELS)):
-        lo = [100 * bands["points"][str(n)][c][1] for n in sizes]
-        hi = [100 * bands["points"][str(n)][c][2] for n in sizes]
+        lo = [100 * bands["points_interquartile"][str(n)][c][0] for n in sizes]
+        hi = [100 * bands["points_interquartile"][str(n)][c][1] for n in sizes]
         ax.fill_between(sizes, lo, hi, color=line, alpha=0.15, lw=0)
         m = 100 * agg[f"mae_{c}_mean"]
         ax.errorbar(sizes, m, yerr=[m - 100 * agg[f"mae_{c}_min"], 100 * agg[f"mae_{c}_max"] - m],
@@ -152,7 +152,7 @@ def plot_variation(benchmark, depth, out):
     fig.supxlabel("Simulated compositions in the training corpus", y=0.085, fontsize=spec["label"])
     fig.supylabel("Abundance MAE (%)", x=0.012, fontsize=spec["label"])
     handles = [Line2D([], [], color=line, marker="o", ms=3.5, label="Nested roster; bars span three seeds"),
-               plt.Rectangle((0, 0), 1, 1, color=line, alpha=0.15, label="Unit-bootstrap 95% band"),
+               plt.Rectangle((0, 0), 1, 1, color=line, alpha=0.15, label="Unit-bootstrap interquartile range"),
                Line2D([], [], ls="none", marker="o", mfc="none", mec=rep_color, ms=3.5, label="Random rosters, seed 0")]
     fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.53, 0.0), ncol=3, handlelength=2.6)
     fig.savefig(out.with_suffix(".png"), dpi=200)
