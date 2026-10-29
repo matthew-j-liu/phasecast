@@ -8,8 +8,15 @@ the encoder trained on (pretraining train or val), DS 942 rocks it held out
 (pretraining test), and PP 1793, which pretraining barely touched (journal
 2026-10-19). Membership matches each rock's eight majors, renormalized to
 100 with total iron as FeO, against the rebuilt pretraining set: every oxide
-within 0.02 wt% of one row. Writes `results/zero_shot_line_{benchmark}.csv`
-and, for the plutonic benchmark, `results/plutonic_pretraining_membership.csv`;
+within 0.02 wt% of one row. The roster replicates
+(`run_roster_replicates.py`, `final224_allrock_n{N}_roster{r}`) are read beside
+the nested-roster heads. Per depth and rock group, a unit bootstrap (whole
+eruptive units or intrusions, the same resample at every size) bands the
+nested-roster line, seed-averaged per rock, and its rise (78 - 10), fall
+(10,000 - 78) and net (10,000 - 10); and the val rocks' rise, fall and net
+are placed among random draws of as many train and val units. Writes
+`results/zero_shot_line_{benchmark}.csv`, `zero_shot_line_{benchmark}_bands.json`
+and, for the plutonic benchmark, `plutonic_pretraining_membership.csv`;
 `fig_zero_shot_scaling.py` draws the figures.
 
   python explorations/corpus_scaling/run_zero_shot_line.py --benchmark volcanic
@@ -22,7 +29,9 @@ os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
 os.environ.setdefault("KMP_WARNINGS", "off")
 
 import argparse
+import json
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -54,7 +63,8 @@ LABELS = (*GROUPS, *MEANS)
 MAJORS = ("sio2", "tio2", "al2o3", "fe_t", "mgo", "cao", "na2o", "k2o")
 MATCH_TOL = 0.02
 DS942, PP1793 = "dubray_ds942", "dubray_pp1793"
-PRETRAINING_GROUPS = ("ds942_seen", "ds942_held_out", "pp1793")
+ROSTER_REPLICATES = (1, 2, 3, 4, 5)
+N_BOOT = 2000
 
 
 def renormalized_majors(frame):
@@ -124,18 +134,87 @@ def group_metrics(share, magnitude, numeric, groups):
     return out
 
 
+def rock_errors(share, magnitude, numeric):
+    """Per rock and category, the absolute share error, NaN where the rock
+    does not quantify the category."""
+    return np.where(numeric, np.abs(share - magnitude), np.nan)
+
+
+def line_values(errors, idx):
+    """Per corpus size, the error per category and its means over the rows
+    `idx` of `errors` (sizes x rocks x categories); the mean over a category's
+    quantified rows is what `share_metrics` reports."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mae = np.nanmean(errors[:, idx], axis=1)
+    return np.stack([with_means(m) for m in mae])
+
+
+def unit_resamples(units, n_boot=N_BOOT, seed=0):
+    """Row positions of whole units drawn with replacement, the resampling
+    of `cnmineral.eval.real_rock.unit_bootstrap`."""
+    rng = np.random.default_rng(seed)
+    groups = [np.flatnonzero(units == u) for u in np.unique(units)]
+    for _ in range(n_boot):
+        yield np.concatenate([groups[j] for j in rng.integers(0, len(groups), len(groups))])
+
+
+def differences(values):
+    """The line's rise (78 - 10), fall (10,000 - 78) and net (10,000 - 10)
+    per label, from per-size values."""
+    at = {n: values[..., SIZES.index(n), :] for n in (10, 78, 10000)}
+    return {"rise_78_minus_10": at[78] - at[10], "fall_10000_minus_78": at[10000] - at[78],
+            "net_10000_minus_10": at[10000] - at[10]}
+
+
+def paired_bands(errors, units, n_boot=N_BOOT):
+    """The line per size with unit-bootstrap 95% bands, and its rise, fall
+    and net with bands; every size reads the same resample, so the
+    differences are paired."""
+    est = line_values(errors, np.arange(len(units)))
+    reps = np.stack([line_values(errors, idx) for idx in unit_resamples(units, n_boot)])
+    lo, hi = np.nanpercentile(reps, 2.5, axis=0), np.nanpercentile(reps, 97.5, axis=0)
+    out = {"points": {int(n): {label: [est[i, j], lo[i, j], hi[i, j]] for j, label in enumerate(LABELS)}
+                      for i, n in enumerate(SIZES)}}
+    d_est, d_reps = differences(est), differences(reps)
+    out["differences"] = {name: {label: [d_est[name][j], *np.nanpercentile(d_reps[name][:, j], [2.5, 97.5])]
+                                 for j, label in enumerate(LABELS)} for name in d_est}
+    return out
+
+
+def subset_percentiles(errors, units, subset, n_draw=N_BOOT, seed=0):
+    """Where the line's rise, fall and net (mean of seven) on the rows
+    `subset` fall among random draws of as many whole units, without
+    replacement, from all of `units`: a percentile near 50 is an ordinary
+    subset."""
+    rng = np.random.default_rng(seed)
+    pool = np.unique(units)
+    k = len(np.unique(units[subset]))
+    m7 = LABELS.index("mean7")
+    own = differences(line_values(errors, np.flatnonzero(subset)))
+    draws = {name: [] for name in own}
+    for _ in range(n_draw):
+        idx = np.flatnonzero(np.isin(units, rng.choice(pool, size=k, replace=False)))
+        for name, v in differences(line_values(errors, idx)).items():
+            draws[name].append(v[m7])
+    return {name: {"subset": float(own[name][m7]), "percentile": float((np.array(draws[name]) < own[name][m7]).mean() * 100),
+                   "draws_median": float(np.median(draws[name])), "units_drawn": int(k)} for name in own}
+
+
 def load(name):
-    """The evaluated benchmark and its train-or-val mask; the plutonic split
+    """The evaluated benchmark and its train-or-val and val masks; the plutonic split
     roster is only in place inside its context manager."""
     if name == "volcanic":
         benchmark = load_benchmark()
         benchmark = benchmark.subset(benchmark.clean & benchmark.has_magnitude)
         rows = split_mask(benchmark, "train") | split_mask(benchmark, "val")
+        val = split_mask(benchmark, "val")
     else:
         with plutonic_benchmark() as evaluated:
             benchmark = evaluated.subset(evaluated.has_magnitude)
             rows = split_mask(benchmark, "train") | split_mask(benchmark, "val")
-    return benchmark, rows
+            val = split_mask(benchmark, "val")
+    return benchmark, rows, val
 
 
 def main():
@@ -143,7 +222,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--benchmark", choices=("volcanic", "plutonic"), required=True)
     args = ap.parse_args()
-    benchmark, rows = load(args.benchmark)
+    benchmark, rows, val = load(args.benchmark)
     groups = {"all": rows}
     if args.benchmark == "plutonic":
         comps = pd.read_csv(REPO / "explorations" / "generator_reach" / "results" / "plutonic_compositions.csv",
@@ -165,23 +244,53 @@ def main():
     latents = bulk_latents(encoder.to(device), benchmark, device)
     numeric = benchmark.numeric.astype(np.float64)
 
-    records = []
+    records, errors = [], {}
     for depth in DEPTHS:
         for n in SIZES:
-            for seed, tag in with_seeds(f"final{depth}_allrock_n{n}"):
+            cells = [(0, seed, tag) for seed, tag in with_seeds(f"final{depth}_allrock_n{n}")]
+            cells += [(r, 0, f"final{depth}_allrock_n{n}_roster{r}") for r in ROSTER_REPLICATES
+                      if (REPO / "checkpoints" / f"final{depth}_allrock_n{n}_roster{r}" / "heads_best.pt").exists()]
+            nested = []
+            for roster, seed, tag in cells:
                 ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / tag / "heads_best.pt")
                 gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
                 share = conditional_mean(gp.alpha7.numpy(), numeric)
+                if roster == 0:
+                    nested.append(rock_errors(share, benchmark.magnitude, benchmark.numeric))
                 for name, metrics in group_metrics(share, benchmark.magnitude, benchmark.numeric,
                                                    groups).items():
                     records.append(dict(benchmark=args.benchmark, group=name, depth=depth, n_bulks=n,
-                                        seed=seed, tag=tag, **metrics))
-        line = [r for r in records if r["depth"] == depth and r["group"] == "all"]
+                                        roster=roster, seed=seed, tag=tag, **metrics))
+            errors[depth, n] = np.mean(nested, axis=0)
+        line = [r for r in records if r["depth"] == depth and r["group"] == "all" and r["roster"] == 0]
         print(f"{depth} steps, mean of seven by size: " + ", ".join(
             f"{n:,} {np.mean([r['mae_mean7'] for r in line if r['n_bulks'] == n]):.4f}" for n in SIZES))
     out = RESULTS / f"zero_shot_line_{args.benchmark}.csv"
     pd.DataFrame(records).to_csv(out, index=False)
     print(f"{int(rows.sum())} train and val rocks; wrote {out}")
+
+    units = np.asarray(benchmark.unit).astype(str)
+    m7 = LABELS.index("mean7")
+    bands = {"settings": {"n_boot": N_BOOT, "seed": 0, "rocks": "train and val", "basis": "teacher-forced",
+                          "seed_mean": "per-rock errors averaged over the nested roster's seeds"}}
+    for depth in DEPTHS:
+        stack = np.stack([errors[depth, n] for n in SIZES])
+        entry = {}
+        for name, m in groups.items():
+            entry[name] = paired_bands(stack[:, m], units[m])
+            if name == "all":
+                entry[name]["val_subset"] = subset_percentiles(stack[:, rows], units[rows], val[rows])
+        bands[str(depth)] = entry
+        d = entry["all"]["differences"]
+        print(f"{depth} steps, mean of seven: " + "; ".join(
+            f"{k} {100 * v['mean7'][0]:+.2f} [{100 * v['mean7'][1]:+.2f}, {100 * v['mean7'][2]:+.2f}]"
+            for k, v in d.items()))
+        print(f"{depth} steps, val among random {entry['all']['val_subset']['net_10000_minus_10']['units_drawn']}"
+              "-unit subsets, percentile: " + ", ".join(
+                  f"{k} {v['percentile']:.0f}" for k, v in entry["all"]["val_subset"].items()))
+    path = RESULTS / f"zero_shot_line_{args.benchmark}_bands.json"
+    path.write_text(json.dumps(bands, indent=1, default=float))
+    print(f"wrote {path}")
 
 
 if __name__ == "__main__":

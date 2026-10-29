@@ -4,7 +4,8 @@ Locks the pure pieces: the md5 roster order (deterministic, input-order
 independent, prefixes nest), the per-point config overrides, tag parsing into
 axis coordinates, the last-doubling delta table, and the depth grid's cell
 rules, share metrics and share-error slopes; the zero-shot line's
-per-group aggregation, pretraining match and membership rule. The ladder orchestrator
+per-group aggregation, pretraining match and membership rule, roster
+replicates, paired bands and subset percentiles. The ladder orchestrator
 needs real checkpoints, so it is exercised by the CLI run, not here.
 """
 
@@ -90,6 +91,7 @@ def test_last_doubling_deltas() -> None:
 
 from torch.utils.data import TensorDataset
 import numpy as np
+import pytest
 import pandas as pd
 import torch
 
@@ -166,13 +168,14 @@ def test_zero_shot_figure_aggregates_one_group_at_one_depth_per_size(tmp_path) -
     assert set(PANELS) == set(cats) | {"mean7"}
 
     def row(n, seed, depth=224, group="all"):
-        r = dict(benchmark="plutonic", group=group, depth=depth, n_bulks=n, seed=seed,
+        r = dict(benchmark="plutonic", group=group, depth=depth, n_bulks=n, roster=0, seed=seed,
                  tag=f"final{depth}_allrock_n{n}", n_rocks=40)
         r.update({f"mae_{g}": v for g, v in zip(cats, (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7))})
         r["mae_mean7"] = 0.4
         return r
+    replicate = dict(row(78, 0), roster=3, mae_fsp=0.9)
     df = pd.DataFrame([row(78, 0), row(78, 1), row(312, 0), row(312, 0, depth=56),
-                       row(312, 1, group="pp1793")])
+                       row(312, 1, group="pp1793"), replicate])
     df.loc[1, "mae_fsp"] = 0.3
     df.to_csv(tmp_path / "line.csv", index=False)
     agg = load_line(224, csv=tmp_path / "line.csv")
@@ -218,6 +221,49 @@ def test_group_metrics_read_each_rock_group_on_its_own_rows() -> None:
                                                               "silicate", "other", "mean7")],
                            expected, equal_nan=True)
         assert out[name]["n_rocks"] == int(m.sum()) and out[name]["n_fsp"] == int(numeric[m, 0].sum())
+
+
+def test_roster_replicates_are_reproducible_distinct_and_drawn_from_the_corpus() -> None:
+    from explorations.corpus_scaling.run_roster_replicates import replicate_roster
+    ids = list(range(1000, 1500))
+    a, b = replicate_roster(ids, 40, 1), replicate_roster(ids, 40, 2)
+    assert np.array_equal(a, replicate_roster(ids, 40, 1)) and not np.array_equal(a, b)
+    assert len(np.unique(a)) == 40 and set(a) <= set(ids) and np.all(np.diff(a) > 0)
+
+
+def test_paired_bands_are_zero_for_identical_sizes_and_contain_the_estimate() -> None:
+    from explorations.corpus_scaling import run_zero_shot_line as z
+    rng = np.random.default_rng(0)
+    one = rng.random((60, 7))
+    one[rng.random((60, 7)) < 0.3] = np.nan
+    units = np.repeat(np.arange(20), 3).astype(str)
+    flat = np.stack([one] * len(z.SIZES))
+    out = z.paired_bands(flat, units, n_boot=200)
+    for name, per_label in out["differences"].items():
+        assert np.allclose(per_label["mean7"], 0.0)
+    moved = flat.copy()
+    moved[z.SIZES.index(10000)] += 0.05
+    out = z.paired_bands(moved, units, n_boot=200)
+    est, lo, hi = out["differences"]["net_10000_minus_10"]["mean7"]
+    assert est == pytest.approx(0.05) and lo <= est <= hi
+    for n, per_label in out["points"].items():
+        e, a, b = per_label["mean7"]
+        assert a <= e <= b
+
+
+def test_subset_percentile_ranks_a_subset_among_random_unit_draws() -> None:
+    from explorations.corpus_scaling import run_zero_shot_line as z
+    rng = np.random.default_rng(1)
+    units = np.repeat(np.arange(40), 4).astype(str)
+    errors = np.stack([rng.random((160, 7)) for _ in z.SIZES])
+    # a subset whose rocks carry a large extra rise sits at the top of the draws
+    subset = np.isin(units, units[:40])
+    steep = errors.copy()
+    steep[z.SIZES.index(78)][subset] += 1.0
+    out = z.subset_percentiles(steep, units, subset, n_draw=300)
+    assert out["rise_78_minus_10"]["percentile"] > 95 and out["rise_78_minus_10"]["units_drawn"] == 10
+    out = z.subset_percentiles(errors, units, subset, n_draw=300)
+    assert 2 < out["net_10000_minus_10"]["percentile"] < 98
 
 
 def test_distance_table_reads_each_basis_against_its_target() -> None:
