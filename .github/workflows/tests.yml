@@ -1,0 +1,36 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    # setup-miniconda activates the env through the login profile, so every
+    # step needs a login shell to see it
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v7
+
+      - name: Create the mineral env
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          miniforge-version: latest
+          environment-file: environment.yml
+          activate-environment: mineral
+          conda-remove-defaults: "true"
+
+      - name: Install cnmineral
+        run: pip install -e .
+
+      - name: Run the unit tests
+        run: pytest tests/
