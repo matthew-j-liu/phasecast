@@ -675,13 +675,6 @@ Tests for archived explorations (moved to `explorations/archive/`,
 38. `test_norm_input_carries_total_iron_as_feo_on_every_row` -- a rock reporting its iron as Fe2O3 enters the CIPW norm as the mass-equivalent FeO, an FeO row is unchanged, and the caller's frame is not modified.
 39. `test_align_places_benchmark_rows_on_the_composition_rows_by_key` -- benchmark truth lands on the composition rows its keys name, in whatever order the benchmark lists them, and a composition row the benchmark does not evaluate carries no quantified category, no unit and `evaluated` False.
 
-### test_input_probe_ceiling.py
-
-1. `test_representations_have_expected_widths_and_exclude_the_redox_slot` -- the four raw matrices are 22/44 wide over element slots only, never the redox slot the latent arm's `PaddedRedoxView` zeroes, so neither arm reads chemistry the other cannot.
-2. `test_absent_elements_are_neutral_and_populated_ones_track_abundance` -- absent elements land on the neutral standardized value with their flag at 0, populated ones carry the flag at 1, and within an element the standardized values order exactly as the abundances do (the log-space contract).
-3. `test_standardization_never_reads_the_test_rows` -- perturbing the test rows leaves the train matrix bit-identical, so the raw arm's center/scale is fit on its own training data.
-4. `test_probe_slice_keeps_labeled_roster_rows_only` -- the slice both arms are fit on is disjoint train/test, carries no null qap label, and scores only roster rows.
-
 ### test_prior_search.py
 
 1. `test_scheme_clips_to_the_broad_box_and_the_solubility_bound` -- a rectangle past the box edge clips to it, the density is zero outside the rectangle and above the solubility bound, a scheme spanning the whole box draws with exactly `q_density`, its area fraction is 1, and every grid scheme lies inside the box under half its area.
@@ -692,20 +685,6 @@ Tests for archived explorations (moved to `explorations/archive/`,
 6. `test_hits_use_tau_then_fall_back_to_the_best_rows` -- a rock's hit rows are those within tau on the joint silicate error, with the hit count, best error and mean hit conditions summarized and each draw weighted by the fraction of its rung rows that hit; a tau nothing meets falls back to the k best rows and flags it.
 7. `test_window_weights_center_a_rectangle_on_each_rock` -- each rock's draws are weighted by a rectangle centered on that rock's own center, so a draw inside one rock's window and outside another's weights accordingly, and a rock without a center gets zero weight everywhere.
 8. `test_predictability_read_end_to_end_on_a_synthetic_run` -- the tripwire: the synthetic run flows through the hit definition, the two ceilings (hit rows first, then own-center windows), the four predictors (train mean, class mean, ridge, forest) with their R2 columns, finite val errors on the wide rows, and the figure.
-
-### test_redox_padding.py
-
-1. `test_padded_on_the_curve_recovers_its_ratio` -- a padded latent placed exactly at a grid ratio is reported nearest to that ratio, at zero distance from the sweep curve.
-2. `test_padded_tracking_the_rock_shows_up_as_correlation` -- when each bulk's padded latent sits at that bulk's own ratio, r_star-vs-r_true correlates ~1 (the statistic separating a conditional guess from one global default).
-3. `test_constant_offset_reads_as_a_shared_direction` -- a common off-curve displacement reports near-parallel directions and is removed by the offset correction.
-4. `test_input_features_exclude_the_redox_slot` -- the missingness arms build values + presence flags over the 22 element slots only, never the target's own slot.
-
-### test_sediment_transfer.py
-
-1. `test_oxide_inversion_round_trips_through_the_tokenizer` -- inverting `OXIDE_TO_CATION_FACTOR` on the way in makes every populated token equal the source elemental weight fraction, so the Andrews tokenization introduces no assumption; breaks if the factors move or the Fe fallback stops reading `feo_tot` as FeO.
-2. `test_only_the_reported_elements_populate` -- seven slots populate and the other fifteen pad, which is the out-of-distribution input fact the exploration's reading rests on.
-3. `test_every_mapped_mineral_lands_in_the_shipped_coarsening` -- every `magemin_phase` the loader emits is known to `TRUTH_TO_GROUP`, so no mapped mineral is silently dropped and truth renormalizes over the intended groups.
-4. `test_olivine_and_biotite_have_no_source_mineral` -- neither group is reachable from the Andrews mineral list, which is why magnitude is scored on five groups and presence on seven.
 
 ### test_real_rock_mapping.py
 

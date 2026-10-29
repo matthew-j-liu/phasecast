@@ -331,8 +331,8 @@ rock_group axis and redox slot as its first realized evidence.
 |---|---|---|---|---|---|
 | trace imputation | median log-R2, 13 traces | 0.832 (prev 0.836) | ~0 (mean-fill) -> 0.877 (latent-XGB) -> 0.892 (input-XGB); gates stamped to the previous corpus, not re-run | provisional | #8, [trace_signal_in_latent](../explorations/archive/trace_signal_in_latent/README.md) |
 | major imputation | median log-R2, majors | 0.894 (prev 0.891) | ~0 (mean-fill) -> input-XGB per-major ceiling | provisional | #8, [imputation_head_design](../explorations/archive/imputation_head_design/README.md) |
-| qap decodability | probe acc (MLP / logreg) | 0.759 / 0.704 (prev 0.769 / 0.722) | 0.100 (random) -> 0.220 (majority) -> **0.787 / 0.681** (raw-assay probe) | provisional | probe eval, [input_probe_ceiling](../explorations/input_probe_ceiling/README.md) |
-| supergroup decodability | probe acc (MLP / logreg) | 0.814 / 0.731 (prev 0.821 / 0.749) | 0.151 (random) -> **0.813 / 0.659** (raw-assay probe) | provisional | probe eval, [input_probe_ceiling](../explorations/input_probe_ceiling/README.md) |
+| qap decodability | probe acc (MLP / logreg) | 0.759 / 0.704 (prev 0.769 / 0.722) | 0.100 (random) -> 0.220 (majority) -> **0.787 / 0.681** (raw-assay probe) | provisional | probe eval, [input_probe_ceiling](../explorations/archive/input_probe_ceiling/README.md) |
+| supergroup decodability | probe acc (MLP / logreg) | 0.814 / 0.731 (prev 0.821 / 0.749) | 0.151 (random) -> **0.813 / 0.659** (raw-assay probe) | provisional | probe eval, [input_probe_ceiling](../explorations/archive/input_probe_ceiling/README.md) |
 | rock_group decodability | probe acc (MLP / logreg), full all-rock test split | 0.919 / 0.894 | 0.810 (majority: always-igneous) -> *TBD* | provisional | probe eval |
 | redox imputation | log-R2, redox slot (never in trace medians) | 0.306 | ~0 (mean-fill) -> *TBD* | provisional | imputation readout |
 | redox token lift | populated-minus-padded qap MLP on measured-pair rows | +0.015 (0.774 populated) | 0 (token ignored) -> *TBD* | provisional | probe eval, #46 |
@@ -363,7 +363,7 @@ genuinely underdetermined from composition there.
 
 | axis | metric | current | floor -> ceiling | status | source |
 |---|---|---|---|---|---|
-| encoder vs linear, linear readout | qap logreg, latent minus any linear representation | **+0.023** (0.704 vs 0.681) | raw-assay logreg bounds every linear representation -> encoder | provisional | [input_probe_ceiling](../explorations/input_probe_ceiling/README.md), #19 |
+| encoder vs linear, linear readout | qap logreg, latent minus any linear representation | **+0.023** (0.704 vs 0.681) | raw-assay logreg bounds every linear representation -> encoder | provisional | [input_probe_ceiling](../explorations/archive/input_probe_ceiling/README.md), #19 |
 | encoder vs linear, nonlinear readout | imputation + MLP-probe delta over PCA | *TBD* | linear-PCA baseline -> encoder | candidate | #19 |
 
 The decisive "is the transformer worth it over a linear learned representation"

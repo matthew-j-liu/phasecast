@@ -22,8 +22,8 @@ OUT = ROOT / "paper" / "numbers.tex"
 
 FEWSHOT = ROOT / "explorations" / "real_rock_fewshot" / "results"
 SCALING = ROOT / "explorations" / "corpus_scaling" / "results"
-SEDIMENT = ROOT / "explorations" / "sediment_transfer" / "results"
-PROBE = ROOT / "explorations" / "input_probe_ceiling" / "results"
+SEDIMENT = ROOT / "explorations" / "archive" / "sediment_transfer" / "results"
+PROBE = ROOT / "explorations" / "archive" / "input_probe_ceiling" / "results"
 REALROCK = ROOT / "runs" / "real_rock"
 
 # `Prod` is the frozen production stack and nothing else. It used to name
@@ -279,7 +279,7 @@ except Exception as exc:
 # compilation computes qap_name from the majors the encoder reads.
 section("encoder capability away from the mineralogy task (runs/imputation/"
         f"{ENCODER_RUN}/readout/readout_logspace_metrics.json; "
-        "explorations/input_probe_ceiling/results/probe_ceiling.json)")
+        "explorations/archive/input_probe_ceiling/results/probe_ceiling.json)")
 try:
     import statistics
 
@@ -637,7 +637,7 @@ except Exception as exc:
     tbd("csCorpusValGain", f"scaling_realrock.json unreadable: {exc}")
 
 section("sedimentary XRD benchmark: a rock class and an instrument the heads "
-        "never saw (explorations/sediment_transfer/results/)")
+        "never saw (explorations/archive/sediment_transfer/results/)")
 try:
     mf = json.loads((SEDIMENT / "manifest.json").read_text())
     rc = json.loads((SEDIMENT / "recalibrate.json").read_text())
@@ -718,7 +718,7 @@ except Exception as exc:
     tbd("rrTruthInVocabN", f"benchmark_composition.json unreadable: {exc}")
 
 section("controls: each defends a claim and asserts nothing on its own "
-        "(explorations/real_mineralogy/results/<PROD>/, explorations/redox_padding/results/)")
+        "(explorations/real_mineralogy/results/<PROD>/, explorations/archive/redox_padding/results/)")
 try:
     CTL = ROOT / "explorations" / "real_mineralogy" / "results" / PROD
 
@@ -758,7 +758,7 @@ try:
     emit("ctlScaleDoseSpearman", fmt(sv["dose_response"]["spearman"], 3),
          "correction size against per-rock benefit; no dose response")
 
-    RDX = ROOT / "explorations" / "redox_padding" / "results"
+    RDX = ROOT / "explorations" / "archive" / "redox_padding" / "results"
     ms = json.loads((RDX / "missingness.json").read_text())
     gm = json.loads((RDX / "geometry.json").read_text())
     emit("ctlRedoxAurocInputs", fmt(ms["arms"]["inputs"]["auroc"], 3),

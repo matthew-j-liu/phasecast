@@ -489,7 +489,7 @@ def s_inputs(prs):
              "padded 23-token input reproduces the 22-token latent to 0.0 absolute "
              "difference on the production weights, pinned by a unit test. What the padded "
              "slot does NOT do is marginalize over an unknown ratio: measured 2026-08-06 "
-             "(explorations/redox_padding), it is a distinct learned 'no speciation "
+             "(explorations/archive/redox_padding), it is a distinct learned 'no speciation "
              "reported' state that imitates a low fixed ratio (nearest grid value 0.15 raw "
              "/ 0.25 offset-corrected, against a measured-tier true median of 0.33), barely "
              "tracks the individual rock (Pearson 0.23), and is itself predictable from the "
