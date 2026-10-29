@@ -8690,3 +8690,96 @@ polybaric paths as an unscheduled hypothesis (#93).
 heads (no training), with the volcanic line re-read on train and val to
 match, and the plutonic read split by pretraining membership (journal
 2026-10-19).
+
+## 2026-10-28 -- The zero-shot corpus-size line on train and val rocks: the volcanic hump and the val-only fall were one training subset and one rock set
+
+**Q.** Read on both benchmarks' train and val rocks, with its sources of
+variation measured, which features of the 224-step zero-shot line are
+real?
+
+**Context.** Zero-shot fits nothing to measured rocks, so the train and
+val splits are both fair to read; the step-1 line (journal 2026-10-27) had
+read val only (106 volcanic rocks) on one nested training subset per size
+with three seeds. `explorations/corpus_scaling/run_zero_shot_line.py`
+reads the existing heads teacher-forced on 478 volcanic and 404 plutonic
+train and val rocks and reproduces the val-only numbers exactly; a unit
+bootstrap bands the line; five random training subsets per size (seed 0)
+measure what the choice of compositions does.
+
+**Result.** On train and val rocks the volcanic nested line rises from
+11.0 at 10 compositions to 12.1 at 40 to 78 and returns to 11.0 at 10,000
+(mean of seven, percent); the rise is not established (+1.13 [-0.62,
++2.78] points), the val rocks' net change sits at the 7th percentile of
+random 39-unit draws, and the nested point at 78 lies above every random
+subset. Below about 78 compositions the choice of training subset changes
+the error far more than the seed. Plutonic DS 942 rocks the encoder held
+out in pretraining read 0.5 to 1 point worse than those it saw, with a
+similar shape (31 held-out rocks); membership is matched on renormalized
+majors against the rebuilt pretraining set, a rock counting as seen when
+any copy sat in pretraining train or val (48 held out, not the 58 counted
+2026-10-19 by nearest copy).
+
+**Decision.** A single training subset at small N is a draw, not a point
+of the line. The step-1 statements about the mean of seven (a fall from
+13.6 to 12.3 to a plateau at 625) rest on one subset and one unusual set
+of rocks and are not carried forward; its per-mineral directions are
+re-read in the next entry.
+
+**Next.** Many random training subsets per size.
+
+## 2026-10-29 -- Averaged over 50 random training subsets, zero-shot error falls with corpus size on both benchmarks and flattens by about 1,000 compositions
+
+**Q.** Averaged over the choice of training subset, does zero-shot
+abundance error fall with simulated corpus size?
+
+**Context.** 50 random training subsets at each of nine sizes from 10 to
+5,000, each training one head at seed 0 for 224 gradient steps of 1,024
+rows (fixed compute, about 229,000 rows at every N); the full corpus
+(10,000 compositions, one subset) at three seeds. All heads read
+zero-shot on the same train and val rocks. 450 heads, about 8.1 h on a
+laptop (`run_training_subsets.py`). corpus_scaling README, "The zero-shot
+line by training subset, both benchmarks".
+
+**Result** (mean of seven, percent, mean over subsets).
+- Volcanic: 12.17 at 10, 11.44 at 40, 11.18 at 625, 11.03 at 5,000, 11.02
+  at 10,000. Plutonic: 7.36, 6.34, 5.82, 5.66, and 5.95 at 10,000 (three
+  seeds, 5.70 to 6.42, inside the 5,000 subsets' range). Medians agree;
+  the standard error of each mean is under 0.3. Spread across subsets
+  shrinks with N (middle half 1.4 to 0.2 points volcanic, 2.8 to 0.3
+  plutonic).
+- Volcanic per mineral from 10 to 5,000: feldspar, pyroxene, olivine and
+  amphibole fall, biotite and quartz rise, oxides flat. Plutonic: feldspar,
+  quartz, pyroxene and amphibole fall; biotite and oxides about flat.
+- A saturating power law, error = E + A N^-alpha, fits both: alpha 0.37 to
+  0.66 with intervals spanning about 0.15 to 2.7, E about 11.1 volcanic
+  and 5.6 to 5.7 plutonic, the reducible part 0.9 to 1.6 points at N=10
+  and nearly gone by 1,000. Typical deep-learning data exponents are about
+  0.07 to 0.35; ours sit above them at face value, every interval reaches
+  into them, and the comparison is not like for like.
+- Five subsets per size had not been enough: their volcanic N=10 mean
+  (11.2) sat a point below the 50-subset mean.
+
+**Considered.** Uniform against precision-targeted subset counts; uniform
+50 at every size was taken for one rule. Median with quartiles against
+mean with one standard deviation as the figure summary; the subsets are
+right-skewed at small N, which favours the median.
+
+**Decision.** The scaling line is read averaged over many random training
+subsets at fixed compute, by the twelve-point protocol in the
+corpus_scaling README. More simulated data reduces zero-shot error on
+both benchmarks. Whether the flattening is a floor is not established:
+within 10 to 5,000 a floor and a slow continued decline fit equally, the
+fixed 224 steps may flatten the curve, and corpus sizes past 10,000 need
+new simulation.
+
+**Struck off and surviving.** Struck off: the mean-of-seven readings of
+the nested single-subset line (the step-1 fall and plateau, the volcanic
+hump). Surviving and strengthened: zero-shot error falls with corpus size
+on both benchmarks; the volcanic per-mineral split, biotite and quartz
+against the rest; the floor question.
+
+**Next.** The full curve at scale (more subsets and seeds, more compute,
+corpora past 10,000); a scoreboard against the simple baselines on this
+protocol; and the routes to lower error with data: the simulator recipe
+and read point, redox, the condition prior and composition pool,
+training protocol, and experimental data mixed into training.

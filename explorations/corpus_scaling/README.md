@@ -335,6 +335,10 @@ python explorations/corpus_scaling/fig_zero_shot_scaling.py --depth 224   # and 
 
 ### Result
 
+The figures at `results/gradient_steps/zero_shot_scaling_{D}.png` now show
+train and val rocks and the section below supersedes this one; the numbers
+here are the val-only read, kept in `results/depth_ladder.csv`.
+
 `results/gradient_steps/zero_shot_scaling_{D}.png`, one per fitting depth; the fifteen new cells all report 224
 steps, the earlier rows reproduce. Zero-shot absolute error on the val
 rocks, in percent, seed means; the constant forecast (train-split mean
@@ -492,3 +496,137 @@ simulator's bias arriving, not noise. The one qualification: the shallow
 head's advantage on the rocks is also partly a basis effect, since on the
 marginal basis every head sits within a point of the simulator's 15.9 from
 625 compositions up.
+
+## The zero-shot line by training subset, both benchmarks (2026-10-28/29)
+
+**Question.** Read on every measured rock zero-shot can use, and averaged
+over the choice of which compositions a head trains on, does zero-shot
+abundance error fall with corpus size, on the volcanic and on the plutonic
+benchmark?
+
+**Setup.**
+- The simulated corpus holds 10,000 gard2019 compositions (9,946 with
+  labels). Each contributes 96 rows: 48 (P, H2O) draws read at the 50 and
+  30% rungs. A row is one composition, one draw, one rung.
+- A training subset is N compositions drawn at random from the corpus. At
+  each N from 10 to 5,000, 50 training subsets each train one head at seed
+  0, so heads at one N differ only in their compositions. At 10,000 there
+  is one subset, the whole corpus, trained at seeds 0, 1 and 2.
+- Every head trains for 224 gradient steps. A gradient step is one
+  parameter update on a batch of 1,024 rows, so compute is fixed at about
+  229,000 rows at every N. At N=10 the corpus is 960 rows, less than a
+  batch, so each step is one pass over all of it.
+- Parameters change only through the training loss, a negative
+  log-likelihood (Bernoulli presence and Dirichlet abundance). The
+  validation set is simulated (held-out corpus compositions) and does not
+  choose the abundance head, which is kept at its last epoch.
+- Evaluation is zero-shot: the heads never see a measured rock. Every head
+  is read on the same rocks, each benchmark's train and val splits (test
+  sealed): volcanic 478 rocks in 86 eruptive units (phenocryst modes),
+  plutonic 404 rocks in 61 intrusions (whole-rock modes). Shares are read
+  teacher-forced over each rock's reported minerals; the absolute error is
+  averaged over rocks per mineral category, then over the seven categories.
+
+**Method.**
+- `run_zero_shot_line.py --benchmark {volcanic,plutonic}` reads every head
+  (the nested-subset `final{56,224,896}_allrock_n{N}` heads with their
+  seeds, and the random-subset `final224_allrock_n{N}_subset{r}` heads) and
+  writes one row per head and rock group. Restricted to volcanic val rocks
+  it reproduces `depth_ladder.csv` exactly.
+- A unit bootstrap (2,000 resamples of whole units, the same resample at
+  every size) bands the nested-subset line and its rise (78 - 10), fall
+  (10,000 - 78) and net (10,000 - 10). The val rocks' rise, fall and net
+  are placed among random draws of as many train and val units.
+- Plutonic rocks are also read by pretraining exposure. Each rock's eight
+  majors, renormalized to 100 with total iron as FeO, are matched (every
+  oxide within 0.02 wt%) against the rebuilt 787,721-row pretraining set; a
+  rock is seen if any copy sat in pretraining train or val, held out if
+  every copy sat in pretraining test. DS 942: 281 seen, 48 held out; PP
+  1793: 243 absent, 1 seen, 2 held out
+  (`results/plutonic_pretraining_membership.csv`).
+- `run_training_subsets.py` trains the random subsets through
+  `run_variant.py` with the `final224` protocol. Heads take about 216 s at
+  N=10 (224 epochs, each with a validation pass), 120 s at 20, 70 s at 40
+  and 44 s from 78 up; the 450 took about 8.1 h on a laptop.
+
+```
+python explorations/corpus_scaling/run_training_subsets.py
+python explorations/corpus_scaling/run_zero_shot_line.py --benchmark volcanic   # and plutonic
+python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark volcanic --depth 224   # 56, 896; plutonic
+python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark plutonic --depth 224 --mean-vs-median
+```
+
+Outputs under `results/`: `zero_shot_line_{benchmark}.csv` (one row per
+head and rock group), `zero_shot_line_{benchmark}_bands.json`,
+`plutonic_pretraining_membership.csv`, and under `gradient_steps/` per
+benchmark the nested-subset line per depth, the `_224_subsets` line, the
+`_224_variation` figure (seed, rock and training-subset variation on one
+axis), the plutonic `_pretraining` figures and `mean_vs_median_{benchmark}`.
+
+**Result.**
+- **The nested-subset line was one draw.** On train and val rocks the
+  volcanic nested line rises from 11.0 at 10 to 12.1 at 40 to 78 and falls
+  back to 11.0 at 10,000; on val alone it had fallen from 13.6 to 12.3.
+  The rise is not established (+1.13 [-0.62, +2.78] points, unit
+  bootstrap), the val rocks' net change sits at the 7th percentile of
+  random 39-unit draws, and the nested point at 78 lies above all random
+  subsets. Below about 78 compositions the training subset dominates: at
+  volcanic N=10 the 50 subsets span 10.3 to 15.6 points against a seed
+  range of 0.35.
+- **Averaged over 50 training subsets, error falls with corpus size on both
+  benchmarks.** Mean of seven, percent (median over subsets in brackets,
+  standard error of the mean below 0.3 everywhere):
+
+| N | 10 | 20 | 40 | 78 | 156 | 312 | 625 | 1,250 | 5,000 | 10,000 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| volcanic | 12.17 (11.99) | 11.74 (11.57) | 11.44 (11.40) | 11.30 (11.33) | 11.35 (11.32) | 11.38 (11.31) | 11.18 (11.18) | 11.08 (11.05) | 11.03 (11.06) | 11.02 |
+| plutonic | 7.36 (7.01) | 6.53 (6.53) | 6.34 (6.14) | 6.26 (6.35) | 6.14 (6.15) | 5.99 (6.04) | 5.82 (5.82) | 5.78 (5.79) | 5.66 (5.66) | 5.95 |
+
+  The 10,000 column is the full corpus at three seeds (plutonic 5.70 to
+  6.42, inside the 5,000 subsets' 5.17 to 6.16). Spread across subsets
+  shrinks with N: the middle half spans 1.4 points at volcanic N=10 and
+  0.2 at 5,000, 2.8 and 0.3 plutonic.
+- **Per mineral, 10 to 5,000.** Volcanic: feldspar 15.8 to 14.0, pyroxene
+  10.0 to 7.0, olivine 12.5 to 9.7 and amphibole 13.6 to 11.6 fall; biotite
+  (8.1 to 8.6) and quartz (17.6 to 18.4) rise; oxides are flat. Plutonic:
+  feldspar, quartz, pyroxene and amphibole fall; biotite and oxides are
+  about flat; olivine rises on very few rocks.
+- **Saturating power law.** error(N) = E + A N^-alpha fit to the subset
+  means and medians, intervals from resampling the 50 subsets: alpha 0.37
+  to 0.66 with intervals spanning about 0.15 to 2.7; E about 11.1
+  (volcanic) and 5.6 to 5.7 (plutonic), intervals not overlapping; the
+  reducible part A N^-alpha is 0.9 to 1.6 points at N=10 and nearly gone
+  by 1,000. Typical deep-learning data exponents are about 0.07 to 0.35;
+  ours sit above them at face value but every interval reaches into them,
+  and the comparison is not like for like (fixed compute, zero-shot on
+  real rocks, under three decades of N). Whether E is a floor is not
+  established: within 10 to 5,000 a floor and a slow continued decline
+  fit equally, and the fixed 224 steps may be what flattens the curve.
+- **Pretraining exposure.** Within DS 942 the held-out rocks read 0.5 to
+  1 point worse than the seen rocks at most sizes with a similar shape (31
+  held-out rocks in train and val): consistent with exposure flattering
+  the level, not the slope, and not established.
+
+**Protocol this section settles for reading a scaling line.**
+1. Fix compute (gradient steps) across N and state the depth.
+2. Average over many random training subsets (50 here), above all at small
+   N; a single subset there is a draw, not a point.
+3. Hold the seed fixed across subsets so their spread is the subset alone;
+   vary seeds where there is one subset.
+4. Read zero-shot on the train and val rocks (nothing is fit to them); test
+   stays sealed.
+5. Read every head on the same rocks with the basis stated.
+6. Summarize with the median and quartiles; back a trend with an interval
+   over subsets; say which source of variation a bar shows.
+7. Band rock sampling by unit bootstrap, and check a subset of rocks is
+   ordinary before reading it alone.
+8. Read every result per mineral, not only as the mean of seven.
+9. Fit E + A N^-alpha with intervals, and state that under three decades of
+   N, alpha and E trade off.
+10. Split plutonic reads by pretraining exposure.
+11. When the reading code changes, reproduce the previous numbers first.
+12. Compare matched: same rocks, same draws, across what is compared.
+
+**Open.** The full curve needs larger runs: more training subsets, more
+seeds, more compute per head, and corpus sizes beyond 10,000, which means
+new simulation. Whether more compute at large N lowers the flat end is #92.
