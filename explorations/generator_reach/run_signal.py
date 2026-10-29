@@ -316,9 +316,10 @@ def ruler_read(benchmark, mask, comps, raw_points, draws):
     and the simulator's and a constant's error against each."""
     paired = paired_keys()
     with tempfile.TemporaryDirectory() as tmp:
-        restricted = restricted_benchmark_dir(Path(tmp), paired)
-        visual = load_benchmark(restricted, prefer_basis=VISUAL_BASIS)
-        counted = load_benchmark(restricted, prefer_basis=POINTCOUNT_BASIS)
+        visual = load_benchmark(
+            restricted_benchmark_dir(Path(tmp) / "visual", paired, VISUAL_BASIS))
+        counted = load_benchmark(
+            restricted_benchmark_dir(Path(tmp) / "counted", paired, POINTCOUNT_BASIS))
     for b in (visual, counted):
         if not np.array_equal(b.bulk_ids, benchmark.bulk_ids):
             raise SystemExit("the restricted benchmark reorders the rocks")

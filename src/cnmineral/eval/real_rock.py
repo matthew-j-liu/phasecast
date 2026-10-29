@@ -339,7 +339,6 @@ def load_benchmark(
     *,
     densities: dict[str, float] = MINERAL_DENSITY,
     trace_bound_vol_pct: float = TRACE_BOUND_VOL_PCT,
-    prefer_basis: str = VISUAL_BASIS,
 ) -> RealRockBenchmark:
     """Every real rock carrying both whole-rock chemistry and modal mineralogy.
 
@@ -348,20 +347,21 @@ def load_benchmark(
     out here; the freshness cut is a mask on the result, not a filter, so the
     altered rocks stay available as a diagnostic.
 
-    `densities`, `trace_bound_vol_pct` and `prefer_basis` default to the
-    shipped mapping and are parameters because none is a measurement -- one is
-    a mid-series stand-in for a solid solution, one is read off a reporting
-    grid, and one picks between two rulers applied to the same thin section.
-    `explorations/real_rock_mapping` perturbs the first two to put an error bar
-    on the numbers this benchmark produces;
-    `explorations/real_mineralogy/run_pointcount_contrast.py` moves the third.
+    `densities` and `trace_bound_vol_pct` default to the shipped mapping and
+    are parameters because neither is a measurement -- one is a mid-series
+    stand-in for a solid solution, one is read off a reporting grid.
+    `explorations/real_rock_mapping` perturbs both to put an error bar on the
+    numbers this benchmark produces.  A rock carrying both a visual estimate
+    and a point count is read on the visual estimate;
+    `explorations/real_mineralogy/run_pointcount_contrast.py` reads the other
+    by handing this loader a modes table already resolved to point counts.
     """
     benchmark_dir = Path(benchmark_dir)
     samples = pd.read_csv(benchmark_dir / "samples.csv")
     modes = pd.read_csv(benchmark_dir / "modes.csv")
     for frame in (samples, modes):
         frame["key"] = frame["source"] + "|" + frame["sample_id"].astype(str)
-    modes = preferred_basis(modes, prefer_basis)
+    modes = preferred_basis(modes, VISUAL_BASIS)
 
     unknown = set(modes["phase"]) - set(densities) - DROPPED_TRUTH_PHASES
     if unknown:

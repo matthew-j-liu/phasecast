@@ -50,6 +50,7 @@ from cnmineral.eval.real_rock import (
     POINTCOUNT_BASIS,
     VISUAL_BASIS,
     load_benchmark,
+    preferred_basis,
 )
 from cnmineral.eval.summary_cards import LEGEND_FS, SUPTITLE_FS, TICK_FS, TITLE_FS
 from cnmineral.training import pick_device
@@ -80,8 +81,9 @@ def paired_keys() -> set[str]:
     return set(counts[counts > 1].index)
 
 
-def restricted_benchmark_dir(out: Path, paired: set[str]) -> Path:
-    """A benchmark whose paired rocks report only what Appendix 10 counts.
+def restricted_benchmark_dir(out: Path, paired: set[str], basis: str) -> Path:
+    """A benchmark whose paired rocks report only what Appendix 10 counts,
+    each rock read on `basis` where it carries both rulers.
 
     Written to disk and loaded back through the shipped loader rather than
     edited in memory, so the restriction goes through the same renormalization,
@@ -90,8 +92,10 @@ def restricted_benchmark_dir(out: Path, paired: set[str]) -> Path:
     samples = pd.read_csv(BENCHMARK_DIR / "samples.csv")
     modes = pd.read_csv(BENCHMARK_DIR / "modes.csv")
     drop = _keys(modes).isin(paired) & modes["phase"].isin(UNCOVERED_PHASES)
+    kept = modes[~drop].assign(key=_keys(modes[~drop]))
+    out.mkdir(parents=True, exist_ok=True)
     samples.to_csv(out / "samples.csv", index=False)
-    modes[~drop].to_csv(out / "modes.csv", index=False)
+    preferred_basis(kept, basis).drop(columns="key").to_csv(out / "modes.csv", index=False)
     return out
 
 
@@ -225,9 +229,10 @@ def main() -> None:
     encoder = encoder.to(device)
 
     with tempfile.TemporaryDirectory() as tmp:
-        restricted = restricted_benchmark_dir(Path(tmp), paired)
-        visual = load_benchmark(restricted, prefer_basis=VISUAL_BASIS)
-        counted = load_benchmark(restricted, prefer_basis=POINTCOUNT_BASIS)
+        visual = load_benchmark(
+            restricted_benchmark_dir(Path(tmp) / "visual", paired, VISUAL_BASIS))
+        counted = load_benchmark(
+            restricted_benchmark_dir(Path(tmp) / "counted", paired, POINTCOUNT_BASIS))
     full = load_benchmark()
 
     # restricting the mode rows must not change which rocks are scoreable, or

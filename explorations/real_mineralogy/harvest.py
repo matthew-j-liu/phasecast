@@ -107,8 +107,8 @@ def parse_dubray(source, pet_path, geo_path, tot_col):
 # Tuff and Heller Tuff samples".  Machine-readable, unlike the other two
 # point-counted sources, and it covers rocks the visual estimates already
 # describe -- so these rows join the ones parse_dubray emits instead of
-# replacing them, and `load_benchmark`'s `prefer_basis` decides which ruler a
-# scoring run reads.
+# replacing them, and `preferred_basis` decides which ruler a scoring run
+# reads (`load_benchmark` keeps the visual estimates).
 #
 # Seven categories are counted and no others.  Pyroxene and olivine are never
 # looked for here, so their absence from a row is silence rather than a reported

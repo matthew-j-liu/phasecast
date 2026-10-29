@@ -8,9 +8,9 @@ from cnmineral.eval.real_rock import (
     BENCHMARK_DIR,
     GROUP_INDEX,
     POINTCOUNT_BASIS,
-    VISUAL_BASIS,
     canonical_units,
     load_benchmark,
+    preferred_basis,
     real_rock_metrics,
     score_real_rock,
     split_mask,
@@ -65,6 +65,20 @@ def composed():
 
 
 @pytest.fixture(scope="module")
+def counted(tmp_path_factory):
+    """The benchmark read on the point counts wherever a rock carries both rulers."""
+    out = tmp_path_factory.mktemp("counted")
+    samples = pd.read_csv(BENCHMARK_DIR / "samples.csv")
+    modes = pd.read_csv(BENCHMARK_DIR / "modes.csv")
+    modes["key"] = modes["source"] + "|" + modes["sample_id"].astype(str)
+    samples.to_csv(out / "samples.csv", index=False)
+    preferred_basis(modes, POINTCOUNT_BASIS).drop(columns="key").to_csv(
+        out / "modes.csv", index=False
+    )
+    return load_benchmark(out)
+
+
+@pytest.fixture(scope="module")
 def visual_only(tmp_path_factory):
     """The benchmark on disk with every point-count row removed.
 
@@ -101,14 +115,13 @@ def test_default_load_is_unchanged_by_the_pointcount_rows(visual_only):
     assert np.array_equal(before.bulk_frac.numpy(), after.bulk_frac.numpy())
 
 
-def test_basis_preference_selects_one_ruler_per_rock():
+def test_basis_preference_selects_one_ruler_per_rock(counted):
     """A rock measured twice is read once, and the two readings differ.
 
     The rulers must not sum: both describe the same thin section, so adding
     them would double the crystal cargo.
     """
-    visual = load_benchmark(prefer_basis=VISUAL_BASIS)
-    counted = load_benchmark(prefer_basis=POINTCOUNT_BASIS)
+    visual = load_benchmark()
     assert np.array_equal(visual.bulk_ids, counted.bulk_ids)
 
     moved = ~np.all(visual.magnitude == counted.magnitude, axis=1)
@@ -121,8 +134,10 @@ def test_basis_preference_selects_one_ruler_per_rock():
 
     # a misspelled basis would otherwise drop every doubly-measured rock's
     # modes, quietly shrinking the benchmark instead of failing
+    modes = pd.read_csv(BENCHMARK_DIR / "modes.csv")
+    modes["key"] = modes["source"] + "|" + modes["sample_id"].astype(str)
     with pytest.raises(ValueError, match="prefer_basis"):
-        load_benchmark(prefer_basis="pointcount")
+        preferred_basis(modes, "pointcount")
 
 
 def test_pointcount_cell_grammar():
@@ -190,15 +205,14 @@ def test_composition_tables_partition_the_scored_set(composed, name):
     assert all(r["rocks"] <= scored for r in data["minerals"])
 
 
-def test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one():
+def test_pointcount_truth_is_a_crystal_cargo_like_the_visual_one(counted):
     """Both rulers land on the same seven groups and the same conventions.
 
     Appendix 10 counts matrix explicitly where the visual estimates do not, so
     this guards that groundmass still drops out rather than entering the
     composition as an eighth component.
     """
-    counted = load_benchmark(prefer_basis=POINTCOUNT_BASIS)
-    visual = load_benchmark(prefer_basis=VISUAL_BASIS)
+    visual = load_benchmark()
     moved = ~np.all(visual.magnitude == counted.magnitude, axis=1)
 
     # Appendix 10 never looks for pyroxene or olivine, so those groups carry no

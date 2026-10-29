@@ -63,9 +63,9 @@ Two tiers, by modal-measurement precision:
   Tuff samples, 95 rocks at 389-867 points each, of which 70 are already in the
   benchmark under a visual estimate. Machine-readable, so unlike the two
   eruptions above it needed no transcription. These rows are emitted *beside*
-  the visual ones rather than replacing them, and `load_benchmark`'s
-  `prefer_basis` picks which a scoring run reads; the default is the visual
-  estimate every number on record was measured against. Appendix 10 counts five
+  the visual ones rather than replacing them, and `preferred_basis` picks
+  which a scoring run reads; `load_benchmark` keeps the visual estimate every
+  number on record was measured against. Appendix 10 counts five
   of the seven scored groups and never looks for pyroxene or olivine.
 
 ## Schema
