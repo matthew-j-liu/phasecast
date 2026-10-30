@@ -98,8 +98,6 @@ class Checkpoint:
         train_loss: float,
         val_loss: float,
         monitor: dict,
-        test_loss: float | None = None,
-        test_indices: list[int] | None = None,
     ) -> "Checkpoint":
         """Capture current model + optimizer state into a Checkpoint."""
         return cls(
@@ -111,8 +109,6 @@ class Checkpoint:
             train_loss=float(train_loss),
             val_loss=float(val_loss),
             monitor=monitor,
-            test_loss=test_loss,
-            test_indices=test_indices,
             git_sha=_git_sha(),
             saved_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         )

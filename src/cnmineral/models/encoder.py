@@ -39,9 +39,7 @@ MAT2VEC_N_ELEMENTS: int = 118 # mat2vec has vectors for each element in the peri
 ELEMENT_EMBEDDING_ROWS: int = MASK_TOKEN_ID + 1 # 120; note that row 0 = padding and rows 1-118 = mat2vec rows, so MASK_TOKEN_ID = 119 
 
 
-def load_mat2vec_matrix(
-    csv_path: Path | str = MAT2VEC_PATH,
-) -> torch.Tensor:
+def load_mat2vec_matrix() -> torch.Tensor:
     """Load the mat2vec element embedding matrix from disk.
 
     Returns a float tensor of shape ELEMENT_EMBEDDING_ROWS x MAT2VEC_DIM
@@ -51,13 +49,8 @@ def load_mat2vec_matrix(
     - rows 1..118:       mat2vec rows for elements H through Og
     - row MASK_TOKEN_ID: mask embedding (all-zeros; the Encoder rebinds
                          this row as a learnable Parameter after load)
-
-    Parameters
-    ----------
-    csv_path
-        Path to `mat2vec.csv`
     """
-    csv_path = Path(csv_path)
+    csv_path = MAT2VEC_PATH
 
     if not csv_path.exists():
         raise FileNotFoundError(f"mat2vec.csv not found at {csv_path}.")
@@ -147,8 +140,6 @@ class Encoder(nn.Module):
         If True, reserve a learnable embedding row for `REDOX_TOKEN_ID`
         (the optional 23rd input token).  Default False reproduces the
         22-token table so pre-redox checkpoints load strictly.
-    mat2vec_path
-        Optional override for the mat2vec CSV path.
     """
 
     def __init__(
@@ -159,7 +150,6 @@ class Encoder(nn.Module):
         dropout: float = 0.0,
         frac_resolution: int = 5000,
         include_redox_token: bool = False,
-        mat2vec_path: Path | str = MAT2VEC_PATH,
     ) -> None:
         
         super().__init__()
@@ -174,7 +164,7 @@ class Encoder(nn.Module):
         self.n_heads = n_heads
         self.include_redox_token = include_redox_token
 
-        mat2vec = load_mat2vec_matrix(mat2vec_path)
+        mat2vec = load_mat2vec_matrix()
         assert mat2vec.shape == (ELEMENT_EMBEDDING_ROWS, MAT2VEC_DIM), (
             f"unexpected mat2vec shape {mat2vec.shape}; expected "
             f"({ELEMENT_EMBEDDING_ROWS}, {MAT2VEC_DIM})"

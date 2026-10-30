@@ -42,7 +42,7 @@ _TERMS = ("presence_bce", "mode_nll", "comp_nll", "cond_nll", "closure")
 HEAD_NAMES = ("mode", "comp", "cond")
 
 
-def selection_series(monitor: dict, split: str = "val") -> dict[str, list[float]]:
+def selection_series(monitor: dict) -> dict[str, list[float]]:
     """Per-head selection curves from a run monitor, in raw (unweighted) units.
 
     Mode selects on the assemblage NLL `presence_bce + mode_nll` --
@@ -50,12 +50,12 @@ def selection_series(monitor: dict, split: str = "val") -> dict[str, list[float]
     objective built on it) cannot be gamed by the weight.  Comp and cond
     select on their own NLL terms.
     """
-    bce = monitor[f"{split}_presence_bce"]
-    nll = monitor[f"{split}_mode_nll"]
+    bce = monitor["val_presence_bce"]
+    nll = monitor["val_mode_nll"]
     return {
         "mode": [b + n for b, n in zip(bce, nll)],
-        "comp": list(monitor[f"{split}_comp_nll"]),
-        "cond": list(monitor[f"{split}_cond_nll"]),
+        "comp": list(monitor["val_comp_nll"]),
+        "cond": list(monitor["val_cond_nll"]),
     }
 
 
