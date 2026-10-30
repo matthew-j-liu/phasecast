@@ -1,8 +1,7 @@
-"""Interim stand-in for the stable inference API (issue #70): the sampling,
-recalibration and drawing that `inference.ipynb` calls, kept out of the
-notebook so it reads as the four questions an application needs answered.
-`predict` is the call #70 promotes into the package; nothing here is
-production code."""
+"""Interim stand-in for the stable inference API (issue #70): the validation,
+sampling and drawing that `inference.ipynb` calls, kept out of the notebook so
+it reads as the four questions an application needs answered.  `predict` is
+the call #70 promotes into the package; nothing here is production code."""
 
 import cnmineral  # first: sets KMP_DUPLICATE_LIB_OK before torch loads (macOS OpenMP collision)
 
@@ -18,16 +17,18 @@ from matplotlib.ticker import AutoMinorLocator, NullLocator
 from scipy.stats import gaussian_kde
 
 from cnmineral.data.bulk_chemistry import IRON_SOURCE_COLS, MAJOR_TOKEN_TO_COL, TRACE_TOKEN_TO_COL, tokenize_bulk_frame
-from cnmineral.data.magemin_corpus import COMP_OXIDES
-from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS, MODEL_TO_GROUP, PHASE_INDEX, SOLID_PHASES
+from cnmineral.data.phase_vocab import GROUP_INDEX, GROUPS, MODEL_TO_GROUP, PHASE_INDEX
 from cnmineral.data.tokens import VOCAB
-from cnmineral.eval.latent import bulk_latents
-from cnmineral.eval.real_rock import coarsen_alpha, coarsen_presence, load_benchmark, split_mask
+from cnmineral.eval.real_rock import coarsen_alpha, coarsen_presence
 from cnmineral.models.cond_head import COND_AXES
-from cnmineral.training.real_rock_recalibrator import build_group_predictions, fit_recalibrator, lift_group_presence_to_phases
 
 MAJOR_COLS = [c for c in MAJOR_TOKEN_TO_COL.values() if c != "cr2o3"]
 TRACE_COLS = list(TRACE_TOKEN_TO_COL.values())
+OXIDE_LABEL = {"sio2": "SiO2", "al2o3": "Al2O3", "cao": "CaO", "mgo": "MgO",
+               "k2o": "K2O", "na2o": "Na2O", "tio2": "TiO2"}
+# the pretraining corpus kept rows with at least this many populated tokens
+# (`min_populated_tokens` in configs/pretrain/pretrain_allrock_redox.yaml)
+MIN_ELEMENTS = 4
 GROUP_NAME = {"fsp": "feldspar", "px": "pyroxene", "amp": "amphibole", "bi": "biotite",
               "ol": "olivine", "opq": "Fe-Ti oxides", "q": "quartz"}
 GROUP_CODE = {name: code for code, name in GROUP_NAME.items()}
@@ -35,41 +36,44 @@ GROUP_CODE = {name: code for code, name in GROUP_NAME.items()}
 
 class Heads(NamedTuple):
     mode: torch.nn.Module
-    comp: torch.nn.Module
     cond: torch.nn.Module
 
 
 def check_input(rocks):
-    """Problems with a composition table, all of them, so a form can show them at once."""
-    problems = []
+    """`(errors, warnings)` for a composition table, every problem at once so a
+    form can show them together.  An error refuses that rock; a warning lets
+    it through with the message beside its result."""
+    errors, warnings = [], []
+    src, _ = tokenize_bulk_frame(rocks)
     oxides = rocks.reindex(columns=[*MAJOR_COLS, *IRON_SOURCE_COLS])
     traces = rocks.reindex(columns=TRACE_COLS)
-    for rock in rocks.index:
-        blank = [c for c in MAJOR_COLS if not oxides.loc[rock, c] > 0]
-        if blank:
-            problems.append(f"{rock}: no value for {', '.join(blank)}")
-        if not (oxides.loc[rock, list(IRON_SOURCE_COLS)] > 0).any():
-            problems.append(f"{rock}: no iron (feo + fe2o3, feo_tot, or fe2o3_tot)")
-        if ((oxides.loc[rock] < 0) | (oxides.loc[rock] > 100)).any():
-            problems.append(f"{rock}: an oxide outside 0-100 wt%")
-        if ((traces.loc[rock] < 0) | (traces.loc[rock] > 1e6)).any():
-            problems.append(f"{rock}: a trace element outside 0-1e6 ppm")
-        total = oxides.loc[rock].sum()
+    for i, rock in enumerate(rocks.index):
+        ox, tr = oxides.loc[rock], traces.loc[rock]
+        n_errors = len(errors)
+        if (src[i] > 0).sum() < MIN_ELEMENTS:
+            errors.append(f"{rock}: enter at least {MIN_ELEMENTS} measured elements.")
+        for c in ox.index[(ox < 0) | (ox > 100)]:
+            errors.append(f"{rock}: {c} is outside the valid range (0-100 wt%).")
+        for c in tr.index[(tr < 0) | (tr > 1e6)]:
+            errors.append(f"{rock}: {c} is outside the valid range (0-1,000,000 ppm).")
+        if len(errors) > n_errors:
+            continue
+        missing = [OXIDE_LABEL[c] for c in MAJOR_COLS if not ox[c] > 0]
+        if not (ox[list(IRON_SOURCE_COLS)] > 0).any():
+            missing.append("iron (FeO or Fe2O3)")
+        if missing:
+            warnings.append(f"{rock}: {', '.join(missing)} not measured. The prediction uses the "
+                            "elements provided and has not been checked against rocks with incomplete majors.")
+        # iron counted once, in the tokenizer's order of preference
+        iron = next((ox[c].sum() for c in (["feo", "fe2o3"], ["feo_tot"], ["fe2o3_tot"]) if (ox[c] > 0).any()), 0.0)
+        total = ox[MAJOR_COLS].sum() + iron
         if not 85 <= total <= 103:
-            problems.append(f"{rock}: major-oxide total {total:.1f} wt% looks wrong")
-    return problems
+            warnings.append(f"{rock}: major oxides sum to {total:.1f} wt% (expected 85-103). "
+                            "Check units (wt%, not a fraction) and missing values.")
+    return errors, warnings
 
 
-def fit_production_recalibrator(encoder, mode_head):
-    """The matrix recalibrator on the benchmark's 372-rock train split, the production fit."""
-    benchmark = load_benchmark()
-    with torch.no_grad():
-        predictions = build_group_predictions(mode_head, benchmark, bulk_latents(encoder, benchmark, torch.device("cpu")))
-    fitting = split_mask(benchmark, "train") & benchmark.clean & benchmark.has_magnitude
-    return fit_recalibrator(predictions.subset(fitting), tier="matrix", weight_decay=1.0).eval()
-
-
-def _posterior(heads, latent_row, p21_row, correct_alpha7, n, seed, top_k=3):
+def _posterior(heads, latent_row, p21_row, n, seed, top_k=5):
     rng = np.random.default_rng(seed)
     draws = (rng.random((n, len(p21_row))) < p21_row).astype(np.float64)
     support = torch.as_tensor(draws, dtype=torch.float32)
@@ -77,8 +81,6 @@ def _posterior(heads, latent_row, p21_row, correct_alpha7, n, seed, top_k=3):
         alpha21 = heads.mode.magnitude_alpha(latent_row.expand(n, -1), support).numpy()
         log_w, mu, sigma = heads.cond(latent_row.expand(n, -1), support)
     alpha7, _ = coarsen_alpha(alpha21, draws)
-    if correct_alpha7 is not None:
-        alpha7 = correct_alpha7(alpha7)
 
     present = np.zeros((n, len(GROUPS)), dtype=bool)
     for phase, group in MODEL_TO_GROUP.items():
@@ -88,11 +90,18 @@ def _posterior(heads, latent_row, p21_row, correct_alpha7, n, seed, top_k=3):
     share = np.divide(gamma, total, out=np.zeros_like(gamma), where=total > 0) * 100
 
     keys = pd.Series([tuple(row) for row in present])
+    counts = keys.value_counts()
     scenarios = []
-    for key, count in keys.value_counts().head(top_k).items():
+    for key, count in counts.head(top_k).items():
         rows = (keys == key).to_numpy()
         scenarios.append({"groups": [GROUP_NAME[g] for g, on in zip(GROUPS, key) if on],
-                          "prob": round(count / n, 3), "share": np.round(share[rows].mean(0), 1).tolist()})
+                          "prob": round(count / n, 3),
+                          "share": np.round(share[rows].mean(0), 1).tolist(),
+                          "share_p25": np.round(np.percentile(share[rows], 25, axis=0), 1).tolist(),
+                          "share_p75": np.round(np.percentile(share[rows], 75, axis=0), 1).tolist()})
+    rest = counts.iloc[top_k:]
+    other = {"count": len(rest), "prob": round(rest.sum() / n, 3),
+             "max_prob": round(rest.max() / n, 3) if len(rest) else 0.0}
 
     w = np.exp(log_w.numpy())
     w /= w.sum(-1, keepdims=True)
@@ -108,38 +117,18 @@ def _posterior(heads, latent_row, p21_row, correct_alpha7, n, seed, top_k=3):
         "share_p25": np.round(np.percentile(share, 25, axis=0), 1).tolist(),
         "share_p75": np.round(np.percentile(share, 75, axis=0), 1).tolist(),
         "scenarios": scenarios,
+        "other_scenarios": other,
         "conditions": conditions,
     }
 
 
-def _corrector(recalibrator, logits7_row):
-    def correct(alpha7):
-        with torch.no_grad():
-            _, corrected = recalibrator(logits7_row.expand(len(alpha7), -1), torch.as_tensor(alpha7, dtype=torch.float64))
-        return corrected.numpy()
-    return correct
-
-
-def _composition(alpha_row, p21_row, top=3):
-    phases = [SOLID_PHASES[k] for k in np.argsort(-p21_row)[:top]]
-    mean = alpha_row.astype(float) / alpha_row.sum(-1, keepdims=True) * 100
-    table = pd.DataFrame(mean, index=SOLID_PHASES, columns=COMP_OXIDES).loc[phases]
-    # the simulator carries ferric iron as excess oxygen; recast to Fe2O3 for display
-    table["Fe2O3"] = table["O"] * 159.688 / 15.999
-    table["FeO"] = (table["FeO"] - table["O"] * 2 * 71.844 / 15.999).clip(lower=0)
-    return table.drop(columns="O").round(2).to_dict(orient="index")
-
-
-def predict(rocks, encoder, heads, recalibrator, n_samples=512, seed=0):
-    """One JSON-ready record per rock: both arms, scenarios, conditions and compositions."""
+def predict(rocks, encoder, heads, n_samples=512, seed=0):
+    """One JSON-ready record per rock: the input chemistry, then the zero-shot
+    posterior with its scenarios and sampled conditions."""
     src, frac = tokenize_bulk_frame(rocks)
     with torch.no_grad():
         latent = encoder(src=torch.from_numpy(src), frac=torch.from_numpy(frac))
         p21 = torch.sigmoid(heads.mode.presence_logits(latent)).numpy()
-        comp_alpha = heads.comp(latent).numpy()
-    p7 = np.clip(coarsen_presence(p21), 1e-7, 1 - 1e-7)
-    logits7 = torch.as_tensor(np.log(p7 / (1 - p7)), dtype=torch.float64)
-    p21_recal = lift_group_presence_to_phases(recalibrator, logits7, p21)
 
     records = []
     for i, rock in enumerate(rocks.index):
@@ -148,11 +137,7 @@ def predict(rocks, encoder, heads, recalibrator, n_samples=512, seed=0):
             "input_cation_wt_pct": {sym: round(float(frac[i, k]) * 100, 5)
                                     for k, (sym, _) in enumerate(VOCAB) if src[i, k] > 0},
             "groups": [GROUP_NAME[g] for g in GROUPS],
-            "arms": {
-                "zero-shot": _posterior(heads, latent[i], p21[i], None, n_samples, seed),
-                "recalibrated": _posterior(heads, latent[i], p21_recal[i], _corrector(recalibrator, logits7[i]), n_samples, seed),
-            },
-            "composition_wt_pct": _composition(comp_alpha[i], p21_recal[i]),
+            "posterior": _posterior(heads, latent[i], p21[i], n_samples, seed),
         })
     return records
 
@@ -249,8 +234,9 @@ def _abundance_panel(ax, mean, lo, hi):
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0], ["0", "25%", "50%", "75%", "100%"])
 
 
-def _assemblages_panel(ax, scenarios, groups):
-    """The deck's stacked bars: one per scenario, its probability at the end."""
+def _assemblages_panel(ax, scenarios, other, groups):
+    """The deck's stacked bars: one per scenario, its probability at the end,
+    and a line for the assemblages past the top few."""
     for k, sc in enumerate(scenarios):
         y, left = len(scenarios) - 1 - k, 0.0
         for g in sc["groups"]:
@@ -261,8 +247,11 @@ def _assemblages_panel(ax, scenarios, groups):
                         color=INK if g in LIGHT_MINERALS else "white")
             left += s
         ax.text(left + 0.03, y, f"{sc['prob']:.0%}", va="center", ha="left", color=INK)
+    if other["count"]:
+        ax.text(0, -0.9, f"{other['count']} other assemblages, {other['prob']:.0%} combined, "
+                f"none above {other['max_prob']:.0%}", va="center", ha="left", color=NEUTRAL)
     ax.set_xlim(0, 1.25)
-    ax.set_ylim(-0.55, len(scenarios) - 0.45)
+    ax.set_ylim(-1.2, len(scenarios) - 0.45)
     ax.set_xticks([])
     ax.set_yticks([])
     for spine in ax.spines.values():
@@ -270,14 +259,16 @@ def _assemblages_panel(ax, scenarios, groups):
 
 
 def _conditions_panel(ax, conditions):
-    """The deck's kernel density over the sampled (P, T) pairs."""
+    """The deck's kernel density over the sampled (P, T) pairs.  The pressure
+    axis starts at 0: the condition head's Gaussian tails put a few samples
+    just below it, which are kept in the density but not drawn."""
     pressure, temperature = np.asarray(conditions["P_kbar"]), np.asarray(conditions["T"])
     t_lo, t_hi = np.floor(temperature.min() / 50) * 50, np.ceil(temperature.max() / 50) * 50
     kde = gaussian_kde(np.vstack([pressure, temperature]))
-    pp, tt = np.meshgrid(np.linspace(-1.5, 14, 200), np.linspace(t_lo, t_hi, 200))
+    pp, tt = np.meshgrid(np.linspace(0, 14, 200), np.linspace(t_lo, t_hi, 200))
     z = kde(np.vstack([pp.ravel(), tt.ravel()])).reshape(pp.shape)
     ax.contourf(pp, tt, z, levels=np.linspace(z.max() * 0.10, z.max(), 6), cmap=DENSITY, extend="max")
-    ax.set_xlim(-1.5, 14)
+    ax.set_xlim(0, 14)
     ax.set_ylim(t_lo, t_hi)
     ax.set_xticks([0, 5, 10])
     ax.set_xlabel("P (kbar)")
@@ -289,47 +280,42 @@ def _conditions_panel(ax, conditions):
 def card(record):
     """The per-rock figure, drawn from the record alone.
 
-    Panels (a) to (e) are the paper's inference card: the input chemistry,
-    then presence and abundance per arm. Panels (f) and (g) are the deck's
-    output card: the ranked assemblages and the conditions density, both from
-    the recalibrated arm. Water content stays in the record but is not drawn.
+    Panels (a) to (c) are the paper's inference card: the input chemistry,
+    presence and abundance. Panels (d) and (e) are the deck's output card: the
+    ranked assemblages and the conditions density. Water content stays in the
+    record but is not drawn.
     """
     groups = record["groups"]
     codes = [GROUP_CODE[g] for g in groups]
-    arms = record["arms"]
+    post = record["posterior"]
     with plt.rc_context(CARD_RC):
-        fig = plt.figure(figsize=(5.5, 7.0))
-        gs = fig.add_gridspec(3, 3, width_ratios=[1, 0.9, 1.2], height_ratios=[1, 1, 1.05],
-                              wspace=0.42, hspace=0.55, left=0.09, right=0.97, top=0.93, bottom=0.07)
+        fig = plt.figure(figsize=(5.5, 5.6))
+        gs = fig.add_gridspec(2, 3, width_ratios=[1, 0.9, 1.2], height_ratios=[1.2, 1],
+                              wspace=0.42, hspace=0.5, left=0.09, right=0.97, top=0.91, bottom=0.09)
         fig.suptitle(record["rock"], x=0.09, y=0.985, ha="left", fontsize=9)
 
-        ax_chem = fig.add_subplot(gs[:2, 0])
+        ax_chem = fig.add_subplot(gs[0, 0])
         _chemistry_panel(ax_chem, record["input_cation_wt_pct"])
         ax_chem.set_xlabel("Cation wt%")
         ax_chem.set_title("(a) Geochemical input")
-        boxed = [ax_chem]
 
-        for r, (arm, left, right) in enumerate((("zero-shot", "(b)", "(c)"), ("recalibrated", "(d)", "(e)"))):
-            post = arms[arm]
-            ax1, ax2 = fig.add_subplot(gs[r, 1]), fig.add_subplot(gs[r, 2])
-            _presence_panel(ax1, post["presence"])
-            _abundance_panel(ax2, post["share_mean"], post["share_p25"], post["share_p75"])
-            ax1.set_title(f"{left} Presence, {arm}")
-            ax2.set_title(f"{right} Abundance, {arm}")
-            for ax in (ax1, ax2):
-                ax.set_yticks(np.arange(len(codes)), codes)
-                ax.set_ylim(len(codes) - 0.5, -0.5)
-            if arm == "recalibrated":
-                ax1.set_xlabel("Presence probability")
-                ax2.set_xlabel("Fraction of crystalline mass")
-            boxed += [ax1, ax2]
-        for ax in boxed:
+        ax_pres, ax_abund = fig.add_subplot(gs[0, 1]), fig.add_subplot(gs[0, 2])
+        _presence_panel(ax_pres, post["presence"])
+        _abundance_panel(ax_abund, post["share_mean"], post["share_p25"], post["share_p75"])
+        ax_pres.set_title("(b) Presence")
+        ax_abund.set_title("(c) Abundance")
+        ax_pres.set_xlabel("Presence probability")
+        ax_abund.set_xlabel("Fraction of crystalline mass")
+        for ax in (ax_pres, ax_abund):
+            ax.set_yticks(np.arange(len(codes)), codes)
+            ax.set_ylim(len(codes) - 0.5, -0.5)
+        for ax in (ax_chem, ax_pres, ax_abund):
             _frame(ax)
 
-        ax_scen = fig.add_subplot(gs[2, :2])
-        _assemblages_panel(ax_scen, arms["recalibrated"]["scenarios"], groups)
-        ax_scen.set_title("(f) Possible assemblages, recalibrated", loc="left")
-        ax_cond = fig.add_subplot(gs[2, 2])
-        _conditions_panel(ax_cond, arms["recalibrated"]["conditions"])
-        ax_cond.set_title("(g) Formation conditions")
+        ax_scen = fig.add_subplot(gs[1, :2])
+        _assemblages_panel(ax_scen, post["scenarios"], post["other_scenarios"], groups)
+        ax_scen.set_title("(d) Possible assemblages", loc="left")
+        ax_cond = fig.add_subplot(gs[1, 2])
+        _conditions_panel(ax_cond, post["conditions"])
+        ax_cond.set_title("(e) Formation conditions")
     return fig
