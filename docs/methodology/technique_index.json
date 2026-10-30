@@ -275,7 +275,6 @@
       "configs/imputation/imputation_head_hpo.yaml",
       "configs/pretrain/pretrain_hpo.yaml",
       "configs/probe/probe_hpo.yaml",
-      "scripts/view/plot_training.py",
       "src/cnmineral/eval/probe/hpo.py",
       "src/cnmineral/training/hpo.py",
       "src/cnmineral/training/imputation_head_hpo.py",
@@ -413,12 +412,10 @@
     ],
     "cosine_scheduler": [
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe/calibration.py",
       "src/cnmineral/eval/probe/primitives.py"
     ],
     "label_smoothing": [
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe/calibration.py",
       "src/cnmineral/eval/probe/primitives.py"
     ]
   },
@@ -435,7 +432,6 @@
     ],
     "l2_normalize_inputs": [
       "configs/probe/probe_hpo.yaml",
-      "src/cnmineral/eval/probe/calibration.py",
       "src/cnmineral/eval/probe/primitives.py"
     ],
     "log_frac_standardization": [

@@ -4,8 +4,7 @@
 all trials see the same latent), the fixed-protocol LR baseline (run
 once), the Optuna sweep over MLP probe HPs, and the post-sweep
 production MLP at `study.best_params`.  Writes a per-encoder
-`summary.json` the `cnmineral.eval.probe.calibration` module then
-aggregates across encoders.
+`summary.json`.
 
 The encoder is fixed throughout: probe HPO measures how well a
 probe extracts the encoder's frozen representation.  It never
@@ -113,7 +112,7 @@ def run_hpo(
     )
 
     # fixed-protocol LR baseline, run once, recorded alongside the
-    # tuned MLP result so the calibration report can cross-reference.
+    # tuned MLP result in the summary.
     print("\nfixed-protocol LR baseline (no tuning)...")
     t0 = time()
     lr_baseline = train_logreg_probe(X_train, y_train, X_test, y_test)

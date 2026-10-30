@@ -12,7 +12,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-from cnmineral.eval.probe import build_report, run_calibration, run_hpo
+from cnmineral.eval.probe import run_hpo
 
 
 def _build_smoke_pretrain_config(
@@ -170,99 +170,6 @@ def test_run_probe_hpo_end_to_end_on_fixture(
     # storage file should exist + be re-openable (resumability prereq).
     journal_files = list(storage_dir.glob("*.journal"))
     assert len(journal_files) == 1
-
-
-def _fake_summary(tag: str, best_params: dict) -> dict:
-    """Hand-build a probe-HPO summary fixture that `build_report` can
-    consume without driving the full sweep.  Only the keys the
-    aggregator reads are present."""
-    return {
-        "encoder_tag": tag,
-        "best_params": best_params,
-        "best_trial_value": 0.5,
-        "final_mlp": {"test_accuracy": 0.5},
-        "baseline_lr": {"test_accuracy": 0.4},
-    }
-
-
-def test_compare_probe_hpos_flags_converged_vs_scattered() -> None:
-    """build_report's convergence flags fire correctly on a hand-crafted
-    set of three encoder summaries: hidden_dim agrees 3/3, n_hidden_layers
-    agrees 2/3 (N-1-of-N rule still passes), lr scatters across two
-    decades."""
-    summaries = [
-        _fake_summary("enc_a", {
-            "hidden_dim": 512, "n_hidden_layers": 2,
-            "dropout": 0.20, "lr": 3.0e-4, "weight_decay": 1.0e-4,
-            "label_smoothing": 0.05,
-            "l2_normalize_inputs": True, "use_cosine_schedule": True,
-        }),
-        _fake_summary("enc_b", {
-            "hidden_dim": 512, "n_hidden_layers": 2,
-            "dropout": 0.22, "lr": 4.0e-4, "weight_decay": 1.5e-4,
-            "label_smoothing": 0.04,
-            "l2_normalize_inputs": True, "use_cosine_schedule": True,
-        }),
-        _fake_summary("enc_c", {
-            "hidden_dim": 512, "n_hidden_layers": 1,
-            "dropout": 0.18, "lr": 3.0e-2, "weight_decay": 1.2e-4,
-            "label_smoothing": 0.06,
-            "l2_normalize_inputs": True, "use_cosine_schedule": True,
-        }),
-    ]
-    report = build_report(summaries)
-    assert report["n_encoders"] == 3
-    hp = report["hyperparameters"]
-
-    # hidden_dim agrees unanimously
-    assert hp["hidden_dim"]["converged"] is True
-    assert hp["hidden_dim"]["mode"] == 512
-
-    # n_hidden_layers: 2/3 agree, passes N-1 rule (2 >= 3-1)
-    assert hp["n_hidden_layers"]["converged"] is True
-
-    # dropout cluster tight -> CV small -> converged
-    assert hp["dropout"]["converged"] is True
-
-    # lr spans 3e-4 to 3e-2 (two decades) -> log-CV high -> scattered
-    assert hp["lr"]["converged"] is False
-
-    # weight_decay clusters tight in log space -> converged
-    assert hp["weight_decay"]["converged"] is True
-
-    # consensus dict contains every HP
-    assert set(report["consensus"]) == set(hp)
-
-
-def test_compare_probe_hpos_writes_report_and_yaml(tmp_path: Path) -> None:
-    """run_calibration writes both the markdown report and calibrated YAML."""
-    summaries = [
-        _fake_summary(f"enc_{i}", {
-            "hidden_dim": 512,
-            "n_hidden_layers": 2,
-            "dropout": 0.2 + 0.01 * i,
-            "lr": 3.0e-4,
-            "weight_decay": 1.0e-4,
-            "label_smoothing": 0.05,
-            "l2_normalize_inputs": True,
-            "use_cosine_schedule": True,
-        })
-        for i in range(3)
-    ]
-    in_dir = tmp_path / "in"
-    in_dir.mkdir()
-    summary_paths = []
-    for s in summaries:
-        p = in_dir / f"{s['encoder_tag']}_summary.json"
-        with open(p, "w") as f:
-            json.dump(s, f)
-        summary_paths.append(p)
-
-    out_dir = tmp_path / "out"
-    report = run_calibration(summary_paths, out_dir)
-    assert (out_dir / "calibration_report.md").exists()
-    assert (out_dir / "calibrated_probe.yaml").exists()
-    assert report["consensus"]["hidden_dim"] == 512
 
 
 def test_run_probe_hpo_zero_trials_returns_baseline_only(
