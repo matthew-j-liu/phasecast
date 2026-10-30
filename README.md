@@ -1,7 +1,7 @@
 # phasecast: probabilistic mineralogy from whole-rock geochemistry
 
 [![tests](https://github.com/matthew-j-liu/phasecast/actions/workflows/tests.yml/badge.svg)](https://github.com/matthew-j-liu/phasecast/actions/workflows/tests.yml)
-[![arXiv](https://img.shields.io/badge/arXiv-2610.36429-b31b1b.svg)](https://arxiv.org/abs/2610.36429)
+[![arXiv](https://img.shields.io/badge/arXiv-2610.36429-purple.svg)](https://arxiv.org/abs/2610.36429)
 
 ![phasecast overview](docs/images/phasecast_overview.png)
 
