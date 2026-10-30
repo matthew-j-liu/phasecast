@@ -14,7 +14,7 @@ How to handle Fe:
     must both be reported.  Fe cation wt% = feo * 0.7773 + fe2o3 *
     0.6994.  The fallback chain does not fire.
   - Under `require_all_majors=False`: feo or fe2o3 alone is sufficient
-    (the missing one is treated as 0).  If both are NaN, fall back to
+    (the missing one is treated as 0).  If both are missing (NaN or 0), fall back to
     `feo_tot` first, then `fe2o3_tot`.  If no iron source exists, the
     Fe slot is padded.
 
@@ -174,8 +174,11 @@ def tokenize_bulk_frame(
     supplies the oxide columns named in `MAJOR_TOKEN_TO_COL` /
     `TRACE_TOKEN_TO_COL` plus an iron source; missing columns read as all-NaN
     and pad their slot, which is what lets a real-rock table reporting only
-    `feo_tot` (and no traces at all) go through unchanged.  Returns `src`
-    [N, 22] int64 and `frac` [N, 22] float32.
+    `feo_tot` (and no traces at all) go through unchanged.  A reported 0
+    reads as missing too, as the corpus dataset's `drop_zero_as_nan` reads
+    it, so a form that sends 0 for an empty `feo` box cannot shadow the
+    `feo_tot` beside it.  Returns `src` [N, 22] int64 and `frac` [N, 22]
+    float32.
 
     Rows pass through on whatever analytical total their source reports;
     nothing renormalizes to a common oxide sum.  gard2019 carries raw totals
@@ -195,6 +198,7 @@ def tokenize_bulk_frame(
     ]
     df = df.reindex(columns=[*df.columns,
                              *(c for c in wanted if c not in df.columns)])
+    df[wanted] = df[wanted].mask(df[wanted] == 0)
 
     # resolve Fe to a single cation-wt% column.  Under strict
     # require_all_majors=True every row already has both feo and

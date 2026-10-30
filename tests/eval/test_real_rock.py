@@ -403,6 +403,16 @@ def test_tokenize_bulk_frame_pads_when_iron_columns_are_absent():
     assert (src[0, 9:] == 0).all()  # no trace columns at all
 
 
+def test_tokenize_bulk_frame_reads_a_zero_iron_oxide_as_unreported():
+    """A form that sends 0 for its empty boxes must resolve iron as the corpus
+    dataset would, which blanks zeros before tokenizing."""
+    df = pd.DataFrame({"sio2": [50.0, 50.0], "feo": [0.0, 0.0], "fe2o3": [0.0, 0.0],
+                       "feo_tot": [8.0, 0.0], "fe2o3_tot": [0.0, 9.0]})
+    src, frac = tokenize_bulk_frame(df)
+    assert src[0, 4] == 26 and frac[0, 4] == pytest.approx(8.0 * 0.7773 / 100.0)
+    assert src[1, 4] == 26 and frac[1, 4] == pytest.approx(9.0 * 0.6994 / 100.0)
+
+
 def test_load_benchmark_invariants():
     """The shipped benchmark satisfies the contracts the eval relies on."""
     b = load_benchmark()
