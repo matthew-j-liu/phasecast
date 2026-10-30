@@ -8783,3 +8783,48 @@ corpora past 10,000); a scoreboard against the simple baselines on this
 protocol; and the routes to lower error with data: the simulator recipe
 and read point, redox, the condition prior and composition pool,
 training protocol, and experimental data mixed into training.
+
+## 2026-10-29 -- Experiment-only code swept out of src/ and scripts/: nine of #81's eleven items removed, one moved to its own issue, one kept
+
+**Q.** CLAUDE.md's rule "Production code is not an experiment's
+configuration surface" (2026-09-10) forbids flags, branches, optional
+parameters, hooks and tiers in `src/` and `scripts/` whose only caller is an
+experiment. #81 listed eleven verified cases. Which still hold, and what
+does removing them cost?
+
+**Context.** A re-check against HEAD found all eleven still present. Two had
+grown: the corpus-scaling training-loop switches now also serve the
+50-subset zero-shot line (`run_training_subsets.py`), and `ablate_latent` /
+`use_raw_chemistry` gained a third caller in the generator_reach baseline
+ladder.
+
+**Considered.** For the training-loop switches, moving them now against
+splitting them out: verifying the move means retraining cells and redrawing
+figures identically, and the current scaling line depends on them. For the
+two measured-head transforms, copying them into each exploration against
+keeping them: removing them strands `GroupPredictions.raw` and
+`raw_chemistry()` as well, and the head given no chemistry and the head
+given raw geochemistry are the baseline ladder a scoreboard would reuse.
+
+**Decision.** The training-loop switches were split into #94. The two transforms
+stay in `src/`. The other nine landed one commit each:
+- the `mlp` recalibrator tier;
+- the recalibrator's mixture passthrough (`log_w`), so it returns
+  `(logits, alpha)`;
+- `--fit-recalibrator`'s tier choice and vector-only print, with
+  `per_group_offsets` now in the few-shot exploration;
+- `ProposalKnobs` and `draw_conditions_traced`, the locked values now module
+  constants in `bulk_proposal`;
+- `ConstantRatioStrategy` and the `fe3_strategy` seam;
+- `load_benchmark(prefer_basis=)`, the point-count reads now handing the
+  loader a modes table already resolved to point counts;
+- the builder and viewer flags nothing invoked;
+- `calibrate_probe.py` and its module;
+- four optional parameters no caller passed.
+
+Archived callers that lost a seam carry a one-line comment, not a port. The
+full suite and CI passed on every commit, and `paper/numbers.tex` rebuilt
+identical before and after.
+
+**Next.** #94 when the scaling line is next retrained; #71's architecture
+audit now reads a codebase without these branches.
