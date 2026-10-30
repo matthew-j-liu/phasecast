@@ -137,6 +137,6 @@ class ClassRatioStrategy:
         if "default" not in self.ratios:
             raise ValueError("ratios dict must include a 'default' key for unknown classes")
 
-    def __call__(self, rock_class, oxides=None):
+    def __call__(self, rock_class):
         key = (rock_class or "").strip().lower()
         return self.ratios.get(key, self.ratios["default"])
