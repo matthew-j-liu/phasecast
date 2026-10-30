@@ -32,6 +32,7 @@ MIN_ELEMENTS = 4
 GROUP_NAME = {"fsp": "feldspar", "px": "pyroxene", "amp": "amphibole", "bi": "biotite",
               "ol": "olivine", "opq": "Fe-Ti oxides", "q": "quartz"}
 GROUP_CODE = {name: code for code, name in GROUP_NAME.items()}
+ORDINAL = ["1st", "2nd", "3rd", "4th", "5th"]
 
 
 class Heads(NamedTuple):
@@ -142,15 +143,15 @@ def predict(rocks, encoder, heads, n_samples=512, seed=0):
     return records
 
 
-# The card follows the paper's inference card (Fig. 2) for the chemistry,
-# presence and abundance panels and the overview deck's output card for the
-# assemblages and conditions panels. The paper's figure code under
-# paper/figures/ is not tracked, so its conventions are carried here: navy is
-# the model everywhere, the input ramp is a chroma-boosted cividis, axes are a
-# closed box with outward ticks and one minor tick between majors.
+# The card mirrors the app page. It follows the paper's inference card
+# (Fig. 2) for the chemistry panel and the overview deck's output card for
+# the proportions, assemblages and conditions panels. The figure code under
+# paper/figures/ is not tracked, so its conventions are carried here: the
+# input ramp is a chroma-boosted cividis on a closed box with outward ticks
+# and one minor tick between majors, and each mineral group keeps one colour
+# across the proportions and assemblages panels.
 INK = "#0b0b0b"
 NEUTRAL = "#6b6a66"
-PREDICTED = "#002657"
 GRADIENT = [
     "#002657", "#002857", "#002D58", "#0D3958", "#1F4658", "#31535A",
     "#435F57", "#506952", "#5E724F", "#6C7B4A", "#7A8547", "#898F42",
@@ -168,14 +169,15 @@ LIGHT_MINERALS = {"amphibole", "Fe-Ti oxides"}
 DENSITY = LinearSegmentedColormap.from_list("navy", ["#DCE3EF", "#8A9BB8", "#3B496C", "#00224E"])
 
 CARD_RC = {
-    "font.family": "sans-serif",
-    "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
-    "font.size": 8,
-    "axes.labelsize": 8,
-    "axes.titlesize": 8.5,
-    "xtick.labelsize": 7,
-    "ytick.labelsize": 7,
-    "legend.fontsize": 7,
+    # named outright, not through "sans-serif": a generic family resolves
+    # when the figure is drawn, after this context has closed
+    "font.family": ["Avenir", "Helvetica Neue", "Arial", "DejaVu Sans"],
+    "font.size": 9,
+    "axes.labelsize": 9.5,
+    "axes.titlesize": 10,
+    "xtick.labelsize": 8.5,
+    "ytick.labelsize": 8.5,
+    "legend.fontsize": 8.5,
     "axes.edgecolor": INK,
     "axes.linewidth": 1.3,
     "xtick.direction": "out",
@@ -213,45 +215,53 @@ def _chemistry_panel(ax, chem):
     ax.set_xticks([-4, -2, 0], ["$10^{-4}$", "$10^{-2}$", "$10^{0}$"])
 
 
-def _presence_panel(ax, presence):
-    ax.plot(presence, np.arange(len(presence)), "o", ms=6.0, color=PREDICTED, zorder=4)
-    ax.axvline(0, color=INK, lw=1.0, ls=":", zorder=0)
-    ax.set_xlim(-0.07, 1.05)
-    ax.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
+def _abundance_panel(ax, scenario, groups, x_max):
+    """The deck's mineral proportions: one row per group in the assemblage,
+    largest on top, the mean share as a dot and the 25th-75th percentile as a
+    capped whisker, each in the group's assemblage colour.  The axis ends
+    just past `x_max`, the rock's widest whisker over every listed
+    assemblage, so switching assemblages never rescales it."""
+    rows = sorted(scenario["groups"], key=lambda g: scenario["share"][groups.index(g)])
+    for i, g in enumerate(rows):
+        k, c = groups.index(g), MINERAL_COLOR[g]
+        lo, hi = scenario["share_p25"][k], scenario["share_p75"][k]
+        ax.errorbar(scenario["share"][k], i, xerr=[[scenario["share"][k] - lo], [hi - scenario["share"][k]]],
+                    fmt="o", ms=5.5, color=c, mec="white", mew=0.8, elinewidth=1.2, capsize=3, capthick=1.2)
+    ax.set_yticks(np.arange(len(rows)), [g[0].upper() + g[1:] for g in rows])
+    ticks = list(range(0, int(x_max + 10) + 1, 25))
+    ax.set_xlim(-3, x_max + 10)
+    ax.set_xticks(ticks, [*map(str, ticks[:-1]), f"{ticks[-1]}%"])
+    ax.tick_params(axis="y", length=0, pad=2)
+    pad = max(4 - len(rows), 0) / 2
+    ax.set_ylim(-0.7 - pad, len(rows) - 0.3 + pad)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
 
 
-def _abundance_panel(ax, mean, lo, hi):
-    """Share on a linear axis so one rock's column reads as a mass budget; a
-    group absent from most sampled assemblages has both quantiles at zero and
-    shows a point with no band."""
-    for i, (m, l, h) in enumerate(zip(mean, lo, hi)):
-        if h > l:
-            ax.add_patch(Rectangle((l / 100, i - 0.28), (h - l) / 100, 0.56,
-                                   facecolor=PREDICTED, alpha=0.18, edgecolor="none", zorder=1))
-        ax.plot(m / 100, i, "o", ms=6.0, color=PREDICTED, zorder=4)
-    ax.axvline(0, color=INK, lw=1.0, ls=":", zorder=0)
-    ax.set_xlim(-0.05, 1.02)
-    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0], ["0", "25%", "50%", "75%", "100%"])
-
-
-def _assemblages_panel(ax, scenarios, other, groups):
-    """The deck's stacked bars: one per scenario, its probability at the end,
-    and a line for the assemblages past the top few."""
+def _assemblages_panel(ax, scenarios, other, groups, selected):
+    """The deck's stacked bars: one per scenario, numbered as the app's
+    dropdown lists them, its probability at the end and the selected one
+    outlined, then a line for the assemblages past the top few."""
     for k, sc in enumerate(scenarios):
         y, left = len(scenarios) - 1 - k, 0.0
+        ax.text(-0.03, y, str(k + 1), va="center", ha="right", color=INK)
+        if k == selected:
+            ax.add_patch(Rectangle((-0.008, y - 0.36), 1.016, 0.72, facecolor="none",
+                                   edgecolor=INK, lw=1.3, zorder=5))
         for g in sc["groups"]:
             s = sc["share"][groups.index(g)] / 100
             ax.barh(y, s, left=left, height=0.55, color=MINERAL_COLOR[g], edgecolor="white", lw=0.7)
             if s > 0.07:
-                ax.text(left + s / 2, y, GROUP_CODE[g], ha="center", va="center", fontsize=6.5,
+                ax.text(left + s / 2, y, GROUP_CODE[g], ha="center", va="center", fontsize=7.5,
                         color=INK if g in LIGHT_MINERALS else "white")
             left += s
         ax.text(left + 0.03, y, f"{sc['prob']:.0%}", va="center", ha="left", color=INK)
     if other["count"]:
-        ax.text(0, -0.9, f"{other['count']} other assemblages, {other['prob']:.0%} combined, "
+        ax.text(0, -1.4, f"{other['count']} other assemblages\n{other['prob']:.0%} total probability\n"
                 f"none above {other['max_prob']:.0%}", va="center", ha="left", color=NEUTRAL)
-    ax.set_xlim(0, 1.25)
-    ax.set_ylim(-1.2, len(scenarios) - 0.45)
+    ax.text(1.04, len(scenarios) - 0.45, "probability", va="bottom", ha="left", color=NEUTRAL, fontsize=7.5)
+    ax.set_xlim(-0.08, 1.25)
+    ax.set_ylim(-2.1, len(scenarios) - 0.45)
     ax.set_xticks([])
     ax.set_yticks([])
     for spine in ax.spines.values():
@@ -277,45 +287,39 @@ def _conditions_panel(ax, conditions):
         ax.spines[side].set_visible(False)
 
 
-def card(record):
-    """The per-rock figure, drawn from the record alone.
-
-    Panels (a) to (c) are the paper's inference card: the input chemistry,
-    presence and abundance. Panels (d) and (e) are the deck's output card: the
-    ranked assemblages and the conditions density. Water content stays in the
-    record but is not drawn.
+def card(record, scenario=0):
+    """The per-rock figure, drawn from the record alone, laid out as the app
+    page: (a) the input chemistry, (b) the ranked assemblages the dropdown
+    lists, (c) the abundance of the selected one, `scenario` counting from 0
+    for the most likely, and (d) the conditions density. Water content stays
+    in the record but is not drawn.
     """
     groups = record["groups"]
-    codes = [GROUP_CODE[g] for g in groups]
     post = record["posterior"]
+    sc = post["scenarios"][scenario]
     with plt.rc_context(CARD_RC):
-        fig = plt.figure(figsize=(5.5, 5.6))
-        gs = fig.add_gridspec(2, 3, width_ratios=[1, 0.9, 1.2], height_ratios=[1.2, 1],
-                              wspace=0.42, hspace=0.5, left=0.09, right=0.97, top=0.91, bottom=0.09)
-        fig.suptitle(record["rock"], x=0.09, y=0.985, ha="left", fontsize=9)
+        fig = plt.figure(figsize=(6.2, 5.8))
+        gs = fig.add_gridspec(2, 2, width_ratios=[1, 1.35], height_ratios=[1, 1],
+                              wspace=0.38, hspace=0.6, left=0.14, right=0.97, top=0.9, bottom=0.1)
+        fig.suptitle(record["rock"], x=0.14, y=0.985, ha="left", fontsize=11)
 
         ax_chem = fig.add_subplot(gs[0, 0])
         _chemistry_panel(ax_chem, record["input_cation_wt_pct"])
         ax_chem.set_xlabel("Cation wt%")
         ax_chem.set_title("(a) Geochemical input")
 
-        ax_pres, ax_abund = fig.add_subplot(gs[0, 1]), fig.add_subplot(gs[0, 2])
-        _presence_panel(ax_pres, post["presence"])
-        _abundance_panel(ax_abund, post["share_mean"], post["share_p25"], post["share_p75"])
-        ax_pres.set_title("(b) Presence")
-        ax_abund.set_title("(c) Abundance")
-        ax_pres.set_xlabel("Presence probability")
-        ax_abund.set_xlabel("Fraction of crystalline mass")
-        for ax in (ax_pres, ax_abund):
-            ax.set_yticks(np.arange(len(codes)), codes)
-            ax.set_ylim(len(codes) - 0.5, -0.5)
-        for ax in (ax_chem, ax_pres, ax_abund):
-            _frame(ax)
+        ax_scen = fig.add_subplot(gs[0, 1])
+        _assemblages_panel(ax_scen, post["scenarios"], post["other_scenarios"], groups, scenario)
+        ax_scen.set_title("(b) Predicted assemblages", loc="left")
 
-        ax_scen = fig.add_subplot(gs[1, :2])
-        _assemblages_panel(ax_scen, post["scenarios"], post["other_scenarios"], groups)
-        ax_scen.set_title("(d) Possible assemblages", loc="left")
-        ax_cond = fig.add_subplot(gs[1, 2])
+        ax_abund = fig.add_subplot(gs[1, 0])
+        _abundance_panel(ax_abund, sc, groups, max(max(s["share_p75"]) for s in post["scenarios"]))
+        rank = "most likely" if scenario == 0 else f"{ORDINAL[scenario]} most likely"
+        ax_abund.set_title(f"(c) Predicted proportions\n{rank}, p = {sc['prob']:.0%}")
+        ax_abund.set_xlabel("Share of crystalline mass")
+        _frame(ax_chem)
+
+        ax_cond = fig.add_subplot(gs[1, 1])
         _conditions_panel(ax_cond, post["conditions"])
-        ax_cond.set_title("(e) Formation conditions")
+        ax_cond.set_title("(d) Predicted formation conditions")
     return fig
