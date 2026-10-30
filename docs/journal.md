@@ -8784,7 +8784,7 @@ protocol; and the routes to lower error with data: the simulator recipe
 and read point, redox, the condition prior and composition pool,
 training protocol, and experimental data mixed into training.
 
-## 2026-10-29 -- Experiment-only code swept out of src/ and scripts/: nine of #81's eleven items removed, one moved to its own issue, one kept
+## 2026-10-29 -- Experiment-only code swept out of src/ and scripts/: nine of #81's eleven items removed, one split into its own issue, one kept
 
 **Q.** CLAUDE.md's rule "Production code is not an experiment's
 configuration surface" (2026-09-10) forbids flags, branches, optional
