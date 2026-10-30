@@ -160,8 +160,7 @@ def run_chunk(idx, bulks, majors, args, out):
         df.to_parquet(tmp, index=False)
         tmp.rename(out / f"chunk_{idx:04d}_{name}.parquet")
 
-    if not args.keep_raw:
-        shutil.rmtree(work)
+    shutil.rmtree(work)
 
     rec = dict(chunk=idx, n_bulks=len(bulks),
                bulk_range=[int(bulks.sample_id.iloc[0]), int(bulks.sample_id.iloc[-1])],
@@ -189,8 +188,6 @@ def main():
                     help="bulks per Julia invocation (bounds Julia-side memory)")
     ap.add_argument("--database", default="ig")
     ap.add_argument("--max-chunks", type=int, help="stop after this many new chunks")
-    ap.add_argument("--keep-raw", action="store_true",
-                    help="keep per-chunk input CSVs and raw JSONL")
     args = ap.parse_args()
 
     out = Path(args.out)

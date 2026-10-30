@@ -177,12 +177,8 @@ rename, or repurpose a test) updates this file in the same change.**
 
 ### test_build_corpus_bulk_tables.py
 
-1. `test_nested_block_prefix_realizes_inner_quotas` -- `--expand-block` emits the expansion as two shuffled blocks: full-table class counts equal the launch-budget quotas and the block-1 prefix equals the smaller-budget quotas.
-2. `test_block_reorders_but_never_changes_the_selection` -- nested-block ordering permutes rows only; the selected sample_id set is identical to the single-shuffle emit at the same seed.
-3. `test_expansion_never_draws_a_bulk_another_tier_holds` -- the drawn bulks miss every sample_id in the train, expansion, and valtest tables (the contamination guard).
-4. `test_exhausted_class_keeps_its_held_count_and_budget_respills` -- a class with no bulks left gets quota 0 and the freed budget respills, so the table still totals the requested size.
-5. `test_valtest_expand_leads_with_the_held_roster` -- `--valtest-expand` rewrites valtest_bulks.csv with the held roster as block one, uncontaminated and unique, in KEEP_COLS order.
-6. `test_valtest_expand_carries_the_alpha_shape_for_the_whole_tier` -- the grown table's per-class counts equal held + `expansion_quotas`, i.e. the alpha-shape target for the expanded tier.
+1. `test_expansion_never_draws_a_bulk_another_tier_holds` -- the drawn bulks miss every sample_id in the train, expansion, and valtest tables (the contamination guard).
+2. `test_exhausted_class_keeps_its_held_count_and_budget_respills` -- a class with no bulks left gets quota 0 and the freed budget respills, so the table still totals the requested size.
 
 ### test_build_valtest_split.py
 

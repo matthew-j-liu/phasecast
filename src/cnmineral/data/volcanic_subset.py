@@ -4,6 +4,12 @@ Builds the volcanic-core subset: 25 aphanitic QAPF names, has-iron, and
 oxide-sum QC (flagged, not hard-dropped). The corpus bulk tables
 (scripts/build/build_corpus_bulk_tables.py) and the multimodality test bulks
 (explorations/archive/equilibrium_multimodality/) both draw from this subset.
+
+The committed `data/corpus/train_bulks_expansion.csv` is ordered as two
+shuffled blocks, the quota selection at a smaller launch budget first and then
+the increment, so a generation run stopped early still realized the quota
+shape.  The builder's nested-block emit was removed on 2026-10-29; a rebuild
+draws the same classes in one shuffle.
 """
 import numpy as np
 import pandas as pd

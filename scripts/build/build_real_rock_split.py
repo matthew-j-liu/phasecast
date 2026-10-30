@@ -20,8 +20,6 @@ import pandas as pd
 
 from cnmineral.eval.real_rock import (
     GROUPS,
-    SPLIT_CANDIDATES,
-    SPLIT_FRACTIONS,
     SPLIT_PATH,
     SPLIT_SUBSETS,
     load_benchmark,
@@ -34,8 +32,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--force", action="store_true",
                         help="overwrite an existing roster")
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--candidates", type=int, default=SPLIT_CANDIDATES)
     args = parser.parse_args()
 
     if SPLIT_PATH.exists() and not args.force:
@@ -43,10 +39,7 @@ def main() -> None:
                  f"Pass --force to regenerate.")
 
     benchmark = load_benchmark()
-    subsets = unit_grouped_split(
-        benchmark, seed=args.seed, fractions=SPLIT_FRACTIONS,
-        n_candidates=args.candidates,
-    )
+    subsets = unit_grouped_split(benchmark)
     scored = benchmark.clean & benchmark.has_magnitude
 
     source = np.array([b.split("|", 1)[0] for b in benchmark.bulk_ids])
