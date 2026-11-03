@@ -15,7 +15,11 @@ and a fourth draws the line averaged over the random training subsets.
 
 Writes `results/gradient_steps/zero_shot_scaling_{D}.png` and `.pdf` for the
 volcanic benchmark, `zero_shot_scaling_plutonic_{D}` and
-`zero_shot_scaling_plutonic_{D}_pretraining` for the plutonic one. The looks
+`zero_shot_scaling_plutonic_{D}_pretraining` for the plutonic one. The line
+over random training subsets is the headline and goes to the repo's
+`results/corpus_scaling/zero_shot_{benchmark}_{D}_subsets`, once to 10,000
+and once cut at 5,000 (`_to5000`), where the 10,000 point, a single subset
+read over three seeds, is a different kind of bar. The looks
 come from `paper/figures/src/style.py` (gitignored on main), imported at
 draw time. The layout and sizes below are the locked style for data-scaling
 plots (2026-10-27); every per-benchmark and per-depth copy reuses them.
@@ -36,6 +40,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 RESULTS = Path(__file__).resolve().parent / "results"
+HEADLINE = REPO / "results" / "corpus_scaling"
 STYLE_DIR = REPO / "paper" / "figures" / "src"
 
 # panel order groups the categories by family: framework silicates,
@@ -244,10 +249,12 @@ def main():
         print("mean of seven over random training subsets:",
               {int(n): round(v, 4) for n, v in subsets["mae_mean7_mean"].items()})
         label = (f"Head at {args.depth} gradient steps, mean over random training subsets; bars span their "
-                 f"middle half (10,000: the full corpus, three seeds)")
-        print("wrote", plot_lines({label: (subsets, None)},
-                                  f"Zero-shot predictions averaged over random training subsets ({args.benchmark})",
-                                  RESULTS / "gradient_steps" / f"{stem}_{args.depth}_subsets"))
+                 "middle half")
+        title = f"Zero-shot predictions averaged over random training subsets ({args.benchmark})"
+        out = HEADLINE / f"zero_shot_{args.benchmark}_{args.depth}_subsets"
+        print("wrote", plot_lines({f"{label} (10,000: the full corpus, three seeds)": (subsets, None)}, title, out))
+        print("wrote", plot_lines({label: (subsets[subsets.index <= 5000], None)}, title,
+                                  out.with_name(f"{out.name}_to5000")))
     if args.benchmark == "plutonic":
         style, _ = setup_style()
         colors = dict(zip(PRETRAINING_LABELS, (style.CIVIDIS[2], style.CIVIDIS[6], style.CIVIDIS[9])))

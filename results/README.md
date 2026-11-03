@@ -29,6 +29,14 @@ Cross-model, at the root:
   version (`scripts/view/trajectory.py`; regenerates from tracked files
   alone). The per-era corpus NLLs stay in `ledger.yaml`, comparable only
   within their instrument, and are no longer drawn as a trajectory.
+- `corpus_scaling/` -- the zero-shot scaling line: abundance absolute error
+  per mineral category against simulated corpus size, at 224 gradient
+  steps, averaged over 50 random training subsets per size, read on each
+  benchmark's train and val rocks. `zero_shot_{volcanic,plutonic}_224_subsets`
+  runs to 10,000, where the point is the full corpus over three seeds;
+  `_to5000` stops at the last size with random subsets. Drawn by
+  `explorations/corpus_scaling/fig_zero_shot_scaling.py`, which also holds
+  the setup and the per-mineral reading in its README.
 
 Per-model, one subdirectory per checkpoint tag (e.g. `joint_heads_seed0/`),
 written directly by the view scripts and overwritten on regeneration:

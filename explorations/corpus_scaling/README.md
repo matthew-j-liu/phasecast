@@ -559,9 +559,12 @@ python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark plutonic
 Outputs under `results/`: `zero_shot_line_{benchmark}.csv` (one row per
 head and rock group), `zero_shot_line_{benchmark}_bands.json`,
 `plutonic_pretraining_membership.csv`, and under `gradient_steps/` per
-benchmark the nested-subset line per depth, the `_224_subsets` line, the
-`_224_variation` figure (seed, rock and training-subset variation on one
-axis), the plutonic `_pretraining` figures and `mean_vs_median_{benchmark}`.
+benchmark the nested-subset line per depth, the `_224_variation` figure
+(seed, rock and training-subset variation on one axis), the plutonic
+`_pretraining` figures and `mean_vs_median_{benchmark}`. The line over
+random training subsets is the headline and goes to the repo's
+`results/corpus_scaling/`: `zero_shot_{benchmark}_224_subsets` to 10,000
+and `_to5000` without the full-corpus point.
 
 **Result.**
 - **The nested-subset line was one draw.** On train and val rocks the
