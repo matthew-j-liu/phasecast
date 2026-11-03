@@ -8,7 +8,8 @@ reference lines and no fitted slopes; the curves are read by eye first. On
 the plutonic benchmark a second figure draws the line per pretraining group,
 and where heads on random training subsets exist a third shows seed, rock
 and training-subset variation together (`zero_shot_line_{benchmark}_bands.json`)
-and a fourth draws the line averaged over the random training subsets.
+and a fourth draws the median over the random training subsets with their
+25th to 75th percentiles.
 
   python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark volcanic --depth 224
   python explorations/corpus_scaling/fig_zero_shot_scaling.py --benchmark plutonic --depth 224
@@ -17,9 +18,15 @@ Writes `results/gradient_steps/zero_shot_scaling_{D}.png` and `.pdf` for the
 volcanic benchmark, `zero_shot_scaling_plutonic_{D}` and
 `zero_shot_scaling_plutonic_{D}_pretraining` for the plutonic one. The line
 over random training subsets is the headline and goes to the repo's
-`results/corpus_scaling/zero_shot_{benchmark}_{D}_subsets`, once to 10,000
-and once cut at 5,000 (`_to5000`), where the 10,000 point, a single subset
-read over three seeds, is a different kind of bar. The looks
+`results/corpus_scaling/{basis}/zero_shot_{benchmark}_{D}_subsets`, read
+teacher-forced (`teacher_forced/`, given each rock's measured mineral list)
+and marginally (`marginal/`, over mineral sets the head samples itself, from
+`zero_shot_line_{benchmark}_marginal.csv`), each once to 10,000 and once cut
+at 5,000 (`_to5000`), where the 10,000 point, a single subset
+read over three seeds, is a different kind of bar. In the cut version
+every panel is scaled so its longest bar covers 45% of its height, which
+keeps the spread across subsets from hiding the trend and makes the panels
+read alike (2026-11-02). The looks
 come from `paper/figures/src/style.py` (gitignored on main), imported at
 draw time. The layout and sizes below are the locked style for data-scaling
 plots (2026-10-27); every per-benchmark and per-depth copy reuses them.
@@ -54,13 +61,13 @@ PRETRAINING_LABELS = {"ds942_seen": "DS 942, seen in pretraining", "ds942_held_o
 
 
 def load_line(depth, benchmark="volcanic", group="all", csv=None):
-    """Seed mean, min and max per corpus size of the nested-subset heads'
-    zero-shot share error (`mae_*`) on one rock group at `depth` gradient
-    steps."""
+    """Seed mean (as `_mid`, the plotted point), min and max per corpus size
+    of the nested-subset heads' zero-shot share error (`mae_*`) on one rock
+    group at `depth` gradient steps."""
     df = pd.read_csv(csv or RESULTS / f"zero_shot_line_{benchmark}.csv")
     cols = [f"mae_{c}" for c in PANELS]
     cells = df[(df.depth == depth) & (df.group == group) & (df.subset == 0)]
-    agg = cells.groupby("n_bulks")[cols].agg(["mean", "min", "max"])
+    agg = cells.groupby("n_bulks")[cols].agg([("mid", "mean"), "min", "max"])
     agg.columns = [f"{a}_{b}" for a, b in agg.columns]
     agg["seeds"] = cells.groupby("n_bulks").size()
     agg["n_rocks"] = cells.groupby("n_bulks")["n_rocks"].first()
@@ -68,19 +75,19 @@ def load_line(depth, benchmark="volcanic", group="all", csv=None):
 
 
 def load_subset_line(depth, benchmark="volcanic", csv=None):
-    """Per corpus size, the mean over the heads trained on random training
-    subsets and the 25th and 75th percentiles as `_min` / `_max` (the bars
-    span the middle half of the subsets); the full corpus, a single subset,
-    takes its nested heads' seed mean, min and max."""
+    """Per corpus size, the median over the heads trained on random training
+    subsets as `_mid` and the 25th and 75th percentiles as `_min` / `_max`;
+    the median because the subsets are right-skewed at small N. The full
+    corpus, a single subset, takes its nested heads' seed mean, min and max."""
     df = pd.read_csv(csv or RESULTS / f"zero_shot_line_{benchmark}.csv")
     cols = [f"mae_{c}" for c in PANELS]
     cells = df[(df.depth == depth) & (df.group == "all")]
     subsets = cells[cells.subset > 0]
     full = cells[(cells.subset == 0) & ~cells.n_bulks.isin(subsets.n_bulks)]
     by = subsets.groupby("n_bulks")[cols]
-    agg = pd.concat([by.mean().add_suffix("_mean"), by.quantile(0.25).add_suffix("_min"),
+    agg = pd.concat([by.median().add_suffix("_mid"), by.quantile(0.25).add_suffix("_min"),
                      by.quantile(0.75).add_suffix("_max")], axis=1)
-    whole = full.groupby("n_bulks")[cols].agg(["mean", "min", "max"])
+    whole = full.groupby("n_bulks")[cols].agg([("mid", "mean"), "min", "max"])
     whole.columns = [f"{a}_{b}" for a, b in whole.columns]
     return pd.concat([agg, whole[agg.columns]]).sort_index()
 
@@ -122,27 +129,40 @@ def finish_panel(ax, sizes, title, style):
     ax.xaxis.set_minor_locator(plt.NullLocator())
 
 
-def plot_lines(lines, title, out):
+def plot_lines(lines, title, out, bar_share=None, note=None):
     """`lines` maps a legend label to (aggregated line, colour key, or None
-    for the per-panel default); one curve per entry in every panel."""
+    for the per-panel default); one curve per entry in every panel. With
+    `bar_share`, every panel's y range is set so its longest bar covers
+    `bar_share` of it, centred on the data and never below zero. A `note`
+    goes on its own line under the legend, for what the bars show."""
     out.parent.mkdir(exist_ok=True)
     style, spec = setup_style()
     sizes = sorted({int(n) for agg, _ in lines.values() for n in agg.index})
     fig, axes = panel_grid(style)
     for i, (ax, c) in enumerate(zip(axes.ravel(), PANELS)):
+        longest, low, high = 0.0, float("inf"), 0.0
         for agg, color in lines.values():
             color = color or (style.CIVIDIS[9] if c == "mean7" else style.CIVIDIS[2])
             ns = [int(n) for n in agg.index]
-            m = 100 * agg[f"mae_{c}_mean"]
+            m = 100 * agg[f"mae_{c}_mid"]
             ax.errorbar(ns, m, yerr=[m - 100 * agg[f"mae_{c}_min"], 100 * agg[f"mae_{c}_max"] - m],
                         fmt="-", marker="o", color=color, ms=3.5, elinewidth=0.9, capsize=1.5)
+            longest = max(longest, 100 * (agg[f"mae_{c}_max"] - agg[f"mae_{c}_min"]).max())
+            low, high = min(low, 100 * agg[f"mae_{c}_min"].min()), max(high, 100 * agg[f"mae_{c}_max"].max())
         finish_panel(ax, sizes, f"({chr(97 + i)}) {LABELS[c]}", style)
+        if bar_share:
+            half = max(longest / bar_share, high - low) / 2
+            bottom = max((low + high) / 2 - half, 0.0)
+            ax.set_ylim(bottom, bottom + 2 * half)
     fig.suptitle(title, y=0.995, fontsize=spec["label"] + 2)
-    fig.supxlabel("Simulated compositions in the training corpus", y=0.085, fontsize=spec["label"])
+    fig.supxlabel("Simulated compositions in the training corpus", y=0.1 if note else 0.085, fontsize=spec["label"])
     fig.supylabel("Abundance MAE (%)", x=0.012, fontsize=spec["label"])
     fig.legend(handles=[Line2D([], [], color=color or style.CIVIDIS[2], marker="o", ms=3.5, label=label)
                         for label, (_, color) in lines.items()],
-               loc="lower center", bbox_to_anchor=(0.53, 0.0), ncol=len(lines), handlelength=2.6)
+               loc="lower center", bbox_to_anchor=(0.53, 0.022 if note else 0.0), ncol=len(lines),
+               handlelength=2.6)
+    if note:
+        fig.text(0.53, 0.004, note, ha="center", va="bottom", fontsize=spec["legend"])
     fig.savefig(out.with_suffix(".png"), dpi=200)
     fig.savefig(out.with_suffix(".pdf"))
     plt.close(fig)
@@ -168,7 +188,7 @@ def plot_variation(benchmark, depth, out):
         lo = [100 * bands["points_interquartile"][str(n)][c][0] for n in sizes]
         hi = [100 * bands["points_interquartile"][str(n)][c][1] for n in sizes]
         ax.fill_between(sizes, lo, hi, color=line, alpha=0.15, lw=0)
-        m = 100 * agg[f"mae_{c}_mean"]
+        m = 100 * agg[f"mae_{c}_mid"]
         ax.errorbar(sizes, m, yerr=[m - 100 * agg[f"mae_{c}_min"], 100 * agg[f"mae_{c}_max"] - m],
                     fmt="-", marker="o", color=line, ms=3.5, elinewidth=0.9, capsize=1.5)
         ax.plot(subsets["n_bulks"], 100 * subsets[f"mae_{c}"], "o", mfc="none", mec=rep_color, ms=2.5, mew=0.6,
@@ -236,7 +256,7 @@ def main():
     stem = "zero_shot_scaling" if args.benchmark == "volcanic" else "zero_shot_scaling_plutonic"
     print(f"{args.benchmark}, {args.depth} steps, {int(agg['n_rocks'].iloc[0])} rocks, seeds:", dict(agg["seeds"]))
     print("mean of seven, zero-shot by size:",
-          {int(n): round(v, 4) for n, v in agg["mae_mean7_mean"].items()})
+          {int(n): round(v, 4) for n, v in agg["mae_mean7_mid"].items()})
     title = f"Zero-shot predictions on train and validation rocks ({args.benchmark})"
     label = f"Head at {args.depth} gradient steps; bars span three training seeds"
     print("wrote", plot_lines({label: (agg, None)}, title,
@@ -245,16 +265,22 @@ def main():
     if ((df.depth == args.depth) & (df.subset > 0)).any():
         print("wrote", plot_variation(args.benchmark, args.depth,
                                       RESULTS / "gradient_steps" / f"{stem}_{args.depth}_variation"))
-        subsets = load_subset_line(args.depth, args.benchmark)
-        print("mean of seven over random training subsets:",
-              {int(n): round(v, 4) for n, v in subsets["mae_mean7_mean"].items()})
-        label = (f"Head at {args.depth} gradient steps, mean over random training subsets; bars span their "
-                 "middle half")
-        title = f"Zero-shot predictions averaged over random training subsets ({args.benchmark})"
-        out = HEADLINE / f"zero_shot_{args.benchmark}_{args.depth}_subsets"
-        print("wrote", plot_lines({f"{label} (10,000: the full corpus, three seeds)": (subsets, None)}, title, out))
-        print("wrote", plot_lines({label: (subsets[subsets.index <= 5000], None)}, title,
-                                  out.with_name(f"{out.name}_to5000")))
+        n_subsets = df.loc[(df.depth == args.depth) & (df.subset > 0), "subset"].nunique()
+        label = (f"Median over {n_subsets} random training subsets, each trained for {args.depth} "
+                 "gradient steps")
+        bars = "Bars span the 25th to 75th percentile"
+        for basis, suffix in (("teacher_forced", ""), ("marginal", "_marginal")):
+            subsets = load_subset_line(args.depth, args.benchmark,
+                                       csv=RESULTS / f"zero_shot_line_{args.benchmark}{suffix}.csv")
+            print(f"mean of seven, {basis}, median over random training subsets:",
+                  {int(n): round(v, 4) for n, v in subsets["mae_mean7_mid"].items()})
+            title = (f"Zero-shot predictions over random training subsets "
+                     f"({args.benchmark}, {basis.replace('_', '-')})")
+            out = HEADLINE / basis / f"zero_shot_{args.benchmark}_{args.depth}_subsets"
+            print("wrote", plot_lines({label: (subsets, None)}, title, out,
+                                      note=f"{bars} (10,000: full corpus, three seeds)"))
+            print("wrote", plot_lines({label: (subsets[subsets.index <= 5000], None)}, title,
+                                      out.with_name(f"{out.name}_to5000"), bar_share=0.45, note=bars))
     if args.benchmark == "plutonic":
         style, _ = setup_style()
         colors = dict(zip(PRETRAINING_LABELS, (style.CIVIDIS[2], style.CIVIDIS[6], style.CIVIDIS[9])))

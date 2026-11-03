@@ -31,8 +31,12 @@ Cross-model, at the root:
   within their instrument, and are no longer drawn as a trajectory.
 - `corpus_scaling/` -- the zero-shot scaling line: abundance absolute error
   per mineral category against simulated corpus size, at 224 gradient
-  steps, averaged over 50 random training subsets per size, read on each
-  benchmark's train and val rocks. `zero_shot_{volcanic,plutonic}_224_subsets`
+  steps, the median over 50 random training subsets per size (bars at the 25th
+  and 75th percentiles), read on each
+  benchmark's train and val rocks. Two reads, one subdirectory each:
+  `teacher_forced/`, the head given each rock's measured mineral list, and
+  `marginal/`, the head averaged over mineral sets it samples from its own
+  presence probabilities (what a user gets). `zero_shot_{volcanic,plutonic}_224_subsets`
   runs to 10,000, where the point is the full corpus over three seeds;
   `_to5000` stops at the last size with random subsets. Drawn by
   `explorations/corpus_scaling/fig_zero_shot_scaling.py`, which also holds

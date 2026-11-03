@@ -181,13 +181,13 @@ def test_zero_shot_figure_aggregates_one_group_at_one_depth_per_size(tmp_path) -
     agg = load_line(224, csv=tmp_path / "line.csv")
     assert agg.index.tolist() == [78, 312]
     assert agg.loc[78, "seeds"] == 2 and agg.loc[312, "seeds"] == 1
-    assert abs(agg.loc[78, "mae_fsp_mean"] - 0.2) < 1e-12
+    assert abs(agg.loc[78, "mae_fsp_mid"] - 0.2) < 1e-12
     assert (agg.loc[78, "mae_fsp_min"], agg.loc[78, "mae_fsp_max"]) == (0.1, 0.3)
-    assert abs(agg.loc[312, "mae_mean7_mean"] - 0.4) < 1e-12 and agg.loc[312, "n_rocks"] == 40
+    assert abs(agg.loc[312, "mae_mean7_mid"] - 0.4) < 1e-12 and agg.loc[312, "n_rocks"] == 40
     assert load_line(224, group="pp1793", csv=tmp_path / "line.csv").index.tolist() == [312]
 
 
-def test_subset_line_averages_random_subsets_and_keeps_the_full_corpus_from_its_seeds(tmp_path) -> None:
+def test_subset_line_takes_the_median_of_random_subsets_and_keeps_the_full_corpus_from_its_seeds(tmp_path) -> None:
     from explorations.corpus_scaling.fig_zero_shot_scaling import PANELS, load_subset_line
 
     def row(n, subset, seed, v, group="all"):
@@ -195,13 +195,13 @@ def test_subset_line_averages_random_subsets_and_keeps_the_full_corpus_from_its_
         r.update({f"mae_{c}": v for c in PANELS})
         return r
     rows = [row(10, 0, 0, 0.9), row(10, 1, 0, 0.1), row(10, 2, 0, 0.2), row(10, 3, 0, 0.3), row(10, 4, 0, 0.4),
-            row(10, 5, 0, 0.5), row(10, 6, 0, 0.7, group="pp1793"), row(10000, 0, 0, 0.1), row(10000, 0, 1, 0.3)]
+            row(10, 5, 0, 0.9), row(10, 6, 0, 0.7, group="pp1793"), row(10000, 0, 0, 0.1), row(10000, 0, 1, 0.3)]
     pd.DataFrame(rows).to_csv(tmp_path / "line.csv", index=False)
     agg = load_subset_line(224, csv=tmp_path / "line.csv")
     assert agg.index.tolist() == [10, 10000]
-    assert agg.loc[10, "mae_fsp_mean"] == pytest.approx(0.3)
+    assert agg.loc[10, "mae_fsp_mid"] == pytest.approx(0.3)
     assert (agg.loc[10, "mae_fsp_min"], agg.loc[10, "mae_fsp_max"]) == pytest.approx((0.2, 0.4))
-    assert agg.loc[10000, "mae_mean7_mean"] == pytest.approx(0.2)
+    assert agg.loc[10000, "mae_mean7_mid"] == pytest.approx(0.2)
     assert (agg.loc[10000, "mae_fsp_min"], agg.loc[10000, "mae_fsp_max"]) == pytest.approx((0.1, 0.3))
 
 
