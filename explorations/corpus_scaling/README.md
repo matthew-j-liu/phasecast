@@ -563,8 +563,10 @@ benchmark the nested-subset line per depth, the `_224_variation` figure
 (seed, rock and training-subset variation on one axis), the plutonic
 `_pretraining` figures and `mean_vs_median_{benchmark}`. The line over
 random training subsets is the headline and goes to the repo's
-`results/corpus_scaling/`: `zero_shot_{benchmark}_224_subsets` to 10,000
-and `_to5000` without the full-corpus point.
+`results/corpus_scaling/teacher_forced/` and `marginal/`:
+`zero_shot_{benchmark}_224_subsets` to 10,000 and `_to5000` without the
+full-corpus point. The marginal read has its own table,
+`zero_shot_line_{benchmark}_marginal.csv`; the bands stay teacher-forced.
 
 **Result.**
 - **The nested-subset line was one draw.** On train and val rocks the
@@ -629,6 +631,26 @@ and `_to5000` without the full-corpus point.
 10. Split plutonic reads by pretraining exposure.
 11. When the reading code changes, reproduce the previous numbers first.
 12. Compare matched: same rocks, same draws, across what is compared.
+
+**The marginal read (2026-11-02).** Every result above is teacher-forced:
+the head is handed each rock's measured mineral list and asked only for the
+amounts. The same heads were re-read marginally, averaging over 32 mineral
+sets sampled from the head's own presence probabilities per rock
+(`run_signal.marginal_shares`), the read a user gets. The teacher-forced
+table reproduced to the byte, so the two reads compare matched. Median over
+subsets, percent, 10 to 5,000 compositions:
+
+| | mean of seven | fsp | q | px | ol | amp | bi | opq |
+|---|---|---|---|---|---|---|---|---|
+| volcanic, forced | 12.0 to 11.1 | 15.5 to 14.0 | 17.1 to 18.6 | 8.9 to 6.9 | 11.9 to 9.8 | 13.5 to 11.6 | 8.1 to 8.6 | 7.6 to 7.8 |
+| volcanic, marginal | 13.3 to 13.8 | 16.4 to 16.9 | 17.2 to 20.2 | 9.8 to 8.3 | 19.7 to 20.0 | 13.0 to 14.7 | 8.4 to 8.5 | 7.5 to 8.1 |
+| plutonic, forced | 7.0 to 5.7 | 11.9 to 11.0 | 7.7 to 6.3 | 7.5 to 4.6 | 4.0 to 6.3 | 7.1 to 5.1 | 4.0 to 4.2 | 1.8 to 2.0 |
+| plutonic, marginal | 6.5 to 5.2 | 8.7 to 7.8 | 8.5 to 7.3 | 8.6 to 6.7 | 3.6 to 3.7 | 4.9 to 5.1 | 4.2 to 3.5 | 2.7 to 2.1 |
+
+Read marginally, volcanic error rises with corpus size (13.3 to 13.8, most
+of it by 312) where the forced read falls, and sits above it at every size;
+plutonic error falls under both reads and the marginal sits below the
+forced one at every size. Figures in `results/corpus_scaling/marginal/`.
 
 **Open.** The full curve needs larger runs: more training subsets, more
 seeds, more compute per head, and corpus sizes beyond 10,000, which means

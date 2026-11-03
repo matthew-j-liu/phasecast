@@ -14,10 +14,15 @@ the nested-subset heads. Per depth and rock group, a unit bootstrap (whole
 eruptive units or intrusions, the same resample at every size) bands the
 nested-subset line, seed-averaged per rock, and its rise (78 - 10), fall
 (10,000 - 78) and net (10,000 - 10); and the val rocks' rise, fall and net
-are placed among random draws of as many train and val units. Writes
-`results/zero_shot_line_{benchmark}.csv`, `zero_shot_line_{benchmark}_bands.json`
-and, for the plutonic benchmark, `plutonic_pretraining_membership.csv`;
-`fig_zero_shot_scaling.py` draws the figures.
+are placed among random draws of as many train and val units. Every head is
+also read marginally: its share over each rock's measured mineral list
+averaged over mineral sets sampled from its own presence probabilities
+(`run_signal.marginal_shares`), the read a user gets, who has no mineral list
+to hand the head. Writes `results/zero_shot_line_{benchmark}.csv` (teacher-forced),
+`zero_shot_line_{benchmark}_marginal.csv`, `zero_shot_line_{benchmark}_bands.json`
+(teacher-forced) and, for the plutonic benchmark,
+`plutonic_pretraining_membership.csv`; `fig_zero_shot_scaling.py` draws the
+figures.
 
   python explorations/corpus_scaling/run_zero_shot_line.py --benchmark volcanic
   python explorations/corpus_scaling/run_zero_shot_line.py --benchmark plutonic
@@ -53,6 +58,7 @@ from cnmineral.training import pick_device
 from cnmineral.training.joint_heads import JointHeadCheckpoint
 from cnmineral.training.real_rock_recalibrator import build_group_predictions
 from explorations.corpus_scaling.run_depth_grid import MEANS, PRODUCTION, SIZES, share_metrics, with_means, with_seeds
+from explorations.generator_reach.run_signal import marginal_shares
 from explorations.real_mineralogy.plutonic import plutonic_benchmark
 
 RESULTS = Path(__file__).resolve().parent / "results"
@@ -247,7 +253,7 @@ def main():
     latents = bulk_latents(encoder.to(device), benchmark, device)
     numeric = benchmark.numeric.astype(np.float64)
 
-    records, errors = [], {}
+    records, marginal_records, errors = [], [], {}
     for depth in DEPTHS:
         for n in SIZES:
             cells = [(0, seed, tag) for seed, tag in with_seeds(f"final{depth}_allrock_n{n}")]
@@ -256,14 +262,16 @@ def main():
             nested = []
             for subset, seed, tag in cells:
                 ckpt = JointHeadCheckpoint.load(REPO / "checkpoints" / tag / "heads_best.pt")
-                gp = build_group_predictions(ckpt.build_mode_head().to(device), benchmark, latents)
+                head = ckpt.build_mode_head().to(device)
+                gp = build_group_predictions(head, benchmark, latents)
                 share = conditional_mean(gp.alpha7.numpy(), numeric)
                 if subset == 0:
                     nested.append(rock_errors(share, benchmark.magnitude, benchmark.numeric))
-                for name, metrics in group_metrics(share, benchmark.magnitude, benchmark.numeric,
-                                                   groups).items():
-                    records.append(dict(benchmark=args.benchmark, group=name, depth=depth, n_bulks=n,
-                                        subset=subset, seed=seed, tag=tag, **metrics))
+                for table, read in ((records, share), (marginal_records, marginal_shares(head, latents, numeric))):
+                    for name, metrics in group_metrics(read, benchmark.magnitude, benchmark.numeric,
+                                                       groups).items():
+                        table.append(dict(benchmark=args.benchmark, group=name, depth=depth, n_bulks=n,
+                                          subset=subset, seed=seed, tag=tag, **metrics))
             errors[depth, n] = np.mean(nested, axis=0)
         line = [r for r in records if r["depth"] == depth and r["group"] == "all" and r["subset"] == 0]
         print(f"{depth} steps, mean of seven by size: " + ", ".join(
@@ -271,6 +279,9 @@ def main():
     out = RESULTS / f"zero_shot_line_{args.benchmark}.csv"
     pd.DataFrame(records).to_csv(out, index=False)
     print(f"{int(rows.sum())} train and val rocks; wrote {out}")
+    out = RESULTS / f"zero_shot_line_{args.benchmark}_marginal.csv"
+    pd.DataFrame(marginal_records).to_csv(out, index=False)
+    print(f"wrote {out}")
 
     units = np.asarray(benchmark.unit).astype(str)
     m7 = LABELS.index("mean7")
