@@ -3,7 +3,7 @@
 [![tests](https://github.com/matthew-j-liu/phasecast/actions/workflows/tests.yml/badge.svg)](https://github.com/matthew-j-liu/phasecast/actions/workflows/tests.yml)
 [![arXiv](https://img.shields.io/badge/arXiv-2610.36429-purple.svg)](https://arxiv.org/abs/2610.36429)
 [![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.23992950.svg)](https://doi.org/10.5281/zenodo.23992950)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-orange.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2Fmatthew-j-liu%2Fphasecast&label=views&labelColor=%23d9e3f0&countColor=%23263759&style=flat)
 
