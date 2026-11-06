@@ -130,10 +130,12 @@ carry both chemistry and modes) -- the cohort every benchmark number in the
 paper refers to. The train/val/test split rosters ship inside the
 package (`src/cnmineral/data/`).
 
-Not included: the full simulated corpus (3.5 GB of parquet, regenerable end
-to end from the public compilation via stage 3) and transient run outputs.
-The full corpus will be hosted on MPContribs; the link will appear here once
-the upload is live.
+Not included: transient run outputs, and the full simulated corpus, which is
+on Zenodo at https://doi.org/10.5281/zenodo.23992950 (1.26 GB, with the
+787,721-row pretraining set beside it and a README describing every table).
+Unzip `simulated_corpus.zip` at the repository root to create `data/corpus/`,
+the paths used by the head configurations. The corpus is also regenerable
+end to end from the public compilation via stage 3.
 
 ## License
 
