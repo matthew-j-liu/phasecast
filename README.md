@@ -92,6 +92,9 @@ labels express multiple formation conditions for one rock.
 python scripts/build/generate_mineralogy_corpus.py --bulks <bulk csvs> --out data/corpus --draws 24
 ```
 
+The corpus used in the paper is on Zenodo at https://doi.org/10.5281/zenodo.23992950,
+so this stage is only needed for a new label recipe.
+
 **4. Train the heads** *(trained heads tracked)*. Three heads predict
 distributions over mineral abundances, per-phase compositions, and formation
 conditions from the frozen encoder's representation.
@@ -172,8 +175,10 @@ on:
   CrabNet (Wang et al. 2021, MIT), whose composition tokenization the encoder
   follows.
 - Pretraining compilation: Gard, Hasterok and Halpin (2019), CC BY 4.0. The
-  full table is a public download and is not redistributed here;
-  `tests/fixtures/complete_subset.parquet` is a 2,000-row subset of it.
+  full table is a public download and is not redistributed here; the
+  787,721-row pretraining subset is on Zenodo with the corpus, and
+  `tests/fixtures/complete_subset.parquet` is a 2,000-row subset of the full
+  table.
 - Benchmark chemistry and mineralogy (`data/real_mineralogy/`): USGS
   publications by du Bray et al. (Data Series 764, 942 and 1099,
   Professional Paper 1793) and Pallister et al. (Pinatubo; Mount St. Helens,
