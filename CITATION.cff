@@ -31,3 +31,20 @@ preferred-citation:
   year: 2026
   url: "https://arxiv.org/abs/2610.36429"
   doi: "10.48550/arXiv.2610.36429"
+references:
+  - type: dataset
+    title: "Phasecast: Simulated mineralogy corpus and pretraining set"
+    authors:
+      - family-names: Liu
+        given-names: Matthew J.
+      - family-names: Kaplan
+        given-names: Aaron D.
+      - family-names: Whittaker
+        given-names: Michael L.
+      - family-names: Persson
+        given-names: Kristin A.
+    year: 2026
+    publisher:
+      name: Zenodo
+    doi: "10.5281/zenodo.23992950"
+    url: "https://doi.org/10.5281/zenodo.23992950"
